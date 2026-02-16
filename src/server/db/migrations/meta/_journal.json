@@ -15,6 +15,20 @@
       "when": 1771173016525,
       "tag": "0001_certain_bishop",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1771177455715,
+      "tag": "0002_soft_jasper_sitwell",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1771208660096,
+      "tag": "0003_cloudy_ender_wiggin",
+      "breakpoints": true
     }
   ]
 }

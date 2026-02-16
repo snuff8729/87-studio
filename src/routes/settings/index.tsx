@@ -1,10 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useState, useEffect } from 'react'
+import { toast } from 'sonner'
 import { PageHeader } from '@/components/common/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
+import { Slider } from '@/components/ui/slider'
 import { getSetting, setSetting } from '@/server/functions/settings'
 
 export const Route = createFileRoute('/settings/')({
@@ -24,7 +26,6 @@ function SettingsPage() {
   const [showKey, setShowKey] = useState(false)
   const [delay, setDelay] = useState(Number(initialDelay))
   const [saving, setSaving] = useState(false)
-  const [saved, setSaved] = useState(false)
 
   useEffect(() => {
     setApiKey(initialApiKey)
@@ -33,13 +34,16 @@ function SettingsPage() {
 
   async function handleSave() {
     setSaving(true)
-    await Promise.all([
-      setSetting({ data: { key: 'nai_api_key', value: apiKey } }),
-      setSetting({ data: { key: 'generation_delay', value: String(delay) } }),
-    ])
+    try {
+      await Promise.all([
+        setSetting({ data: { key: 'nai_api_key', value: apiKey } }),
+        setSetting({ data: { key: 'generation_delay', value: String(delay) } }),
+      ])
+      toast.success('설정이 저장되었습니다')
+    } catch {
+      toast.error('설정 저장에 실패했습니다')
+    }
     setSaving(false)
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
   }
 
   return (
@@ -75,19 +79,16 @@ function SettingsPage() {
             <CardTitle>Generation Settings</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="delay">
+            <div className="space-y-3">
+              <Label>
                 Delay between generations: <span className="font-mono text-primary">{delay}ms</span>
               </Label>
-              <input
-                id="delay"
-                type="range"
+              <Slider
+                value={[delay]}
+                onValueChange={([v]) => setDelay(v)}
                 min={0}
                 max={30000}
                 step={100}
-                value={delay}
-                onChange={(e) => setDelay(Number(e.target.value))}
-                className="w-full accent-primary"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
                 <span>0ms</span>
@@ -99,7 +100,7 @@ function SettingsPage() {
         </Card>
 
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : saved ? 'Saved!' : 'Save Settings'}
+          {saving ? 'Saving...' : 'Save Settings'}
         </Button>
       </div>
     </div>

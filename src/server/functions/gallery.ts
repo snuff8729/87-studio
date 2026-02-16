@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { generatedImages, tags, imageTags, projects, projectScenes } from '../db/schema'
-import { eq, desc, and, sql, inArray } from 'drizzle-orm'
+import { eq, desc, asc, and, sql, inArray } from 'drizzle-orm'
 
 export const listImages = createServerFn({ method: 'GET' })
   .inputValidator(
@@ -14,6 +14,7 @@ export const listImages = createServerFn({ method: 'GET' })
       isFavorite?: boolean
       minRating?: number
       tagIds?: number[]
+      sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -28,10 +29,29 @@ export const listImages = createServerFn({ method: 'GET' })
     if (data.isFavorite) conditions.push(eq(generatedImages.isFavorite, 1))
     if (data.minRating) conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
 
+    // Determine sort order
+    const sortBy = data.sortBy ?? 'newest'
+    let orderClauses: ReturnType<typeof desc>[]
+    switch (sortBy) {
+      case 'oldest':
+        orderClauses = [asc(generatedImages.createdAt)]
+        break
+      case 'rating':
+        orderClauses = [desc(generatedImages.rating), desc(generatedImages.createdAt)]
+        break
+      case 'favorites':
+        orderClauses = [desc(generatedImages.isFavorite), desc(generatedImages.createdAt)]
+        break
+      case 'newest':
+      default:
+        orderClauses = [desc(generatedImages.createdAt)]
+        break
+    }
+
     let query = db
       .select()
       .from(generatedImages)
-      .orderBy(desc(generatedImages.createdAt))
+      .orderBy(...orderClauses)
       .limit(limit)
       .offset(offset)
 
@@ -87,7 +107,29 @@ export const getImageDetail = createServerFn({ method: 'GET' })
       .where(eq(imageTags.imageId, id))
       .all()
 
-    return { ...image, tags: imgTags }
+    // Fetch project name
+    let projectName: string | null = null
+    if (image.projectId) {
+      const proj = db
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, image.projectId))
+        .get()
+      projectName = proj?.name ?? null
+    }
+
+    // Fetch project scene name
+    let projectSceneName: string | null = null
+    if (image.projectSceneId) {
+      const scene = db
+        .select({ name: projectScenes.name })
+        .from(projectScenes)
+        .where(eq(projectScenes.id, image.projectSceneId))
+        .get()
+      projectSceneName = scene?.name ?? null
+    }
+
+    return { ...image, tags: imgTags, projectName, projectSceneName }
   })
 
 export const addTag = createServerFn({ method: 'POST' })
@@ -132,3 +174,52 @@ export const listTags = createServerFn({ method: 'GET' }).handler(async () => {
 export const listProjectsForFilter = createServerFn({ method: 'GET' }).handler(async () => {
   return db.select({ id: projects.id, name: projects.name }).from(projects).all()
 })
+
+export const listScenesForFilter = createServerFn({ method: 'GET' })
+  .inputValidator((data: { projectId: number }) => data)
+  .handler(async ({ data }) => {
+    // Get all project scenes for the given project (through project_scene_packs)
+    const scenes = db
+      .select({
+        id: projectScenes.id,
+        name: projectScenes.name,
+      })
+      .from(projectScenes)
+      .innerJoin(
+        sql`project_scene_packs`,
+        sql`project_scene_packs.id = ${projectScenes.projectScenePackId}`,
+      )
+      .where(sql`project_scene_packs.project_id = ${data.projectId}`)
+      .orderBy(projectScenes.sortOrder)
+      .all()
+    return scenes
+  })
+
+export const bulkUpdateImages = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: { imageIds: number[]; isFavorite?: number; rating?: number | null; delete?: boolean }) =>
+      data,
+  )
+  .handler(async ({ data }) => {
+    if (data.imageIds.length === 0) return { success: true }
+
+    if (data.delete) {
+      db.delete(generatedImages)
+        .where(inArray(generatedImages.id, data.imageIds))
+        .run()
+      return { success: true }
+    }
+
+    const updates: Record<string, unknown> = {}
+    if (data.isFavorite !== undefined) updates.isFavorite = data.isFavorite
+    if (data.rating !== undefined) updates.rating = data.rating
+
+    if (Object.keys(updates).length > 0) {
+      db.update(generatedImages)
+        .set(updates)
+        .where(inArray(generatedImages.id, data.imageIds))
+        .run()
+    }
+
+    return { success: true }
+  })

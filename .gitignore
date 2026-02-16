@@ -209,3 +209,5 @@ data/
 # Build output
 .output/
 .vinxi/
+
+chrome/

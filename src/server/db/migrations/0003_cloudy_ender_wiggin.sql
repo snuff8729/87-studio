@@ -1,0 +1,1 @@
+ALTER TABLE `project_scenes` ADD `thumbnail_image_id` integer;

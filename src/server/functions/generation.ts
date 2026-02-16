@@ -11,6 +11,7 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
       projectId: number
       projectSceneIds: number[]
       countPerScene: number
+      sceneCounts?: Record<number, number>
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -24,6 +25,9 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
     const jobs = []
 
     for (const sceneId of data.projectSceneIds) {
+      const count = data.sceneCounts?.[sceneId] ?? data.countPerScene
+      if (count <= 0) continue
+
       const prompts = synthesizePrompts(data.projectId, sceneId)
 
       const scene = db
@@ -40,7 +44,7 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
           sourceSceneId: scene?.sourceSceneId,
           resolvedPrompts: JSON.stringify(prompts),
           resolvedParameters: JSON.stringify(parameters),
-          totalCount: data.countPerScene,
+          totalCount: count,
           completedCount: 0,
           status: 'pending',
         })
@@ -55,12 +59,30 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
   })
 
 export const listJobs = createServerFn({ method: 'GET' }).handler(async () => {
-  return db
-    .select()
+  const rows = db
+    .select({
+      id: generationJobs.id,
+      projectId: generationJobs.projectId,
+      projectSceneId: generationJobs.projectSceneId,
+      sourceSceneId: generationJobs.sourceSceneId,
+      resolvedPrompts: generationJobs.resolvedPrompts,
+      resolvedParameters: generationJobs.resolvedParameters,
+      totalCount: generationJobs.totalCount,
+      completedCount: generationJobs.completedCount,
+      status: generationJobs.status,
+      errorMessage: generationJobs.errorMessage,
+      createdAt: generationJobs.createdAt,
+      updatedAt: generationJobs.updatedAt,
+      projectName: projects.name,
+      projectSceneName: projectScenes.name,
+    })
     .from(generationJobs)
+    .leftJoin(projects, eq(generationJobs.projectId, projects.id))
+    .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
     .orderBy(desc(generationJobs.createdAt))
     .limit(100)
     .all()
+  return rows
 })
 
 export const getJobStatus = createServerFn({ method: 'GET' })
@@ -85,3 +107,40 @@ export const fetchQueueStatus = createServerFn({ method: 'GET' }).handler(
     return getQueueStatus()
   },
 )
+
+export const previewPrompts = createServerFn({ method: 'GET' })
+  .inputValidator(
+    (data: { projectId: number; projectSceneId: number }) => data,
+  )
+  .handler(async ({ data }) => {
+    return synthesizePrompts(data.projectId, data.projectSceneId)
+  })
+
+export const retryJob = createServerFn({ method: 'POST' })
+  .inputValidator((jobId: number) => jobId)
+  .handler(async ({ data: jobId }) => {
+    const job = db
+      .select()
+      .from(generationJobs)
+      .where(eq(generationJobs.id, jobId))
+      .get()
+    if (!job || job.status !== 'failed') throw new Error('Job not found or not failed')
+
+    const newJob = db
+      .insert(generationJobs)
+      .values({
+        projectId: job.projectId,
+        projectSceneId: job.projectSceneId,
+        sourceSceneId: job.sourceSceneId,
+        resolvedPrompts: job.resolvedPrompts,
+        resolvedParameters: job.resolvedParameters,
+        totalCount: job.totalCount,
+        completedCount: 0,
+        status: 'pending',
+      })
+      .returning()
+      .get()
+
+    enqueueJob(newJob.id)
+    return newJob
+  })

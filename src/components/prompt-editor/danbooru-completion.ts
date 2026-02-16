@@ -17,13 +17,6 @@ export async function loadTagDatabase() {
   loaded = true
 }
 
-const categoryColors: Record<number, string> = {
-  0: '#2563eb', // General - blue
-  1: '#dc2626', // Artist - red
-  3: '#7c3aed', // Copyright - purple
-  4: '#059669', // Character - green
-  5: '#d97706', // Meta - amber
-}
 
 function searchTags(query: string, limit = 15): Completion[] {
   if (!query || tagDatabase.length === 0) return []

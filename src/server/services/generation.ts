@@ -3,7 +3,7 @@ import { generationJobs, generatedImages, settings } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { generateImage } from './nai'
 import { saveImage, generateThumbnail } from './image'
-import { synthesizePrompts } from './prompt'
+
 
 // ─── In-memory queue singleton ──────────────────────────────────────────────
 
@@ -63,7 +63,7 @@ async function processJob(jobId: number) {
   if (!apiKeyRow?.value) {
     console.error(`[Generation] Job ${jobId} failed: No API key configured`)
     db.update(generationJobs)
-      .set({ status: 'failed', updatedAt: new Date().toISOString() })
+      .set({ status: 'failed', errorMessage: 'API 키가 설정되지 않았습니다', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))
       .run()
     return
@@ -151,9 +151,10 @@ async function processJob(jobId: number) {
       .where(eq(generationJobs.id, jobId))
       .run()
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error)
     console.error(`[Generation] Job ${jobId} failed:`, error)
     db.update(generationJobs)
-      .set({ status: 'failed', updatedAt: new Date().toISOString() })
+      .set({ status: 'failed', errorMessage: errorMsg, updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))
       .run()
   }

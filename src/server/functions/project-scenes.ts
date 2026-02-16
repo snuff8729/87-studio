@@ -26,7 +26,9 @@ export const listProjectScenePacks = createServerFn({ method: 'GET' })
   })
 
 export const updateProjectScene = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: number; name?: string; placeholders?: string }) => data)
+  .inputValidator(
+    (data: { id: number; name?: string; placeholders?: string; thumbnailImageId?: number | null }) => data,
+  )
   .handler(async ({ data }) => {
     const { id, ...updates } = data
     db.update(projectScenes)

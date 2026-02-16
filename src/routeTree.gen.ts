@@ -11,12 +11,8 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
-import { Route as ScenePacksIndexRouteImport } from './routes/scene-packs/index'
-import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
-import { Route as JobsIndexRouteImport } from './routes/jobs/index'
 import { Route as GalleryIndexRouteImport } from './routes/gallery/index'
-import { Route as ScenePacksScenePackIdRouteImport } from './routes/scene-packs/$scenePackId'
-import { Route as ProjectsProjectIdRouteImport } from './routes/projects/$projectId'
+import { Route as WorkspaceProjectIdRouteImport } from './routes/workspace/$projectId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -28,109 +24,48 @@ const SettingsIndexRoute = SettingsIndexRouteImport.update({
   path: '/settings/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScenePacksIndexRoute = ScenePacksIndexRouteImport.update({
-  id: '/scene-packs/',
-  path: '/scene-packs/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
-  id: '/projects/',
-  path: '/projects/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const JobsIndexRoute = JobsIndexRouteImport.update({
-  id: '/jobs/',
-  path: '/jobs/',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const GalleryIndexRoute = GalleryIndexRouteImport.update({
   id: '/gallery/',
   path: '/gallery/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ScenePacksScenePackIdRoute = ScenePacksScenePackIdRouteImport.update({
-  id: '/scene-packs/$scenePackId',
-  path: '/scene-packs/$scenePackId',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
-  id: '/projects/$projectId',
-  path: '/projects/$projectId',
+const WorkspaceProjectIdRoute = WorkspaceProjectIdRouteImport.update({
+  id: '/workspace/$projectId',
+  path: '/workspace/$projectId',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
-  '/scene-packs/$scenePackId': typeof ScenePacksScenePackIdRoute
+  '/workspace/$projectId': typeof WorkspaceProjectIdRoute
   '/gallery/': typeof GalleryIndexRoute
-  '/jobs/': typeof JobsIndexRoute
-  '/projects/': typeof ProjectsIndexRoute
-  '/scene-packs/': typeof ScenePacksIndexRoute
   '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
-  '/scene-packs/$scenePackId': typeof ScenePacksScenePackIdRoute
+  '/workspace/$projectId': typeof WorkspaceProjectIdRoute
   '/gallery': typeof GalleryIndexRoute
-  '/jobs': typeof JobsIndexRoute
-  '/projects': typeof ProjectsIndexRoute
-  '/scene-packs': typeof ScenePacksIndexRoute
   '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/projects/$projectId': typeof ProjectsProjectIdRoute
-  '/scene-packs/$scenePackId': typeof ScenePacksScenePackIdRoute
+  '/workspace/$projectId': typeof WorkspaceProjectIdRoute
   '/gallery/': typeof GalleryIndexRoute
-  '/jobs/': typeof JobsIndexRoute
-  '/projects/': typeof ProjectsIndexRoute
-  '/scene-packs/': typeof ScenePacksIndexRoute
   '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths:
-    | '/'
-    | '/projects/$projectId'
-    | '/scene-packs/$scenePackId'
-    | '/gallery/'
-    | '/jobs/'
-    | '/projects/'
-    | '/scene-packs/'
-    | '/settings/'
+  fullPaths: '/' | '/workspace/$projectId' | '/gallery/' | '/settings/'
   fileRoutesByTo: FileRoutesByTo
-  to:
-    | '/'
-    | '/projects/$projectId'
-    | '/scene-packs/$scenePackId'
-    | '/gallery'
-    | '/jobs'
-    | '/projects'
-    | '/scene-packs'
-    | '/settings'
-  id:
-    | '__root__'
-    | '/'
-    | '/projects/$projectId'
-    | '/scene-packs/$scenePackId'
-    | '/gallery/'
-    | '/jobs/'
-    | '/projects/'
-    | '/scene-packs/'
-    | '/settings/'
+  to: '/' | '/workspace/$projectId' | '/gallery' | '/settings'
+  id: '__root__' | '/' | '/workspace/$projectId' | '/gallery/' | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
-  ScenePacksScenePackIdRoute: typeof ScenePacksScenePackIdRoute
+  WorkspaceProjectIdRoute: typeof WorkspaceProjectIdRoute
   GalleryIndexRoute: typeof GalleryIndexRoute
-  JobsIndexRoute: typeof JobsIndexRoute
-  ProjectsIndexRoute: typeof ProjectsIndexRoute
-  ScenePacksIndexRoute: typeof ScenePacksIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -150,27 +85,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scene-packs/': {
-      id: '/scene-packs/'
-      path: '/scene-packs'
-      fullPath: '/scene-packs/'
-      preLoaderRoute: typeof ScenePacksIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects/': {
-      id: '/projects/'
-      path: '/projects'
-      fullPath: '/projects/'
-      preLoaderRoute: typeof ProjectsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/jobs/': {
-      id: '/jobs/'
-      path: '/jobs'
-      fullPath: '/jobs/'
-      preLoaderRoute: typeof JobsIndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/gallery/': {
       id: '/gallery/'
       path: '/gallery'
@@ -178,18 +92,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GalleryIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/scene-packs/$scenePackId': {
-      id: '/scene-packs/$scenePackId'
-      path: '/scene-packs/$scenePackId'
-      fullPath: '/scene-packs/$scenePackId'
-      preLoaderRoute: typeof ScenePacksScenePackIdRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/projects/$projectId': {
-      id: '/projects/$projectId'
-      path: '/projects/$projectId'
-      fullPath: '/projects/$projectId'
-      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+    '/workspace/$projectId': {
+      id: '/workspace/$projectId'
+      path: '/workspace/$projectId'
+      fullPath: '/workspace/$projectId'
+      preLoaderRoute: typeof WorkspaceProjectIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -197,12 +104,8 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
-  ScenePacksScenePackIdRoute: ScenePacksScenePackIdRoute,
+  WorkspaceProjectIdRoute: WorkspaceProjectIdRoute,
   GalleryIndexRoute: GalleryIndexRoute,
-  JobsIndexRoute: JobsIndexRoute,
-  ProjectsIndexRoute: ProjectsIndexRoute,
-  ScenePacksIndexRoute: ScenePacksIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport

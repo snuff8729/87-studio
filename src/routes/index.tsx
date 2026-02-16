@@ -1,131 +1,230 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { PageHeader } from '@/components/common/page-header'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { useState } from 'react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { listProjects } from '@/server/functions/projects'
+import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import { listProjects, createProject, deleteProject } from '@/server/functions/projects'
 import { listJobs } from '@/server/functions/generation'
-import { createServerFn } from '@tanstack/react-start'
-import { db } from '@/server/db'
-import { generatedImages } from '@/server/db/schema'
-import { desc } from 'drizzle-orm'
-
-const getRecentImages = createServerFn({ method: 'GET' }).handler(async () => {
-  return db
-    .select()
-    .from(generatedImages)
-    .orderBy(desc(generatedImages.createdAt))
-    .limit(12)
-    .all()
-})
+import { getSetting } from '@/server/functions/settings'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  FolderOpenIcon,
+  Add01Icon,
+  ArrowRight01Icon,
+  Delete02Icon,
+  Settings02Icon,
+} from '@hugeicons/core-free-icons'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
-    const [projectList, jobs, images] = await Promise.all([
+    const [projectList, jobs, apiKey] = await Promise.all([
       listProjects(),
       listJobs(),
-      getRecentImages(),
+      getSetting({ data: 'nai_api_key' }),
     ])
     return {
-      projects: projectList.slice(0, 5),
+      projects: projectList,
       activeJobs: jobs.filter(
         (j) => j.status === 'running' || j.status === 'pending',
       ),
-      recentImages: images,
+      hasApiKey: !!apiKey && apiKey.length > 0,
     }
   },
-  component: DashboardPage,
+  component: ProjectSelectorPage,
 })
 
-function DashboardPage() {
-  const { projects, activeJobs, recentImages } = Route.useLoaderData()
+function ProjectSelectorPage() {
+  const { projects, activeJobs, hasApiKey } = Route.useLoaderData()
+  const router = useRouter()
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+
+  async function handleCreate() {
+    if (!name.trim()) {
+      toast.error('Enter a project name')
+      return
+    }
+    try {
+      const project = await createProject({ data: { name: name.trim(), description: description.trim() || undefined } })
+      setName('')
+      setDescription('')
+      setDialogOpen(false)
+      toast.success('Project created')
+      router.navigate({ to: '/workspace/$projectId', params: { projectId: String(project.id) } })
+    } catch {
+      toast.error('Failed to create project')
+    }
+  }
+
+  async function handleDelete(id: number) {
+    try {
+      await deleteProject({ data: id })
+      toast.success('Project deleted')
+      router.invalidate()
+    } catch {
+      toast.error('Failed to delete')
+    }
+  }
 
   return (
-    <div>
-      <PageHeader
-        title="Dashboard"
-        description="Overview of your projects and recent activity"
-      />
+    <div className="max-w-2xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
+            <span className="text-sm font-bold text-primary-foreground">87</span>
+          </div>
+          <h1 className="text-lg font-semibold tracking-tight">Studio</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          {!hasApiKey && (
+            <Badge variant="secondary" className="text-xs">
+              API key not set
+            </Badge>
+          )}
+          <Button variant="ghost" size="sm" asChild>
+            <Link to="/settings">
+              <HugeiconsIcon icon={Settings02Icon} className="size-4" />
+              Settings
+            </Link>
+          </Button>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Recent Projects</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {projects.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No projects yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {projects.map((p) => (
-                  <Link
-                    key={p.id}
-                    to="/projects/$projectId"
-                    params={{ projectId: String(p.id) }}
-                    className="block text-sm hover:text-primary transition-colors"
-                  >
-                    {p.name}
-                  </Link>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Active Jobs</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {activeJobs.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active jobs.</p>
-            ) : (
-              <div className="space-y-2">
-                {activeJobs.map((j) => (
-                  <div key={j.id} className="flex items-center justify-between">
-                    <span className="text-sm">Job #{j.id}</span>
-                    <div className="flex items-center gap-2">
-                      <Badge variant={j.status === 'running' ? 'default' : 'secondary'}>
-                        {j.status}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {j.completedCount}/{j.totalCount}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Recent Images</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {recentImages.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No images generated yet.</p>
-            ) : (
-              <div className="grid grid-cols-3 gap-1">
-                {recentImages.slice(0, 9).map((img) => (
+      {/* Active jobs notice */}
+      {activeJobs.length > 0 && (
+        <div className="mb-4 space-y-1.5">
+          {activeJobs.map((j) => (
+            <Link
+              key={j.id}
+              to="/workspace/$projectId"
+              params={{ projectId: String(j.projectId) }}
+              className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 transition-colors hover:bg-primary/8"
+            >
+              <div className="size-2 rounded-full bg-primary animate-pulse shrink-0" />
+              <span className="text-sm font-medium truncate">
+                {j.projectName && j.projectSceneName
+                  ? `${j.projectName} / ${j.projectSceneName}`
+                  : `Job #${j.id}`}
+              </span>
+              <Badge variant="secondary" className="text-xs shrink-0">{j.status}</Badge>
+              <div className="flex-1 min-w-16">
+                <div className="h-1 rounded-full bg-secondary overflow-hidden">
                   <div
-                    key={img.id}
-                    className="aspect-square rounded-md bg-secondary overflow-hidden"
-                  >
-                    {img.thumbnailPath && (
-                      <img
-                        src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
-                  </div>
-                ))}
+                    className="h-full rounded-full bg-primary transition-all duration-500"
+                    style={{
+                      width: `${((j.completedCount ?? 0) / (j.totalCount ?? 1)) * 100}%`,
+                    }}
+                  />
+                </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
+              <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+                {j.completedCount}/{j.totalCount}
+              </span>
+            </Link>
+          ))}
+        </div>
+      )}
+
+      {/* Project list */}
+      <div className="space-y-1">
+        {projects.map((p) => (
+          <div
+            key={p.id}
+            className="flex items-center gap-2 rounded-lg hover:bg-accent/50 transition-colors group"
+          >
+            <Link
+              to="/workspace/$projectId"
+              params={{ projectId: String(p.id) }}
+              className="flex-1 flex items-center justify-between px-3 py-3 min-w-0"
+            >
+              <div className="min-w-0">
+                <span className="text-sm font-medium group-hover:text-primary transition-colors truncate block">
+                  {p.name}
+                </span>
+                {p.description && (
+                  <span className="text-xs text-muted-foreground truncate block">{p.description}</span>
+                )}
+              </div>
+              <HugeiconsIcon icon={ArrowRight01Icon} className="size-4 text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0" />
+            </Link>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  className="opacity-0 group-hover:opacity-100 text-destructive mr-2 shrink-0"
+                >
+                  <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+                </Button>
+              }
+              title="Delete Project"
+              description={`Delete "${p.name}"? Generated images will be preserved on disk.`}
+              onConfirm={() => handleDelete(p.id)}
+            />
+          </div>
+        ))}
+      </div>
+
+      {projects.length === 0 && (
+        <div className="rounded-xl border border-border border-dashed py-12 text-center">
+          <HugeiconsIcon icon={FolderOpenIcon} className="size-10 text-muted-foreground/30 mx-auto mb-3" />
+          <p className="text-sm text-muted-foreground mb-1">No projects yet</p>
+          <p className="text-xs text-muted-foreground mb-4">Create your first project to get started.</p>
+        </div>
+      )}
+
+      {/* Create project button */}
+      <div className="mt-4">
+        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline" className="w-full">
+              <HugeiconsIcon icon={Add01Icon} className="size-4" />
+              New Project
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>New Project</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>Name</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Project name"
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Description (optional)</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Brief description..."
+                  rows={2}
+                />
+              </div>
+              <Button onClick={handleCreate} disabled={!name.trim()} className="w-full">
+                Create
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   )
