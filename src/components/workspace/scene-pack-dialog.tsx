@@ -10,6 +10,7 @@ import {
   Delete02Icon,
   PencilEdit01Icon,
   Tick02Icon,
+  FileImportIcon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,7 @@ import {
 } from '@/server/functions/scene-packs'
 import { createScene, updateScene, deleteScene } from '@/server/functions/scenes'
 import { assignScenePack } from '@/server/functions/projects'
+import { ImportDialog } from './import-dialog'
 
 interface ScenePackDialogProps {
   projectId: number
@@ -61,6 +63,9 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
   const [newSceneName, setNewSceneName] = useState('')
   const [addingScene, setAddingScene] = useState(false)
 
+  // Import dialog
+  const [importOpen, setImportOpen] = useState(false)
+
   // Expanded scenes in accordion
   const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set())
 
@@ -81,6 +86,12 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
     const detail = await getScenePack({ data: id })
     setSelectedPack(detail)
     setExpandedScenes(new Set())
+  }
+
+  async function handleImported(packId: number) {
+    await loadPacks()
+    const detail = await getScenePack({ data: packId })
+    setSelectedPack(detail)
   }
 
   async function handleCreatePack() {
@@ -212,6 +223,15 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
               <Button
                 size="sm"
                 variant="outline"
+                onClick={() => setImportOpen(true)}
+                className="shrink-0"
+                title="Import"
+              >
+                <HugeiconsIcon icon={FileImportIcon} className="size-5" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
                 onClick={() => setCreatingPack(true)}
                 className="shrink-0"
               >
@@ -227,12 +247,21 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                 Packs
               </span>
-              <button
-                onClick={() => setCreatingPack(true)}
-                className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-5" />
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                  title="Import SD Studio preset"
+                >
+                  <HugeiconsIcon icon={FileImportIcon} className="size-5" />
+                </button>
+                <button
+                  onClick={() => setCreatingPack(true)}
+                  className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                >
+                  <HugeiconsIcon icon={Add01Icon} className="size-5" />
+                </button>
+              </div>
             </div>
 
             {/* Pack list */}
@@ -466,6 +495,12 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
           </div>
         </div>
       </DialogContent>
+
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={handleImported}
+      />
     </Dialog>
   )
 }
