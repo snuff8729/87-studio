@@ -10,7 +10,7 @@ import {
   generationJobs,
 } from '../db/schema'
 import { eq, desc, and, sql, inArray } from 'drizzle-orm'
-import { getQueueStatus } from '../services/generation'
+import { getQueueStatus, getBatchTiming } from '../services/generation'
 
 export const getWorkspaceData = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -118,7 +118,7 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .limit(50)
       .all()
 
-    const activeJobs = db
+    const activeJobsRaw = db
       .select({
         id: generationJobs.id,
         projectSceneId: generationJobs.projectSceneId,
@@ -140,6 +140,7 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .all()
 
     const queueStatus = getQueueStatus()
+    const activeJobs = activeJobsRaw
 
     return {
       project,
@@ -149,6 +150,7 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       recentImages,
       activeJobs,
       queueStatus,
+      batchTiming: getBatchTiming(),
     }
   })
 
@@ -357,7 +359,7 @@ export const getRecentImages = createServerFn({ method: 'GET' })
 export const listProjectJobs = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
   .handler(async ({ data: projectId }) => {
-    return db
+    const jobs = db
       .select({
         id: generationJobs.id,
         projectSceneId: generationJobs.projectSceneId,
@@ -377,4 +379,6 @@ export const listProjectJobs = createServerFn({ method: 'GET' })
       )
       .orderBy(desc(generationJobs.createdAt))
       .all()
+
+    return { jobs, batchTiming: getBatchTiming() }
   })

@@ -10,15 +10,49 @@ import { saveImage, generateThumbnail } from './image'
 let processing = false
 const queue: number[] = [] // job IDs
 
+// Batch-level timing (persists across jobs within a single processQueue run)
+interface BatchTiming {
+  startedAt: number
+  totalImages: number        // total images across all jobs in the batch
+  completedImages: number    // images completed so far
+  totalGenerationMs: number  // cumulative API call time (for avg calc)
+}
+let batchTiming: BatchTiming | null = null
+
 export function enqueueJob(jobId: number) {
   queue.push(jobId)
+
+  // Add this job's totalCount to the running batch
+  if (batchTiming) {
+    const job = db
+      .select({ totalCount: generationJobs.totalCount })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, jobId))
+      .get()
+    batchTiming.totalImages += (job?.totalCount ?? 1)
+  }
+
   if (!processing) processQueue()
 }
 
 export function cancelPendingJobs(jobIds: number[]) {
   for (const id of jobIds) {
     const idx = queue.indexOf(id)
-    if (idx !== -1) queue.splice(idx, 1)
+    if (idx !== -1) {
+      queue.splice(idx, 1)
+      // Subtract cancelled job's remaining count from batch total
+      if (batchTiming) {
+        const job = db
+          .select({ totalCount: generationJobs.totalCount, completedCount: generationJobs.completedCount })
+          .from(generationJobs)
+          .where(eq(generationJobs.id, id))
+          .get()
+        if (job) {
+          const remaining = (job.totalCount ?? 0) - (job.completedCount ?? 0)
+          batchTiming.totalImages = Math.max(0, batchTiming.totalImages - remaining)
+        }
+      }
+    }
     db.update(generationJobs)
       .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, id))
@@ -34,9 +68,39 @@ export function getQueueStatus() {
   }
 }
 
+export function getBatchTiming() {
+  if (!batchTiming) return null
+  return {
+    startedAt: batchTiming.startedAt,
+    totalImages: batchTiming.totalImages,
+    completedImages: batchTiming.completedImages,
+    avgImageDurationMs: batchTiming.completedImages > 0
+      ? Math.round(batchTiming.totalGenerationMs / batchTiming.completedImages)
+      : null,
+  }
+}
+
 async function processQueue() {
   if (processing) return
   processing = true
+
+  // Sum totalCount from all initially queued jobs
+  let initialTotal = 0
+  for (const id of queue) {
+    const job = db
+      .select({ totalCount: generationJobs.totalCount })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, id))
+      .get()
+    initialTotal += (job?.totalCount ?? 1)
+  }
+
+  batchTiming = {
+    startedAt: Date.now(),
+    totalImages: initialTotal,
+    completedImages: 0,
+    totalGenerationMs: 0,
+  }
 
   while (queue.length > 0) {
     const jobId = queue.shift()!
@@ -44,6 +108,8 @@ async function processQueue() {
   }
 
   processing = false
+  // Keep batchTiming so the last poll can still read it.
+  // It'll be overwritten on the next processQueue call.
 }
 
 async function processJob(jobId: number) {
@@ -97,12 +163,20 @@ async function processJob(jobId: number) {
         .get()
       if (currentJob?.status === 'cancelled') return
 
-      // Generate image via NAI API
+      // Generate image via NAI API (with timing)
+      const imageStart = Date.now()
       const { imageData, seed } = await generateImage(
         apiKeyRow.value,
         resolvedPrompts,
         resolvedParameters,
       )
+      const imageDuration = Date.now() - imageStart
+
+      // Accumulate batch timing
+      if (batchTiming) {
+        batchTiming.totalGenerationMs += imageDuration
+        batchTiming.completedImages += 1
+      }
 
       // Save image and thumbnail
       const { filePath, thumbnailPath } = saveImage(

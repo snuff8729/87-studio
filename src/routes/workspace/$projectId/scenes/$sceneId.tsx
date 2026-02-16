@@ -16,11 +16,11 @@ import { ScenePlaceholderPanel } from '@/components/workspace/scene-placeholder-
 export const Route = createFileRoute('/workspace/$projectId/scenes/$sceneId')({
   loader: async ({ params }) => {
     const projectId = Number(params.projectId)
-    const [context, activeJobs] = await Promise.all([
+    const [context, jobsResult] = await Promise.all([
       getScenePageContext({ data: { projectId, sceneId: Number(params.sceneId) } }),
       listProjectJobs({ data: projectId }),
     ])
-    return { ...context, activeJobs }
+    return { ...context, activeJobs: jobsResult.jobs, batchTiming: jobsResult.batchTiming }
   },
   component: SceneDetailPage,
 })
@@ -111,6 +111,12 @@ function SceneDetailPage() {
 
   // ── Generation polling ──
   const [activeJobs, setActiveJobs] = useState(data.activeJobs)
+  const [batchTimingData, setBatchTimingData] = useState<{
+    startedAt: number
+    totalImages: number
+    completedImages: number
+    avgImageDurationMs: number | null
+  } | null>(data.batchTiming)
   const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
@@ -128,11 +134,13 @@ function SceneDetailPage() {
       if (cancelled || pollingRef.current) return
       pollingRef.current = true
       try {
-        const jobs = await listProjectJobs({ data: projectId })
+        const { jobs, batchTiming } = await listProjectJobs({ data: projectId })
         if (cancelled) return
         setActiveJobs(jobs)
+        setBatchTimingData(batchTiming)
         setRefreshKey((k) => k + 1)
         if (jobs.length === 0) {
+          setBatchTimingData(null)
           router.invalidate()
         }
       } catch {
@@ -150,6 +158,7 @@ function SceneDetailPage() {
     if (jobIds.length === 0) return
     await cancelJobs({ data: jobIds })
     setActiveJobs([])
+    setBatchTimingData(null)
     toast.success('Generation cancelled')
     router.invalidate()
   }
@@ -198,6 +207,7 @@ function SceneDetailPage() {
           <GenerationProgress
             jobs={activeJobs}
             batchTotal={activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0)}
+            batchTiming={batchTimingData}
             onCancel={handleCancelJobs}
           />
         )}

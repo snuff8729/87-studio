@@ -211,6 +211,12 @@ function WorkspacePage() {
     () => data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
   )
   const [activeJobs, setActiveJobs] = useState(data.activeJobs)
+  const [batchTimingData, setBatchTimingData] = useState<{
+    startedAt: number
+    totalImages: number
+    completedImages: number
+    avgImageDurationMs: number | null
+  } | null>(data.batchTiming)
 
   // Sync generation state when loader data changes (e.g. page refresh reconnects to running jobs)
   useEffect(() => {
@@ -250,14 +256,16 @@ function WorkspacePage() {
       if (cancelled || busy) return
       busy = true
       try {
-        const [jobs, imgs, counts] = await Promise.all([
+        const [jobsResult, imgs, counts] = await Promise.all([
           listProjectJobs({ data: projectId }),
           getRecentImages({ data: projectId }),
           getSceneImageCounts({ data: projectId }),
         ])
         if (cancelled) return
 
+        const { jobs, batchTiming } = jobsResult
         setActiveJobs(jobs)
+        setBatchTimingData(batchTiming)
         setLiveImages(imgs)
         setLiveSceneCounts(counts)
 
@@ -268,6 +276,7 @@ function WorkspacePage() {
 
         if (jobs.length === 0) {
           setGenerating(false)
+          setBatchTimingData(null)
           prevCompletedRef.current = 0
           router.invalidate()
         }
@@ -326,7 +335,7 @@ function WorkspacePage() {
         },
       })
       toast.success(`${batchTotal} image generation started`)
-      const jobs = await listProjectJobs({ data: projectId })
+      const { jobs } = await listProjectJobs({ data: projectId })
       setActiveJobs(jobs)
     } catch {
       toast.error('Failed to start generation')
@@ -416,6 +425,7 @@ function WorkspacePage() {
             <GenerationProgress
               jobs={activeJobs}
               batchTotal={generationTotal}
+              batchTiming={batchTimingData}
               onCancel={handleCancelJobs}
             />
           }
