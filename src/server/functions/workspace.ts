@@ -155,8 +155,14 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
 const SCENE_IMAGES_PAGE_SIZE = 50
 
 export const getSceneDetail = createServerFn({ method: 'GET' })
-  .inputValidator((projectSceneId: number) => projectSceneId)
-  .handler(async ({ data: projectSceneId }) => {
+  .inputValidator(
+    (input: number | { sceneId: number; sortBy?: 'newest' | 'tournament_winrate' | 'tournament_wins' }) =>
+      typeof input === 'number' ? { sceneId: input, sortBy: 'newest' as const } : input,
+  )
+  .handler(async ({ data }) => {
+    const projectSceneId = typeof data === 'number' ? data : data.sceneId
+    const sortBy = (typeof data === 'object' && 'sortBy' in data ? data.sortBy : 'newest') ?? 'newest'
+
     const scene = db
       .select()
       .from(projectScenes)
@@ -176,19 +182,32 @@ export const getSceneDetail = createServerFn({ method: 'GET' })
       .where(eq(generatedImages.projectSceneId, projectSceneId))
       .get()?.count ?? 0
 
+    const selectFields = {
+      id: generatedImages.id,
+      thumbnailPath: generatedImages.thumbnailPath,
+      filePath: generatedImages.filePath,
+      seed: generatedImages.seed,
+      isFavorite: generatedImages.isFavorite,
+      rating: generatedImages.rating,
+      tournamentWins: generatedImages.tournamentWins,
+      tournamentLosses: generatedImages.tournamentLosses,
+      createdAt: generatedImages.createdAt,
+    }
+
+    let orderClause
+    if (sortBy === 'tournament_winrate') {
+      orderClause = sql`CASE WHEN (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) = 0 THEN -1 ELSE CAST(${generatedImages.tournamentWins} AS REAL) / (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) END DESC`
+    } else if (sortBy === 'tournament_wins') {
+      orderClause = desc(generatedImages.tournamentWins)
+    } else {
+      orderClause = desc(generatedImages.createdAt)
+    }
+
     const images = db
-      .select({
-        id: generatedImages.id,
-        thumbnailPath: generatedImages.thumbnailPath,
-        filePath: generatedImages.filePath,
-        seed: generatedImages.seed,
-        isFavorite: generatedImages.isFavorite,
-        rating: generatedImages.rating,
-        createdAt: generatedImages.createdAt,
-      })
+      .select(selectFields)
       .from(generatedImages)
       .where(eq(generatedImages.projectSceneId, projectSceneId))
-      .orderBy(desc(generatedImages.createdAt))
+      .orderBy(orderClause)
       .limit(SCENE_IMAGES_PAGE_SIZE)
       .all()
 
@@ -201,8 +220,19 @@ export const getSceneDetail = createServerFn({ method: 'GET' })
   })
 
 export const getSceneImages = createServerFn({ method: 'GET' })
-  .inputValidator((input: { sceneId: number; offset: number }) => input)
-  .handler(async ({ data: { sceneId, offset } }) => {
+  .inputValidator(
+    (input: { sceneId: number; offset: number; sortBy?: 'newest' | 'tournament_winrate' | 'tournament_wins' }) => input,
+  )
+  .handler(async ({ data: { sceneId, offset, sortBy } }) => {
+    let orderClause
+    if (sortBy === 'tournament_winrate') {
+      orderClause = sql`CASE WHEN (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) = 0 THEN -1 ELSE CAST(${generatedImages.tournamentWins} AS REAL) / (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) END DESC`
+    } else if (sortBy === 'tournament_wins') {
+      orderClause = desc(generatedImages.tournamentWins)
+    } else {
+      orderClause = desc(generatedImages.createdAt)
+    }
+
     return db
       .select({
         id: generatedImages.id,
@@ -211,11 +241,13 @@ export const getSceneImages = createServerFn({ method: 'GET' })
         seed: generatedImages.seed,
         isFavorite: generatedImages.isFavorite,
         rating: generatedImages.rating,
+        tournamentWins: generatedImages.tournamentWins,
+        tournamentLosses: generatedImages.tournamentLosses,
         createdAt: generatedImages.createdAt,
       })
       .from(generatedImages)
       .where(eq(generatedImages.projectSceneId, sceneId))
-      .orderBy(desc(generatedImages.createdAt))
+      .orderBy(orderClause)
       .limit(SCENE_IMAGES_PAGE_SIZE)
       .offset(offset)
       .all()

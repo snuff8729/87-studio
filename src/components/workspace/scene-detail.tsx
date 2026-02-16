@@ -7,10 +7,13 @@ import { Image02Icon, FolderOpenIcon } from '@hugeicons/core-free-icons'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getSceneDetail, getSceneImages } from '@/server/functions/workspace'
 import { updateProjectScene, upsertCharacterOverride } from '@/server/functions/project-scenes'
 import { updateImage } from '@/server/functions/gallery'
 import { extractPlaceholders } from '@/lib/placeholder'
+import { TournamentDialog } from './tournament-dialog'
 
 interface SceneDetailProps {
   sceneId: number
@@ -28,10 +31,16 @@ interface SceneDetailProps {
   onProjectThumbnailChange?: (imageId: number | null) => void
   refreshKey?: number
   hidePlaceholders?: boolean
+  sceneName?: string
 }
 
+type SortBy = 'newest' | 'tournament_winrate' | 'tournament_wins'
+
 type SceneData = Awaited<ReturnType<typeof getSceneDetail>>
-type ImageItem = SceneData['images'][number]
+type ImageItem = SceneData['images'][number] & {
+  tournamentWins?: number | null
+  tournamentLosses?: number | null
+}
 
 const GAP = 6 // gap-1.5 = 6px
 
@@ -75,6 +84,7 @@ export function SceneDetail({
   onProjectThumbnailChange,
   refreshKey,
   hidePlaceholders,
+  sceneName,
 }: SceneDetailProps) {
   const [loading, setLoading] = useState(true)
   const initialLoadDone = useRef(false)
@@ -85,15 +95,20 @@ export function SceneDetail({
   const [loadingMore, setLoadingMore] = useState(false)
   const hasMore = images.length < totalImageCount
 
+  // Tournament
+  const [tournamentOpen, setTournamentOpen] = useState(false)
+  const [sortBy, setSortBy] = useState<SortBy>('newest')
+
   // Placeholder values (general)
   const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({})
   // Character override values
   const [charOverrides, setCharOverrides] = useState<Record<number, Record<string, string>>>({})
 
-  const loadScene = useCallback(async (silent?: boolean) => {
+  const loadScene = useCallback(async (silent?: boolean, overrideSortBy?: SortBy) => {
     if (!silent) setLoading(true)
     try {
-      const result = await getSceneDetail({ data: sceneId })
+      const currentSort = overrideSortBy ?? sortBy
+      const result = await getSceneDetail({ data: { sceneId, sortBy: currentSort } })
       setTotalImageCount(result.totalImageCount)
 
       if (silent) {
@@ -122,7 +137,7 @@ export function SceneDetail({
       toast.error('Failed to load scene')
     }
     if (!silent) setLoading(false)
-  }, [sceneId])
+  }, [sceneId, sortBy])
 
   useEffect(() => {
     initialLoadDone.current = false
@@ -142,7 +157,7 @@ export function SceneDetail({
     loadMoreRef.current = true
     setLoadingMore(true)
     try {
-      const more = await getSceneImages({ data: { sceneId, offset: images.length } })
+      const more = await getSceneImages({ data: { sceneId, offset: images.length, sortBy } })
       setImages((prev) => {
         const existingIds = new Set(prev.map((img) => img.id))
         const deduped = more.filter((img) => !existingIds.has(img.id))
@@ -153,7 +168,7 @@ export function SceneDetail({
     }
     setLoadingMore(false)
     loadMoreRef.current = false
-  }, [sceneId, images.length])
+  }, [sceneId, images.length, sortBy])
 
   // ── Virtualized grid setup ──
   const cols = useGridColumns()
@@ -278,6 +293,19 @@ export function SceneDetail({
     )
   }
 
+  function handleSortChange(value: SortBy) {
+    setSortBy(value)
+    // Reload images with new sort (non-silent to reset the list)
+    setImages([])
+    loadScene(false, value)
+  }
+
+  function handleTournamentClose() {
+    setTournamentOpen(false)
+    // Reload to reflect updated W/L stats
+    loadScene(false)
+  }
+
   // ── Render ──
   if (loading) {
     return (
@@ -353,18 +381,35 @@ export function SceneDetail({
       {/* Generated Images — Virtualized Grid */}
       {images.length > 0 && (
         <div className="space-y-2">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-sm text-muted-foreground uppercase tracking-wider">
               Generated Images ({totalImageCount})
             </Label>
-            {thumbnailImageId !== null && (
-              <button
-                onClick={() => onThumbnailChange(null, null)}
-                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-              >
-                Reset thumbnail
-              </button>
-            )}
+            <div className="flex items-center gap-2">
+              {totalImageCount >= 2 && (
+                <Button variant="outline" size="xs" onClick={() => setTournamentOpen(true)}>
+                  Tournament
+                </Button>
+              )}
+              <Select value={sortBy} onValueChange={(v) => handleSortChange(v as SortBy)}>
+                <SelectTrigger size="sm" className="h-7 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Newest</SelectItem>
+                  <SelectItem value="tournament_winrate">Win Rate</SelectItem>
+                  <SelectItem value="tournament_wins">Total Wins</SelectItem>
+                </SelectContent>
+              </Select>
+              {thumbnailImageId !== null && (
+                <button
+                  onClick={() => onThumbnailChange(null, null)}
+                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  Reset thumbnail
+                </button>
+              )}
+            </div>
           </div>
 
           <div ref={gridRef}>
@@ -470,6 +515,12 @@ export function SceneDetail({
                                     : 'Project Thumbnail'}
                               </div>
                             )}
+                            {/* Tournament W/L badge */}
+                            {((img.tournamentWins ?? 0) > 0 || (img.tournamentLosses ?? 0) > 0) && (
+                              <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[9px] px-1 rounded z-10 pointer-events-none">
+                                {img.tournamentWins ?? 0}W-{img.tournamentLosses ?? 0}L
+                              </div>
+                            )}
                           </div>
                         )
                       })}
@@ -503,6 +554,17 @@ export function SceneDetail({
           No images generated for this scene yet.
         </div>
       )}
+
+      {/* Tournament Dialog */}
+      <TournamentDialog
+        open={tournamentOpen}
+        onOpenChange={(open) => {
+          if (!open) handleTournamentClose()
+          else setTournamentOpen(true)
+        }}
+        projectSceneId={sceneId}
+        sceneName={sceneName ?? 'Scene'}
+      />
     </div>
   )
 }

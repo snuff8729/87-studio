@@ -139,7 +139,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
           <div className="space-y-1">
             <ParamLabel name="scheduler" label="Scheduler" />
             <Select
-              value={String(params.scheduler ?? 'native')}
+              value={String(params.scheduler ?? 'karras')}
               onValueChange={(v) => set('scheduler', v)}
             >
               <SelectTrigger className="h-7 text-sm">
@@ -156,7 +156,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
           <div className="space-y-1">
             <ParamLabel name="ucPreset" label="UC Preset" />
             <Select
-              value={String(params.ucPreset ?? 3)}
+              value={String(params.ucPreset ?? 0)}
               onValueChange={(v) => set('ucPreset', Number(v))}
             >
               <SelectTrigger className="h-7 text-sm">

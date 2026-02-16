@@ -251,6 +251,7 @@ function SceneDetailPage() {
             onProjectThumbnailChange={handleProjectThumbnailChange}
             refreshKey={refreshKey}
             hidePlaceholders
+            sceneName={data.sceneName}
           />
         </main>
       </div>

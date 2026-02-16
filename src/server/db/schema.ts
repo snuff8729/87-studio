@@ -180,6 +180,8 @@ export const generatedImages = sqliteTable(
     isFavorite: integer('is_favorite').default(0),
     rating: integer('rating'),
     memo: text('memo'),
+    tournamentWins: integer('tournament_wins').default(0),
+    tournamentLosses: integer('tournament_losses').default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
   },
   (table) => [
@@ -213,6 +215,30 @@ export const imageTags = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.imageId, table.tagId] }),
     index('image_tags_tag_id_idx').on(table.tagId),
+  ],
+)
+
+// ─── Tournament Matches ─────────────────────────────────────────────────────
+export const tournamentMatches = sqliteTable(
+  'tournament_matches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    projectSceneId: integer('project_scene_id')
+      .notNull()
+      .references(() => projectScenes.id, { onDelete: 'cascade' }),
+    image1Id: integer('image1_id')
+      .notNull()
+      .references(() => generatedImages.id, { onDelete: 'cascade' }),
+    image2Id: integer('image2_id')
+      .notNull()
+      .references(() => generatedImages.id, { onDelete: 'cascade' }),
+    result: text('result').notNull(), // 'left' | 'right' | 'both_win' | 'both_lose'
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('tournament_matches_scene_idx').on(table.projectSceneId),
+    index('tournament_matches_image1_idx').on(table.image1Id),
+    index('tournament_matches_image2_idx').on(table.image2Id),
   ],
 )
 
