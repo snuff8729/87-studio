@@ -5,6 +5,12 @@ import { getWorkspaceData, listProjectJobs, getRecentImages, getSceneImageCounts
 import { updateProject } from '@/server/functions/projects'
 import { createGenerationJob, cancelJobs } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
+import {
+  addProjectScene,
+  deleteProjectScene,
+  renameProjectScene,
+  getAllCharacterOverrides,
+} from '@/server/functions/project-scenes'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { WorkspaceHeader } from '@/components/workspace/workspace-header'
 import { BottomToolbar } from '@/components/workspace/bottom-toolbar'
@@ -12,7 +18,6 @@ import { PromptPanel } from '@/components/workspace/prompt-panel'
 import { ScenePanel } from '@/components/workspace/scene-panel'
 import { HistoryPanel } from '@/components/workspace/history-panel'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
-import { CharacterPopover } from '@/components/workspace/character-popover'
 import { ScenePackDialog } from '@/components/workspace/scene-pack-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 
@@ -144,14 +149,77 @@ function WorkspacePage() {
     }),
   }))
 
+  // ── Character overrides (loaded for matrix view) ──
+  const [characterOverrides, setCharacterOverrides] = useState<
+    Record<number, Array<{ projectSceneId: number; characterId: number; placeholders: string }>>
+  >({})
+
+  const loadCharacterOverrides = useCallback(async () => {
+    const allSceneIds = data.scenePacks.flatMap((p) => p.scenes.map((s) => s.id))
+    if (allSceneIds.length === 0 || data.characters.length === 0) {
+      setCharacterOverrides({})
+      return
+    }
+    try {
+      const overrides = await getAllCharacterOverrides({ data: allSceneIds })
+      const grouped: Record<number, Array<{ projectSceneId: number; characterId: number; placeholders: string }>> = {}
+      for (const o of overrides) {
+        if (!grouped[o.projectSceneId]) grouped[o.projectSceneId] = []
+        grouped[o.projectSceneId].push({
+          projectSceneId: o.projectSceneId,
+          characterId: o.characterId,
+          placeholders: o.placeholders ?? '{}',
+        })
+      }
+      setCharacterOverrides(grouped)
+    } catch {
+      // ignore
+    }
+  }, [data.scenePacks, data.characters.length])
+
+  useEffect(() => {
+    loadCharacterOverrides()
+  }, [loadCharacterOverrides])
+
+  // ── Scene management handlers ──
+  async function handleAddScene(name: string) {
+    await addProjectScene({ data: { projectId, name } })
+    router.invalidate()
+  }
+
+  async function handleDeleteScene(sceneId: number) {
+    await deleteProjectScene({ data: sceneId })
+    router.invalidate()
+  }
+
+  async function handleRenameScene(id: number, name: string) {
+    await renameProjectScene({ data: { id, name } })
+    router.invalidate()
+  }
+
+  function handlePlaceholdersChange() {
+    // Reload workspace data to reflect saved placeholders
+    router.invalidate()
+    loadCharacterOverrides()
+  }
+
   // ── Generation state ──
   const [countPerScene, setCountPerScene] = useState(0)
   const [sceneCounts, setSceneCounts] = useState<Record<number, number>>({})
-  const [generating, setGenerating] = useState(false)
-  const [generationTotal, setGenerationTotal] = useState(0)
-  const [activeJobs, setActiveJobs] = useState(
-    data.queueStatus.processing ? [] as Awaited<ReturnType<typeof listProjectJobs>>: [],
+  const [generating, setGenerating] = useState(data.activeJobs.length > 0)
+  const [generationTotal, setGenerationTotal] = useState(
+    () => data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
   )
+  const [activeJobs, setActiveJobs] = useState(data.activeJobs)
+
+  // Sync generation state when loader data changes (e.g. page refresh reconnects to running jobs)
+  useEffect(() => {
+    if (data.activeJobs.length > 0) {
+      setActiveJobs(data.activeJobs)
+      setGenerating(true)
+      setGenerationTotal(data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0))
+    }
+  }, [data.activeJobs])
 
   const allScenes = scenePacks.flatMap((pack) =>
     pack.scenes.map((s) => ({ ...s, packName: pack.name })),
@@ -217,7 +285,7 @@ function WorkspacePage() {
     const candidateIds = allScenes.map((s) => s.id)
     const sceneIds = candidateIds.filter((id) => getSceneCount(id) > 0)
     if (candidateIds.length === 0) {
-      toast.error('No scenes available. Add a scene pack first.')
+      toast.error('No scenes available. Add a scene first.')
       return
     }
     if (sceneIds.length === 0) {
@@ -276,6 +344,9 @@ function WorkspacePage() {
     router.invalidate()
   }
 
+  // ── View mode ──
+  const [viewMode, setViewMode] = useState<'reserve' | 'edit'>('reserve')
+
   // ── Mobile panel state ──
   const [leftOpen, setLeftOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
@@ -289,6 +360,7 @@ function WorkspacePage() {
           projectName={data.project.name}
           projectId={projectId}
           saveStatus={saveStatus}
+          thumbnailPath={data.projectThumbnailPath}
         />
       }
       leftPanel={
@@ -305,9 +377,19 @@ function WorkspacePage() {
         <ScenePanel
           scenePacks={scenePacks}
           projectId={projectId}
+          generalPrompt={generalPrompt}
+          negativePrompt={negativePrompt}
+          characters={data.characters}
+          characterOverrides={characterOverrides}
           sceneCounts={sceneCounts}
           defaultCount={countPerScene}
           onSceneCountChange={handleSceneCountChange}
+          onAddScene={handleAddScene}
+          onDeleteScene={handleDeleteScene}
+          onRenameScene={handleRenameScene}
+          onPlaceholdersChange={handlePlaceholdersChange}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
         />
       }
       rightPanel={
@@ -326,12 +408,6 @@ function WorkspacePage() {
 
           parameterPopover={
             <ParameterPopover params={params} onChange={handleParamsChange} />
-          }
-          characterPopover={
-            <CharacterPopover
-              characters={data.characters}
-              projectId={projectId}
-            />
           }
           scenePackDialog={
             <ScenePackDialog projectId={projectId} />

@@ -14,6 +14,8 @@ import {
   addTag,
   removeTag,
 } from '@/server/functions/gallery'
+import { updateProjectScene } from '@/server/functions/project-scenes'
+import { updateProject } from '@/server/functions/projects'
 
 type SearchParams = {
   project?: number
@@ -141,6 +143,26 @@ function ImageDetailPage() {
     })
   }
 
+  async function handleSetSceneThumbnail() {
+    if (!detail.projectSceneId) return
+    try {
+      await updateProjectScene({ data: { id: detail.projectSceneId, thumbnailImageId: detail.id } })
+      toast.success('Set as scene thumbnail')
+    } catch {
+      toast.error('Failed to set scene thumbnail')
+    }
+  }
+
+  async function handleSetProjectThumbnail() {
+    if (!detail.projectId) return
+    try {
+      await updateProject({ data: { id: detail.projectId, thumbnailImageId: detail.id } })
+      toast.success('Set as project thumbnail')
+    } catch {
+      toast.error('Failed to set project thumbnail')
+    }
+  }
+
   const imageSrc = detail.filePath
     ? `/api/images/${detail.filePath.replace('data/images/', '')}`
     : ''
@@ -162,9 +184,9 @@ function ImageDetailPage() {
         {/* Back button */}
         <button
           onClick={goBack}
-          className="absolute top-4 left-4 z-10 flex items-center gap-1 text-sm text-white/60 hover:text-white transition-colors"
+          className="absolute top-4 left-4 z-10 flex items-center gap-1 text-base text-white/60 hover:text-white transition-colors"
         >
-          <HugeiconsIcon icon={ArrowLeft02Icon} className="size-4" />
+          <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
           Back
         </button>
 
@@ -202,12 +224,12 @@ function ImageDetailPage() {
       {/* Detail panel */}
       <div className="h-[40vh] lg:h-auto lg:w-80 bg-card border-t lg:border-t-0 lg:border-l border-border p-4 overflow-y-auto shrink-0">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-sm font-medium">Details</h3>
+          <h3 className="text-base font-medium">Details</h3>
           <button
             onClick={goBack}
             className="text-muted-foreground hover:text-foreground transition-colors"
           >
-            <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+            <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
           </button>
         </div>
 
@@ -215,17 +237,17 @@ function ImageDetailPage() {
         {(detail.projectName || detail.projectSceneName) && (
           <>
             <div className="mb-4">
-              <label className="text-xs text-muted-foreground mb-1.5 block">
+              <label className="text-sm text-muted-foreground mb-1.5 block">
                 Context
               </label>
               <div className="space-y-1">
                 {detail.projectName && detail.projectId && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Project:</span>
+                    <span className="text-sm text-muted-foreground">Project:</span>
                     <Link
                       to="/workspace/$projectId"
                       params={{ projectId: String(detail.projectId) }}
-                      className="text-xs text-primary hover:underline"
+                      className="text-sm text-primary hover:underline"
                     >
                       {detail.projectName}
                     </Link>
@@ -233,7 +255,7 @@ function ImageDetailPage() {
                 )}
                 {detail.projectSceneName && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-muted-foreground">Scene:</span>
+                    <span className="text-sm text-muted-foreground">Scene:</span>
                     {detail.projectId && detail.projectSceneId ? (
                       <Link
                         to="/workspace/$projectId/scenes/$sceneId"
@@ -241,18 +263,37 @@ function ImageDetailPage() {
                           projectId: String(detail.projectId),
                           sceneId: String(detail.projectSceneId),
                         }}
-                        className="text-xs text-primary hover:underline"
+                        className="text-sm text-primary hover:underline"
                       >
                         {detail.projectSceneName}
                       </Link>
                     ) : (
-                      <span className="text-xs text-foreground/80">
+                      <span className="text-sm text-foreground/80">
                         {detail.projectSceneName}
                       </span>
                     )}
                   </div>
                 )}
               </div>
+            </div>
+            <Separator className="mb-4" />
+          </>
+        )}
+
+        {/* Thumbnail actions */}
+        {(detail.projectSceneId || detail.projectId) && (
+          <>
+            <div className="mb-4 flex gap-2">
+              {detail.projectSceneId && (
+                <Button size="sm" variant="outline" onClick={handleSetSceneThumbnail} className="flex-1">
+                  Scene Thumb
+                </Button>
+              )}
+              {detail.projectId && (
+                <Button size="sm" variant="outline" onClick={handleSetProjectThumbnail} className="flex-1">
+                  Project Thumb
+                </Button>
+              )}
             </div>
             <Separator className="mb-4" />
           </>
@@ -272,7 +313,7 @@ function ImageDetailPage() {
 
         {/* Rating */}
         <div className="mb-4">
-          <label className="text-xs text-muted-foreground mb-1.5 block">
+          <label className="text-sm text-muted-foreground mb-1.5 block">
             Rating
           </label>
           <div className="flex gap-1">
@@ -296,7 +337,7 @@ function ImageDetailPage() {
 
         {/* Memo */}
         <div className="mb-4">
-          <label className="text-xs text-muted-foreground mb-1.5 block">
+          <label className="text-sm text-muted-foreground mb-1.5 block">
             Memo
           </label>
           <Textarea
@@ -304,13 +345,13 @@ function ImageDetailPage() {
             onChange={(e) => setMemo(e.target.value)}
             onBlur={handleSaveMemo}
             placeholder="Add a note..."
-            className="text-sm min-h-20"
+            className="text-base min-h-20"
           />
         </div>
 
         {/* Tags */}
         <div className="mb-4">
-          <label className="text-xs text-muted-foreground mb-1.5 block">
+          <label className="text-sm text-muted-foreground mb-1.5 block">
             Tags
           </label>
           <div className="flex flex-wrap gap-1 mb-2">
@@ -321,7 +362,7 @@ function ImageDetailPage() {
                   onClick={() => handleRemoveTag(t.tagId)}
                   className="ml-0.5 opacity-60 hover:opacity-100"
                 >
-                  <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                  <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
                 </button>
               </Badge>
             ))}
@@ -332,7 +373,7 @@ function ImageDetailPage() {
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
               placeholder="Add tag..."
-              className="h-7 text-xs"
+              className="h-7 text-sm"
             />
             <Button size="xs" variant="outline" onClick={handleAddTag}>
               Add
@@ -346,19 +387,19 @@ function ImageDetailPage() {
         <div className="mb-4">
           <button
             onClick={() => setRefExpanded(!refExpanded)}
-            className="flex items-center justify-between w-full text-xs text-muted-foreground mb-2 hover:text-foreground transition-colors"
+            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
           >
             <span>Reference</span>
-            <span className="text-[10px]">{refExpanded ? '\u25B2' : '\u25BC'}</span>
+            <span className="text-xs">{refExpanded ? '\u25B2' : '\u25BC'}</span>
           </button>
 
           {refExpanded && (
             <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-1 duration-150">
               <div>
-                <label className="text-xs text-muted-foreground mb-1.5 block">
+                <label className="text-sm text-muted-foreground mb-1.5 block">
                   Metadata
                 </label>
-                <div className="text-xs space-y-1 text-muted-foreground">
+                <div className="text-sm space-y-1 text-muted-foreground">
                   <p>Seed: {detail.seed ?? 'N/A'}</p>
                   <p>
                     Created: {new Date(detail.createdAt!).toLocaleString()}
@@ -368,10 +409,10 @@ function ImageDetailPage() {
 
               {meta?.parameters && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
                     Parameters
                   </label>
-                  <div className="text-xs space-y-0.5 text-muted-foreground">
+                  <div className="text-sm space-y-0.5 text-muted-foreground">
                     {meta.parameters.width && (
                       <p>
                         Size: {meta.parameters.width}x{meta.parameters.height}
@@ -390,10 +431,10 @@ function ImageDetailPage() {
 
               {meta?.prompts?.generalPrompt && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
                     General Prompt
                   </label>
-                  <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">
+                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">
                     {meta.prompts.generalPrompt}
                   </p>
                 </div>
@@ -401,10 +442,10 @@ function ImageDetailPage() {
 
               {meta?.prompts?.negativePrompt && (
                 <div>
-                  <label className="text-xs text-muted-foreground mb-1.5 block">
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
                     Negative Prompt
                   </label>
-                  <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">
+                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">
                     {meta.prompts.negativePrompt}
                   </p>
                 </div>

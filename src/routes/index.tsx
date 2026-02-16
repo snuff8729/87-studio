@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -45,11 +45,47 @@ export const Route = createFileRoute('/')({
 })
 
 function ProjectSelectorPage() {
-  const { projects, activeJobs, hasApiKey } = Route.useLoaderData()
+  const data = Route.useLoaderData()
   const router = useRouter()
+  const { projects, hasApiKey } = data
+  const [liveJobs, setLiveJobs] = useState(data.activeJobs)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+
+  // Sync from loader when navigating back
+  useEffect(() => {
+    setLiveJobs(data.activeJobs)
+  }, [data.activeJobs])
+
+  // Poll active jobs for real-time progress
+  const pollingRef = useRef(false)
+  useEffect(() => {
+    if (liveJobs.length === 0) return
+    let cancelled = false
+
+    const interval = setInterval(async () => {
+      if (cancelled || pollingRef.current) return
+      pollingRef.current = true
+      try {
+        const jobs = await listJobs()
+        if (cancelled) return
+        const active = jobs.filter(
+          (j) => j.status === 'running' || j.status === 'pending',
+        )
+        setLiveJobs(active)
+        if (active.length === 0) {
+          router.invalidate()
+        }
+      } catch {
+        // ignore poll errors
+      } finally {
+        pollingRef.current = false
+      }
+    }, 2000)
+
+    return () => { cancelled = true; clearInterval(interval) }
+  }, [liveJobs.length > 0, router])
 
   async function handleCreate() {
     if (!name.trim()) {
@@ -84,19 +120,19 @@ function ProjectSelectorPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-sm font-bold text-primary-foreground">87</span>
+            <span className="text-base font-bold text-primary-foreground">87</span>
           </div>
           <h1 className="text-lg font-semibold tracking-tight">Studio</h1>
         </div>
         <div className="flex items-center gap-2">
           {!hasApiKey && (
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-sm">
               API key not set
             </Badge>
           )}
           <Button variant="ghost" size="sm" asChild>
             <Link to="/settings">
-              <HugeiconsIcon icon={Settings02Icon} className="size-4" />
+              <HugeiconsIcon icon={Settings02Icon} className="size-5" />
               Settings
             </Link>
           </Button>
@@ -104,9 +140,9 @@ function ProjectSelectorPage() {
       </div>
 
       {/* Active jobs notice */}
-      {activeJobs.length > 0 && (
+      {liveJobs.length > 0 && (
         <div className="mb-4 space-y-1.5">
-          {activeJobs.map((j) => (
+          {liveJobs.map((j) => (
             <Link
               key={j.id}
               to="/workspace/$projectId"
@@ -114,12 +150,12 @@ function ProjectSelectorPage() {
               className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 transition-colors hover:bg-primary/8"
             >
               <div className="size-2 rounded-full bg-primary animate-pulse shrink-0" />
-              <span className="text-sm font-medium truncate">
+              <span className="text-base font-medium truncate">
                 {j.projectName && j.projectSceneName
                   ? `${j.projectName} / ${j.projectSceneName}`
                   : `Job #${j.id}`}
               </span>
-              <Badge variant="secondary" className="text-xs shrink-0">{j.status}</Badge>
+              <Badge variant="secondary" className="text-sm shrink-0">{j.status}</Badge>
               <div className="flex-1 min-w-16">
                 <div className="h-1 rounded-full bg-secondary overflow-hidden">
                   <div
@@ -130,7 +166,7 @@ function ProjectSelectorPage() {
                   />
                 </div>
               </div>
-              <span className="text-xs text-muted-foreground tabular-nums shrink-0">
+              <span className="text-sm text-muted-foreground tabular-nums shrink-0">
                 {j.completedCount}/{j.totalCount}
               </span>
             </Link>
@@ -148,26 +184,39 @@ function ProjectSelectorPage() {
             <Link
               to="/workspace/$projectId"
               params={{ projectId: String(p.id) }}
-              className="flex-1 flex items-center justify-between px-3 py-3 min-w-0"
+              className="flex-1 flex items-center gap-3 px-3 py-3 min-w-0"
             >
-              <div className="min-w-0">
-                <span className="text-sm font-medium group-hover:text-primary transition-colors truncate block">
+              {/* Project thumbnail */}
+              <div className="size-10 rounded-lg overflow-hidden bg-secondary/40 shrink-0 flex items-center justify-center">
+                {p.thumbnailPath ? (
+                  <img
+                    src={`/api/thumbnails/${p.thumbnailPath.replace('data/thumbnails/', '')}`}
+                    alt=""
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <HugeiconsIcon icon={FolderOpenIcon} className="size-5 text-muted-foreground/20" />
+                )}
+              </div>
+              <div className="min-w-0 flex-1">
+                <span className="text-base font-medium group-hover:text-primary transition-colors truncate block">
                   {p.name}
                 </span>
                 {p.description && (
-                  <span className="text-xs text-muted-foreground truncate block">{p.description}</span>
+                  <span className="text-sm text-muted-foreground truncate block">{p.description}</span>
                 )}
               </div>
-              <HugeiconsIcon icon={ArrowRight01Icon} className="size-4 text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0" />
+              <HugeiconsIcon icon={ArrowRight01Icon} className="size-5 text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0" />
             </Link>
             <ConfirmDialog
               trigger={
                 <Button
                   variant="ghost"
-                  size="icon-xs"
+                  size="icon-sm"
                   className="opacity-0 group-hover:opacity-100 text-destructive mr-2 shrink-0"
                 >
-                  <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+                  <HugeiconsIcon icon={Delete02Icon} className="size-5" />
                 </Button>
               }
               title="Delete Project"
@@ -181,8 +230,8 @@ function ProjectSelectorPage() {
       {projects.length === 0 && (
         <div className="rounded-xl border border-border border-dashed py-12 text-center">
           <HugeiconsIcon icon={FolderOpenIcon} className="size-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground mb-1">No projects yet</p>
-          <p className="text-xs text-muted-foreground mb-4">Create your first project to get started.</p>
+          <p className="text-base text-muted-foreground mb-1">No projects yet</p>
+          <p className="text-sm text-muted-foreground mb-4">Create your first project to get started.</p>
         </div>
       )}
 
@@ -191,7 +240,7 @@ function ProjectSelectorPage() {
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full">
-              <HugeiconsIcon icon={Add01Icon} className="size-4" />
+              <HugeiconsIcon icon={Add01Icon} className="size-5" />
               New Project
             </Button>
           </DialogTrigger>

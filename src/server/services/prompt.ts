@@ -47,7 +47,10 @@ export function synthesizePrompts(
     scenePlaceholders,
   )
 
-  const negativePrompt = project.negativePrompt || ''
+  const negativePrompt = resolvePlaceholders(
+    project.negativePrompt || '',
+    scenePlaceholders,
+  )
 
   // Resolve character prompts
   const chars = db

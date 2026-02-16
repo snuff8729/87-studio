@@ -82,6 +82,27 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       scenePacks.push({ ...pack, scenes: scenesWithCounts })
     }
 
+    // Resolve project thumbnail
+    let projectThumbnailPath: string | null = null
+    if (project.thumbnailImageId) {
+      const picked = db
+        .select({ thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(eq(generatedImages.id, project.thumbnailImageId))
+        .get()
+      projectThumbnailPath = picked?.thumbnailPath ?? null
+    }
+    if (!projectThumbnailPath) {
+      const latest = db
+        .select({ thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(eq(generatedImages.projectId, projectId))
+        .orderBy(desc(generatedImages.createdAt))
+        .limit(1)
+        .get()
+      projectThumbnailPath = latest?.thumbnailPath ?? null
+    }
+
     const recentImages = db
       .select({
         id: generatedImages.id,
@@ -97,13 +118,36 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .limit(50)
       .all()
 
+    const activeJobs = db
+      .select({
+        id: generationJobs.id,
+        projectSceneId: generationJobs.projectSceneId,
+        sceneName: projectScenes.name,
+        status: generationJobs.status,
+        totalCount: generationJobs.totalCount,
+        completedCount: generationJobs.completedCount,
+        errorMessage: generationJobs.errorMessage,
+      })
+      .from(generationJobs)
+      .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+      .where(
+        and(
+          eq(generationJobs.projectId, projectId),
+          inArray(generationJobs.status, ['pending', 'running']),
+        ),
+      )
+      .orderBy(desc(generationJobs.createdAt))
+      .all()
+
     const queueStatus = getQueueStatus()
 
     return {
       project,
+      projectThumbnailPath,
       characters: chars,
       scenePacks,
       recentImages,
+      activeJobs,
       queueStatus,
     }
   })
@@ -210,6 +254,7 @@ export const getScenePageContext = createServerFn({ method: 'GET' })
         name: projects.name,
         generalPrompt: projects.generalPrompt,
         negativePrompt: projects.negativePrompt,
+        thumbnailImageId: projects.thumbnailImageId,
       })
       .from(projects)
       .where(eq(projects.id, data.projectId))
@@ -236,12 +281,24 @@ export const getScenePageContext = createServerFn({ method: 'GET' })
       .where(eq(projectScenePacks.id, scene.projectScenePackId))
       .get()
 
+    const overrides = db
+      .select({
+        characterId: characterSceneOverrides.characterId,
+        placeholders: characterSceneOverrides.placeholders,
+      })
+      .from(characterSceneOverrides)
+      .where(eq(characterSceneOverrides.projectSceneId, data.sceneId))
+      .all()
+
     return {
       project,
       characters: chars,
       sceneName: scene.name,
       packName: pack?.name ?? 'Unknown',
       thumbnailImageId: scene.thumbnailImageId,
+      projectThumbnailImageId: project.thumbnailImageId,
+      scenePlaceholders: scene.placeholders,
+      characterOverrides: overrides,
     }
   })
 

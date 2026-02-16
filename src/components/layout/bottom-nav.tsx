@@ -29,11 +29,11 @@ export function BottomNav() {
               to={item.to}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex flex-col items-center gap-0.5 px-2 py-1.5 text-[10px] transition-colors',
+                'flex flex-col items-center gap-0.5 px-2 py-1.5 text-xs transition-colors',
                 isActive ? 'text-primary' : 'text-muted-foreground',
               )}
             >
-              <HugeiconsIcon icon={item.icon} className="size-4" />
+              <HugeiconsIcon icon={item.icon} className="size-5" />
               {item.label}
             </Link>
           )

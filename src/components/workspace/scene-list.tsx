@@ -31,8 +31,8 @@ export function SceneList({
   if (scenePacks.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center p-8">
-        <p className="text-sm text-muted-foreground mb-1">No scene packs assigned</p>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-base text-muted-foreground mb-1">No scene packs assigned</p>
+        <p className="text-sm text-muted-foreground">
           Use the Scene Packs button in the bottom toolbar to import scenes.
         </p>
       </div>
@@ -43,7 +43,7 @@ export function SceneList({
     <div className="p-4 space-y-6">
       {scenePacks.map((pack) => (
         <div key={pack.id}>
-          <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+          <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">
             {pack.name}
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-3 xl:grid-cols-4 gap-2">
@@ -66,7 +66,7 @@ export function SceneList({
                     className="block w-full text-left"
                   >
                     {scene.thumbnailPath ? (
-                      <div className="aspect-[3/2] bg-secondary overflow-hidden">
+                      <div className="aspect-[3/4] bg-secondary overflow-hidden">
                         <img
                           src={`/api/thumbnails/${scene.thumbnailPath.replace('data/thumbnails/', '')}`}
                           alt=""
@@ -75,23 +75,23 @@ export function SceneList({
                         />
                       </div>
                     ) : (
-                      <div className="aspect-[3/2] bg-secondary/40 flex items-center justify-center">
+                      <div className="aspect-[3/4] bg-secondary/40 flex items-center justify-center">
                         <HugeiconsIcon icon={Image02Icon} className="size-6 text-muted-foreground/20" />
                       </div>
                     )}
                     <div className="p-2 pb-1">
-                      <div className="text-sm font-medium group-hover:text-primary transition-colors truncate">
+                      <div className="text-base font-medium group-hover:text-primary transition-colors truncate">
                         {scene.name}
                       </div>
                       <div className="flex items-center gap-2 mt-0.5">
                         {placeholderCount > 0 && (
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-sm text-muted-foreground">
                             {placeholderCount} placeholder{placeholderCount !== 1 ? 's' : ''}
                           </span>
                         )}
                         {scene.recentImageCount > 0 && (
-                          <span className="flex items-center gap-0.5 text-[10px] text-muted-foreground">
-                            <HugeiconsIcon icon={Image02Icon} className="size-3" />
+                          <span className="flex items-center gap-0.5 text-sm text-muted-foreground">
+                            <HugeiconsIcon icon={Image02Icon} className="size-4" />
                             {scene.recentImageCount}
                           </span>
                         )}
@@ -112,7 +112,7 @@ export function SceneList({
                           e.stopPropagation()
                           onSceneCountChange(sceneId, null)
                         }}
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
+                        className="text-sm text-muted-foreground hover:text-foreground"
                         title="Reset to default"
                       >
                         &times;

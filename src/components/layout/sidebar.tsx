@@ -36,13 +36,13 @@ export function Sidebar() {
               to={item.to}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
+                'flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-colors',
                 isActive
                   ? 'bg-primary/10 text-primary font-medium'
                   : 'text-muted-foreground hover:bg-accent hover:text-foreground',
               )}
             >
-              <HugeiconsIcon icon={item.icon} className="size-4" />
+              <HugeiconsIcon icon={item.icon} className="size-5" />
               {item.label}
             </Link>
           )

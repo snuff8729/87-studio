@@ -1,0 +1,2 @@
+CREATE INDEX `generated_images_project_created_idx` ON `generated_images` (`project_id`,`created_at`);--> statement-breakpoint
+CREATE INDEX `generated_images_favorite_created_idx` ON `generated_images` (`is_favorite`,`created_at`);

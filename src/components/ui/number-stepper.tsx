@@ -36,9 +36,9 @@ export function NumberStepper({
     onChange(next)
   }
 
-  const h = size === 'sm' ? 'h-6' : 'h-7'
-  const textSize = size === 'sm' ? 'text-[11px]' : 'text-xs'
-  const btnW = size === 'sm' ? 'w-5' : 'w-6'
+  const h = size === 'sm' ? 'h-8' : 'h-9'
+  const textSize = size === 'sm' ? 'text-sm' : 'text-base'
+  const btnW = size === 'sm' ? 'w-7' : 'w-8'
 
   return (
     <div

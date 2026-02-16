@@ -18,15 +18,15 @@ export function HistoryPanel({ images, projectId }: HistoryPanelProps) {
   return (
     <div className="p-2 flex flex-col h-full">
       <div className="flex items-center justify-between mb-2">
-        <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
           History
         </h3>
-        <span className="text-[10px] text-muted-foreground">{images.length}</span>
+        <span className="text-xs text-muted-foreground">{images.length}</span>
       </div>
 
       {images.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-xs text-muted-foreground text-center">No images yet</p>
+          <p className="text-sm text-muted-foreground text-center">No images yet</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto -mx-1 px-1">
@@ -47,12 +47,12 @@ export function HistoryPanel({ images, projectId }: HistoryPanelProps) {
                     loading="lazy"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-[10px]">
+                  <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
                     ...
                   </div>
                 )}
                 {img.isFavorite ? (
-                  <div className="absolute top-0.5 right-0.5 text-[10px] text-destructive">
+                  <div className="absolute top-0.5 right-0.5 text-xs text-destructive">
                     {'\u2764'}
                   </div>
                 ) : null}
@@ -66,10 +66,10 @@ export function HistoryPanel({ images, projectId }: HistoryPanelProps) {
         <Link
           to="/gallery"
           search={{ project: projectId }}
-          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+          className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
         >
           Full gallery
-          <HugeiconsIcon icon={ArrowRight01Icon} className="size-3" />
+          <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
         </Link>
       </div>
     </div>

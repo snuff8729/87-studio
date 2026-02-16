@@ -5,6 +5,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { autocompletion } from '@codemirror/autocomplete'
 import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
+import { weightHighlight } from './weight-highlight'
 import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
 
 interface PromptEditorProps {
@@ -18,7 +19,7 @@ export function PromptEditor({
   value,
   onChange,
   placeholder,
-  minHeight = '80px',
+  minHeight = '200px',
 }: PromptEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -40,6 +41,7 @@ export function PromptEditor({
         EditorView.lineWrapping,
         darkTheme,
         placeholderHighlight,
+        weightHighlight,
         autocompletion({
           override: [danbooruCompletion],
           activateOnTyping: true,
@@ -52,6 +54,7 @@ export function PromptEditor({
         EditorView.theme({
           '.cm-editor': { minHeight },
           '.cm-scroller': { minHeight },
+          '.cm-content': { minHeight },
         }),
         placeholder
           ? EditorView.contentAttributes.of({

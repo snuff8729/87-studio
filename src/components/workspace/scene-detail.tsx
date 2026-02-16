@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Image02Icon } from '@hugeicons/core-free-icons'
+import { Image02Icon, FolderOpenIcon } from '@hugeicons/core-free-icons'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -24,7 +24,10 @@ interface SceneDetailProps {
   projectId: number
   thumbnailImageId: number | null
   onThumbnailChange: (imageId: number | null, thumbnailPath?: string | null) => void
+  projectThumbnailImageId?: number | null
+  onProjectThumbnailChange?: (imageId: number | null) => void
   refreshKey?: number
+  hidePlaceholders?: boolean
 }
 
 type SceneData = Awaited<ReturnType<typeof getSceneDetail>>
@@ -68,7 +71,10 @@ export function SceneDetail({
   projectId,
   thumbnailImageId,
   onThumbnailChange,
+  projectThumbnailImageId,
+  onProjectThumbnailChange,
   refreshKey,
+  hidePlaceholders,
 }: SceneDetailProps) {
   const [loading, setLoading] = useState(true)
   const initialLoadDone = useRef(false)
@@ -286,19 +292,19 @@ export function SceneDetail({
   return (
     <div ref={rootRef} className="p-4 space-y-4">
       {/* General Placeholders */}
-      {generalPlaceholders.length > 0 && (
+      {!hidePlaceholders && generalPlaceholders.length > 0 && (
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
             General Placeholders
           </Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {generalPlaceholders.map((key) => (
               <div key={key} className="space-y-1">
-                <label className="text-xs font-mono text-muted-foreground">{`{{${key}}}`}</label>
+                <label className="text-sm font-mono text-muted-foreground">{`{{${key}}}`}</label>
                 <Input
                   value={placeholderValues[key] ?? ''}
                   onChange={(e) => handlePlaceholderChange(key, e.target.value)}
-                  className="h-8 text-sm"
+                  className="h-8 text-base"
                   placeholder={`Value for ${key}`}
                 />
               </div>
@@ -308,9 +314,9 @@ export function SceneDetail({
       )}
 
       {/* Character Overrides */}
-      {characters.length > 0 && uniqueCharPlaceholders.length > 0 && (
+      {!hidePlaceholders && characters.length > 0 && uniqueCharPlaceholders.length > 0 && (
         <div className="space-y-3">
-          <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
             Character Overrides
           </Label>
           {characters.map((char) => {
@@ -324,15 +330,15 @@ export function SceneDetail({
 
             return (
               <div key={char.id} className="space-y-1.5 pl-3 border-l-2 border-border">
-                <span className="text-xs font-medium">{char.name}</span>
+                <span className="text-sm font-medium">{char.name}</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   {charSpecificPlaceholders.map((key) => (
                     <div key={key} className="space-y-1">
-                      <label className="text-xs font-mono text-muted-foreground">{`{{${key}}}`}</label>
+                      <label className="text-sm font-mono text-muted-foreground">{`{{${key}}}`}</label>
                       <Input
                         value={charOverrides[char.id]?.[key] ?? ''}
                         onChange={(e) => handleCharOverrideChange(char.id, key, e.target.value)}
-                        className="h-8 text-sm"
+                        className="h-8 text-base"
                         placeholder={`Value for ${key}`}
                       />
                     </div>
@@ -348,13 +354,13 @@ export function SceneDetail({
       {images.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <Label className="text-xs text-muted-foreground uppercase tracking-wider">
+            <Label className="text-sm text-muted-foreground uppercase tracking-wider">
               Generated Images ({totalImageCount})
             </Label>
             {thumbnailImageId !== null && (
               <button
                 onClick={() => onThumbnailChange(null, null)}
-                className="text-[10px] text-muted-foreground hover:text-foreground transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
               >
                 Reset thumbnail
               </button>
@@ -407,25 +413,42 @@ export function SceneDetail({
                                 loading="lazy"
                               />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                              <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
                                 No thumb
                               </div>
                             )}
                             {/* Overlay buttons */}
                             <div className="absolute inset-x-0 top-0 flex items-center justify-between p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation()
-                                  onThumbnailChange(
-                                    isThumbnail ? null : img.id,
-                                    isThumbnail ? null : img.thumbnailPath,
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation()
+                                    onThumbnailChange(
+                                      isThumbnail ? null : img.id,
+                                      isThumbnail ? null : img.thumbnailPath,
+                                    )
+                                  }}
+                                  className={`p-0.5 ${isThumbnail ? 'text-primary' : 'text-white/70 hover:text-white'}`}
+                                  title={isThumbnail ? 'Remove as scene thumbnail' : 'Set as scene thumbnail'}
+                                >
+                                  <HugeiconsIcon icon={Image02Icon} className="size-5" />
+                                </button>
+                                {onProjectThumbnailChange && (() => {
+                                  const isProjectThumb = projectThumbnailImageId === img.id
+                                  return (
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        onProjectThumbnailChange(isProjectThumb ? null : img.id)
+                                      }}
+                                      className={`p-0.5 ${isProjectThumb ? 'text-primary' : 'text-white/70 hover:text-white'}`}
+                                      title={isProjectThumb ? 'Remove as project thumbnail' : 'Set as project thumbnail'}
+                                    >
+                                      <HugeiconsIcon icon={FolderOpenIcon} className="size-5" />
+                                    </button>
                                   )
-                                }}
-                                className={`p-0.5 ${isThumbnail ? 'text-primary' : 'text-white/70 hover:text-white'}`}
-                                title={isThumbnail ? 'Remove as thumbnail' : 'Set as thumbnail'}
-                              >
-                                <HugeiconsIcon icon={Image02Icon} className="size-3.5" />
-                              </button>
+                                })()}
+                              </div>
                               <button
                                 onClick={(e) => {
                                   e.stopPropagation()
@@ -433,14 +456,18 @@ export function SceneDetail({
                                 }}
                                 aria-label={img.isFavorite ? 'Unfavorite' : 'Favorite'}
                               >
-                                <span className={`text-sm ${img.isFavorite ? 'text-destructive' : 'text-white/70'}`}>
+                                <span className={`text-base ${img.isFavorite ? 'text-destructive' : 'text-white/70'}`}>
                                   {img.isFavorite ? '\u2764' : '\u2661'}
                                 </span>
                               </button>
                             </div>
-                            {isThumbnail && (
-                              <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[9px] text-center py-0.5">
-                                Thumbnail
+                            {(isThumbnail || projectThumbnailImageId === img.id) && (
+                              <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
+                                {isThumbnail && projectThumbnailImageId === img.id
+                                  ? 'Scene + Project Thumb'
+                                  : isThumbnail
+                                    ? 'Scene Thumbnail'
+                                    : 'Project Thumbnail'}
                               </div>
                             )}
                           </div>
@@ -457,11 +484,11 @@ export function SceneDetail({
           {hasMore && (
             <div className="flex justify-center py-2">
               {loadingMore ? (
-                <span className="text-xs text-muted-foreground">Loading...</span>
+                <span className="text-sm text-muted-foreground">Loading...</span>
               ) : (
                 <button
                   onClick={handleLoadMore}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
                   Load more ({images.length} / {totalImageCount})
                 </button>
@@ -472,7 +499,7 @@ export function SceneDetail({
       )}
 
       {!loading && images.length === 0 && (
-        <div className="text-center py-8 text-sm text-muted-foreground">
+        <div className="text-center py-8 text-base text-muted-foreground">
           No images generated for this scene yet.
         </div>
       )}

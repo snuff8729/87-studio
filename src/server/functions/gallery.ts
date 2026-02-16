@@ -29,6 +29,13 @@ export const listImages = createServerFn({ method: 'GET' })
     if (data.isFavorite) conditions.push(eq(generatedImages.isFavorite, 1))
     if (data.minRating) conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
 
+    // Tag filter as SQL subquery (not post-filter)
+    if (data.tagIds && data.tagIds.length > 0) {
+      conditions.push(
+        sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(data.tagIds.map(id => sql`${id}`), sql`, `)}))`
+      )
+    }
+
     // Determine sort order
     const sortBy = data.sortBy ?? 'newest'
     let orderClauses: ReturnType<typeof desc>[]
@@ -59,21 +66,7 @@ export const listImages = createServerFn({ method: 'GET' })
       query = query.where(and(...conditions)) as typeof query
     }
 
-    const images = query.all()
-
-    // If tag filter, post-filter (simpler than join for SQLite)
-    if (data.tagIds && data.tagIds.length > 0) {
-      const taggedImageIds = db
-        .select({ imageId: imageTags.imageId })
-        .from(imageTags)
-        .where(inArray(imageTags.tagId, data.tagIds))
-        .all()
-        .map((r) => r.imageId)
-      const tagSet = new Set(taggedImageIds)
-      return images.filter((img) => tagSet.has(img.id))
-    }
-
-    return images
+    return query.all()
   })
 
 export const updateImage = createServerFn({ method: 'POST' })

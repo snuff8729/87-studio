@@ -1,13 +1,28 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Film02Icon, Add01Icon, Cancel01Icon, ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import {
+  Film02Icon,
+  Add01Icon,
+  Cancel01Icon,
+  ArrowDown01Icon,
+  Delete02Icon,
+  PencilEdit01Icon,
+  Tick02Icon,
+} from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Separator } from '@/components/ui/separator'
+import { Textarea } from '@/components/ui/textarea'
+import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   Dialog,
   DialogContent,
@@ -30,38 +45,52 @@ interface ScenePackDialogProps {
 
 type PackListItem = Awaited<ReturnType<typeof listScenePacks>>[number]
 type PackDetail = Awaited<ReturnType<typeof getScenePack>>
+type SceneItem = PackDetail['scenes'][number]
 
 export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [packs, setPacks] = useState<PackListItem[]>([])
   const [selectedPack, setSelectedPack] = useState<PackDetail | null>(null)
+
   // New pack form
   const [newPackName, setNewPackName] = useState('')
-  const [newPackDesc, setNewPackDesc] = useState('')
+  const [creatingPack, setCreatingPack] = useState(false)
 
   // New scene form
   const [newSceneName, setNewSceneName] = useState('')
   const [addingScene, setAddingScene] = useState(false)
 
-  async function loadPacks() {
+  // Expanded scenes in accordion
+  const [expandedScenes, setExpandedScenes] = useState<Set<number>>(new Set())
+
+  const loadPacks = useCallback(async () => {
     const result = await listScenePacks()
     setPacks(result)
-  }
+  }, [])
 
   useEffect(() => {
-    if (open) loadPacks()
-  }, [open])
+    if (open) {
+      loadPacks()
+      setSelectedPack(null)
+      setExpandedScenes(new Set())
+    }
+  }, [open, loadPacks])
+
+  async function handleSelectPack(id: number) {
+    const detail = await getScenePack({ data: id })
+    setSelectedPack(detail)
+    setExpandedScenes(new Set())
+  }
 
   async function handleCreatePack() {
     if (!newPackName.trim()) return
     try {
-      const pack = await createScenePack({ data: { name: newPackName.trim(), description: newPackDesc.trim() || undefined } })
+      const pack = await createScenePack({ data: { name: newPackName.trim() } })
       setNewPackName('')
-      setNewPackDesc('')
-      toast.success('Scene pack created')
+      setCreatingPack(false)
+      toast.success('Pack created')
       await loadPacks()
-      // Select the new pack
       const detail = await getScenePack({ data: pack.id })
       setSelectedPack(detail)
     } catch {
@@ -80,30 +109,27 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
     }
   }
 
-  async function handleSelectPack(id: number) {
-    const detail = await getScenePack({ data: id })
-    setSelectedPack(detail)
-  }
-
   async function handleAssignToProject(scenePackId: number) {
     try {
       await assignScenePack({ data: { projectId, scenePackId } })
-      toast.success('Scene pack imported to project')
+      toast.success('Template applied to project')
       setOpen(false)
       router.invalidate()
     } catch {
-      toast.error('Failed to import pack')
+      toast.error('Failed to apply template')
     }
   }
 
   async function handleAddScene() {
     if (!newSceneName.trim() || !selectedPack) return
     try {
-      await createScene({ data: { scenePackId: selectedPack.id, name: newSceneName.trim() } })
+      const scene = await createScene({ data: { scenePackId: selectedPack.id, name: newSceneName.trim() } })
       setNewSceneName('')
       setAddingScene(false)
       const detail = await getScenePack({ data: selectedPack.id })
       setSelectedPack(detail)
+      // Auto-expand the new scene
+      setExpandedScenes((prev) => new Set([...prev, scene.id]))
       toast.success('Scene added')
     } catch {
       toast.error('Failed to add scene')
@@ -117,155 +143,324 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
         const detail = await getScenePack({ data: selectedPack.id })
         setSelectedPack(detail)
       }
+      setExpandedScenes((prev) => {
+        const next = new Set(prev)
+        next.delete(sceneId)
+        return next
+      })
       toast.success('Scene deleted')
     } catch {
       toast.error('Failed to delete scene')
     }
   }
 
+  async function handleSceneUpdated() {
+    if (!selectedPack) return
+    const detail = await getScenePack({ data: selectedPack.id })
+    setSelectedPack(detail)
+  }
+
+  function toggleScene(sceneId: number) {
+    setExpandedScenes((prev) => {
+      const next = new Set(prev)
+      if (next.has(sceneId)) {
+        next.delete(sceneId)
+      } else {
+        next.add(sceneId)
+      }
+      return next
+    })
+  }
+
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm">
-          <HugeiconsIcon icon={Film02Icon} className="size-3.5" />
-          <span className="hidden sm:inline">Scene Packs</span>
+          <HugeiconsIcon icon={Film02Icon} className="size-5" />
+          <span className="hidden sm:inline">Templates</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Scene Packs</DialogTitle>
+      <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+        {/* Header */}
+        <DialogHeader className="px-6 pt-5 pb-3 shrink-0">
+          <DialogTitle>Scene Templates</DialogTitle>
+          <p className="text-sm text-muted-foreground">
+            Manage reusable scene packs and apply them to your project.
+          </p>
         </DialogHeader>
 
-        <div className="flex-1 flex gap-4 min-h-0 overflow-hidden">
-          {/* Pack list */}
-          <div className="w-48 shrink-0 space-y-2 overflow-y-auto">
-            {packs.map((pack) => (
-              <button
-                key={pack.id}
-                onClick={() => handleSelectPack(pack.id)}
-                className={`w-full text-left rounded-lg px-3 py-2 text-sm transition-colors ${
-                  selectedPack?.id === pack.id
-                    ? 'bg-primary/10 text-primary'
-                    : 'hover:bg-secondary/80'
-                }`}
+        {/* Body: Two-panel layout */}
+        <div className="flex-1 flex min-h-0 overflow-hidden">
+          {/* Mobile: Pack selector dropdown */}
+          <div className="sm:hidden px-4 py-3 border-b border-border shrink-0">
+            <div className="flex gap-2">
+              <Select
+                value={selectedPack ? String(selectedPack.id) : undefined}
+                onValueChange={(v) => handleSelectPack(Number(v))}
               >
-                <div className="font-medium truncate">{pack.name}</div>
-                {pack.description && (
-                  <div className="text-xs text-muted-foreground truncate">{pack.description}</div>
-                )}
-              </button>
-            ))}
-
-            <Separator />
-
-            {/* Create new pack */}
-            <div className="space-y-2 pt-1">
-              <Input
-                value={newPackName}
-                onChange={(e) => setNewPackName(e.target.value)}
-                placeholder="New pack name"
-                className="h-7 text-xs"
-                onKeyDown={(e) => e.key === 'Enter' && handleCreatePack()}
-              />
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a pack..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {packs.map((pack) => (
+                    <SelectItem key={pack.id} value={String(pack.id)}>
+                      {pack.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
-                size="xs"
+                size="sm"
                 variant="outline"
-                onClick={handleCreatePack}
-                disabled={!newPackName.trim()}
-                className="w-full"
+                onClick={() => setCreatingPack(true)}
+                className="shrink-0"
               >
-                <HugeiconsIcon icon={Add01Icon} className="size-3" />
-                Create Pack
+                <HugeiconsIcon icon={Add01Icon} className="size-5" />
               </Button>
             </div>
           </div>
 
-          {/* Pack detail */}
-          <div className="flex-1 overflow-y-auto min-w-0">
+          {/* Desktop: Left sidebar - Pack list */}
+          <div className="hidden sm:flex w-56 shrink-0 border-r border-border flex-col">
+            {/* Sidebar header */}
+            <div className="flex items-center justify-between px-4 py-3 shrink-0">
+              <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                Packs
+              </span>
+              <button
+                onClick={() => setCreatingPack(true)}
+                className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+              >
+                <HugeiconsIcon icon={Add01Icon} className="size-5" />
+              </button>
+            </div>
+
+            {/* Pack list */}
+            <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
+              {packs.map((pack) => (
+                <button
+                  key={pack.id}
+                  onClick={() => handleSelectPack(pack.id)}
+                  className={`w-full text-left rounded-lg px-3 py-2.5 text-base transition-colors ${
+                    selectedPack?.id === pack.id
+                      ? 'bg-primary/10 text-primary border border-primary/20'
+                      : 'hover:bg-secondary/60 border border-transparent'
+                  }`}
+                >
+                  <div className="font-medium truncate">{pack.name}</div>
+                  {pack.description && (
+                    <div className="text-xs text-muted-foreground truncate mt-0.5">
+                      {pack.description}
+                    </div>
+                  )}
+                </button>
+              ))}
+              {packs.length === 0 && (
+                <p className="text-sm text-muted-foreground text-center py-4">
+                  No packs yet
+                </p>
+              )}
+            </div>
+
+            {/* Create pack form (bottom of sidebar) */}
+            {creatingPack && (
+              <div className="px-3 py-3 border-t border-border shrink-0 space-y-2">
+                <Input
+                  value={newPackName}
+                  onChange={(e) => setNewPackName(e.target.value)}
+                  placeholder="New pack name"
+                  className="h-7 text-sm rounded-lg"
+                  autoFocus
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreatePack()
+                    if (e.key === 'Escape') {
+                      setCreatingPack(false)
+                      setNewPackName('')
+                    }
+                  }}
+                />
+                <div className="flex gap-1.5">
+                  <Button
+                    size="xs"
+                    onClick={handleCreatePack}
+                    disabled={!newPackName.trim()}
+                    className="flex-1"
+                  >
+                    Create
+                  </Button>
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onClick={() => {
+                      setCreatingPack(false)
+                      setNewPackName('')
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mobile: Create pack form */}
+          {creatingPack && (
+            <div className="sm:hidden px-4 py-3 border-b border-border shrink-0 space-y-2">
+              <Input
+                value={newPackName}
+                onChange={(e) => setNewPackName(e.target.value)}
+                placeholder="New pack name"
+                className="h-8 text-base rounded-lg"
+                autoFocus
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleCreatePack()
+                  if (e.key === 'Escape') {
+                    setCreatingPack(false)
+                    setNewPackName('')
+                  }
+                }}
+              />
+              <div className="flex gap-1.5">
+                <Button size="sm" onClick={handleCreatePack} disabled={!newPackName.trim()} className="flex-1">
+                  Create
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setCreatingPack(false); setNewPackName('') }}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Right content: Pack detail */}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             {selectedPack ? (
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold">{selectedPack.name}</h3>
-                  <div className="flex gap-1.5">
-                    <Button
-                      size="sm"
-                      onClick={() => handleAssignToProject(selectedPack.id)}
-                    >
-                      <HugeiconsIcon icon={ArrowDown01Icon} className="size-3.5" />
-                      Import to Project
+              <>
+                {/* Pack header */}
+                <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0 gap-3">
+                  <div className="min-w-0">
+                    <h3 className="text-base font-semibold truncate">{selectedPack.name}</h3>
+                    {selectedPack.description && (
+                      <p className="text-sm text-muted-foreground truncate mt-0.5">
+                        {selectedPack.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Button size="sm" onClick={() => handleAssignToProject(selectedPack.id)}>
+                      <HugeiconsIcon icon={ArrowDown01Icon} className="size-5" />
+                      <span className="hidden sm:inline">Apply to Project</span>
+                      <span className="sm:hidden">Apply</span>
                     </Button>
                     <ConfirmDialog
                       trigger={
-                        <Button size="sm" variant="ghost" className="text-destructive">
-                          Delete Pack
+                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
+                          <HugeiconsIcon icon={Delete02Icon} className="size-5" />
+                          <span className="hidden sm:inline">Delete</span>
                         </Button>
                       }
                       title="Delete Scene Pack"
-                      description={`Delete "${selectedPack.name}" and all its scenes?`}
+                      description={`Delete "${selectedPack.name}" and all its scenes? This cannot be undone.`}
                       onConfirm={() => handleDeletePack(selectedPack.id)}
                     />
                   </div>
                 </div>
 
-                {selectedPack.description && (
-                  <p className="text-xs text-muted-foreground">{selectedPack.description}</p>
-                )}
-
-                {/* Scenes */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label className="text-xs text-muted-foreground">
+                {/* Scenes list */}
+                <div className="flex-1 overflow-y-auto p-4 space-y-2">
+                  {/* Section header */}
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                       Scenes ({selectedPack.scenes.length})
-                    </Label>
-                    <Button size="xs" variant="outline" onClick={() => setAddingScene(true)}>
-                      <HugeiconsIcon icon={Add01Icon} className="size-3" />
+                    </span>
+                    <Button size="sm" variant="outline" onClick={() => setAddingScene(true)}>
+                      <HugeiconsIcon icon={Add01Icon} className="size-4" />
                       Add Scene
                     </Button>
                   </div>
 
+                  {/* Add scene inline form */}
                   {addingScene && (
-                    <div className="flex gap-1.5">
+                    <div className="flex gap-1.5 items-center">
                       <Input
                         value={newSceneName}
                         onChange={(e) => setNewSceneName(e.target.value)}
                         placeholder="Scene name"
+                        className="h-7 text-sm flex-1 rounded-lg"
+                        autoFocus
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleAddScene()
-                          if (e.key === 'Escape') { setAddingScene(false); setNewSceneName('') }
+                          if (e.key === 'Escape') {
+                            setAddingScene(false)
+                            setNewSceneName('')
+                          }
                         }}
-                        className="h-7 text-xs"
-                        autoFocus
                       />
                       <Button size="xs" onClick={handleAddScene} disabled={!newSceneName.trim()}>
                         Add
                       </Button>
+                      <Button
+                        size="xs"
+                        variant="ghost"
+                        onClick={() => {
+                          setAddingScene(false)
+                          setNewSceneName('')
+                        }}
+                      >
+                        Cancel
+                      </Button>
                     </div>
                   )}
 
-                  {selectedPack.scenes.map((scene) => {
-                    const placeholders = JSON.parse(scene.placeholders || '{}')
-                    const keys = Object.keys(placeholders)
-                    return (
-                      <SceneEditItem
-                        key={scene.id}
-                        scene={scene}
-                        placeholderKeys={keys}
-                        placeholders={placeholders}
-                        onDelete={() => handleDeleteScene(scene.id)}
-                        onUpdated={async () => {
-                          const detail = await getScenePack({ data: selectedPack.id })
-                          setSelectedPack(detail)
-                        }}
-                      />
-                    )
-                  })}
+                  {/* Scene items */}
+                  {selectedPack.scenes.map((scene) => (
+                    <SceneAccordionItem
+                      key={scene.id}
+                      scene={scene}
+                      expanded={expandedScenes.has(scene.id)}
+                      onToggle={() => toggleScene(scene.id)}
+                      onDelete={() => handleDeleteScene(scene.id)}
+                      onUpdated={handleSceneUpdated}
+                    />
+                  ))}
+
+                  {selectedPack.scenes.length === 0 && !addingScene && (
+                    <div className="text-center py-8">
+                      <p className="text-base text-muted-foreground mb-2">No scenes yet</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setAddingScene(true)}
+                      >
+                        <HugeiconsIcon icon={Add01Icon} className="size-5" />
+                        Add your first scene
+                      </Button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              </>
             ) : (
-              <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-muted-foreground">
-                  Select a scene pack or create a new one.
-                </p>
+              /* Empty state */
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center space-y-3">
+                  <div className="rounded-xl bg-secondary/30 p-4 mx-auto w-fit">
+                    <HugeiconsIcon icon={Film02Icon} className="size-6 text-muted-foreground/25" />
+                  </div>
+                  <p className="text-base text-muted-foreground">
+                    {packs.length === 0
+                      ? 'Create a scene pack to get started'
+                      : 'Select a pack to view its scenes'}
+                  </p>
+                  {packs.length === 0 && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCreatingPack(true)}
+                    >
+                      <HugeiconsIcon icon={Add01Icon} className="size-5" />
+                      Create Pack
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
           </div>
@@ -275,126 +470,253 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
   )
 }
 
-function SceneEditItem({
+/* ─── Scene Accordion Item ─── */
+
+function SceneAccordionItem({
   scene,
-  placeholderKeys,
-  placeholders,
+  expanded,
+  onToggle,
   onDelete,
   onUpdated,
 }: {
-  scene: { id: number; name: string; description: string | null; placeholders: string | null }
-  placeholderKeys: string[]
-  placeholders: Record<string, string>
+  scene: SceneItem
+  expanded: boolean
+  onToggle: () => void
   onDelete: () => void
   onUpdated: () => void
 }) {
-  const [editing, setEditing] = useState(false)
-  const [name, setName] = useState(scene.name)
-  const [values, setValues] = useState(placeholders)
-  const [newKey, setNewKey] = useState('')
+  const placeholders: Record<string, string> = JSON.parse(scene.placeholders || '{}')
+  const keys = Object.keys(placeholders)
 
-  function addKey() {
-    if (!newKey.trim() || values[newKey.trim()] !== undefined) return
-    setValues({ ...values, [newKey.trim()]: '' })
-    setNewKey('')
-  }
-
-  function removeKey(key: string) {
-    const next = { ...values }
-    delete next[key]
-    setValues(next)
-  }
-
-  async function handleSave() {
-    try {
-      await updateScene({
-        data: {
-          id: scene.id,
-          name: name.trim() || scene.name,
-          placeholders: JSON.stringify(values),
-        },
-      })
-      setEditing(false)
-      toast.success('Scene saved')
-      onUpdated()
-    } catch {
-      toast.error('Failed to save scene')
-    }
-  }
-
-  if (!editing) {
+  if (!expanded) {
     return (
-      <div className="flex items-center justify-between rounded-md bg-secondary/30 px-3 py-2 group">
-        <div className="min-w-0">
-          <div className="text-sm font-medium truncate">{scene.name}</div>
-          {placeholderKeys.length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {placeholderKeys.map((k) => (
-                <span key={k} className="text-[10px] text-muted-foreground font-mono">{`{{${k}}}`}</span>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-          <Button size="xs" variant="ghost" onClick={() => setEditing(true)}>
-            Edit
-          </Button>
-          <ConfirmDialog
-            trigger={
-              <Button size="xs" variant="ghost" className="text-destructive">
-                Del
-              </Button>
-            }
-            title="Delete Scene"
-            description={`Delete "${scene.name}"?`}
-            onConfirm={onDelete}
-          />
+      <div
+        className="rounded-lg bg-secondary/20 border border-border/50 px-4 py-3 group transition-all hover:border-border cursor-pointer"
+        onClick={onToggle}
+      >
+        <div className="flex items-center justify-between">
+          <div className="min-w-0 flex-1">
+            <div className="text-base font-medium truncate">{scene.name}</div>
+            {keys.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {keys.map((k) => (
+                  <span
+                    key={k}
+                    className="text-xs text-muted-foreground font-mono bg-secondary/60 rounded px-1.5 py-0.5"
+                  >
+                    {`{{${k}}}`}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="flex gap-1 shrink-0 ml-2">
+            {keys.length > 0 && (
+              <Badge variant="secondary" className="text-xs h-4 px-1.5 tabular-nums">
+                {keys.length} keys
+              </Badge>
+            )}
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={(e) => {
+                e.stopPropagation()
+                onToggle()
+              }}
+              className="opacity-0 group-hover:opacity-100 transition-opacity"
+            >
+              <HugeiconsIcon icon={PencilEdit01Icon} className="size-4" />
+            </Button>
+            <ConfirmDialog
+              trigger={
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  className="text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                </Button>
+              }
+              title="Delete Scene"
+              description={`Delete "${scene.name}"?`}
+              onConfirm={onDelete}
+            />
+          </div>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="rounded-md border border-primary/50 p-3 space-y-2">
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        className="h-7 text-sm"
-        placeholder="Scene name"
-      />
-      {Object.entries(values).map(([key, val]) => (
-        <div key={key} className="flex gap-1.5 items-center">
-          <span className="text-xs font-mono text-muted-foreground min-w-20">{`{{${key}}}`}</span>
-          <Input
-            value={val}
-            onChange={(e) => setValues({ ...values, [key]: e.target.value })}
-            className="h-7 text-xs flex-1"
-            placeholder={`Value for ${key}`}
+    <SceneEditPanel
+      scene={scene}
+      placeholders={placeholders}
+      onCollapse={onToggle}
+      onDelete={onDelete}
+      onUpdated={onUpdated}
+    />
+  )
+}
+
+/* ─── Scene Edit Panel (expanded) ─── */
+
+function SceneEditPanel({
+  scene,
+  placeholders: initialPlaceholders,
+  onCollapse,
+  onDelete,
+  onUpdated,
+}: {
+  scene: SceneItem
+  placeholders: Record<string, string>
+  onCollapse: () => void
+  onDelete: () => void
+  onUpdated: () => void
+}) {
+  const [name, setName] = useState(scene.name)
+  const [values, setValues] = useState<Record<string, string>>(initialPlaceholders)
+  const [newKey, setNewKey] = useState('')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Reset state when scene changes
+  useEffect(() => {
+    setName(scene.name)
+    setValues(JSON.parse(scene.placeholders || '{}'))
+  }, [scene.id, scene.name, scene.placeholders])
+
+  // Debounced auto-save
+  const debouncedSave = useCallback(
+    (updatedName: string, updatedValues: Record<string, string>) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current)
+      debounceRef.current = setTimeout(async () => {
+        setSaveStatus('saving')
+        try {
+          await updateScene({
+            data: {
+              id: scene.id,
+              name: updatedName.trim() || scene.name,
+              placeholders: JSON.stringify(updatedValues),
+            },
+          })
+          setSaveStatus('saved')
+          onUpdated()
+          if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+          saveTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
+        } catch {
+          toast.error('Failed to save')
+          setSaveStatus('idle')
+        }
+      }, 800)
+    },
+    [scene.id, scene.name, onUpdated],
+  )
+
+  function handleNameChange(newName: string) {
+    setName(newName)
+    debouncedSave(newName, values)
+  }
+
+  function handleValueChange(key: string, val: string) {
+    const next = { ...values, [key]: val }
+    setValues(next)
+    debouncedSave(name, next)
+  }
+
+  function addKey() {
+    const k = newKey.trim()
+    if (!k || values[k] !== undefined) return
+    const next = { ...values, [k]: '' }
+    setValues(next)
+    setNewKey('')
+    debouncedSave(name, next)
+  }
+
+  function removeKey(key: string) {
+    const next = { ...values }
+    delete next[key]
+    setValues(next)
+    debouncedSave(name, next)
+  }
+
+  return (
+    <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3 transition-all">
+      {/* Header: name + collapse/delete */}
+      <div className="flex items-center gap-2">
+        <Input
+          value={name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          className="h-8 text-base font-medium flex-1 rounded-lg"
+          placeholder="Scene name"
+        />
+        <div className="flex items-center gap-1 shrink-0">
+          {/* Save status */}
+          {saveStatus === 'saving' && (
+            <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
+          )}
+          {saveStatus === 'saved' && (
+            <span className="text-xs text-green-500 flex items-center gap-0.5">
+              <HugeiconsIcon icon={Tick02Icon} className="size-4" />
+              Saved
+            </span>
+          )}
+          <ConfirmDialog
+            trigger={
+              <Button size="xs" variant="ghost" className="text-destructive">
+                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+              </Button>
+            }
+            title="Delete Scene"
+            description={`Delete "${scene.name}"?`}
+            onConfirm={onDelete}
           />
-          <Button variant="ghost" size="icon-xs" onClick={() => removeKey(key)} className="text-destructive shrink-0">
-            <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+          <Button size="xs" variant="ghost" onClick={onCollapse}>
+            <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
           </Button>
         </div>
-      ))}
-      <div className="flex gap-1.5">
+      </div>
+
+      {/* Placeholder key-value pairs */}
+      {Object.keys(values).length > 0 && (
+        <div className="space-y-2">
+          {Object.entries(values).map(([key, val]) => (
+            <div key={key} className="flex gap-2 items-start">
+              <span className="text-sm font-mono text-muted-foreground min-w-20 sm:min-w-24 pt-2.5 shrink-0 inline-block rounded bg-secondary/60 px-2 py-1 text-center truncate">
+                {`{{${key}}}`}
+              </span>
+              <Textarea
+                value={val}
+                onChange={(e) => handleValueChange(key, e.target.value)}
+                placeholder={`Value for ${key}...`}
+                className="flex-1 text-base font-mono min-h-10 py-2 px-3 rounded-lg"
+              />
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => removeKey(key)}
+                className="text-destructive shrink-0 mt-1.5"
+              >
+                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add new key */}
+      <div className="flex gap-2 items-center border-t border-border/30 pt-3">
         <Input
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}
-          placeholder="New key"
+          placeholder="New key name"
+          className="h-7 text-sm w-36 rounded-lg"
           onKeyDown={(e) => e.key === 'Enter' && addKey()}
-          className="h-7 text-xs w-32"
         />
         <Button size="xs" variant="outline" onClick={addKey} disabled={!newKey.trim()}>
           Add Key
         </Button>
-      </div>
-      <div className="flex gap-1.5">
-        <Button size="xs" onClick={handleSave}>Save</Button>
-        <Button size="xs" variant="ghost" onClick={() => {
-          setEditing(false)
-          setName(scene.name)
-          setValues(placeholders)
-        }}>Cancel</Button>
       </div>
     </div>
   )

@@ -9,6 +9,7 @@ export const projects = sqliteTable('projects', {
   generalPrompt: text('general_prompt').default(''),
   negativePrompt: text('negative_prompt').default(''),
   parameters: text('parameters').default('{}'),
+  thumbnailImageId: integer('thumbnail_image_id'),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 })
@@ -187,6 +188,8 @@ export const generatedImages = sqliteTable(
     index('generated_images_source_scene_idx').on(table.sourceSceneId),
     index('generated_images_favorite_idx').on(table.isFavorite),
     index('generated_images_job_id_idx').on(table.jobId),
+    index('generated_images_project_created_idx').on(table.projectId, table.createdAt),
+    index('generated_images_favorite_created_idx').on(table.isFavorite, table.createdAt),
   ],
 )
 

@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/common/page-header'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -64,6 +65,25 @@ export const Route = createFileRoute('/gallery/')({
   component: GalleryPage,
 })
 
+const GAP = 6 // gap-1.5 = 6px
+
+function useGalleryColumns() {
+  const [cols, setCols] = useState(2)
+  useEffect(() => {
+    function update() {
+      const w = window.innerWidth
+      if (w >= 1024) setCols(5)
+      else if (w >= 768) setCols(4)
+      else if (w >= 640) setCols(3)
+      else setCols(2)
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+  return cols
+}
+
 function GalleryPage() {
   const { initialImages, allTags, allProjects } = Route.useLoaderData()
   const search = Route.useSearch()
@@ -81,7 +101,11 @@ function GalleryPage() {
   // Scene filter options (loaded when project is selected)
   const [projectScenes, setProjectScenes] = useState<{ id: number; name: string }[]>([])
 
-  const observerRef = useRef<HTMLDivElement>(null)
+  // ── Virtualized grid setup ──
+  const cols = useGalleryColumns()
+  const gridRef = useRef<HTMLDivElement>(null)
+  const [gridWidth, setGridWidth] = useState(0)
+  const [scrollMargin, setScrollMargin] = useState(0)
 
   useEffect(() => {
     setImages(initialImages)
@@ -97,6 +121,36 @@ function GalleryPage() {
       setProjectScenes([])
     }
   }, [search.project])
+
+  // Track grid width and scroll margin
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+    const measure = () => {
+      setGridWidth(el.clientWidth)
+      setScrollMargin(el.getBoundingClientRect().top + window.scrollY)
+    }
+    measure()
+    const ro = new ResizeObserver(() => measure())
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const cellSize = gridWidth > 0 ? Math.floor((gridWidth - GAP * (cols - 1)) / cols) : 150
+  const rowHeight = cellSize + GAP
+  const rowCount = Math.ceil(images.length / cols)
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: rowCount,
+    estimateSize: () => rowHeight,
+    overscan: 5,
+    scrollMargin,
+  })
+
+  // Re-measure when dimensions change
+  useEffect(() => {
+    rowVirtualizer.measure()
+  }, [rowVirtualizer, cellSize, scrollMargin])
 
   const loadMore = useCallback(async () => {
     if (loading || !hasMore) return
@@ -120,19 +174,15 @@ function GalleryPage() {
     setLoading(false)
   }, [loading, hasMore, page, search])
 
-  // IntersectionObserver for infinite scroll
+  // Load more when nearing the end of virtualized rows
+  const virtualItems = rowVirtualizer.getVirtualItems()
+  const lastVirtualRow = virtualItems.at(-1)
   useEffect(() => {
-    const el = observerRef.current
-    if (!el) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) loadMore()
-      },
-      { rootMargin: '200px' },
-    )
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [loadMore])
+    if (!lastVirtualRow || !hasMore || loading) return
+    if (lastVirtualRow.index >= rowCount - 3) {
+      loadMore()
+    }
+  }, [lastVirtualRow?.index, rowCount, hasMore, loading, loadMore])
 
   async function handleToggleFavorite(imageId: number, current: number | null) {
     const newVal = current ? 0 : 1
@@ -331,38 +381,76 @@ function GalleryPage() {
         )}
       </div>
 
-      {/* Image Grid */}
-      {images.length === 0 ? (
-        <div className="rounded-xl border border-border border-dashed py-16 text-center">
-          <HugeiconsIcon icon={Image02Icon} className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-          <p className="text-sm text-muted-foreground mb-1">No images found</p>
-          <p className="text-xs text-muted-foreground mb-4">
-            Generate images from a project or adjust your filters.
-          </p>
-          <Button variant="outline" size="sm" asChild>
-            <Link to="/">프로젝트 목록</Link>
-          </Button>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
-          {images.map((img) => (
-            <GalleryImage
-              key={img.id}
-              img={img}
-              search={search}
-              selectMode={selectMode}
-              selected={selectedIds.has(img.id)}
-              onToggleSelect={() => toggleSelect(img.id)}
-              onToggleFavorite={() => handleToggleFavorite(img.id, img.isFavorite)}
-            />
-          ))}
-        </div>
-      )}
+      {/* Image Grid — Virtualized */}
+      <div ref={gridRef}>
+        {images.length === 0 ? (
+          <div className="rounded-xl border border-border border-dashed py-16 text-center">
+            <HugeiconsIcon icon={Image02Icon} className="size-10 text-muted-foreground/40 mx-auto mb-3" />
+            <p className="text-base text-muted-foreground mb-1">No images found</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Generate images from a project or adjust your filters.
+            </p>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/">프로젝트 목록</Link>
+            </Button>
+          </div>
+        ) : (
+          <>
+            <div
+              style={{
+                height: `${rowVirtualizer.getTotalSize()}px`,
+                position: 'relative',
+                width: '100%',
+              }}
+            >
+              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                const startIdx = virtualRow.index * cols
+                const rowImages = images.slice(startIdx, startIdx + cols)
+                return (
+                  <div
+                    key={virtualRow.key}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      width: '100%',
+                      transform: `translateY(${virtualRow.start - rowVirtualizer.options.scrollMargin}px)`,
+                    }}
+                  >
+                    <div style={{ display: 'flex', gap: `${GAP}px` }}>
+                      {rowImages.map((img) => (
+                        <div
+                          key={img.id}
+                          style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                          className="shrink-0"
+                        >
+                          <GalleryImage
+                            img={img}
+                            search={search}
+                            selectMode={selectMode}
+                            selected={selectedIds.has(img.id)}
+                            onToggleSelect={() => toggleSelect(img.id)}
+                            onToggleFavorite={() => handleToggleFavorite(img.id, img.isFavorite)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            {loading && (
+              <div className="text-center py-4 text-muted-foreground text-base">Loading...</div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
         <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg">
-          <span className="text-sm font-medium">{selectedIds.size}개 선택</span>
+          <span className="text-base font-medium">{selectedIds.size}개 선택</span>
           <Button size="sm" variant="outline" onClick={handleBulkFavorite}>즐겨찾기</Button>
           <ConfirmDialog
             trigger={<Button size="sm" variant="destructive">삭제</Button>}
@@ -374,12 +462,6 @@ function GalleryPage() {
           />
           <Button size="sm" variant="ghost" onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}>취소</Button>
         </div>
-      )}
-
-      {/* Infinite scroll sentinel */}
-      <div ref={observerRef} className="h-10" />
-      {loading && (
-        <div className="text-center py-4 text-muted-foreground text-sm">Loading...</div>
       )}
     </div>
   )
@@ -414,7 +496,7 @@ function GalleryImage({
   if (selectMode) {
     return (
       <div
-        className="relative group aspect-square rounded-lg overflow-hidden bg-secondary cursor-pointer"
+        className="relative group w-full h-full rounded-lg overflow-hidden bg-secondary cursor-pointer"
         onClick={onToggleSelect}
       >
         <ImageContent imgRef={imgRef} img={img} loaded={loaded} onLoad={() => setLoaded(true)} />
@@ -426,7 +508,7 @@ function GalleryImage({
           />
         </div>
         {img.rating ? (
-          <div className="absolute bottom-1 left-1.5 text-xs text-primary">
+          <div className="absolute bottom-1 left-1.5 text-sm text-primary">
             {'\u2605'.repeat(img.rating)}
           </div>
         ) : null}
@@ -442,7 +524,7 @@ function GalleryImage({
       to="/gallery/$imageId"
       params={{ imageId: String(img.id) }}
       search={search}
-      className="relative group aspect-square rounded-lg overflow-hidden bg-secondary block"
+      className="relative group w-full h-full rounded-lg overflow-hidden bg-secondary block"
     >
       <ImageContent imgRef={imgRef} img={img} loaded={loaded} onLoad={() => setLoaded(true)} />
 
@@ -462,7 +544,7 @@ function GalleryImage({
       </button>
 
       {img.rating ? (
-        <div className="absolute bottom-1 left-1.5 text-xs text-primary">
+        <div className="absolute bottom-1 left-1.5 text-sm text-primary">
           {'\u2605'.repeat(img.rating)}
         </div>
       ) : null}
@@ -494,7 +576,7 @@ function ImageContent({
     )
   }
   return (
-    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
       No thumbnail
     </div>
   )

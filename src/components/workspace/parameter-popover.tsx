@@ -24,14 +24,14 @@ const PARAM_HELP: Record<string, string> = {
 
 function ParamLabel({ name, label }: { name: string; label: string }) {
   const help = PARAM_HELP[name]
-  if (!help) return <Label className="text-xs">{label}</Label>
+  if (!help) return <Label className="text-sm">{label}</Label>
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Label className="text-xs cursor-help border-b border-dashed border-muted-foreground/40">{label}</Label>
+        <Label className="text-sm cursor-help border-b border-dashed border-muted-foreground/40">{label}</Label>
       </TooltipTrigger>
       <TooltipContent side="top" className="max-w-52">
-        <p className="text-xs">{help}</p>
+        <p className="text-sm">{help}</p>
       </TooltipContent>
     </Tooltip>
   )
@@ -51,12 +51,12 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm">
-          <HugeiconsIcon icon={Settings02Icon} className="size-3.5" />
+          <HugeiconsIcon icon={Settings02Icon} className="size-5" />
           <span className="hidden sm:inline">Parameters</span>
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-80 max-h-[60vh] overflow-y-auto">
-        <h4 className="text-sm font-medium mb-3">Generation Parameters</h4>
+        <h4 className="text-base font-medium mb-3">Generation Parameters</h4>
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <ParamLabel name="width" label="Width" />
@@ -67,7 +67,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               step={64}
               value={String(params.width ?? 832)}
               onChange={(e) => set('width', Number(e.target.value))}
-              className="h-7 text-xs"
+              className="h-7 text-sm"
             />
           </div>
           <div className="space-y-1">
@@ -79,7 +79,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               step={64}
               value={String(params.height ?? 1216)}
               onChange={(e) => set('height', Number(e.target.value))}
-              className="h-7 text-xs"
+              className="h-7 text-sm"
             />
           </div>
           <div className="space-y-1">
@@ -90,7 +90,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               max={50}
               value={String(params.steps ?? 28)}
               onChange={(e) => set('steps', Number(e.target.value))}
-              className="h-7 text-xs"
+              className="h-7 text-sm"
             />
           </div>
           <div className="space-y-1">
@@ -102,7 +102,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               step={0.1}
               value={String(params.cfg_scale ?? 5)}
               onChange={(e) => set('cfg_scale', Number(e.target.value))}
-              className="h-7 text-xs"
+              className="h-7 text-sm"
             />
           </div>
           <div className="space-y-1">
@@ -114,7 +114,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               step={0.01}
               value={String(params.cfg_rescale ?? 0)}
               onChange={(e) => set('cfg_rescale', Number(e.target.value))}
-              className="h-7 text-xs"
+              className="h-7 text-sm"
             />
           </div>
           <div className="space-y-1">
@@ -123,7 +123,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               value={String(params.sampler ?? 'k_euler_ancestral')}
               onValueChange={(v) => set('sampler', v)}
             >
-              <SelectTrigger className="h-7 text-xs">
+              <SelectTrigger className="h-7 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -142,7 +142,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               value={String(params.scheduler ?? 'native')}
               onValueChange={(v) => set('scheduler', v)}
             >
-              <SelectTrigger className="h-7 text-xs">
+              <SelectTrigger className="h-7 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -159,7 +159,7 @@ export function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
               value={String(params.ucPreset ?? 3)}
               onValueChange={(v) => set('ucPreset', Number(v))}
             >
-              <SelectTrigger className="h-7 text-xs">
+              <SelectTrigger className="h-7 text-sm">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

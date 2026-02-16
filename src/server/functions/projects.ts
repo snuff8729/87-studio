@@ -1,10 +1,38 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
-import { projects, projectScenePacks, projectScenes, scenes, scenePacks } from '../db/schema'
+import { projects, projectScenePacks, projectScenes, scenes, scenePacks, generatedImages } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 
 export const listProjects = createServerFn({ method: 'GET' }).handler(async () => {
-  return db.select().from(projects).orderBy(desc(projects.createdAt)).all()
+  const rows = db.select().from(projects).orderBy(desc(projects.createdAt)).all()
+
+  return rows.map((project) => {
+    let thumbnailPath: string | null = null
+
+    // Explicit thumbnail pick
+    if (project.thumbnailImageId) {
+      const picked = db
+        .select({ thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(eq(generatedImages.id, project.thumbnailImageId))
+        .get()
+      thumbnailPath = picked?.thumbnailPath ?? null
+    }
+
+    // Fallback: most recent image in project
+    if (!thumbnailPath) {
+      const latest = db
+        .select({ thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(eq(generatedImages.projectId, project.id))
+        .orderBy(desc(generatedImages.createdAt))
+        .limit(1)
+        .get()
+      thumbnailPath = latest?.thumbnailPath ?? null
+    }
+
+    return { ...project, thumbnailPath }
+  })
 })
 
 export const getProject = createServerFn({ method: 'GET' })
@@ -35,6 +63,7 @@ export const updateProject = createServerFn({ method: 'POST' })
       generalPrompt?: string
       negativePrompt?: string
       parameters?: string
+      thumbnailImageId?: number | null
     }) => data,
   )
   .handler(async ({ data }) => {

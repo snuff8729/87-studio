@@ -17,7 +17,6 @@ interface BottomToolbarProps {
   totalImages: number
   // Popovers
   parameterPopover: ReactNode
-  characterPopover: ReactNode
   scenePackDialog: ReactNode
   // Generation progress
   generationProgress: ReactNode
@@ -33,7 +32,6 @@ export function BottomToolbar({
   generating,
   totalImages,
   parameterPopover,
-  characterPopover,
   scenePackDialog,
   generationProgress,
   onToggleLeft,
@@ -46,11 +44,10 @@ export function BottomToolbar({
       <div className="flex items-center gap-1">
         {/* Mobile panel toggles */}
         <Button variant="ghost" size="sm" onClick={onToggleLeft} className="lg:hidden">
-          <HugeiconsIcon icon={Menu01Icon} className="size-4" />
+          <HugeiconsIcon icon={Menu01Icon} className="size-5" />
         </Button>
 
         {parameterPopover}
-        {characterPopover}
         {scenePackDialog}
       </div>
 
@@ -73,14 +70,14 @@ export function BottomToolbar({
           onClick={onGenerate}
           disabled={generating || totalImages === 0}
         >
-          <HugeiconsIcon icon={PlayIcon} className="size-3.5" />
+          <HugeiconsIcon icon={PlayIcon} className="size-5" />
           <span className="hidden sm:inline">
             {generating ? 'Generating...' : totalImages > 0 ? `Generate ${totalImages}` : 'Generate'}
           </span>
         </Button>
 
         <Button variant="ghost" size="sm" onClick={onToggleRight} className="lg:hidden">
-          <HugeiconsIcon icon={TimeQuarter02Icon} className="size-4" />
+          <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5" />
         </Button>
       </div>
     </div>

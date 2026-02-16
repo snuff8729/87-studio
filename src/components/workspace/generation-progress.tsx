@@ -35,7 +35,7 @@ export function GenerationProgress({ jobs, batchTotal, onCancel }: GenerationPro
             return (
               <span
                 key={job.id}
-                className={`inline-flex items-center gap-1 text-[10px] shrink-0 ${
+                className={`inline-flex items-center gap-1 text-xs shrink-0 ${
                   isRunning ? 'text-foreground' : 'text-muted-foreground'
                 }`}
               >
@@ -58,18 +58,18 @@ export function GenerationProgress({ jobs, batchTotal, onCancel }: GenerationPro
               style={{ width: `${pct}%` }}
             />
           </div>
-          <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+          <span className="text-xs text-muted-foreground tabular-nums shrink-0">
             {completed}/{batchTotal}
           </span>
         </div>
       </div>
       <Button
         variant="ghost"
-        size="icon-xs"
+        size="icon-sm"
         onClick={onCancel}
         className="text-muted-foreground hover:text-destructive shrink-0"
       >
-        <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+        <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
       </Button>
     </div>
   )

@@ -90,7 +90,7 @@ function SettingsPage() {
                 max={30000}
                 step={100}
               />
-              <div className="flex justify-between text-xs text-muted-foreground">
+              <div className="flex justify-between text-sm text-muted-foreground">
                 <span>0ms</span>
                 <span>15s</span>
                 <span>30s</span>

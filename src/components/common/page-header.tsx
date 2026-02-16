@@ -13,7 +13,7 @@ export function PageHeader({ title, description, actions, breadcrumbs }: PageHea
     <div className="flex items-start justify-between gap-4 mb-6">
       <div className="min-w-0">
         {breadcrumbs && breadcrumbs.length > 0 && (
-          <nav className="flex items-center gap-1 text-xs text-muted-foreground mb-1.5">
+          <nav className="flex items-center gap-1 text-base text-muted-foreground mb-1.5">
             {breadcrumbs.map((crumb, index) => {
               const isLast = index === breadcrumbs.length - 1
               return (
@@ -32,7 +32,7 @@ export function PageHeader({ title, description, actions, breadcrumbs }: PageHea
           </nav>
         )}
         <h1 className="text-xl font-semibold tracking-tight truncate">{title}</h1>
-        {description && <p className="text-sm text-muted-foreground mt-0.5">{description}</p>}
+        {description && <p className="text-base text-muted-foreground mt-0.5">{description}</p>}
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>

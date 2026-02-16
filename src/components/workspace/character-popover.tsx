@@ -52,17 +52,17 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
     <Popover>
       <PopoverTrigger asChild>
         <Button variant="ghost" size="sm">
-          <HugeiconsIcon icon={UserIcon} className="size-3.5" />
+          <HugeiconsIcon icon={UserIcon} className="size-5" />
           <span className="hidden sm:inline">
             Characters{characters.length > 0 ? ` (${characters.length})` : ''}
           </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-64">
-        <h4 className="text-sm font-medium mb-3">Characters</h4>
+        <h4 className="text-base font-medium mb-3">Characters</h4>
 
         {characters.length === 0 ? (
-          <p className="text-xs text-muted-foreground mb-3">
+          <p className="text-sm text-muted-foreground mb-3">
             No characters. Add one for multi-character images.
           </p>
         ) : (
@@ -72,11 +72,11 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
                 key={char.id}
                 className="flex items-center justify-between rounded-md bg-secondary/50 px-2.5 py-1.5"
               >
-                <span className="text-sm truncate">{char.name}</span>
+                <span className="text-base truncate">{char.name}</span>
                 <ConfirmDialog
                   trigger={
-                    <Button variant="ghost" size="icon-xs" className="text-destructive shrink-0">
-                      <HugeiconsIcon icon={Delete02Icon} className="size-3" />
+                    <Button variant="ghost" size="icon-sm" className="text-destructive shrink-0">
+                      <HugeiconsIcon icon={Delete02Icon} className="size-4" />
                     </Button>
                   }
                   title="Delete Character"
@@ -98,7 +98,7 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
                 if (e.key === 'Enter') handleAdd()
                 if (e.key === 'Escape') { setAdding(false); setNewName('') }
               }}
-              className="h-7 text-xs"
+              className="h-7 text-sm"
               autoFocus
             />
             <Button size="xs" onClick={handleAdd} disabled={!newName.trim()}>
@@ -112,7 +112,7 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
             onClick={() => setAdding(true)}
             className="w-full"
           >
-            <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+            <HugeiconsIcon icon={Add01Icon} className="size-5" />
             Add Character
           </Button>
         )}
