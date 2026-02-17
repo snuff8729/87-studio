@@ -1,43 +1,239 @@
-import { memo, useState } from 'react'
+import { memo, useState, useSyncExternalStore, useCallback } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Settings02Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Slider } from '@/components/ui/slider'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 
-const PARAM_HELP: Record<string, string> = {
-  width: 'Image width in pixels (default: 832)',
-  height: 'Image height in pixels (default: 1216)',
-  steps: 'Denoising steps. Higher = better quality, slower (default: 28)',
-  cfg_scale: 'CFG Scale. Prompt adherence strength (default: 5)',
-  cfg_rescale: 'CFG Rescale. Prevents color bleed (default: 0)',
-  sampler: 'Sampler algorithm',
-  scheduler: 'Noise scheduler',
-  ucPreset: 'Undesired Content preset (0=Heavy, 1=Light, 2=Furry, 3=Human, 4=None)',
-  smea: 'SMEA: Resolution-adaptive sampling for composition stability',
-  smea_dyn: 'SMEA Dynamic: More varied compositions',
-  qualityToggle: 'Auto quality tags (masterpiece, best quality, etc.)',
+// --- useIsMobile hook ---
+const MOBILE_QUERY = '(max-width: 639px)'
+function subscribe(cb: () => void) {
+  const mql = window.matchMedia(MOBILE_QUERY)
+  mql.addEventListener('change', cb)
+  return () => mql.removeEventListener('change', cb)
+}
+function getSnapshot() { return window.matchMedia(MOBILE_QUERY).matches }
+function getServerSnapshot() { return false }
+function useIsMobile() {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
 
-function ParamLabel({ name, label }: { name: string; label: string }) {
+// --- Resolution presets ---
+const RESOLUTION_PRESETS = [
+  { label: 'Portrait', w: 832, h: 1216 },
+  { label: 'Landscape', w: 1216, h: 832 },
+  { label: 'Square', w: 1024, h: 1024 },
+  { label: 'Wide', w: 1472, h: 832 },
+  { label: 'Tall', w: 832, h: 1472 },
+] as const
+
+// --- Param label with tooltip ---
+const PARAM_HELP: Record<string, string> = {
+  resolution: 'Image resolution in pixels',
+  steps: 'Denoising steps. Higher = better quality, slower',
+  scale: 'CFG Scale. Prompt adherence strength',
+  cfgRescale: 'CFG Rescale. Prevents color bleed at high CFG',
+  sampler: 'Sampler algorithm',
+  scheduler: 'Noise scheduler',
+  ucPreset: 'Undesired Content preset',
+}
+
+function ParamLabel({ name, label, value }: { name: string; label: string; value?: string | number }) {
   const help = PARAM_HELP[name]
-  if (!help) return <Label className="text-sm">{label}</Label>
+  const labelEl = (
+    <div className="flex items-center justify-between">
+      {help ? (
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Label className="text-sm cursor-help border-b border-dashed border-muted-foreground/40">{label}</Label>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="max-w-52">
+            <p className="text-sm">{help}</p>
+          </TooltipContent>
+        </Tooltip>
+      ) : (
+        <Label className="text-sm">{label}</Label>
+      )}
+      {value !== undefined && (
+        <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+      )}
+    </div>
+  )
+  return labelEl
+}
+
+// --- Shared form ---
+function ParameterForm({
+  localParams,
+  set,
+}: {
+  localParams: Record<string, unknown>
+  set: (key: string, value: unknown) => void
+}) {
+  const w = Number(localParams.width ?? 832)
+  const h = Number(localParams.height ?? 1216)
+  const steps = Number(localParams.steps ?? 28)
+  const scale = Number(localParams.scale ?? 5)
+  const cfgRescale = Number(localParams.cfgRescale ?? 0)
+
+  const activePreset = RESOLUTION_PRESETS.find((p) => p.w === w && p.h === h)
+
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Label className="text-sm cursor-help border-b border-dashed border-muted-foreground/40">{label}</Label>
-      </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-52">
-        <p className="text-sm">{help}</p>
-      </TooltipContent>
-    </Tooltip>
+    <div className="space-y-4">
+      {/* Resolution */}
+      <section className="space-y-2.5">
+        <ParamLabel name="resolution" label="Resolution" value={`${w} × ${h}`} />
+        <div className="flex flex-wrap gap-1.5">
+          {RESOLUTION_PRESETS.map((p) => (
+            <button
+              key={p.label}
+              type="button"
+              onClick={() => { set('width', p.w); set('height', p.h) }}
+              className={cn(
+                'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                activePreset?.label === p.label
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary',
+              )}
+            >
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Width</Label>
+            <Input
+              type="number"
+              min={64}
+              max={1856}
+              step={64}
+              value={String(w)}
+              onChange={(e) => set('width', Number(e.target.value))}
+              className="h-8 text-sm tabular-nums"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Height</Label>
+            <Input
+              type="number"
+              min={64}
+              max={2624}
+              step={64}
+              value={String(h)}
+              onChange={(e) => set('height', Number(e.target.value))}
+              className="h-8 text-sm tabular-nums"
+            />
+          </div>
+        </div>
+      </section>
+
+      <hr className="border-border" />
+
+      {/* Quality */}
+      <section className="space-y-3">
+        <div className="space-y-2">
+          <ParamLabel name="steps" label="Steps" value={steps} />
+          <Slider
+            min={1}
+            max={50}
+            step={1}
+            value={[steps]}
+            onValueChange={([v]) => set('steps', v)}
+          />
+        </div>
+        <div className="space-y-2">
+          <ParamLabel name="scale" label="CFG Scale" value={scale} />
+          <Slider
+            min={0}
+            max={20}
+            step={0.1}
+            value={[scale]}
+            onValueChange={([v]) => set('scale', Math.round(v * 10) / 10)}
+          />
+        </div>
+        <div className="space-y-2">
+          <ParamLabel name="cfgRescale" label="CFG Rescale" value={cfgRescale} />
+          <Slider
+            min={0}
+            max={1}
+            step={0.01}
+            value={[cfgRescale]}
+            onValueChange={([v]) => set('cfgRescale', Math.round(v * 100) / 100)}
+          />
+        </div>
+      </section>
+
+      <hr className="border-border" />
+
+      {/* Sampling */}
+      <section className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <ParamLabel name="sampler" label="Sampler" />
+          <Select
+            value={String(localParams.sampler ?? 'k_euler_ancestral')}
+            onValueChange={(v) => set('sampler', v)}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="k_euler_ancestral">Euler A</SelectItem>
+              <SelectItem value="k_euler">Euler</SelectItem>
+              <SelectItem value="k_dpmpp_2s_ancestral">DPM++ 2S A</SelectItem>
+              <SelectItem value="k_dpmpp_2m">DPM++ 2M</SelectItem>
+              <SelectItem value="k_dpmpp_sde">DPM++ SDE</SelectItem>
+              <SelectItem value="ddim_v3">DDIM v3</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-1.5">
+          <ParamLabel name="scheduler" label="Scheduler" />
+          <Select
+            value={String(localParams.scheduler ?? 'karras')}
+            onValueChange={(v) => set('scheduler', v)}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="native">Native</SelectItem>
+              <SelectItem value="karras">Karras</SelectItem>
+              <SelectItem value="exponential">Exponential</SelectItem>
+              <SelectItem value="polyexponential">Polyexponential</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="col-span-2 space-y-1.5">
+          <ParamLabel name="ucPreset" label="UC Preset" />
+          <Select
+            value={String(localParams.ucPreset ?? 0)}
+            onValueChange={(v) => set('ucPreset', Number(v))}
+          >
+            <SelectTrigger className="h-8 text-sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="0">Heavy</SelectItem>
+              <SelectItem value="1">Light</SelectItem>
+              <SelectItem value="2">Furry</SelectItem>
+              <SelectItem value="3">Human Focus</SelectItem>
+              <SelectItem value="4">None</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </section>
+    </div>
   )
 }
 
+// --- Main component ---
 interface ParameterPopoverProps {
   params: Record<string, unknown>
   onChange: (params: Record<string, unknown>) => void
@@ -46,6 +242,7 @@ interface ParameterPopoverProps {
 export const ParameterPopover = memo(function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
   const [open, setOpen] = useState(false)
   const [localParams, setLocalParams] = useState(params)
+  const isMobile = useIsMobile()
 
   function handleOpenChange(isOpen: boolean) {
     if (isOpen) {
@@ -56,153 +253,37 @@ export const ParameterPopover = memo(function ParameterPopover({ params, onChang
     setOpen(isOpen)
   }
 
-  function set(key: string, value: unknown) {
+  const set = useCallback((key: string, value: unknown) => {
     setLocalParams((prev) => ({ ...prev, [key]: value }))
+  }, [])
+
+  const trigger = (
+    <Button variant="ghost" size="sm">
+      <HugeiconsIcon icon={Settings02Icon} className="size-5" />
+      <span className="hidden sm:inline">Parameters</span>
+    </Button>
+  )
+
+  if (isMobile) {
+    return (
+      <Dialog open={open} onOpenChange={handleOpenChange}>
+        <DialogTrigger asChild>{trigger}</DialogTrigger>
+        <DialogContent className="!top-auto !bottom-0 !translate-y-0 !translate-x-[-50%] !rounded-b-none max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Generation Parameters</DialogTitle>
+          </DialogHeader>
+          <ParameterForm localParams={localParams} set={set} />
+        </DialogContent>
+      </Dialog>
+    )
   }
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <HugeiconsIcon icon={Settings02Icon} className="size-5" />
-          <span className="hidden sm:inline">Parameters</span>
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-80 max-h-[60vh] overflow-y-auto">
-        <h4 className="text-base font-medium mb-3">Generation Parameters</h4>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <ParamLabel name="width" label="Width" />
-            <Input
-              type="number"
-              min={64}
-              max={1856}
-              step={64}
-              value={String(localParams.width ?? 832)}
-              onChange={(e) => set('width', Number(e.target.value))}
-              className="h-7 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="height" label="Height" />
-            <Input
-              type="number"
-              min={64}
-              max={2624}
-              step={64}
-              value={String(localParams.height ?? 1216)}
-              onChange={(e) => set('height', Number(e.target.value))}
-              className="h-7 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="steps" label="Steps" />
-            <Input
-              type="number"
-              min={1}
-              max={50}
-              value={String(localParams.steps ?? 28)}
-              onChange={(e) => set('steps', Number(e.target.value))}
-              className="h-7 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="scale" label="CFG Scale" />
-            <Input
-              type="number"
-              min={0}
-              max={20}
-              step={0.1}
-              value={String(localParams.scale ?? 5)}
-              onChange={(e) => set('scale', Number(e.target.value))}
-              className="h-7 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="cfgRescale" label="CFG Rescale" />
-            <Input
-              type="number"
-              min={0}
-              max={1}
-              step={0.01}
-              value={String(localParams.cfgRescale ?? 0)}
-              onChange={(e) => set('cfgRescale', Number(e.target.value))}
-              className="h-7 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="sampler" label="Sampler" />
-            <Select
-              value={String(localParams.sampler ?? 'k_euler_ancestral')}
-              onValueChange={(v) => set('sampler', v)}
-            >
-              <SelectTrigger className="h-7 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="k_euler_ancestral">k_euler_ancestral</SelectItem>
-                <SelectItem value="k_euler">k_euler</SelectItem>
-                <SelectItem value="k_dpmpp_2s_ancestral">k_dpmpp_2s_ancestral</SelectItem>
-                <SelectItem value="k_dpmpp_2m">k_dpmpp_2m</SelectItem>
-                <SelectItem value="k_dpmpp_sde">k_dpmpp_sde</SelectItem>
-                <SelectItem value="ddim_v3">ddim_v3</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="scheduler" label="Scheduler" />
-            <Select
-              value={String(localParams.scheduler ?? 'karras')}
-              onValueChange={(v) => set('scheduler', v)}
-            >
-              <SelectTrigger className="h-7 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="native">native</SelectItem>
-                <SelectItem value="karras">karras</SelectItem>
-                <SelectItem value="exponential">exponential</SelectItem>
-                <SelectItem value="polyexponential">polyexponential</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1">
-            <ParamLabel name="ucPreset" label="UC Preset" />
-            <Select
-              value={String(localParams.ucPreset ?? 0)}
-              onValueChange={(v) => set('ucPreset', Number(v))}
-            >
-              <SelectTrigger className="h-7 text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">Heavy</SelectItem>
-                <SelectItem value="1">Light</SelectItem>
-                <SelectItem value="2">Furry</SelectItem>
-                <SelectItem value="3">Human Focus</SelectItem>
-                <SelectItem value="4">None</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <div className="flex flex-wrap gap-x-4 gap-y-2 mt-3">
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id="param-autoSmea"
-              checked={Boolean(localParams.autoSmea)}
-              onCheckedChange={(checked) => set('autoSmea', checked)}
-            />
-            <ParamLabel name="autoSmea" label="AutoSmea" />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Checkbox
-              id="param-quality"
-              checked={Boolean(localParams.qualityToggle ?? true)}
-              onCheckedChange={(checked) => set('qualityToggle', checked)}
-            />
-            <ParamLabel name="qualityToggle" label="Quality Tags" />
-          </div>
-        </div>
+      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
+      <PopoverContent side="top" align="start" className="w-96 max-h-[70vh] overflow-y-auto">
+        <h4 className="text-base font-medium">Generation Parameters</h4>
+        <ParameterForm localParams={localParams} set={set} />
       </PopoverContent>
     </Popover>
   )
