@@ -201,7 +201,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
         </DialogHeader>
 
         {/* Body: Two-panel layout */}
-        <div className="flex-1 flex min-h-0 overflow-hidden">
+        <div className="flex-1 flex min-h-0 sm:min-h-[50vh] overflow-hidden">
           {/* Mobile: Pack selector dropdown */}
           <div className="sm:hidden px-4 py-3 border-b border-border shrink-0">
             <div className="flex gap-2">
@@ -530,21 +530,7 @@ function SceneAccordionItem({
         onClick={onToggle}
       >
         <div className="flex items-center justify-between">
-          <div className="min-w-0 flex-1">
-            <div className="text-base font-medium truncate">{scene.name}</div>
-            {keys.length > 0 && (
-              <div className="flex flex-wrap gap-1 mt-1">
-                {keys.map((k) => (
-                  <span
-                    key={k}
-                    className="text-xs text-muted-foreground font-mono bg-secondary/60 rounded px-1.5 py-0.5"
-                  >
-                    {`\\\\${k}\\\\`}
-                  </span>
-                ))}
-              </div>
-            )}
-          </div>
+          <div className="text-base font-medium truncate shrink-0">{scene.name}</div>
           <div className="flex gap-1 shrink-0 ml-2">
             {keys.length > 0 && (
               <Badge variant="secondary" className="text-xs h-4 px-1.5 tabular-nums">
@@ -579,6 +565,24 @@ function SceneAccordionItem({
             />
           </div>
         </div>
+        {keys.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {keys.map((k) => (
+              <div key={k} className="flex gap-1.5 items-baseline text-xs min-w-0">
+                <span className="font-mono text-muted-foreground shrink-0">
+                  {`\\\\${k}\\\\`}
+                </span>
+                {placeholders[k] ? (
+                  <span className="text-foreground/70 truncate font-mono" title={placeholders[k]}>
+                    {placeholders[k]}
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground/40 italic">empty</span>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     )
   }
