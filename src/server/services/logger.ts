@@ -1,7 +1,10 @@
-import { appendFile, mkdir } from 'node:fs/promises'
+import { appendFileSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 
 const LOGS_DIR = './data/logs'
+const LOG_FILE = 'app.log'
+const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
+const MAX_FILES = 5 // app.log + app.1.log ~ app.4.log
 
 type LogLevel = 'error' | 'warn' | 'info' | 'debug'
 
@@ -38,9 +41,37 @@ function formatError(err: unknown): LogEntry['error'] {
   return { name: 'Error', message: String(err) }
 }
 
+let currentSize = -1
+
 function getLogFilePath(): string {
-  const date = new Date().toISOString().slice(0, 10) // YYYY-MM-DD
-  return join(LOGS_DIR, `${date}.log`)
+  return join(LOGS_DIR, LOG_FILE)
+}
+
+function getRotatedPath(index: number): string {
+  return join(LOGS_DIR, `app.${index}.log`)
+}
+
+function loadCurrentSize(): number {
+  try {
+    return statSync(getLogFilePath()).size
+  } catch {
+    return 0
+  }
+}
+
+function rotate(): void {
+  // Delete oldest
+  try { unlinkSync(getRotatedPath(MAX_FILES - 1)) } catch {}
+
+  // Shift: app.3.log → app.4.log, ..., app.1.log → app.2.log
+  for (let i = MAX_FILES - 2; i >= 1; i--) {
+    try { renameSync(getRotatedPath(i), getRotatedPath(i + 1)) } catch {}
+  }
+
+  // app.log → app.1.log
+  try { renameSync(getLogFilePath(), getRotatedPath(1)) } catch {}
+
+  currentSize = 0
 }
 
 function writeLog(entry: LogEntry): void {
@@ -59,8 +90,18 @@ function writeLog(entry: LogEntry): void {
     }
   }
 
-  // Async file write — fire and forget, never block the request
-  appendFile(getLogFilePath(), line).catch(() => {})
+  if (currentSize === -1) {
+    currentSize = loadCurrentSize()
+  }
+
+  if (currentSize >= MAX_FILE_SIZE) {
+    rotate()
+  }
+
+  try {
+    appendFileSync(getLogFilePath(), line)
+    currentSize += Buffer.byteLength(line)
+  } catch {}
 }
 
 export function createLogger(service: string): Logger {
@@ -89,5 +130,5 @@ export function createLogger(service: string): Logger {
 }
 
 export function initLogDirectory(): void {
-  mkdir(LOGS_DIR, { recursive: true }).catch(() => {})
+  mkdirSync(LOGS_DIR, { recursive: true })
 }
