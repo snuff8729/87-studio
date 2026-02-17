@@ -5,7 +5,7 @@ import { useStableArray } from '@/lib/utils'
 import { toast } from 'sonner'
 import { getWorkspaceData, listProjectJobs, getRecentImages, getSceneImageCounts } from '@/server/functions/workspace'
 import { updateProject } from '@/server/functions/projects'
-import { createGenerationJob, cancelJobs } from '@/server/functions/generation'
+import { createGenerationJob, cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import {
   addProjectScene,
@@ -240,15 +240,20 @@ function WorkspacePage() {
     completedImages: number
     avgImageDurationMs: number | null
   } | null>(data.batchTiming)
+  const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
+    data.queueStatus?.queueStopped ?? null,
+  )
 
   // Sync generation state when loader data changes (e.g. page refresh reconnects to running jobs)
   useEffect(() => {
-    if (data.activeJobs.length > 0) {
+    const stopped = data.queueStatus?.queueStopped ?? null
+    if (data.activeJobs.length > 0 || stopped) {
       setActiveJobs(data.activeJobs)
       setGenerating(true)
       setGenerationTotal(data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0))
+      setQueueStopped(stopped)
     }
-  }, [data.activeJobs])
+  }, [data.activeJobs, data.queueStatus])
 
   const allScenes = scenePacks.flatMap((pack) =>
     pack.scenes.map((s) => ({ ...s, packName: pack.name })),
@@ -268,10 +273,10 @@ function WorkspacePage() {
     })
   }, [])
 
-  // Poll during generation
+  // Poll during generation (stop polling when queue is stopped — no server-side changes in that state)
   const prevCompletedRef = useRef(0)
   useEffect(() => {
-    if (!generating) return
+    if (!generating || queueStopped) return
     let cancelled = false
     let busy = false
 
@@ -286,19 +291,32 @@ function WorkspacePage() {
         ])
         if (cancelled) return
 
-        const { jobs, batchTiming } = jobsResult
+        const { jobs, batchTiming, queueStatus } = jobsResult
         setActiveJobs(jobs)
         setBatchTimingData(batchTiming)
         setLiveImages(imgs)
         setLiveSceneCounts(counts)
+
+        // Detect queue stop (error or pause)
+        if (queueStatus?.queueStopped) {
+          setQueueStopped(queueStatus.queueStopped)
+          if (queueStatus.queueStopped === 'error') {
+            const failedJob = jobs.find((j) => j.status === 'failed')
+            if (failedJob?.errorMessage) {
+              toast.error(failedJob.errorMessage)
+            }
+          }
+          return
+        }
 
         const totalCompleted = jobs.reduce((sum, j) => sum + (j.completedCount ?? 0), 0)
         if (totalCompleted !== prevCompletedRef.current) {
           prevCompletedRef.current = totalCompleted
         }
 
-        if (jobs.length === 0) {
+        if (jobs.length === 0 && !queueStatus?.queueStopped) {
           setGenerating(false)
+          setQueueStopped(null)
           setBatchTimingData(null)
           prevCompletedRef.current = 0
           router.invalidate()
@@ -311,7 +329,7 @@ function WorkspacePage() {
     }, 2000)
 
     return () => { cancelled = true; clearInterval(interval) }
-  }, [generating, projectId, router])
+  }, [generating, queueStopped, projectId, router])
 
   async function handleGenerate() {
     const candidateIds = allScenes.map((s) => s.id)
@@ -372,8 +390,33 @@ function WorkspacePage() {
     await cancelJobs({ data: jobIds })
     setActiveJobs([])
     setGenerating(false)
+    setQueueStopped(null)
     toast.success('Generation cancelled')
     router.invalidate()
+  }
+
+  async function handlePause() {
+    await pauseGeneration()
+    setQueueStopped('paused')
+  }
+
+  async function handleResume() {
+    setQueueStopped(null)
+    await resumeGeneration()
+  }
+
+  async function handleDismissError() {
+    setQueueStopped(null)
+    await dismissGenerationError()
+    // Re-fetch jobs to update UI
+    const { jobs, batchTiming } = await listProjectJobs({ data: projectId })
+    setActiveJobs(jobs)
+    setBatchTimingData(batchTiming)
+    if (jobs.length === 0) {
+      setGenerating(false)
+      setBatchTimingData(null)
+      router.invalidate()
+    }
   }
 
   // ── View mode ──
@@ -450,7 +493,11 @@ function WorkspacePage() {
               jobs={activeJobs}
               batchTotal={generationTotal}
               batchTiming={batchTimingData}
+              queueStopped={queueStopped}
               onCancel={handleCancelJobs}
+              onPause={handlePause}
+              onResume={handleResume}
+              onDismissError={handleDismissError}
             />
           }
           onToggleLeft={() => { setLeftOpen(!leftOpen); setRightOpen(false) }}

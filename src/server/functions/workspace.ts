@@ -118,6 +118,8 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .limit(50)
       .all()
 
+    const queueStatus = getQueueStatus()
+
     const activeJobsRaw = db
       .select({
         id: generationJobs.id,
@@ -139,8 +141,25 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .orderBy(desc(generationJobs.createdAt))
       .all()
 
-    const queueStatus = getQueueStatus()
-    const activeJobs = activeJobsRaw
+    // Include the failed job when queue is error-stopped
+    const activeJobs = [...activeJobsRaw]
+    if (queueStatus.stoppedJobId && !activeJobs.some((j) => j.id === queueStatus.stoppedJobId)) {
+      const failedJob = db
+        .select({
+          id: generationJobs.id,
+          projectSceneId: generationJobs.projectSceneId,
+          sceneName: projectScenes.name,
+          status: generationJobs.status,
+          totalCount: generationJobs.totalCount,
+          completedCount: generationJobs.completedCount,
+          errorMessage: generationJobs.errorMessage,
+        })
+        .from(generationJobs)
+        .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+        .where(eq(generationJobs.id, queueStatus.stoppedJobId))
+        .get()
+      if (failedJob) activeJobs.unshift(failedJob)
+    }
 
     return {
       project,
@@ -359,6 +378,8 @@ export const getRecentImages = createServerFn({ method: 'GET' })
 export const listProjectJobs = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
   .handler(async ({ data: projectId }) => {
+    const queueStatus = getQueueStatus()
+
     const jobs = db
       .select({
         id: generationJobs.id,
@@ -380,5 +401,24 @@ export const listProjectJobs = createServerFn({ method: 'GET' })
       .orderBy(desc(generationJobs.createdAt))
       .all()
 
-    return { jobs, batchTiming: getBatchTiming() }
+    // Include the failed job when queue is error-stopped
+    if (queueStatus.stoppedJobId && !jobs.some((j) => j.id === queueStatus.stoppedJobId)) {
+      const failedJob = db
+        .select({
+          id: generationJobs.id,
+          projectSceneId: generationJobs.projectSceneId,
+          sceneName: projectScenes.name,
+          status: generationJobs.status,
+          totalCount: generationJobs.totalCount,
+          completedCount: generationJobs.completedCount,
+          errorMessage: generationJobs.errorMessage,
+        })
+        .from(generationJobs)
+        .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+        .where(eq(generationJobs.id, queueStatus.stoppedJobId))
+        .get()
+      if (failedJob) jobs.unshift(failedJob)
+    }
+
+    return { jobs, batchTiming: getBatchTiming(), queueStatus }
   })

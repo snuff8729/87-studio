@@ -13,6 +13,10 @@ const log = createLogger('generation')
 let processing = false
 const queue: number[] = [] // job IDs
 
+// Unified queue stop state: 'error' | 'paused' | null
+let queueStopped: 'error' | 'paused' | null = null
+let stoppedJobId: number | null = null
+
 // Batch-level timing (persists across jobs within a single processQueue run)
 interface BatchTiming {
   startedAt: number
@@ -59,6 +63,11 @@ export function cancelPendingJobs(jobIds: number[]) {
         }
       }
     }
+    // Clear queue stop state if the stopped job is being cancelled
+    if (stoppedJobId === id) {
+      queueStopped = null
+      stoppedJobId = null
+    }
     db.update(generationJobs)
       .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, id))
@@ -71,7 +80,48 @@ export function getQueueStatus() {
     processing,
     queueLength: queue.length,
     queuedJobIds: [...queue],
+    queueStopped,
+    stoppedJobId,
   }
+}
+
+export function pauseQueue() {
+  log.info('queue.pause', 'Queue pause requested')
+  queueStopped = 'paused'
+}
+
+export function resumeQueue() {
+  log.info('queue.resume', 'Queue resume requested', { previousState: queueStopped, stoppedJobId })
+  if (queueStopped === 'error' && stoppedJobId != null) {
+    // Reset failed job to pending and re-enqueue at front
+    db.update(generationJobs)
+      .set({ status: 'pending', errorMessage: null, updatedAt: new Date().toISOString() })
+      .where(eq(generationJobs.id, stoppedJobId))
+      .run()
+    queue.unshift(stoppedJobId)
+  }
+  queueStopped = null
+  stoppedJobId = null
+  if (!processing) processQueue()
+}
+
+export function dismissError() {
+  log.info('queue.dismissError', 'Dismissing error, skipping failed job', { stoppedJobId })
+  // Subtract the failed job's remaining images from batch total
+  if (batchTiming && stoppedJobId != null) {
+    const job = db
+      .select({ totalCount: generationJobs.totalCount, completedCount: generationJobs.completedCount })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, stoppedJobId))
+      .get()
+    if (job) {
+      const remaining = (job.totalCount ?? 0) - (job.completedCount ?? 0)
+      batchTiming.totalImages = Math.max(0, batchTiming.totalImages - remaining)
+    }
+  }
+  queueStopped = null
+  stoppedJobId = null
+  if (!processing && queue.length > 0) processQueue()
 }
 
 export function getBatchTiming() {
@@ -89,28 +139,37 @@ export function getBatchTiming() {
 async function processQueue() {
   if (processing) return
   processing = true
+  queueStopped = null
 
-  // Sum totalCount from all initially queued jobs
+  // Sum remaining images (totalCount - completedCount) from all initially queued jobs
   let initialTotal = 0
   for (const id of queue) {
     const job = db
-      .select({ totalCount: generationJobs.totalCount })
+      .select({ totalCount: generationJobs.totalCount, completedCount: generationJobs.completedCount })
       .from(generationJobs)
       .where(eq(generationJobs.id, id))
       .get()
-    initialTotal += (job?.totalCount ?? 1)
+    initialTotal += ((job?.totalCount ?? 1) - (job?.completedCount ?? 0))
   }
 
-  batchTiming = {
-    startedAt: Date.now(),
-    totalImages: initialTotal,
-    completedImages: 0,
-    totalGenerationMs: 0,
+  // Only reset batchTiming if it's a fresh start (not resuming)
+  if (!batchTiming) {
+    batchTiming = {
+      startedAt: Date.now(),
+      totalImages: initialTotal,
+      completedImages: 0,
+      totalGenerationMs: 0,
+    }
   }
 
   log.info('queue.start', 'Queue processing started', { queueLength: queue.length, totalImages: initialTotal })
 
   while (queue.length > 0) {
+    if (queueStopped) {
+      log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
+      processing = false
+      return
+    }
     const jobId = queue.shift()!
     await processJob(jobId)
   }
@@ -147,6 +206,8 @@ async function processJob(jobId: number) {
       .set({ status: 'failed', errorMessage: 'API 키가 설정되지 않았습니다', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))
       .run()
+    queueStopped = 'error'
+    stoppedJobId = jobId
     return
   }
 
@@ -168,8 +229,21 @@ async function processJob(jobId: number) {
   const resolvedParameters = JSON.parse(job.resolvedParameters)
   const totalCount = job.totalCount ?? 1
 
+  const startIndex = job.completedCount ?? 0
+
   try {
-    for (let i = 0; i < totalCount; i++) {
+    for (let i = startIndex; i < totalCount; i++) {
+      // Check if paused
+      if (queueStopped === 'paused') {
+        log.info('job.paused', 'Job paused mid-generation', { jobId, completedCount: i })
+        db.update(generationJobs)
+          .set({ status: 'pending', updatedAt: new Date().toISOString() })
+          .where(eq(generationJobs.id, jobId))
+          .run()
+        queue.unshift(jobId)
+        return
+      }
+
       // Check if cancelled mid-job
       const currentJob = db
         .select()
@@ -253,5 +327,7 @@ async function processJob(jobId: number) {
       .set({ status: 'failed', errorMessage: errorMsg, updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))
       .run()
+    queueStopped = 'error'
+    stoppedJobId = jobId
   }
 }

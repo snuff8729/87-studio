@@ -3,7 +3,7 @@ import { db } from '../db'
 import { generationJobs, projectScenes, projects } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { synthesizePrompts } from '../services/prompt'
-import { enqueueJob, cancelPendingJobs, getQueueStatus } from '../services/generation'
+import { enqueueJob, cancelPendingJobs, getQueueStatus, pauseQueue, resumeQueue, dismissError } from '../services/generation'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.generation')
@@ -116,6 +116,27 @@ export const cancelJobs = createServerFn({ method: 'POST' })
 export const fetchQueueStatus = createServerFn({ method: 'GET' }).handler(
   async () => {
     return getQueueStatus()
+  },
+)
+
+export const pauseGeneration = createServerFn({ method: 'POST' }).handler(
+  async () => {
+    pauseQueue()
+    return { success: true }
+  },
+)
+
+export const resumeGeneration = createServerFn({ method: 'POST' }).handler(
+  async () => {
+    resumeQueue()
+    return { success: true }
+  },
+)
+
+export const dismissGenerationError = createServerFn({ method: 'POST' }).handler(
+  async () => {
+    dismissError()
+    return { success: true }
   },
 )
 
