@@ -442,6 +442,8 @@ function WorkspacePage() {
           projectId={projectId}
           saveStatus={saveStatus}
           thumbnailPath={data.projectThumbnailPath}
+          onToggleLeft={() => { setLeftOpen(!leftOpen); setRightOpen(false) }}
+          onToggleRight={() => { setRightOpen(!rightOpen); setLeftOpen(false) }}
         />
       }
       leftPanel={
@@ -520,8 +522,6 @@ function WorkspacePage() {
               onDismissError={handleDismissError}
             />
           }
-          onToggleLeft={() => { setLeftOpen(!leftOpen); setRightOpen(false) }}
-          onToggleRight={() => { setRightOpen(!rightOpen); setLeftOpen(false) }}
         />
       }
       leftOpen={leftOpen}

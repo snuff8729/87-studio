@@ -29,7 +29,7 @@ export function WorkspaceLayout({
         <aside
           className={`
             ${leftOpen ? 'translate-x-0' : '-translate-x-full'}
-            fixed inset-y-12 left-0 z-30 w-72 bg-background border-r border-border
+            fixed top-12 bottom-22 lg:bottom-12 left-0 z-30 w-72 bg-background border-r border-border
             transition-transform duration-200 ease-in-out
             lg:static lg:translate-x-0 lg:w-[280px] lg:shrink-0
             overflow-y-auto
@@ -47,7 +47,7 @@ export function WorkspaceLayout({
         <aside
           className={`
             ${rightOpen ? 'translate-x-0' : 'translate-x-full'}
-            fixed inset-y-12 right-0 z-30 w-56 bg-background border-l border-border
+            fixed top-12 bottom-22 lg:bottom-12 right-0 z-30 w-56 bg-background border-l border-border
             transition-transform duration-200 ease-in-out
             lg:static lg:translate-x-0 lg:w-[220px] lg:shrink-0
             overflow-y-auto

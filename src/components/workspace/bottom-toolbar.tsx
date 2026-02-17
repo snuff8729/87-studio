@@ -1,10 +1,6 @@
 import { memo } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  PlayIcon,
-  Menu01Icon,
-  TimeQuarter02Icon,
-} from '@hugeicons/core-free-icons'
+import { PlayIcon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { NumberStepper } from '@/components/ui/number-stepper'
 import { useTranslation } from '@/lib/i18n'
@@ -24,9 +20,6 @@ interface BottomToolbarProps {
   downloadButton?: ReactNode
   // Generation progress
   generationProgress: ReactNode
-  // Mobile toggles
-  onToggleLeft: () => void
-  onToggleRight: () => void
 }
 
 export const BottomToolbar = memo(function BottomToolbar({
@@ -39,32 +32,25 @@ export const BottomToolbar = memo(function BottomToolbar({
   scenePackDialog,
   downloadButton,
   generationProgress,
-  onToggleLeft,
-  onToggleRight,
 }: BottomToolbarProps) {
   const { t } = useTranslation()
 
   return (
-    <div className="h-12 border-t border-border bg-background flex items-center justify-between px-3 gap-2 shrink-0">
-      {/* Left — mobile toggles + popovers */}
+    <div className="border-t border-border bg-background shrink-0 grid px-3 pb-2 lg:pb-0 gap-x-2 grid-cols-[auto_1fr] grid-rows-[2.25rem_2.75rem] lg:grid-cols-[auto_1fr_auto] lg:grid-rows-[3rem]">
+      {/* Row 1 left / Desktop left — configuration actions */}
       <div className="flex items-center gap-1">
-        {/* Mobile panel toggles */}
-        <Button variant="ghost" size="sm" onClick={onToggleLeft} className="lg:hidden">
-          <HugeiconsIcon icon={Menu01Icon} className="size-5" />
-        </Button>
-
         {parameterPopover}
         {scenePackDialog}
         {downloadButton}
       </div>
 
-      {/* Center — generation progress */}
-      <div className="flex-1 min-w-0 flex justify-center">
+      {/* Row 1 right / Desktop center — generation progress */}
+      <div className="flex items-center justify-end lg:justify-center min-w-0">
         {generationProgress}
       </div>
 
-      {/* Right — generation controls + mobile toggle */}
-      <div className="flex items-center gap-1.5">
+      {/* Row 2 / Desktop right — generation controls */}
+      <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
         <NumberStepper
           value={countPerScene}
           onChange={(v) => onCountChange(Math.max(0, v ?? 0))}
@@ -81,10 +67,6 @@ export const BottomToolbar = memo(function BottomToolbar({
           <span className="hidden sm:inline">
             {generating ? t('generation.generating') : totalImages > 0 ? t('generation.generateCount', { count: totalImages }) : t('generation.generate')}
           </span>
-        </Button>
-
-        <Button variant="ghost" size="sm" onClick={onToggleRight} className="lg:hidden">
-          <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5" />
         </Button>
       </div>
     </div>

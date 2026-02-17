@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft02Icon, Image02Icon, Settings02Icon } from '@hugeicons/core-free-icons'
+import { ArrowLeft02Icon, Image02Icon, Menu01Icon, TimeQuarter02Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/i18n'
 
@@ -9,9 +9,11 @@ interface WorkspaceHeaderProps {
   projectId: number
   saveStatus: 'idle' | 'saving' | 'saved' | 'error'
   thumbnailPath?: string | null
+  onToggleLeft?: () => void
+  onToggleRight?: () => void
 }
 
-export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailPath }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailPath, onToggleLeft, onToggleRight }: WorkspaceHeaderProps) {
   const { t } = useTranslation()
   return (
     <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 shrink-0">
@@ -44,17 +46,22 @@ export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailP
         )}
       </div>
       <div className="flex items-center gap-1">
+        {onToggleLeft && (
+          <Button variant="ghost" size="sm" onClick={onToggleLeft} className="lg:hidden">
+            <HugeiconsIcon icon={Menu01Icon} className="size-5" />
+          </Button>
+        )}
         <Button variant="ghost" size="sm" asChild>
           <Link to="/gallery" search={{ project: projectId }}>
             <HugeiconsIcon icon={Image02Icon} className="size-5" />
             <span className="hidden sm:inline">{t('nav.gallery')}</span>
           </Link>
         </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/settings">
-            <HugeiconsIcon icon={Settings02Icon} className="size-5" />
-          </Link>
-        </Button>
+        {onToggleRight && (
+          <Button variant="ghost" size="sm" onClick={onToggleRight} className="lg:hidden">
+            <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5" />
+          </Button>
+        )}
       </div>
     </header>
   )
