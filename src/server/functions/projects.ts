@@ -1,8 +1,9 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { projects, projectScenePacks, projectScenes, scenes, scenePacks, generatedImages } from '../db/schema'
-import { eq, desc } from 'drizzle-orm'
+import { eq, desc, inArray } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
+import { deleteImageFiles } from '../services/image'
 
 const log = createLogger('fn.projects')
 
@@ -82,8 +83,15 @@ export const updateProject = createServerFn({ method: 'POST' })
 export const deleteProject = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
-    log.info('delete', 'Project deleted', { projectId: id })
+    // Collect file paths before cascade delete
+    const files = db
+      .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+      .from(generatedImages)
+      .where(eq(generatedImages.projectId, id))
+      .all()
+    log.info('delete', 'Project deleted', { projectId: id, imageFiles: files.length })
     db.delete(projects).where(eq(projects.id, id)).run()
+    deleteImageFiles(files)
     return { success: true }
   })
 
@@ -141,7 +149,23 @@ export const assignScenePack = createServerFn({ method: 'POST' })
 export const removeProjectScenePack = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
-    log.info('removeScenePack', 'Project scene pack removed', { projectScenePackId: id })
+    // Collect image files for scenes in this pack before cascade delete
+    const sceneIds = db
+      .select({ id: projectScenes.id })
+      .from(projectScenes)
+      .where(eq(projectScenes.projectScenePackId, id))
+      .all()
+      .map((s) => s.id)
+    let files: Array<{ filePath: string; thumbnailPath: string | null }> = []
+    if (sceneIds.length > 0) {
+      files = db
+        .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(inArray(generatedImages.projectSceneId, sceneIds))
+        .all()
+    }
+    log.info('removeScenePack', 'Project scene pack removed', { projectScenePackId: id, imageFiles: files.length })
     db.delete(projectScenePacks).where(eq(projectScenePacks.id, id)).run()
+    deleteImageFiles(files)
     return { success: true }
   })

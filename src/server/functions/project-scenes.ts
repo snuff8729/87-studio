@@ -1,7 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
-import { projectScenePacks, projectScenes, characterSceneOverrides } from '../db/schema'
+import { projectScenePacks, projectScenes, characterSceneOverrides, generatedImages } from '../db/schema'
 import { eq, sql, inArray } from 'drizzle-orm'
+import { deleteImageFiles } from '../services/image'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -118,7 +119,15 @@ export const deleteProjectScene = createServerFn({ method: 'POST' })
       .where(eq(projectScenes.id, projectSceneId))
       .get()
 
+    // Collect file paths before cascade delete
+    const files = db
+      .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+      .from(generatedImages)
+      .where(eq(generatedImages.projectSceneId, projectSceneId))
+      .all()
+
     db.delete(projectScenes).where(eq(projectScenes.id, projectSceneId)).run()
+    deleteImageFiles(files)
 
     // If parent pack has no remaining scenes, delete it too
     if (scene) {

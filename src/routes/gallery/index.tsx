@@ -22,8 +22,9 @@ import {
   bulkUpdateImages,
 } from '@/server/functions/gallery'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Image02Icon } from '@hugeicons/core-free-icons'
+import { Image02Icon, Download04Icon } from '@hugeicons/core-free-icons'
 import { useTranslation } from '@/lib/i18n'
+import { DownloadDialog } from '@/components/common/download-dialog'
 
 type SearchParams = {
   project?: number
@@ -237,16 +238,29 @@ function GalleryPage() {
         title={t('gallery.title')}
         description={t('gallery.imageCount', { count: images.length })}
         actions={
-          <Button
-            size="sm"
-            variant={selectMode ? 'default' : 'outline'}
-            onClick={() => {
-              setSelectMode(!selectMode)
-              setSelectedIds(new Set())
-            }}
-          >
-            {selectMode ? t('gallery.deselect') : t('gallery.select')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <DownloadDialog
+              trigger={
+                <Button size="sm" variant="outline">
+                  <HugeiconsIcon icon={Download04Icon} className="size-4" />
+                  {t('download.download')}
+                </Button>
+              }
+              projectId={search.project}
+              projectName={allProjects.find((p) => p.id === search.project)?.name}
+              availableScenes={projectScenes}
+            />
+            <Button
+              size="sm"
+              variant={selectMode ? 'default' : 'outline'}
+              onClick={() => {
+                setSelectMode(!selectMode)
+                setSelectedIds(new Set())
+              }}
+            >
+              {selectMode ? t('gallery.deselect') : t('gallery.select')}
+            </Button>
+          </div>
         }
       />
 
@@ -453,6 +467,15 @@ function GalleryPage() {
       {selectMode && selectedIds.size > 0 && (
         <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg">
           <span className="text-base font-medium">{t('gallery.selectedCount', { count: selectedIds.size })}</span>
+          <DownloadDialog
+            trigger={
+              <Button size="sm" variant="outline">
+                <HugeiconsIcon icon={Download04Icon} className="size-4" />
+                {t('download.download')}
+              </Button>
+            }
+            selectedImageIds={[...selectedIds]}
+          />
           <Button size="sm" variant="outline" onClick={handleBulkFavorite}>{t('gallery.addToFavorites')}</Button>
           <ConfirmDialog
             trigger={<Button size="sm" variant="destructive">{t('common.delete')}</Button>}

@@ -3,6 +3,7 @@ import { db } from '../db'
 import { generatedImages, tags, imageTags, projects, projectScenes } from '../db/schema'
 import { eq, desc, asc, and, sql, inArray } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
+import { deleteImageFiles } from '../services/image'
 
 const log = createLogger('fn.gallery')
 
@@ -273,9 +274,16 @@ export const bulkUpdateImages = createServerFn({ method: 'POST' })
 
     if (data.delete) {
       log.info('bulkDelete', 'Bulk deleting images', { imageIds: data.imageIds, count: data.imageIds.length })
+      // Collect file paths before deleting DB records
+      const files = db
+        .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(inArray(generatedImages.id, data.imageIds))
+        .all()
       db.delete(generatedImages)
         .where(inArray(generatedImages.id, data.imageIds))
         .run()
+      deleteImageFiles(files)
       return { success: true }
     }
 

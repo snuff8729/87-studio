@@ -28,6 +28,9 @@ function serveDataFiles(): Plugin {
         } else if (pathname.startsWith('/api/thumbnails/')) {
           basePath = resolve('./data/thumbnails')
           relativePath = pathname.slice('/api/thumbnails/'.length)
+        } else if (pathname.startsWith('/api/downloads/')) {
+          basePath = resolve('./data/downloads')
+          relativePath = pathname.slice('/api/downloads/'.length)
         }
 
         if (!basePath || !relativePath) return next()
@@ -47,8 +50,14 @@ function serveDataFiles(): Plugin {
         }
 
         const data = readFileSync(filePath)
-        res.setHeader('Content-Type', 'image/png')
-        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        const isZip = filePath.endsWith('.zip')
+        res.setHeader('Content-Type', isZip ? 'application/zip' : 'image/png')
+        if (isZip) {
+          const filename = relativePath.split('/').pop() ?? 'download.zip'
+          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+        } else {
+          res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+        }
         res.end(data)
       })
     },

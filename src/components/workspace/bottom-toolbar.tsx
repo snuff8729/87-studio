@@ -20,6 +20,8 @@ interface BottomToolbarProps {
   // Popovers
   parameterPopover: ReactNode
   scenePackDialog: ReactNode
+  // Download
+  downloadButton?: ReactNode
   // Generation progress
   generationProgress: ReactNode
   // Mobile toggles
@@ -35,6 +37,7 @@ export const BottomToolbar = memo(function BottomToolbar({
   totalImages,
   parameterPopover,
   scenePackDialog,
+  downloadButton,
   generationProgress,
   onToggleLeft,
   onToggleRight,
@@ -52,6 +55,7 @@ export const BottomToolbar = memo(function BottomToolbar({
 
         {parameterPopover}
         {scenePackDialog}
+        {downloadButton}
       </div>
 
       {/* Center — generation progress */}

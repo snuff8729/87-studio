@@ -23,6 +23,10 @@ import { HistoryPanel } from '@/components/workspace/history-panel'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
 import { ScenePackDialog } from '@/components/workspace/scene-pack-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
+import { DownloadDialog } from '@/components/common/download-dialog'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Download04Icon } from '@hugeicons/core-free-icons'
+import { Button } from '@/components/ui/button'
 
 export const Route = createFileRoute('/workspace/$projectId/')({
   loader: async ({ params }) => {
@@ -489,6 +493,20 @@ function WorkspacePage() {
           }
           scenePackDialog={
             <ScenePackDialog projectId={projectId} />
+          }
+          downloadButton={
+            <DownloadDialog
+              trigger={
+                <Button variant="ghost" size="sm">
+                  <HugeiconsIcon icon={Download04Icon} className="size-5" />
+                  <span className="hidden sm:inline">{t('download.download')}</span>
+                </Button>
+              }
+              projectId={projectId}
+              projectName={data.project.name}
+              availableScenes={allScenes.map((s) => ({ id: s.id, name: s.name, packName: s.packName }))}
+              filenameTemplate={(params as Record<string, unknown>).filenameTemplate as string | undefined}
+            />
           }
           generationProgress={
             <GenerationProgress

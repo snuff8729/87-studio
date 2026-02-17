@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
+import { DEFAULT_FILENAME_TEMPLATE } from '@/server/services/download'
 
 // --- useIsMobile hook ---
 const MOBILE_QUERY = '(max-width: 639px)'
@@ -231,6 +232,25 @@ function ParameterForm({
               <SelectItem value="4">None</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+      </section>
+
+      <hr className="border-border" />
+
+      {/* Download Settings */}
+      <section className="space-y-2">
+        <Label className="text-sm font-medium">{t('download.downloadSettings')}</Label>
+        <div className="space-y-1.5">
+          <Label className="text-xs text-muted-foreground">{t('download.filenameTemplate')}</Label>
+          <Input
+            value={String(localParams.filenameTemplate ?? DEFAULT_FILENAME_TEMPLATE)}
+            onChange={(e) => set('filenameTemplate', e.target.value)}
+            placeholder={DEFAULT_FILENAME_TEMPLATE}
+            className="h-8 text-sm font-mono"
+          />
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {t('download.templateHelp')}
+          </p>
         </div>
       </section>
     </div>
