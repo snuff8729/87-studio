@@ -14,8 +14,6 @@ interface GenerationParams {
   sampler?: string
   scheduler?: string
   seed?: number
-  autoSmea?: boolean
-  qualityToggle?: boolean
   ucPreset?: number
   imageFormat?: string
 }
@@ -44,7 +42,7 @@ export async function generateImage(
     action: 'generate',
     parameters: {
       add_original_image: true,
-      autoSmea: params.autoSmea,
+      autoSmea: false,
       cfg_rescale: params.cfgRescale,
       characterPrompts: prompts.characterPrompts.map((cp) => ({
         center: { x: 0.5, y: 0.5 },
@@ -55,6 +53,7 @@ export async function generateImage(
       controlnet_strength: 1,
       deliberate_euler_ancestral_bug: false,
       dynamic_thresholding: false,
+      width: params.width ?? 832,
       height: params.height ?? 1216,
       image_format: params.imageFormat ?? "png",
       inpaintImg2ImgStrength: 1,
@@ -67,7 +66,7 @@ export async function generateImage(
       normalize_reference_strength_multiple: true,
       params_version: 3,
       prefer_brownian: true,
-      qualityToggle: params.qualityToggle ?? true,
+      qualityToggle: true,
       sampler: params.sampler ?? "k_euler_ancestral",
       scale: params.scale ?? 5,
       seed: seed,
@@ -93,13 +92,7 @@ export async function generateImage(
     },
   }
 
-  log.info('api.request', 'Sending NAI API request', {
-    model: body.model,
-    width: body.parameters.width ?? params.width,
-    height: body.parameters.height ?? params.height,
-    steps: body.parameters.steps,
-    seed,
-  })
+  log.info('api.request', 'Sending NAI API request', body)
 
   const fetchStart = Date.now()
   const response = await fetch(NAI_API_URL, {
