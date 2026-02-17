@@ -29,8 +29,8 @@ let batchTiming: BatchTiming | null = null
 export function enqueueJob(jobId: number) {
   queue.push(jobId)
 
-  // Add this job's totalCount to the running batch
-  if (batchTiming) {
+  // Add this job's totalCount to the running batch (only while actively processing)
+  if (batchTiming && processing) {
     const job = db
       .select({ totalCount: generationJobs.totalCount })
       .from(generationJobs)
@@ -50,22 +50,9 @@ export function cancelPendingJobs(jobIds: number[]) {
     const idx = queue.indexOf(id)
     if (idx !== -1) {
       queue.splice(idx, 1)
-      // Subtract cancelled job's remaining count from batch total
-      if (batchTiming) {
-        const job = db
-          .select({ totalCount: generationJobs.totalCount, completedCount: generationJobs.completedCount })
-          .from(generationJobs)
-          .where(eq(generationJobs.id, id))
-          .get()
-        if (job) {
-          const remaining = (job.totalCount ?? 0) - (job.completedCount ?? 0)
-          batchTiming.totalImages = Math.max(0, batchTiming.totalImages - remaining)
-        }
-      }
     }
     // Clear queue stop state if the stopped job is being cancelled
     if (stoppedJobId === id) {
-      queueStopped = null
       stoppedJobId = null
     }
     db.update(generationJobs)
@@ -73,6 +60,10 @@ export function cancelPendingJobs(jobIds: number[]) {
       .where(eq(generationJobs.id, id))
       .run()
   }
+
+  // Always clear queue stop state and batch timing after cancel
+  queueStopped = null
+  batchTiming = null
 }
 
 export function getQueueStatus() {
@@ -152,8 +143,11 @@ async function processQueue() {
     initialTotal += ((job?.totalCount ?? 1) - (job?.completedCount ?? 0))
   }
 
-  // Only reset batchTiming if it's a fresh start (not resuming)
-  if (!batchTiming) {
+  // Resume (paused→resume, error→resume): batchTiming already has correct accumulated state
+  // Fresh start (including after previous batch completed): always create new batchTiming
+  // We detect resume by checking if completedImages < totalImages (batch was interrupted)
+  const isResume = batchTiming && batchTiming.completedImages > 0 && batchTiming.completedImages < batchTiming.totalImages
+  if (!isResume) {
     batchTiming = {
       startedAt: Date.now(),
       totalImages: initialTotal,
@@ -174,12 +168,12 @@ async function processQueue() {
     await processJob(jobId)
   }
 
-  const durationMs = Date.now() - batchTiming.startedAt
-  log.info('queue.complete', 'Queue processing completed', { totalImages: batchTiming.completedImages, durationMs })
+  const durationMs = Date.now() - batchTiming!.startedAt
+  log.info('queue.complete', 'Queue processing completed', { totalImages: batchTiming!.completedImages, durationMs })
 
   processing = false
-  // Keep batchTiming so the last poll can still read it.
-  // It'll be overwritten on the next processQueue call.
+  // batchTiming is kept so the last poll can still read it.
+  // Next processQueue() will reset it (completedImages === totalImages → isResume=false).
 }
 
 async function processJob(jobId: number) {
