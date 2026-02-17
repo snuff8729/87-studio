@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Upload04Icon, FileImportIcon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
@@ -22,6 +23,7 @@ interface ImportDialogProps {
 }
 
 export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogProps) {
+  const { t } = useTranslation()
   const [parsed, setParsed] = useState<ParsedScenePack | null>(null)
   const [packName, setPackName] = useState('')
   const [importing, setImporting] = useState(false)
@@ -53,7 +55,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
       setParsed(result)
       setPackName(result.name)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to parse file')
+      setError(err instanceof Error ? err.message : t('import.importFailed'))
       setParsed(null)
     }
   }
@@ -72,11 +74,11 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
           })),
         },
       })
-      toast.success(`Imported ${parsed.scenes.length} scenes`)
+      toast.success(t('import.importSuccess', { count: parsed.scenes.length }))
       handleOpenChange(false)
       onImported(pack.id)
     } catch {
-      toast.error('Failed to import')
+      toast.error(t('import.importFailed'))
       setImporting(false)
     }
   }
@@ -87,7 +89,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <HugeiconsIcon icon={FileImportIcon} className="size-5" />
-            Import SD Studio Preset
+            {t('import.title')}
           </DialogTitle>
         </DialogHeader>
 
@@ -107,7 +109,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
               onClick={() => fileRef.current?.click()}
             >
               <HugeiconsIcon icon={Upload04Icon} className="size-5" />
-              {parsed ? 'Choose different file' : 'Select JSON file'}
+              {parsed ? t('import.chooseDifferentFile') : t('import.selectJsonFile')}
             </Button>
           </div>
 
@@ -121,7 +123,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
               {/* Pack name */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Pack Name
+                  {t('import.packName')}
                 </label>
                 <Input
                   value={packName}
@@ -132,10 +134,10 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
 
               {/* Summary badges */}
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{parsed.scenes.length} scenes</Badge>
+                <Badge variant="secondary">{t('import.importCount', { count: parsed.scenes.length })}</Badge>
                 {parsed.libraryPieces.length > 0 && (
                   <Badge variant="outline">
-                    {parsed.libraryPieces.length} library pieces: {parsed.libraryPieces.join(', ')}
+                    {t('import.libraryPieces', { count: parsed.libraryPieces.length, names: parsed.libraryPieces.join(', ') })}
                   </Badge>
                 )}
               </div>
@@ -143,7 +145,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
               {/* Scene list preview */}
               <div className="space-y-1.5">
                 <label className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                  Scenes Preview
+                  {t('import.scenesPreview')}
                 </label>
                 <div className="rounded-lg border border-border max-h-60 overflow-y-auto divide-y divide-border/50">
                   {parsed.scenes.map((scene, i) => {
@@ -155,7 +157,7 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
                           <span className="text-sm font-medium truncate">{scene.name}</span>
                           {pieceKeys.length > 0 && (
                             <span className="text-xs text-muted-foreground shrink-0">
-                              {pieceKeys.length} pieces
+                              {t('import.pieces', { count: pieceKeys.length })}
                             </span>
                           )}
                         </div>
@@ -177,10 +179,10 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
         {parsed && (
           <DialogFooter>
             <Button variant="ghost" onClick={() => handleOpenChange(false)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleImport} disabled={importing || !packName.trim()}>
-              {importing ? 'Importing...' : `Import ${parsed.scenes.length} scenes`}
+              {importing ? t('import.importing') : t('import.importCount', { count: parsed.scenes.length })}
             </Button>
           </DialogFooter>
         )}

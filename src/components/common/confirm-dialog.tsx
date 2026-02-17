@@ -10,6 +10,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import { useTranslation } from '@/lib/i18n'
 
 interface ConfirmDialogProps {
   trigger: React.ReactNode
@@ -24,12 +25,13 @@ export function ConfirmDialog({
   trigger,
   title,
   description,
-  actionLabel = '삭제',
+  actionLabel,
   variant = 'destructive',
   onConfirm,
 }: ConfirmDialogProps) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
+  const { t } = useTranslation()
 
   async function handleConfirm() {
     setLoading(true)
@@ -50,7 +52,7 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>취소</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>{t('common.cancel')}</AlertDialogCancel>
           <AlertDialogAction
             variant={variant}
             onClick={(e) => {
@@ -59,7 +61,7 @@ export function ConfirmDialog({
             }}
             disabled={loading}
           >
-            {loading ? '처리 중...' : actionLabel}
+            {loading ? t('common.processing') : (actionLabel ?? t('common.delete'))}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

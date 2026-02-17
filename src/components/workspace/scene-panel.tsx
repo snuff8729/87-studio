@@ -15,6 +15,7 @@ import { Input } from '@/components/ui/input'
 import { NumberStepper } from '@/components/ui/number-stepper'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { SceneMatrix } from './scene-matrix'
+import { useTranslation } from '@/lib/i18n'
 
 interface CharacterOverride {
   projectSceneId: number
@@ -83,6 +84,7 @@ export const ScenePanel = memo(function ScenePanel({
   getPrompts,
 }: ScenePanelProps) {
   const allScenes = scenePacks.flatMap((pack) => pack.scenes)
+  const { t } = useTranslation()
 
   // ── Add scene state (shared) ──
   const [addingScene, setAddingScene] = useState(false)
@@ -97,7 +99,7 @@ export const ScenePanel = memo(function ScenePanel({
       setNewSceneName('')
       setAddingScene(false)
     } catch {
-      toast.error('Failed to add scene')
+      toast.error(t('scene.addSceneFailed'))
     }
   }
 
@@ -108,9 +110,9 @@ export const ScenePanel = memo(function ScenePanel({
         <div className="rounded-2xl bg-secondary/30 p-6 mb-4">
           <HugeiconsIcon icon={GridIcon} className="size-10 text-muted-foreground/30" />
         </div>
-        <p className="text-base font-medium text-foreground/80 mb-1">No scenes yet</p>
+        <p className="text-base font-medium text-foreground/80 mb-1">{t('scene.noScenesYet')}</p>
         <p className="text-sm text-muted-foreground mb-4 max-w-52">
-          Add scenes to define placeholder values for each variation.
+          {t('scene.noScenesDesc')}
         </p>
         <Button
           variant="outline"
@@ -121,7 +123,7 @@ export const ScenePanel = memo(function ScenePanel({
           }}
         >
           <HugeiconsIcon icon={Add01Icon} className="size-5" />
-          Add Scene
+          {t('scene.addScene')}
         </Button>
       </div>
     )
@@ -141,7 +143,7 @@ export const ScenePanel = memo(function ScenePanel({
             }`}
           >
             <HugeiconsIcon icon={GridIcon} className="size-5" />
-            Reserve
+            {t('scene.reserve')}
           </button>
           <button
             onClick={() => onViewModeChange('edit')}
@@ -152,7 +154,7 @@ export const ScenePanel = memo(function ScenePanel({
             }`}
           >
             <HugeiconsIcon icon={PencilEdit02Icon} className="size-5" />
-            Edit
+            {t('scene.edit')}
           </button>
         </div>
 
@@ -247,6 +249,7 @@ function ReserveGrid({
   onAddScene,
   onCancelAdd,
 }: ReserveGridProps) {
+  const { t } = useTranslation()
   return (
     <div className="h-full overflow-y-auto p-3">
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
@@ -331,8 +334,8 @@ function ReserveGrid({
                         <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
                       </button>
                     }
-                    title="Delete Scene"
-                    description={`Delete "${scene.name}" and all associated images data?`}
+                    title={t('scene.deleteScene')}
+                    description={t('scene.deleteSceneDesc', { name: scene.name })}
                     onConfirm={() => onDeleteScene(scene.id)}
                   />
                 </div>
@@ -352,16 +355,16 @@ function ReserveGrid({
                 if (e.key === 'Enter') onAddScene()
                 if (e.key === 'Escape') onCancelAdd()
               }}
-              placeholder="Scene name"
+              placeholder={t('scene.sceneName')}
               className="h-7 text-sm mb-2"
               autoFocus
             />
             <div className="flex gap-1">
               <Button size="xs" onClick={onAddScene} disabled={!newSceneName.trim()} className="flex-1">
-                Add
+                {t('common.add')}
               </Button>
               <Button size="xs" variant="ghost" onClick={onCancelAdd} className="flex-1">
-                Cancel
+                {t('common.cancel')}
               </Button>
             </div>
           </div>

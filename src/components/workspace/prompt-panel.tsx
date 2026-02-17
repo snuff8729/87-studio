@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { extractPlaceholders } from '@/lib/placeholder'
+import { useTranslation } from '@/lib/i18n'
 import { updateCharacter, createCharacter, deleteCharacter } from '@/server/functions/characters'
 
 const PromptEditor = lazy(() =>
@@ -73,6 +74,7 @@ export function PromptPanel({
   projectId,
 }: PromptPanelProps) {
   const router = useRouter()
+  const { t } = useTranslation()
   // 'general' = General tab, 'character' = Character tab (no chars), number = specific character
   const [activeContext, setActiveContext] = useState<'general' | 'character' | number>('general')
   const isCharacterTab = activeContext !== 'general'
@@ -126,7 +128,7 @@ export function PromptPanel({
       await updateCharacter({ data: { id: charId, charPrompt: prompt, charNegative: negative } })
       router.invalidate()
     } catch {
-      toast.error('Character save failed')
+      toast.error(t('workspace.characterSaveFailed'))
     }
   }
 
@@ -205,7 +207,7 @@ export function PromptPanel({
       const result = await createCharacter({ data: { projectId, name } })
       setNewCharName('')
       setAddOpen(false)
-      toast.success('Character added')
+      toast.success(t('workspace.characterAdded'))
       // Mark as pending so the deletion useEffect doesn't reset activeContext
       // before router.invalidate() delivers fresh characters data
       if (result?.id) {
@@ -217,17 +219,17 @@ export function PromptPanel({
       }
       router.invalidate()
     } catch {
-      toast.error('Failed to add character')
+      toast.error(t('workspace.addCharacterFailed'))
     }
   }
 
   async function handleDeleteCharacter(charId: number, charName: string) {
     try {
       await deleteCharacter({ data: charId })
-      toast.success(`${charName} deleted`)
+      toast.success(t('workspace.characterDeleted', { name: charName }))
       router.invalidate()
     } catch {
-      toast.error('Failed to delete character')
+      toast.error(t('workspace.deleteCharacterFailed'))
     }
   }
 
@@ -243,7 +245,7 @@ export function PromptPanel({
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          General
+          {t('workspace.general')}
         </button>
         <button
           onClick={switchToCharacterTab}
@@ -253,7 +255,7 @@ export function PromptPanel({
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          Character{characters.length > 0 ? ` (${characters.length})` : ''}
+          {t('workspace.character')}{characters.length > 0 ? ` (${characters.length})` : ''}
         </button>
       </div>
 
@@ -287,12 +289,12 @@ export function PromptPanel({
             </PopoverTrigger>
             <PopoverContent side="bottom" align="end" className="w-52 p-3">
               <div className="space-y-2">
-                <Label className="text-sm">New Character</Label>
+                <Label className="text-sm">{t('workspace.newCharacter')}</Label>
                 <div className="flex gap-1.5">
                   <Input
                     value={newCharName}
                     onChange={(e) => setNewCharName(e.target.value)}
-                    placeholder="Name"
+                    placeholder={t('workspace.characterName')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAddCharacter()
                       if (e.key === 'Escape') { setAddOpen(false); setNewCharName('') }
@@ -301,7 +303,7 @@ export function PromptPanel({
                     autoFocus
                   />
                   <Button size="xs" onClick={handleAddCharacter} disabled={!newCharName.trim()}>
-                    Add
+                    {t('common.add')}
                   </Button>
                 </div>
               </div>
@@ -314,8 +316,8 @@ export function PromptPanel({
                   <HugeiconsIcon icon={Delete02Icon} className="size-5" />
                 </Button>
               }
-              title="Delete Character"
-              description={`Delete "${activeChar.name}"? This will also remove all scene overrides for this character.`}
+              title={t('workspace.deleteCharacter')}
+              description={t('workspace.deleteCharacterDesc', { name: activeChar.name })}
               onConfirm={() => handleDeleteCharacter(activeChar.id, activeChar.name)}
             />
           )}
@@ -326,23 +328,23 @@ export function PromptPanel({
       {isCharacterTab && characters.length === 0 && (
         <div className="flex flex-col items-center py-6 text-center">
           <p className="text-sm text-muted-foreground mb-3">
-            No characters yet. Add one to define character-specific prompts.
+            {t('workspace.noCharactersYet')}
           </p>
           <Popover open={addOpen} onOpenChange={setAddOpen}>
             <PopoverTrigger asChild>
               <Button variant="outline" size="sm">
                 <HugeiconsIcon icon={Add01Icon} className="size-4" />
-                Add Character
+                {t('workspace.addCharacter')}
               </Button>
             </PopoverTrigger>
             <PopoverContent side="bottom" className="w-52 p-3">
               <div className="space-y-2">
-                <Label className="text-sm">New Character</Label>
+                <Label className="text-sm">{t('workspace.newCharacter')}</Label>
                 <div className="flex gap-1.5">
                   <Input
                     value={newCharName}
                     onChange={(e) => setNewCharName(e.target.value)}
-                    placeholder="Name"
+                    placeholder={t('workspace.characterName')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAddCharacter()
                       if (e.key === 'Escape') { setAddOpen(false); setNewCharName('') }
@@ -351,7 +353,7 @@ export function PromptPanel({
                     autoFocus
                   />
                   <Button size="xs" onClick={handleAddCharacter} disabled={!newCharName.trim()}>
-                    Add
+                    {t('common.add')}
                   </Button>
                 </div>
               </div>
@@ -365,7 +367,7 @@ export function PromptPanel({
         <>
           <div className="space-y-1.5">
             <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {isCharacterTab ? 'Character Prompt' : 'Prompt'}
+              {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
             </Label>
             <LazyPromptEditor
               key={`prompt-${activeContext}`}
@@ -373,8 +375,8 @@ export function PromptPanel({
               onChange={handlePromptChange}
               placeholder={
                 isCharacterTab
-                  ? `${activeChar?.name} prompt with \\\\placeholders\\\\...`
-                  : 'Enter general prompt with \\\\placeholders\\\\...'
+                  ? t('workspace.charPromptPlaceholder', { name: activeChar?.name ?? '' })
+                  : t('workspace.promptPlaceholder')
               }
               minHeight="200px"
             />
@@ -395,7 +397,7 @@ export function PromptPanel({
 
           <div className="space-y-1.5">
             <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {isCharacterTab ? 'Char Negative' : 'Negative Prompt'}
+              {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
             </Label>
             <LazyPromptEditor
               key={`negative-${activeContext}`}
@@ -403,8 +405,8 @@ export function PromptPanel({
               onChange={handleNegativeChange}
               placeholder={
                 isCharacterTab
-                  ? `${activeChar?.name} negative...`
-                  : 'Enter negative prompt...'
+                  ? t('workspace.charNegativePlaceholder', { name: activeChar?.name ?? '' })
+                  : t('workspace.negativePromptPlaceholder')
               }
               minHeight="120px"
             />

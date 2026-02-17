@@ -7,6 +7,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { NumberStepper } from '@/components/ui/number-stepper'
+import { useTranslation } from '@/lib/i18n'
 import type { ReactNode } from 'react'
 
 interface BottomToolbarProps {
@@ -38,6 +39,7 @@ export const BottomToolbar = memo(function BottomToolbar({
   onToggleLeft,
   onToggleRight,
 }: BottomToolbarProps) {
+  const { t } = useTranslation()
 
   return (
     <div className="h-12 border-t border-border bg-background flex items-center justify-between px-3 gap-2 shrink-0">
@@ -73,7 +75,7 @@ export const BottomToolbar = memo(function BottomToolbar({
         >
           <HugeiconsIcon icon={PlayIcon} className="size-5" />
           <span className="hidden sm:inline">
-            {generating ? 'Generating...' : totalImages > 0 ? `Generate ${totalImages}` : 'Generate'}
+            {generating ? t('generation.generating') : totalImages > 0 ? t('generation.generateCount', { count: totalImages }) : t('generation.generate')}
           </span>
         </Button>
 

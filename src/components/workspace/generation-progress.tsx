@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Cancel01Icon, PauseIcon, PlayIcon, NextIcon } from '@hugeicons/core-free-icons'
+import { useTranslation } from '@/lib/i18n'
 
 interface GenerationProgressProps {
   jobs: Array<{
@@ -47,6 +48,7 @@ function formatRate(ms: number): string {
 }
 
 export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped, onCancel, onPause, onResume, onDismissError }: GenerationProgressProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef<number | null>(null)
@@ -99,7 +101,7 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
       : 'bg-primary'
 
   // Status label for compact bar
-  const statusLabel = isError ? 'Error' : isPaused ? 'Paused' : null
+  const statusLabel = isError ? t('generation.error') : isPaused ? t('generation.paused') : null
 
   // Action handler that also closes popover
   const withClose = (fn: () => void) => () => { setOpen(false); fn() }
@@ -135,7 +137,7 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
                   <span className="text-muted-foreground/50">&middot;</span>
                   {etaMs != null ? (
                     <>
-                      <span>{formatRate(avgMs!)}/img</span>
+                      <span>{formatRate(avgMs!)}{t('generation.perImg')}</span>
                       <span className="text-muted-foreground/50">&middot;</span>
                       <span>~{formatDuration(etaMs)}</span>
                     </>
@@ -152,15 +154,15 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
             {/* Header */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                Generation Progress
+                {t('generation.progress')}
                 {isPaused && (
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-500">
-                    Paused
+                    {t('generation.paused')}
                   </span>
                 )}
                 {isError && (
                   <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-destructive/15 text-destructive">
-                    Error
+                    {t('generation.error')}
                   </span>
                 )}
               </span>
@@ -179,17 +181,17 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
 
             {/* Timing row */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-              <span>Elapsed {formatElapsed(elapsed)}</span>
+              <span>{t('generation.elapsed')} {formatElapsed(elapsed)}</span>
               {avgMs != null && (
                 <>
                   <span className="text-muted-foreground/30">&middot;</span>
-                  <span>{formatRate(avgMs)}/img</span>
+                  <span>{formatRate(avgMs)}{t('generation.perImg')}</span>
                 </>
               )}
               {etaMs != null && !isStopped && (
                 <>
                   <span className="text-muted-foreground/30">&middot;</span>
-                  <span>~{formatDuration(etaMs)} left</span>
+                  <span>~{formatDuration(etaMs)} {t('generation.left')}</span>
                 </>
               )}
             </div>
@@ -200,37 +202,37 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
                 <>
                   <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onPause)}>
                     <HugeiconsIcon icon={PauseIcon} className="size-4" />
-                    Pause
+                    {t('generation.pause')}
                   </Button>
                   <Button variant="secondary" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={withClose(onCancel)}>
                     <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-                    Cancel
+                    {t('generation.cancel')}
                   </Button>
                 </>
               ) : isError ? (
                 <>
                   <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onResume)}>
                     <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                    Retry
+                    {t('generation.retry')}
                   </Button>
                   <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onDismissError)}>
                     <HugeiconsIcon icon={NextIcon} className="size-4" />
-                    Skip
+                    {t('generation.skip')}
                   </Button>
                   <Button variant="secondary" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={withClose(onCancel)}>
                     <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-                    Cancel
+                    {t('generation.cancel')}
                   </Button>
                 </>
               ) : (
                 <>
                   <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onResume)}>
                     <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                    Resume
+                    {t('generation.resume')}
                   </Button>
                   <Button variant="secondary" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={withClose(onCancel)}>
                     <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-                    Cancel
+                    {t('generation.cancel')}
                   </Button>
                 </>
               )}

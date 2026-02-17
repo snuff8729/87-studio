@@ -2,6 +2,7 @@ import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft02Icon, Image02Icon, Settings02Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/i18n'
 
 interface WorkspaceHeaderProps {
   projectName: string
@@ -11,13 +12,14 @@ interface WorkspaceHeaderProps {
 }
 
 export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailPath }: WorkspaceHeaderProps) {
+  const { t } = useTranslation()
   return (
     <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <Button variant="ghost" size="sm" asChild className="shrink-0">
           <Link to="/">
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
-            <span className="hidden sm:inline">Projects</span>
+            <span className="hidden sm:inline">{t('nav.projects')}</span>
           </Link>
         </Button>
         <div className="h-4 w-px bg-border" />
@@ -32,20 +34,20 @@ export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailP
         )}
         <h1 className="text-base font-semibold truncate">{projectName}</h1>
         {saveStatus === 'saving' && (
-          <span className="text-sm text-muted-foreground animate-pulse shrink-0">Saving...</span>
+          <span className="text-sm text-muted-foreground animate-pulse shrink-0">{t('common.saving')}</span>
         )}
         {saveStatus === 'saved' && (
-          <span className="text-sm text-muted-foreground shrink-0">Saved</span>
+          <span className="text-sm text-muted-foreground shrink-0">{t('common.saved')}</span>
         )}
         {saveStatus === 'error' && (
-          <span className="text-sm text-destructive shrink-0">Save failed</span>
+          <span className="text-sm text-destructive shrink-0">{t('common.saveFailed')}</span>
         )}
       </div>
       <div className="flex items-center gap-1">
         <Button variant="ghost" size="sm" asChild>
           <Link to="/gallery" search={{ project: projectId }}>
             <HugeiconsIcon icon={Image02Icon} className="size-5" />
-            <span className="hidden sm:inline">Gallery</span>
+            <span className="hidden sm:inline">{t('nav.gallery')}</span>
           </Link>
         </Button>
         <Button variant="ghost" size="sm" asChild>

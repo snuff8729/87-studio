@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import {
   getTournamentState,
@@ -45,6 +46,7 @@ export function TournamentDialog({
   projectSceneId,
   sceneName,
 }: TournamentDialogProps) {
+  const { t } = useTranslation()
   const [pair, setPair] = useState<{ image1: PairImage; image2: PairImage } | null>(null)
   const [matchCount, setMatchCount] = useState(0)
   const [totalImages, setTotalImages] = useState(0)
@@ -72,7 +74,7 @@ export function TournamentDialog({
       }
       setSeenImages(appearedIds.size)
     } catch {
-      toast.error('Failed to load tournament pair')
+      toast.error(t('tournament.failedToLoad'))
     }
     setLoading(false)
   }, [projectSceneId])
@@ -118,7 +120,7 @@ export function TournamentDialog({
         setMatchCount((c) => c + 1)
         await loadPair()
       } catch {
-        toast.error('Failed to record match')
+        toast.error(t('tournament.failedToRecord'))
       }
       setTransitioning(false)
     },
@@ -131,30 +133,30 @@ export function TournamentDialog({
     try {
       const result = await undoLastMatch({ data: projectSceneId })
       if (!result.undone) {
-        toast.info('Nothing to undo')
+        toast.info(t('tournament.nothingToUndo'))
       } else {
         setMatchCount((c) => Math.max(0, c - 1))
         await loadPair()
-        toast.success('Last match undone')
+        toast.success(t('tournament.undone'))
       }
     } catch {
-      toast.error('Failed to undo')
+      toast.error(t('tournament.failedToUndo'))
     }
     setTransitioning(false)
   }, [transitioning, projectSceneId, loadPair])
 
   const handleReset = useCallback(async () => {
     if (transitioning) return
-    if (!confirm('Reset all tournament data for this scene?')) return
+    if (!confirm(t('tournament.resetConfirm'))) return
     setTransitioning(true)
     try {
       await resetTournament({ data: projectSceneId })
       setMatchCount(0)
       setSeenImages(0)
       await loadPair()
-      toast.success('Tournament reset')
+      toast.success(t('tournament.resetSuccess'))
     } catch {
-      toast.error('Failed to reset')
+      toast.error(t('tournament.resetFailed'))
     }
     setTransitioning(false)
   }, [transitioning, projectSceneId, loadPair])
@@ -212,16 +214,16 @@ export function TournamentDialog({
       {/* Header */}
       <header className="h-12 border-b border-border flex items-center px-3 shrink-0 gap-3">
         <Button variant="ghost" size="sm" onClick={handleUndo} disabled={matchCount === 0 || transitioning}>
-          Undo
+          {t('tournament.undo')}
         </Button>
         <div className="flex-1 text-center min-w-0">
-          <span className="text-sm font-semibold truncate">Tournament: {sceneName}</span>
+          <span className="text-sm font-semibold truncate">{t('tournament.title', { name: sceneName })}</span>
         </div>
         <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {seenImages}/{totalImages} seen &middot; {matchCount} matches
+          {t('tournament.seen', { seen: seenImages, total: totalImages })} &middot; {t('tournament.matches', { count: matchCount })}
         </span>
         <Button variant="ghost" size="sm" onClick={handleReset} disabled={matchCount === 0 || transitioning}>
-          Reset
+          {t('tournament.reset')}
         </Button>
         <Button variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)}>
           &times;
@@ -232,11 +234,11 @@ export function TournamentDialog({
       <div className="flex-1 flex flex-col overflow-hidden">
         {loading ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Loading...
+            {t('common.loading')}
           </div>
         ) : !pair ? (
           <div className="flex-1 flex items-center justify-center text-muted-foreground">
-            Need at least 2 images to start a tournament.
+            {t('tournament.needTwoImages')}
           </div>
         ) : (
           <>
@@ -301,7 +303,7 @@ export function TournamentDialog({
                 disabled={transitioning}
                 className="min-w-[100px]"
               >
-                &larr; Left Win
+                &larr; {t('tournament.leftWin')}
               </Button>
               <Button
                 variant="outline"
@@ -310,7 +312,7 @@ export function TournamentDialog({
                 disabled={transitioning}
                 className="min-w-[100px]"
               >
-                &uarr; Both Win
+                &uarr; {t('tournament.bothWin')}
               </Button>
               <Button
                 variant="outline"
@@ -319,7 +321,7 @@ export function TournamentDialog({
                 disabled={transitioning}
                 className="min-w-[100px]"
               >
-                &darr; Both Lose
+                &darr; {t('tournament.bothLose')}
               </Button>
               <Button
                 variant="outline"
@@ -328,7 +330,7 @@ export function TournamentDialog({
                 disabled={transitioning}
                 className="min-w-[100px]"
               >
-                Right Win &rarr;
+                {t('tournament.rightWin')} &rarr;
               </Button>
             </div>
           </>

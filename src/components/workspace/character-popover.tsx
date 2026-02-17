@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useTranslation } from '@/lib/i18n'
 import { createCharacter, deleteCharacter } from '@/server/functions/characters'
 
 interface CharacterPopoverProps {
@@ -22,6 +23,7 @@ interface CharacterPopoverProps {
 
 export function CharacterPopover({ characters, projectId }: CharacterPopoverProps) {
   const router = useRouter()
+  const { t } = useTranslation()
   const [newName, setNewName] = useState('')
   const [adding, setAdding] = useState(false)
 
@@ -31,20 +33,20 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
       await createCharacter({ data: { projectId, name: newName.trim() } })
       setNewName('')
       setAdding(false)
-      toast.success('Character added')
+      toast.success(t('workspace.characterAdded'))
       router.invalidate()
     } catch {
-      toast.error('Failed to add character')
+      toast.error(t('workspace.addCharacterFailed'))
     }
   }
 
   async function handleDelete(charId: number, charName: string) {
     try {
       await deleteCharacter({ data: charId })
-      toast.success(`${charName} deleted`)
+      toast.success(t('workspace.characterDeleted', { name: charName }))
       router.invalidate()
     } catch {
-      toast.error('Failed to delete character')
+      toast.error(t('workspace.deleteCharacterFailed'))
     }
   }
 
@@ -54,16 +56,16 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
         <Button variant="ghost" size="sm">
           <HugeiconsIcon icon={UserIcon} className="size-5" />
           <span className="hidden sm:inline">
-            Characters{characters.length > 0 ? ` (${characters.length})` : ''}
+            {t('workspace.characters')}{characters.length > 0 ? ` (${characters.length})` : ''}
           </span>
         </Button>
       </PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-64">
-        <h4 className="text-base font-medium mb-3">Characters</h4>
+        <h4 className="text-base font-medium mb-3">{t('workspace.characters')}</h4>
 
         {characters.length === 0 ? (
           <p className="text-sm text-muted-foreground mb-3">
-            No characters. Add one for multi-character images.
+            {t('workspace.noCharactersEmpty')}
           </p>
         ) : (
           <div className="space-y-1.5 mb-3">
@@ -79,8 +81,8 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
                       <HugeiconsIcon icon={Delete02Icon} className="size-4" />
                     </Button>
                   }
-                  title="Delete Character"
-                  description={`Delete "${char.name}"? This will also remove all scene overrides for this character.`}
+                  title={t('workspace.deleteCharacter')}
+                  description={t('workspace.deleteCharacterDesc', { name: char.name })}
                   onConfirm={() => handleDelete(char.id, char.name)}
                 />
               </div>
@@ -93,7 +95,7 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
             <Input
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              placeholder="Character name"
+              placeholder={t('workspace.characterName')}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleAdd()
                 if (e.key === 'Escape') { setAdding(false); setNewName('') }
@@ -102,7 +104,7 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
               autoFocus
             />
             <Button size="xs" onClick={handleAdd} disabled={!newName.trim()}>
-              Add
+              {t('common.add')}
             </Button>
           </div>
         ) : (
@@ -113,7 +115,7 @@ export function CharacterPopover({ characters, projectId }: CharacterPopoverProp
             className="w-full"
           >
             <HugeiconsIcon icon={Add01Icon} className="size-5" />
-            Add Character
+            {t('workspace.addCharacter')}
           </Button>
         )}
       </PopoverContent>

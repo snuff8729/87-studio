@@ -23,6 +23,7 @@ import {
 } from '@/server/functions/gallery'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Image02Icon } from '@hugeicons/core-free-icons'
+import { useTranslation } from '@/lib/i18n'
 
 type SearchParams = {
   project?: number
@@ -88,6 +89,7 @@ function GalleryPage() {
   const { initialImages, allTags, allProjects } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
+  const { t } = useTranslation()
 
   const [images, setImages] = useState(initialImages)
   const [page, setPage] = useState(1)
@@ -207,11 +209,11 @@ function GalleryPage() {
       setImages((prev) =>
         prev.map((img) => (selectedIds.has(img.id) ? { ...img, isFavorite: 1 } : img)),
       )
-      toast.success(`${selectedIds.size}개 이미지를 즐겨찾기에 추가했습니다`)
+      toast.success(t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }))
       setSelectedIds(new Set())
       setSelectMode(false)
     } catch {
-      toast.error('일괄 처리에 실패했습니다')
+      toast.error(t('gallery.bulkFailed'))
     }
   }
 
@@ -219,11 +221,11 @@ function GalleryPage() {
     try {
       await bulkUpdateImages({ data: { imageIds: [...selectedIds], delete: true } })
       setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)))
-      toast.success(`${selectedIds.size}개 이미지가 삭제되었습니다`)
+      toast.success(t('gallery.bulkDeleteSuccess', { count: selectedIds.size }))
       setSelectedIds(new Set())
       setSelectMode(false)
     } catch {
-      toast.error('일괄 삭제에 실패했습니다')
+      toast.error(t('gallery.bulkDeleteFailed'))
     }
   }
 
@@ -232,8 +234,8 @@ function GalleryPage() {
   return (
     <div>
       <PageHeader
-        title="Gallery"
-        description={`${images.length} images`}
+        title={t('gallery.title')}
+        description={t('gallery.imageCount', { count: images.length })}
         actions={
           <Button
             size="sm"
@@ -243,7 +245,7 @@ function GalleryPage() {
               setSelectedIds(new Set())
             }}
           >
-            {selectMode ? '선택 해제' : '선택'}
+            {selectMode ? t('gallery.deselect') : t('gallery.select')}
           </Button>
         }
       />
@@ -263,10 +265,10 @@ function GalleryPage() {
           }
         >
           <SelectTrigger className="w-40">
-            <SelectValue placeholder="All Projects" />
+            <SelectValue placeholder={t('gallery.allProjects')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Projects</SelectItem>
+            <SelectItem value="all">{t('gallery.allProjects')}</SelectItem>
             {allProjects.map((p) => (
               <SelectItem key={p.id} value={String(p.id)}>
                 {p.name}
@@ -288,10 +290,10 @@ function GalleryPage() {
             }
           >
             <SelectTrigger className="w-40">
-              <SelectValue placeholder="All Scenes" />
+              <SelectValue placeholder={t('gallery.allScenes')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Scenes</SelectItem>
+              <SelectItem value="all">{t('gallery.allScenes')}</SelectItem>
               {projectScenes.map((s) => (
                 <SelectItem key={s.id} value={String(s.id)}>
                   {s.name}
@@ -306,7 +308,7 @@ function GalleryPage() {
           variant={search.favorite ? 'default' : 'outline'}
           onClick={() => navigate({ search: (prev) => ({ ...prev, favorite: prev.favorite ? undefined : true }) })}
         >
-          Favorites
+          {t('gallery.favorites')}
         </Button>
 
         <Select
@@ -314,13 +316,13 @@ function GalleryPage() {
           onValueChange={(v) => navigate({ search: (prev) => ({ ...prev, minRating: v === 'all' ? undefined : Number(v) }) })}
         >
           <SelectTrigger className="w-32">
-            <SelectValue placeholder="Any Rating" />
+            <SelectValue placeholder={t('gallery.anyRating')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Any Rating</SelectItem>
+            <SelectItem value="all">{t('gallery.anyRating')}</SelectItem>
             {[1, 2, 3, 4, 5].map((r) => (
               <SelectItem key={r} value={String(r)}>
-                {r}+ stars
+                {t('gallery.starsPlus', { count: r })}
               </SelectItem>
             ))}
           </SelectContent>
@@ -339,10 +341,10 @@ function GalleryPage() {
             }
           >
             <SelectTrigger className="w-36">
-              <SelectValue placeholder="All Tags" />
+              <SelectValue placeholder={t('gallery.allTags')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Tags</SelectItem>
+              <SelectItem value="all">{t('gallery.allTags')}</SelectItem>
               {allTags.map((t) => (
                 <SelectItem key={t.id} value={String(t.id)}>
                   {t.name}
@@ -367,16 +369,16 @@ function GalleryPage() {
             <SelectValue placeholder="Sort" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="newest">Newest first</SelectItem>
-            <SelectItem value="oldest">Oldest first</SelectItem>
-            <SelectItem value="rating">Highest rated</SelectItem>
-            <SelectItem value="favorites">Favorites first</SelectItem>
+            <SelectItem value="newest">{t('gallery.newestFirst')}</SelectItem>
+            <SelectItem value="oldest">{t('gallery.oldestFirst')}</SelectItem>
+            <SelectItem value="rating">{t('gallery.highestRated')}</SelectItem>
+            <SelectItem value="favorites">{t('gallery.favoritesFirst')}</SelectItem>
           </SelectContent>
         </Select>
 
         {hasFilters && (
           <Button size="sm" variant="ghost" onClick={() => navigate({ search: {} })}>
-            Clear
+            {t('common.clear')}
           </Button>
         )}
       </div>
@@ -386,12 +388,12 @@ function GalleryPage() {
         {images.length === 0 ? (
           <div className="rounded-xl border border-border border-dashed py-16 text-center">
             <HugeiconsIcon icon={Image02Icon} className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-            <p className="text-base text-muted-foreground mb-1">No images found</p>
+            <p className="text-base text-muted-foreground mb-1">{t('gallery.noImagesFound')}</p>
             <p className="text-sm text-muted-foreground mb-4">
-              Generate images from a project or adjust your filters.
+              {t('gallery.noImagesDesc')}
             </p>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/">프로젝트 목록</Link>
+              <Link to="/">{t('gallery.goToProjects')}</Link>
             </Button>
           </div>
         ) : (
@@ -441,7 +443,7 @@ function GalleryPage() {
             </div>
 
             {loading && (
-              <div className="text-center py-4 text-muted-foreground text-base">Loading...</div>
+              <div className="text-center py-4 text-muted-foreground text-base">{t('common.loading')}</div>
             )}
           </>
         )}
@@ -450,17 +452,16 @@ function GalleryPage() {
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
         <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg">
-          <span className="text-base font-medium">{selectedIds.size}개 선택</span>
-          <Button size="sm" variant="outline" onClick={handleBulkFavorite}>즐겨찾기</Button>
+          <span className="text-base font-medium">{t('gallery.selectedCount', { count: selectedIds.size })}</span>
+          <Button size="sm" variant="outline" onClick={handleBulkFavorite}>{t('gallery.addToFavorites')}</Button>
           <ConfirmDialog
-            trigger={<Button size="sm" variant="destructive">삭제</Button>}
-            title="이미지 삭제"
-            description={`${selectedIds.size}개의 이미지를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.`}
-            actionLabel="삭제"
+            trigger={<Button size="sm" variant="destructive">{t('common.delete')}</Button>}
+            title={t('gallery.deleteImages')}
+            description={t('gallery.deleteImagesDesc', { count: selectedIds.size })}
             variant="destructive"
             onConfirm={handleBulkDelete}
           />
-          <Button size="sm" variant="ghost" onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}>취소</Button>
+          <Button size="sm" variant="ghost" onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}>{t('common.cancel')}</Button>
         </div>
       )}
     </div>
@@ -536,7 +537,7 @@ function GalleryImage({
           onToggleFavorite()
         }}
         className="absolute top-1.5 right-1.5 p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10"
-        aria-label={img.isFavorite ? '즐겨찾기 해제' : '즐겨찾기'}
+        aria-label={img.isFavorite ? 'Unfavorite' : 'Favorite'}
       >
         <span className={img.isFavorite ? 'text-destructive' : 'text-white/70'}>
           {img.isFavorite ? '\u2764' : '\u2661'}
@@ -577,7 +578,7 @@ function ImageContent({
   }
   return (
     <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-      No thumbnail
+      No thumb
     </div>
   )
 }

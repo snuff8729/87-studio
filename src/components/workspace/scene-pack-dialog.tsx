@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Film02Icon,
@@ -50,6 +51,7 @@ type PackDetail = Awaited<ReturnType<typeof getScenePack>>
 type SceneItem = PackDetail['scenes'][number]
 
 export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
+  const { t } = useTranslation()
   const router = useRouter()
   const [open, setOpen] = useState(false)
   const [packs, setPacks] = useState<PackListItem[]>([])
@@ -100,34 +102,34 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
       const pack = await createScenePack({ data: { name: newPackName.trim() } })
       setNewPackName('')
       setCreatingPack(false)
-      toast.success('Pack created')
+      toast.success(t('templates.packCreated'))
       await loadPacks()
       const detail = await getScenePack({ data: pack.id })
       setSelectedPack(detail)
     } catch {
-      toast.error('Failed to create pack')
+      toast.error(t('templates.createPackFailed'))
     }
   }
 
   async function handleDeletePack(id: number) {
     try {
       await deleteScenePack({ data: id })
-      toast.success('Pack deleted')
+      toast.success(t('templates.packDeleted'))
       setSelectedPack(null)
       await loadPacks()
     } catch {
-      toast.error('Failed to delete pack')
+      toast.error(t('templates.deletePackFailed'))
     }
   }
 
   async function handleAssignToProject(scenePackId: number) {
     try {
       await assignScenePack({ data: { projectId, scenePackId } })
-      toast.success('Template applied to project')
+      toast.success(t('templates.templateApplied'))
       setOpen(false)
       router.invalidate()
     } catch {
-      toast.error('Failed to apply template')
+      toast.error(t('templates.applyFailed'))
     }
   }
 
@@ -141,9 +143,9 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
       setSelectedPack(detail)
       // Auto-expand the new scene
       setExpandedScenes((prev) => new Set([...prev, scene.id]))
-      toast.success('Scene added')
+      toast.success(t('templates.sceneAdded'))
     } catch {
-      toast.error('Failed to add scene')
+      toast.error(t('templates.addSceneFailed'))
     }
   }
 
@@ -159,9 +161,9 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
         next.delete(sceneId)
         return next
       })
-      toast.success('Scene deleted')
+      toast.success(t('templates.sceneDeleted'))
     } catch {
-      toast.error('Failed to delete scene')
+      toast.error(t('templates.deleteSceneFailed'))
     }
   }
 
@@ -188,15 +190,15 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
       <DialogTrigger asChild>
         <Button variant="ghost" size="sm">
           <HugeiconsIcon icon={Film02Icon} className="size-5" />
-          <span className="hidden sm:inline">Templates</span>
+          <span className="hidden sm:inline">{t('templates.title')}</span>
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-4xl max-h-[85vh] min-h-[70vh] sm:min-h-0 overflow-hidden flex flex-col p-0 gap-0">
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-3 shrink-0">
-          <DialogTitle>Scene Templates</DialogTitle>
+          <DialogTitle>{t('templates.title')}</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Manage reusable scene packs and apply them to your project.
+            {t('templates.description')}
           </p>
         </DialogHeader>
 
@@ -210,7 +212,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                 onValueChange={(v) => handleSelectPack(Number(v))}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a pack..." />
+                  <SelectValue placeholder={t('templates.selectPack')} />
                 </SelectTrigger>
                 <SelectContent>
                   {packs.map((pack) => (
@@ -225,7 +227,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                 variant="outline"
                 onClick={() => setImportOpen(true)}
                 className="shrink-0"
-                title="Import"
+                title={t('import.title')}
               >
                 <HugeiconsIcon icon={FileImportIcon} className="size-5" />
               </Button>
@@ -245,13 +247,13 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
             {/* Sidebar header */}
             <div className="flex items-center justify-between px-4 py-3 shrink-0">
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Packs
+                {t('templates.packs')}
               </span>
               <div className="flex items-center gap-0.5">
                 <button
                   onClick={() => setImportOpen(true)}
                   className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-                  title="Import SD Studio preset"
+                  title={t('import.title')}
                 >
                   <HugeiconsIcon icon={FileImportIcon} className="size-5" />
                 </button>
@@ -286,7 +288,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
               ))}
               {packs.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  No packs yet
+                  {t('templates.noPacksYet')}
                 </p>
               )}
             </div>
@@ -297,7 +299,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                 <Input
                   value={newPackName}
                   onChange={(e) => setNewPackName(e.target.value)}
-                  placeholder="New pack name"
+                  placeholder={t('templates.newPackName')}
                   className="h-7 text-sm rounded-lg"
                   autoFocus
                   onKeyDown={(e) => {
@@ -315,7 +317,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                     disabled={!newPackName.trim()}
                     className="flex-1"
                   >
-                    Create
+                    {t('common.create')}
                   </Button>
                   <Button
                     size="xs"
@@ -325,7 +327,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                       setNewPackName('')
                     }}
                   >
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </div>
@@ -338,7 +340,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
               <Input
                 value={newPackName}
                 onChange={(e) => setNewPackName(e.target.value)}
-                placeholder="New pack name"
+                placeholder={t('templates.newPackName')}
                 className="h-8 text-base rounded-lg"
                 autoFocus
                 onKeyDown={(e) => {
@@ -351,10 +353,10 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
               />
               <div className="flex gap-1.5">
                 <Button size="sm" onClick={handleCreatePack} disabled={!newPackName.trim()} className="flex-1">
-                  Create
+                  {t('common.create')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => { setCreatingPack(false); setNewPackName('') }}>
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -377,18 +379,18 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                   <div className="flex items-center gap-1.5 shrink-0">
                     <Button size="sm" onClick={() => handleAssignToProject(selectedPack.id)}>
                       <HugeiconsIcon icon={ArrowDown01Icon} className="size-5" />
-                      <span className="hidden sm:inline">Apply to Project</span>
-                      <span className="sm:hidden">Apply</span>
+                      <span className="hidden sm:inline">{t('templates.applyToProject')}</span>
+                      <span className="sm:hidden">{t('templates.apply')}</span>
                     </Button>
                     <ConfirmDialog
                       trigger={
                         <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
                           <HugeiconsIcon icon={Delete02Icon} className="size-5" />
-                          <span className="hidden sm:inline">Delete</span>
+                          <span className="hidden sm:inline">{t('common.delete')}</span>
                         </Button>
                       }
-                      title="Delete Scene Pack"
-                      description={`Delete "${selectedPack.name}" and all its scenes? This cannot be undone.`}
+                      title={t('templates.deleteScenePack')}
+                      description={t('templates.deleteScenePackDesc', { name: selectedPack.name })}
                       onConfirm={() => handleDeletePack(selectedPack.id)}
                     />
                   </div>
@@ -399,11 +401,11 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                   {/* Section header */}
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      Scenes ({selectedPack.scenes.length})
+                      {t('templates.scenes', { count: selectedPack.scenes.length })}
                     </span>
                     <Button size="sm" variant="outline" onClick={() => setAddingScene(true)}>
                       <HugeiconsIcon icon={Add01Icon} className="size-4" />
-                      Add Scene
+                      {t('templates.addScene')}
                     </Button>
                   </div>
 
@@ -413,7 +415,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                       <Input
                         value={newSceneName}
                         onChange={(e) => setNewSceneName(e.target.value)}
-                        placeholder="Scene name"
+                        placeholder={t('scene.sceneName')}
                         className="h-7 text-sm flex-1 rounded-lg"
                         autoFocus
                         onKeyDown={(e) => {
@@ -425,7 +427,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                         }}
                       />
                       <Button size="xs" onClick={handleAddScene} disabled={!newSceneName.trim()}>
-                        Add
+                        {t('common.add')}
                       </Button>
                       <Button
                         size="xs"
@@ -435,7 +437,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                           setNewSceneName('')
                         }}
                       >
-                        Cancel
+                        {t('common.cancel')}
                       </Button>
                     </div>
                   )}
@@ -454,14 +456,14 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
 
                   {selectedPack.scenes.length === 0 && !addingScene && (
                     <div className="text-center py-8">
-                      <p className="text-base text-muted-foreground mb-2">No scenes yet</p>
+                      <p className="text-base text-muted-foreground mb-2">{t('templates.noScenesYet')}</p>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setAddingScene(true)}
                       >
                         <HugeiconsIcon icon={Add01Icon} className="size-5" />
-                        Add your first scene
+                        {t('templates.addFirstScene')}
                       </Button>
                     </div>
                   )}
@@ -476,8 +478,8 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                   </div>
                   <p className="text-base text-muted-foreground">
                     {packs.length === 0
-                      ? 'Create a scene pack to get started'
-                      : 'Select a pack to view its scenes'}
+                      ? t('templates.createPackToStart')
+                      : t('templates.selectPack')}
                   </p>
                   {packs.length === 0 && (
                     <Button
@@ -486,7 +488,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                       onClick={() => setCreatingPack(true)}
                     >
                       <HugeiconsIcon icon={Add01Icon} className="size-5" />
-                      Create Pack
+                      {t('templates.createPack')}
                     </Button>
                   )}
                 </div>
@@ -520,6 +522,7 @@ function SceneAccordionItem({
   onDelete: () => void
   onUpdated: () => void
 }) {
+  const { t } = useTranslation()
   const placeholders: Record<string, string> = JSON.parse(scene.placeholders || '{}')
   const keys = Object.keys(placeholders)
 
@@ -534,7 +537,7 @@ function SceneAccordionItem({
           <div className="flex gap-1 shrink-0 ml-2">
             {keys.length > 0 && (
               <Badge variant="secondary" className="text-xs h-4 px-1.5 tabular-nums">
-                {keys.length} keys
+                {t('templates.keys', { count: keys.length })}
               </Badge>
             )}
             <Button
@@ -559,8 +562,8 @@ function SceneAccordionItem({
                   <HugeiconsIcon icon={Delete02Icon} className="size-4" />
                 </Button>
               }
-              title="Delete Scene"
-              description={`Delete "${scene.name}"?`}
+              title={t('templates.deleteSceneTitle')}
+              description={t('templates.deleteSceneDesc', { name: scene.name })}
               onConfirm={onDelete}
             />
           </div>
@@ -577,7 +580,7 @@ function SceneAccordionItem({
                     {placeholders[k]}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground/40 italic">empty</span>
+                  <span className="text-muted-foreground/40 italic">{t('templates.empty')}</span>
                 )}
               </div>
             ))}
@@ -613,6 +616,7 @@ function SceneEditPanel({
   onDelete: () => void
   onUpdated: () => void
 }) {
+  const { t } = useTranslation()
   const [name, setName] = useState(scene.name)
   const [values, setValues] = useState<Record<string, string>>(initialPlaceholders)
   const [newKey, setNewKey] = useState('')
@@ -645,7 +649,7 @@ function SceneEditPanel({
           if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
           saveTimerRef.current = setTimeout(() => setSaveStatus('idle'), 2000)
         } catch {
-          toast.error('Failed to save')
+          toast.error(t('templates.failedToSave'))
           setSaveStatus('idle')
         }
       }, 800)
@@ -688,17 +692,17 @@ function SceneEditPanel({
           value={name}
           onChange={(e) => handleNameChange(e.target.value)}
           className="h-8 text-base font-medium flex-1 rounded-lg"
-          placeholder="Scene name"
+          placeholder={t('scene.sceneName')}
         />
         <div className="flex items-center gap-1 shrink-0">
           {/* Save status */}
           {saveStatus === 'saving' && (
-            <span className="text-xs text-muted-foreground animate-pulse">Saving...</span>
+            <span className="text-xs text-muted-foreground animate-pulse">{t('templates.saving')}</span>
           )}
           {saveStatus === 'saved' && (
             <span className="text-xs text-green-500 flex items-center gap-0.5">
               <HugeiconsIcon icon={Tick02Icon} className="size-4" />
-              Saved
+              {t('templates.saved')}
             </span>
           )}
           <ConfirmDialog
@@ -707,8 +711,8 @@ function SceneEditPanel({
                 <HugeiconsIcon icon={Delete02Icon} className="size-4" />
               </Button>
             }
-            title="Delete Scene"
-            description={`Delete "${scene.name}"?`}
+            title={t('templates.deleteSceneTitle')}
+            description={t('templates.deleteSceneDesc', { name: scene.name })}
             onConfirm={onDelete}
           />
           <Button size="xs" variant="ghost" onClick={onCollapse}>
@@ -728,7 +732,7 @@ function SceneEditPanel({
               <Textarea
                 value={val}
                 onChange={(e) => handleValueChange(key, e.target.value)}
-                placeholder={`Value for ${key}...`}
+                placeholder={t('templates.valueForKey', { key })}
                 className="flex-1 text-base font-mono min-h-10 py-2 px-3 rounded-lg"
               />
               <Button
@@ -749,12 +753,12 @@ function SceneEditPanel({
         <Input
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}
-          placeholder="New key name"
+          placeholder={t('templates.newKeyName')}
           className="h-7 text-sm w-36 rounded-lg"
           onKeyDown={(e) => e.key === 'Enter' && addKey()}
         />
         <Button size="xs" variant="outline" onClick={addKey} disabled={!newKey.trim()}>
-          Add Key
+          {t('templates.addKey')}
         </Button>
       </div>
     </div>

@@ -13,6 +13,7 @@ import { getSceneDetail, getSceneImages } from '@/server/functions/workspace'
 import { updateProjectScene, upsertCharacterOverride } from '@/server/functions/project-scenes'
 import { updateImage } from '@/server/functions/gallery'
 import { extractPlaceholders } from '@/lib/placeholder'
+import { useTranslation } from '@/lib/i18n'
 import { TournamentDialog } from './tournament-dialog'
 
 interface SceneDetailProps {
@@ -86,6 +87,7 @@ export function SceneDetail({
   hidePlaceholders,
   sceneName,
 }: SceneDetailProps) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const initialLoadDone = useRef(false)
 
@@ -133,7 +135,7 @@ export function SceneDetail({
         initialLoadDone.current = true
       }
     } catch {
-      toast.error('Failed to load scene')
+      toast.error(t('scene.failedToLoad'))
     }
     if (!silent) setLoading(false)
   }, [sceneId, sortBy])
@@ -163,7 +165,7 @@ export function SceneDetail({
         return [...prev, ...deduped]
       })
     } catch {
-      toast.error('Failed to load more images')
+      toast.error(t('scene.failedToLoadMore'))
     }
     setLoadingMore(false)
     loadMoreRef.current = false
@@ -255,7 +257,7 @@ export function SceneDetail({
           data: { id: sceneId, placeholders: JSON.stringify(updated) },
         })
       } catch {
-        toast.error('Failed to save placeholder')
+        toast.error(t('scene.failedToSave'))
       }
     }, 800)
   }
@@ -277,7 +279,7 @@ export function SceneDetail({
           },
         })
       } catch {
-        toast.error('Failed to save override')
+        toast.error(t('scene.failedToSaveOverride'))
       }
     }, 800)
   }
@@ -322,7 +324,7 @@ export function SceneDetail({
       {!hidePlaceholders && generalPlaceholders.length > 0 && (
         <div className="space-y-2">
           <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            General Placeholders
+            {t('scene.generalPlaceholders')}
           </Label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             {generalPlaceholders.map((key) => (
@@ -332,7 +334,7 @@ export function SceneDetail({
                   value={placeholderValues[key] ?? ''}
                   onChange={(e) => handlePlaceholderChange(key, e.target.value)}
                   className="h-8 text-base"
-                  placeholder={`Value for ${key}`}
+                  placeholder={t('scene.valueFor', { key })}
                 />
               </div>
             ))}
@@ -344,7 +346,7 @@ export function SceneDetail({
       {!hidePlaceholders && characters.length > 0 && uniqueCharPlaceholders.length > 0 && (
         <div className="space-y-3">
           <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            Character Overrides
+            {t('scene.characterOverrides')}
           </Label>
           {characters.map((char) => {
             const charSpecificPlaceholders = [
@@ -368,7 +370,7 @@ export function SceneDetail({
                           value={charOverrides[char.id]?.[key] ?? ''}
                           onChange={(e) => handleCharOverrideChange(char.id, key, e.target.value)}
                           className="h-8 text-base"
-                          placeholder={generalVal ? `\u2190 ${generalVal}` : `Value for ${key}`}
+                          placeholder={generalVal ? `\u2190 ${generalVal}` : t('scene.valueFor', { key })}
                         />
                       </div>
                     )
@@ -385,12 +387,12 @@ export function SceneDetail({
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2 flex-wrap">
             <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              Generated Images ({totalImageCount})
+              {t('scene.images', { count: totalImageCount })}
             </Label>
             <div className="flex items-center gap-2">
               {totalImageCount >= 2 && (
                 <Button variant="outline" size="xs" onClick={() => setTournamentOpen(true)}>
-                  Tournament
+                  {t('tournament.tournament')}
                 </Button>
               )}
               <Select value={sortBy} onValueChange={(v) => handleSortChange(v as SortBy)}>
@@ -398,9 +400,9 @@ export function SceneDetail({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="newest">Newest</SelectItem>
-                  <SelectItem value="tournament_winrate">Win Rate</SelectItem>
-                  <SelectItem value="tournament_wins">Total Wins</SelectItem>
+                  <SelectItem value="newest">{t('scene.newest')}</SelectItem>
+                  <SelectItem value="tournament_winrate">{t('scene.winRate')}</SelectItem>
+                  <SelectItem value="tournament_wins">{t('scene.totalWins')}</SelectItem>
                 </SelectContent>
               </Select>
               {thumbnailImageId !== null && (
@@ -408,7 +410,7 @@ export function SceneDetail({
                   onClick={() => onThumbnailChange(null, null)}
                   className="text-xs text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Reset thumbnail
+                  {t('scene.resetThumbnail')}
                 </button>
               )}
             </div>
@@ -461,7 +463,7 @@ export function SceneDetail({
                               />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                                No thumb
+                                {t('scene.noThumb')}
                               </div>
                             )}
                             {/* Overlay buttons */}
@@ -476,7 +478,7 @@ export function SceneDetail({
                                     )
                                   }}
                                   className={`p-0.5 ${isThumbnail ? 'text-primary' : 'text-white/70 hover:text-white'}`}
-                                  title={isThumbnail ? 'Remove as scene thumbnail' : 'Set as scene thumbnail'}
+                                  title={t('scene.sceneThumb')}
                                 >
                                   <HugeiconsIcon icon={Image02Icon} className="size-5" />
                                 </button>
@@ -489,7 +491,7 @@ export function SceneDetail({
                                         onProjectThumbnailChange(isProjectThumb ? null : img.id)
                                       }}
                                       className={`p-0.5 ${isProjectThumb ? 'text-primary' : 'text-white/70 hover:text-white'}`}
-                                      title={isProjectThumb ? 'Remove as project thumbnail' : 'Set as project thumbnail'}
+                                      title={t('scene.projectThumb')}
                                     >
                                       <HugeiconsIcon icon={FolderOpenIcon} className="size-5" />
                                     </button>
@@ -501,7 +503,7 @@ export function SceneDetail({
                                   e.stopPropagation()
                                   handleToggleFavorite(img.id, img.isFavorite)
                                 }}
-                                aria-label={img.isFavorite ? 'Unfavorite' : 'Favorite'}
+                                aria-label={img.isFavorite ? t('gallery.unfavorite') : t('gallery.favorite')}
                               >
                                 <span className={`text-base ${img.isFavorite ? 'text-destructive' : 'text-white/70'}`}>
                                   {img.isFavorite ? '\u2764' : '\u2661'}
@@ -511,10 +513,10 @@ export function SceneDetail({
                             {(isThumbnail || projectThumbnailImageId === img.id) && (
                               <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
                                 {isThumbnail && projectThumbnailImageId === img.id
-                                  ? 'Scene + Project Thumb'
+                                  ? t('scene.scenePlusProjectThumb')
                                   : isThumbnail
-                                    ? 'Scene Thumbnail'
-                                    : 'Project Thumbnail'}
+                                    ? t('scene.sceneThumb')
+                                    : t('scene.projectThumb')}
                               </div>
                             )}
                             {/* Tournament W/L badge */}
@@ -537,13 +539,13 @@ export function SceneDetail({
           {hasMore && (
             <div className="flex justify-center py-2">
               {loadingMore ? (
-                <span className="text-sm text-muted-foreground">Loading...</span>
+                <span className="text-sm text-muted-foreground">{t('common.loading')}</span>
               ) : (
                 <button
                   onClick={handleLoadMore}
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  Load more ({images.length} / {totalImageCount})
+                  {t('scene.loadMore', { current: images.length, total: totalImageCount })}
                 </button>
               )}
             </div>
@@ -553,7 +555,7 @@ export function SceneDetail({
 
       {!loading && images.length === 0 && (
         <div className="text-center py-8 text-base text-muted-foreground">
-          No images generated for this scene yet.
+          {t('scene.noImagesYet')}
         </div>
       )}
 

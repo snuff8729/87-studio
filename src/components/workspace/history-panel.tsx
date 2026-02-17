@@ -2,6 +2,7 @@ import { memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import { useTranslation } from '@/lib/i18n'
 
 interface HistoryPanelProps {
   images: Array<{
@@ -16,18 +17,19 @@ interface HistoryPanelProps {
 }
 
 export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: HistoryPanelProps) {
+  const { t } = useTranslation()
   return (
     <div className="p-2 flex flex-col h-full">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-          History
+          {t('history.title')}
         </h3>
         <span className="text-xs text-muted-foreground">{images.length}</span>
       </div>
 
       {images.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center">No images yet</p>
+          <p className="text-sm text-muted-foreground text-center">{t('history.noImagesYet')}</p>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto -mx-1 px-1">
@@ -69,7 +71,7 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
           search={{ project: projectId }}
           className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
         >
-          Full gallery
+          {t('history.fullGallery')}
           <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
         </Link>
       </div>

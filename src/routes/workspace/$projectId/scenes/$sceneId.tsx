@@ -1,6 +1,7 @@
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft02Icon, Menu01Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ function SceneDetailPage() {
   const data = Route.useLoaderData()
   const params = Route.useParams()
   const router = useRouter()
+  const { t } = useTranslation()
   const projectId = Number(params.projectId)
   const sceneId = Number(params.sceneId)
 
@@ -91,10 +93,10 @@ function SceneDetailPage() {
         router.invalidate()
       } catch {
         setSaveStatus('error')
-        toast.error('Save failed')
+        toast.error(t('common.saveFailed'))
       }
     },
-    [projectId, router],
+    [projectId, router, t],
   )
 
   const debouncedSave = useCallback(
@@ -123,13 +125,13 @@ function SceneDetailPage() {
   function handleThumbnailChange(imageId: number | null) {
     updateProjectScene({ data: { id: sceneId, thumbnailImageId: imageId } })
       .then(() => router.invalidate())
-      .catch(() => toast.error('Failed to update thumbnail'))
+      .catch(() => toast.error(t('imageDetail.setSceneThumbFailed')))
   }
 
   function handleProjectThumbnailChange(imageId: number | null) {
     updateProject({ data: { id: projectId, thumbnailImageId: imageId } })
       .then(() => router.invalidate())
-      .catch(() => toast.error('Failed to update project thumbnail'))
+      .catch(() => toast.error(t('imageDetail.setProjectThumbFailed')))
   }
 
   // ── Generation polling ──
@@ -203,7 +205,7 @@ function SceneDetailPage() {
     setActiveJobs([])
     setBatchTimingData(null)
     setQueueStopped(null)
-    toast.success('Generation cancelled')
+    toast.success(t('generation.cancelled'))
     router.invalidate()
   }
 
@@ -234,9 +236,9 @@ function SceneDetailPage() {
 
   // Save status indicator text
   const saveIndicator =
-    saveStatus === 'saving' ? 'Saving...' :
-    saveStatus === 'saved' ? 'Saved' :
-    saveStatus === 'error' ? 'Error' : null
+    saveStatus === 'saving' ? t('common.saving') :
+    saveStatus === 'saved' ? t('common.saved') :
+    saveStatus === 'error' ? t('common.saveFailed') : null
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">

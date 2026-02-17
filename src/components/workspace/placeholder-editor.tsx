@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { resolvePlaceholders } from '@/lib/placeholder'
+import { useTranslation } from '@/lib/i18n'
 
 function StatusDot({ filled, template }: { filled: boolean; template?: boolean }) {
   if (!filled) return <span className="inline-block size-1.5 rounded-full shrink-0 bg-muted-foreground/25 ring-1 ring-muted-foreground/20" />
@@ -55,6 +56,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   onPlaceholdersChange,
   getPrompts,
 }: PlaceholderEditorProps) {
+  const { t } = useTranslation()
+
   // ── Collapsed state ──
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set())
   const [filledCollapsed, setFilledCollapsed] = useState(false)
@@ -163,14 +166,14 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         const merged = { ...scenePlaceholders, ...generalChanges }
         onSaveGeneral(JSON.stringify(merged))
           .then(() => onPlaceholdersChange?.())
-          .catch(() => toast.error('Failed to save'))
+          .catch(() => toast.error(t('placeholder.failedToSave')))
       }
 
       for (const [charId, changes] of charChanges) {
         const existing = characterOverrides[charId] ?? {}
         onSaveCharOverride(charId, JSON.stringify({ ...existing, ...changes }))
           .then(() => onPlaceholdersChange?.())
-          .catch(() => toast.error('Failed to save override'))
+          .catch(() => toast.error(t('placeholder.failedToSaveOverride')))
       }
 
       return currentLocal // keep overlay until props catch up
@@ -182,7 +185,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     const key = newSceneDataKey.trim()
     if (!key) return
     if (generalPlaceholderKeys.includes(key) || key in scenePlaceholders) {
-      toast.error('Key already exists')
+      toast.error(t('placeholder.keyAlreadyExists'))
       return
     }
     try {
@@ -191,7 +194,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       setNewSceneDataKey('')
       setAddingSceneData(false)
     } catch {
-      toast.error('Failed to add key')
+      toast.error(t('placeholder.failedToAddKey'))
     }
   }
 
@@ -206,7 +209,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       await onSaveGeneral(JSON.stringify(remaining))
       onPlaceholdersChange?.()
     } catch {
-      toast.error('Failed to remove key')
+      toast.error(t('placeholder.failedToRemoveKey'))
     }
   }
 
@@ -364,7 +367,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           <HugeiconsIcon icon={TextIcon} className="size-6 text-muted-foreground/25" />
         </div>
         <p className="text-sm text-muted-foreground max-w-48">
-          Add {'\\\\placeholders\\\\'} to your prompts to create key slots.
+          {t('placeholder.addPlaceholders')}
         </p>
       </div>
     )
@@ -374,7 +377,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   if (!hasPromptKeys) {
     return (
       <div className="space-y-2.5">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Scene Data ({extraGeneralKeys.length})</span>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('placeholder.sceneData', { count: extraGeneralKeys.length })}</span>
         {extraGeneralKeys.map((key) => (
           <div key={key} className="flex items-center gap-2">
             <span className="text-xs font-mono text-muted-foreground/70 shrink-0 min-w-0 truncate max-w-[8rem]" title={key}>{key}</span>
@@ -383,19 +386,19 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               value={getCellValue(key, 'general')}
               onChange={(e) => handleCellChange('general', key, e.target.value)}
               className="flex-1 h-8 rounded-lg border border-dashed border-border bg-input/20 px-2.5 text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none transition-all min-w-0"
-              placeholder={`Value for ${key}`}
+              placeholder={t('scene.valueFor', { key })}
             />
             <button
               onClick={() => handleRemoveGeneralKey(key)}
               className="text-muted-foreground/50 hover:text-destructive transition-colors p-1 rounded shrink-0"
-              title={`Remove ${key}`}
+              title={t('common.delete')}
             >
               <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
             </button>
           </div>
         ))}
         <p className="text-xs text-muted-foreground/50 mt-2">
-          Add {'\\\\placeholders\\\\'} to your prompts to create key slots.
+          {t('placeholder.addPlaceholders')}
         </p>
       </div>
     )
@@ -406,11 +409,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       {/* ── Keys Section ── */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Keys</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('placeholder.keys')}</span>
           <span className="text-xs text-muted-foreground tabular-nums">
             {filledCounts.total - filledCounts.filled > 0
-              ? <><span className="text-amber-500">{filledCounts.total - filledCounts.filled}</span>/{filledCounts.total} unfilled</>
-              : <>{filledCounts.total}/{filledCounts.total} filled</>
+              ? <><span className="text-amber-500">{t('placeholder.unfilledCount', { unfilled: filledCounts.total - filledCounts.filled, total: filledCounts.total })}</span></>
+              : <>{t('placeholder.filledCount', { filled: filledCounts.total, total: filledCounts.total })}</>
             }
           </span>
         </div>
@@ -419,7 +422,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         {generalPlaceholderKeys.length > 0 && (
           <div className="mb-2.5">
             {characters.length > 0 && (
-              <div className="text-[11px] text-muted-foreground/60 mb-1">General</div>
+              <div className="text-[11px] text-muted-foreground/60 mb-1">{t('workspace.general')}</div>
             )}
             <div className="flex flex-wrap gap-1">
               {generalPlaceholderKeys.map((key) => (
@@ -475,13 +478,13 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       {classifiedKeys.totalUnfilled > 0 && (
         <div className="space-y-2.5">
           <span className="text-xs font-medium text-amber-500/80 uppercase tracking-wider">
-            Unfilled ({classifiedKeys.totalUnfilled})
+            {t('placeholder.unfilled', { count: classifiedKeys.totalUnfilled })}
           </span>
 
           {classifiedKeys.unfilledGeneral.length > 0 && (
             <div className="space-y-2.5">
               {characters.length > 0 && (
-                <div className="text-xs text-muted-foreground/60">General</div>
+                <div className="text-xs text-muted-foreground/60">{t('workspace.general')}</div>
               )}
               {classifiedKeys.unfilledGeneral.map((key) => (
                 <div key={key} id={`slot-g-${key}`}>
@@ -496,7 +499,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                     onChange={(e) => handleCellChange('general', key, e.target.value)}
                     rows={4}
                     className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
-                    placeholder={`Value for ${key}...`}
+                    placeholder={t('scene.valueFor', { key })}
                   />
                 </div>
               ))}
@@ -519,7 +522,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                     onChange={(e) => handleCellChange(charId, key, e.target.value)}
                     rows={4}
                     className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
-                    placeholder={`${charName}: ${key}...`}
+                    placeholder={`${charName}: ${key}`}
                   />
                 </div>
               ))}
@@ -536,7 +539,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
             className="w-full flex items-center justify-between text-left py-1"
           >
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Filled ({classifiedKeys.totalFilled})
+              {t('placeholder.filled', { count: classifiedKeys.totalFilled })}
             </span>
             <HugeiconsIcon
               icon={ArrowDown01Icon}
@@ -550,7 +553,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               {classifiedKeys.filledGeneral.length > 0 && (
                 <div className="space-y-2.5">
                   {characters.length > 0 && (
-                    <div className="text-xs text-muted-foreground/60">General</div>
+                    <div className="text-xs text-muted-foreground/60">{t('workspace.general')}</div>
                   )}
                   {classifiedKeys.filledGeneral.map((key) => (
                     <div key={key} id={`slot-g-${key}`}>
@@ -565,7 +568,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         onChange={(e) => handleCellChange('general', key, e.target.value)}
                         rows={4}
                         className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
-                        placeholder={`Value for ${key}...`}
+                        placeholder={t('scene.valueFor', { key })}
                       />
                     </div>
                   ))}
@@ -601,7 +604,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                 {`\\\\${key}\\\\`}
                               </span>
                               {isTemplate && (
-                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">General</span>
+                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">{t('workspace.general')}</span>
                               )}
                             </label>
                             <textarea
@@ -609,7 +612,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                               onChange={(e) => handleCellChange(charId, key, e.target.value)}
                               rows={4}
                               className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
-                              placeholder={generalValue ? `← General: ${generalValue}` : `${charName}: ${key}...`}
+                              placeholder={generalValue ? `\u2190 ${t('workspace.general')}: ${generalValue}` : `${charName}: ${key}`}
                             />
                           </div>
                         ))}
@@ -633,7 +636,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               className="w-full flex items-center justify-between text-left py-1"
             >
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Scene Data ({unusedCount})
+                {t('placeholder.sceneData', { count: unusedCount })}
               </span>
               <HugeiconsIcon
                 icon={ArrowDown01Icon}
@@ -651,12 +654,12 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       value={getCellValue(key, 'general')}
                       onChange={(e) => handleCellChange('general', key, e.target.value)}
                       className="flex-1 h-8 rounded-lg border border-dashed border-border bg-input/20 px-2.5 text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none transition-all min-w-0"
-                      placeholder={`Value for ${key}`}
+                      placeholder={t('scene.valueFor', { key })}
                     />
                     <button
                       onClick={() => handleRemoveGeneralKey(key)}
                       className="text-muted-foreground/50 hover:text-destructive transition-colors p-1 rounded shrink-0"
-                      title={`Remove ${key}`}
+                      title={t('common.delete')}
                     >
                       <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
                     </button>
@@ -668,7 +671,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                     <Input
                       value={newSceneDataKey}
                       onChange={(e) => setNewSceneDataKey(e.target.value)}
-                      placeholder="Key name"
+                      placeholder={t('common.name')}
                       className="h-8 text-sm w-32 font-mono"
                       autoFocus
                       onKeyDown={(e) => {
@@ -676,8 +679,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         if (e.key === 'Escape') { setAddingSceneData(false); setNewSceneDataKey('') }
                       }}
                     />
-                    <Button size="xs" onClick={handleAddSceneDataKey} disabled={!newSceneDataKey.trim()}>Add</Button>
-                    <Button size="xs" variant="ghost" onClick={() => { setAddingSceneData(false); setNewSceneDataKey('') }}>Cancel</Button>
+                    <Button size="xs" onClick={handleAddSceneDataKey} disabled={!newSceneDataKey.trim()}>{t('common.add')}</Button>
+                    <Button size="xs" variant="ghost" onClick={() => { setAddingSceneData(false); setNewSceneDataKey('') }}>{t('common.cancel')}</Button>
                   </div>
                 ) : (
                   <button
@@ -685,7 +688,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                     className="flex items-center gap-1 text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors py-1 px-2 rounded-lg border border-dashed border-border/50 hover:border-border"
                   >
                     <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
-                    Add Data
+                    {t('placeholder.addData')}
                   </button>
                 )}
               </div>
@@ -704,7 +707,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               className="w-full flex items-center justify-between text-left py-1"
             >
               <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                Prompt Preview
+                {t('placeholder.promptPreview')}
               </span>
               <HugeiconsIcon
                 icon={ArrowDown01Icon}
@@ -715,15 +718,15 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
             {previewOpen && resolvedPrompts && (
               <div className="mt-2 space-y-3">
                 <div>
-                  <div className="text-[11px] text-muted-foreground/60 mb-1">General Prompt</div>
+                  <div className="text-[11px] text-muted-foreground/60 mb-1">{t('placeholder.generalPrompt')}</div>
                   <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
-                    {resolvedPrompts.general || <span className="text-muted-foreground/40 italic">Empty</span>}
+                    {resolvedPrompts.general || <span className="text-muted-foreground/40 italic">{t('placeholder.empty')}</span>}
                   </pre>
                 </div>
 
                 {resolvedPrompts.negative && (
                   <div>
-                    <div className="text-[11px] text-muted-foreground/60 mb-1">Negative Prompt</div>
+                    <div className="text-[11px] text-muted-foreground/60 mb-1">{t('placeholder.negativePrompt')}</div>
                     <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
                       {resolvedPrompts.negative}
                     </pre>
@@ -734,11 +737,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                   <div key={char.name}>
                     <div className="text-[11px] text-muted-foreground/60 mb-1">{char.name}</div>
                     <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
-                      {char.prompt || <span className="text-muted-foreground/40 italic">Empty</span>}
+                      {char.prompt || <span className="text-muted-foreground/40 italic">{t('placeholder.empty')}</span>}
                     </pre>
                     {char.negative && (
                       <>
-                        <div className="text-[11px] text-muted-foreground/60 mt-2 mb-1">{char.name} Negative</div>
+                        <div className="text-[11px] text-muted-foreground/60 mt-2 mb-1">{char.name} {t('placeholder.negativePrompt')}</div>
                         <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
                           {char.negative}
                         </pre>

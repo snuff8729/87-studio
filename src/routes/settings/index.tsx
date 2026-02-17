@@ -8,6 +8,8 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Slider } from '@/components/ui/slider'
 import { getSetting, setSetting } from '@/server/functions/settings'
+import { useTranslation } from '@/lib/i18n'
+import type { Locale } from '@/lib/i18n'
 
 export const Route = createFileRoute('/settings/')({
   loader: async () => {
@@ -26,6 +28,7 @@ function SettingsPage() {
   const [showKey, setShowKey] = useState(false)
   const [delay, setDelay] = useState(Number(initialDelay))
   const [saving, setSaving] = useState(false)
+  const { t, locale, setLocale } = useTranslation()
 
   useEffect(() => {
     setApiKey(initialApiKey)
@@ -39,35 +42,35 @@ function SettingsPage() {
         setSetting({ data: { key: 'nai_api_key', value: apiKey } }),
         setSetting({ data: { key: 'generation_delay', value: String(delay) } }),
       ])
-      toast.success('설정이 저장되었습니다')
+      toast.success(t('settings.saved'))
     } catch {
-      toast.error('설정 저장에 실패했습니다')
+      toast.error(t('settings.saveFailed'))
     }
     setSaving(false)
   }
 
   return (
     <div>
-      <PageHeader title="Settings" description="Configure your NAI API connection and generation preferences" />
+      <PageHeader title={t('settings.title')} description={t('settings.description')} />
 
       <div className="max-w-2xl space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>NAI API Key</CardTitle>
+            <CardTitle>{t('settings.naiApiKey')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-2">
-              <Label htmlFor="api-key">API Key</Label>
+              <Label htmlFor="api-key">{t('settings.apiKey')}</Label>
               <div className="flex gap-2">
                 <Input
                   id="api-key"
                   type={showKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
-                  placeholder="Enter your NAI API key..."
+                  placeholder={t('settings.enterApiKey')}
                 />
                 <Button variant="outline" onClick={() => setShowKey(!showKey)}>
-                  {showKey ? 'Hide' : 'Show'}
+                  {showKey ? t('common.hide') : t('common.show')}
                 </Button>
               </div>
             </div>
@@ -76,12 +79,12 @@ function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Generation Settings</CardTitle>
+            <CardTitle>{t('settings.generationSettings')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="space-y-3">
               <Label>
-                Delay between generations: <span className="font-mono text-primary">{delay}ms</span>
+                {t('settings.delayLabel')} <span className="font-mono text-primary">{delay}ms</span>
               </Label>
               <Slider
                 value={[delay]}
@@ -99,8 +102,29 @@ function SettingsPage() {
           </CardContent>
         </Card>
 
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('settings.language')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t('settings.languageDesc')}</p>
+            <div className="flex gap-2">
+              {([['en', 'English'], ['ko', '한국어']] as const).map(([code, label]) => (
+                <Button
+                  key={code}
+                  variant={locale === code ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setLocale(code as Locale)}
+                >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
         <Button onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving...' : 'Save Settings'}
+          {saving ? t('common.saving') : t('settings.saveSettings')}
         </Button>
       </div>
     </div>

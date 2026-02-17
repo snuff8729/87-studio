@@ -25,6 +25,7 @@ import {
   Delete02Icon,
   Settings02Icon,
 } from '@hugeicons/core-free-icons'
+import { useTranslation } from '@/lib/i18n'
 
 export const Route = createFileRoute('/')({
   loader: async () => {
@@ -52,6 +53,7 @@ function ProjectSelectorPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const { t } = useTranslation()
 
   // Sync from loader when navigating back
   useEffect(() => {
@@ -89,7 +91,7 @@ function ProjectSelectorPage() {
 
   async function handleCreate() {
     if (!name.trim()) {
-      toast.error('Enter a project name')
+      toast.error(t('dashboard.enterProjectName'))
       return
     }
     try {
@@ -97,20 +99,20 @@ function ProjectSelectorPage() {
       setName('')
       setDescription('')
       setDialogOpen(false)
-      toast.success('Project created')
+      toast.success(t('dashboard.projectCreated'))
       router.navigate({ to: '/workspace/$projectId', params: { projectId: String(project.id) } })
     } catch {
-      toast.error('Failed to create project')
+      toast.error(t('dashboard.createFailed'))
     }
   }
 
   async function handleDelete(id: number) {
     try {
       await deleteProject({ data: id })
-      toast.success('Project deleted')
+      toast.success(t('dashboard.projectDeleted'))
       router.invalidate()
     } catch {
-      toast.error('Failed to delete')
+      toast.error(t('dashboard.deleteFailed'))
     }
   }
 
@@ -127,13 +129,13 @@ function ProjectSelectorPage() {
         <div className="flex items-center gap-2">
           {!hasApiKey && (
             <Badge variant="secondary" className="text-sm">
-              API key not set
+              {t('dashboard.apiKeyNotSet')}
             </Badge>
           )}
           <Button variant="ghost" size="sm" asChild>
             <Link to="/settings">
               <HugeiconsIcon icon={Settings02Icon} className="size-5" />
-              Settings
+              {t('nav.settings')}
             </Link>
           </Button>
         </div>
@@ -219,8 +221,8 @@ function ProjectSelectorPage() {
                   <HugeiconsIcon icon={Delete02Icon} className="size-5" />
                 </Button>
               }
-              title="Delete Project"
-              description={`Delete "${p.name}"? Generated images will be preserved on disk.`}
+              title={t('dashboard.deleteProject')}
+              description={t('dashboard.deleteProjectDesc', { name: p.name })}
               onConfirm={() => handleDelete(p.id)}
             />
           </div>
@@ -230,8 +232,8 @@ function ProjectSelectorPage() {
       {projects.length === 0 && (
         <div className="rounded-xl border border-border border-dashed py-12 text-center">
           <HugeiconsIcon icon={FolderOpenIcon} className="size-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-base text-muted-foreground mb-1">No projects yet</p>
-          <p className="text-sm text-muted-foreground mb-4">Create your first project to get started.</p>
+          <p className="text-base text-muted-foreground mb-1">{t('dashboard.noProjectsYet')}</p>
+          <p className="text-sm text-muted-foreground mb-4">{t('dashboard.noProjectsDesc')}</p>
         </div>
       )}
 
@@ -241,35 +243,35 @@ function ProjectSelectorPage() {
           <DialogTrigger asChild>
             <Button variant="outline" className="w-full">
               <HugeiconsIcon icon={Add01Icon} className="size-5" />
-              New Project
+              {t('dashboard.newProject')}
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>New Project</DialogTitle>
+              <DialogTitle>{t('dashboard.newProject')}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>Name</Label>
+                <Label>{t('common.name')}</Label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Project name"
+                  placeholder={t('dashboard.projectName')}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
                   autoFocus
                 />
               </div>
               <div className="space-y-2">
-                <Label>Description (optional)</Label>
+                <Label>{t('dashboard.descriptionOptional')}</Label>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description..."
+                  placeholder={t('dashboard.briefDescription')}
                   rows={2}
                 />
               </div>
               <Button onClick={handleCreate} disabled={!name.trim()} className="w-full">
-                Create
+                {t('common.create')}
               </Button>
             </div>
           </DialogContent>

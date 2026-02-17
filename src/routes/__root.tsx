@@ -3,22 +3,32 @@ import { Sidebar } from '@/components/layout/sidebar'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { I18nProvider, useTranslation } from '@/lib/i18n'
 
 import appCss from '../styles.css?url'
 
 
 function RootErrorComponent({ error }: { error: Error }) {
   return (
+    <I18nProvider>
+      <RootErrorContent error={error} />
+    </I18nProvider>
+  )
+}
+
+function RootErrorContent({ error }: { error: Error }) {
+  const { t } = useTranslation()
+  return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <p className="text-lg text-destructive font-medium">오류가 발생했습니다</p>
+      <p className="text-lg text-destructive font-medium">{t('error.occurred')}</p>
       <p className="text-sm text-muted-foreground max-w-md text-center">
-        {error.message || '알 수 없는 오류가 발생했습니다.'}
+        {error.message || t('error.unknown')}
       </p>
       <button
         onClick={() => window.location.reload()}
         className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
-        다시 시도
+        {t('error.retry')}
       </button>
     </div>
   )
@@ -34,14 +44,23 @@ function RootPendingComponent() {
 
 function RootNotFoundComponent() {
   return (
+    <I18nProvider>
+      <RootNotFoundContent />
+    </I18nProvider>
+  )
+}
+
+function RootNotFoundContent() {
+  const { t } = useTranslation()
+  return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <p className="text-lg font-medium">페이지를 찾을 수 없습니다</p>
-      <p className="text-sm text-muted-foreground">요청하신 페이지가 존재하지 않습니다.</p>
+      <p className="text-lg font-medium">{t('error.notFound')}</p>
+      <p className="text-sm text-muted-foreground">{t('error.notFoundDesc')}</p>
       <Link
         to="/"
         className="px-4 py-2 text-sm font-medium rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
       >
-        홈으로 돌아가기
+        {t('error.goHome')}
       </Link>
     </div>
   )
@@ -85,25 +104,29 @@ function RootComponent() {
 
   if (isWorkspace || isImageDetail) {
     return (
-      <TooltipProvider delayDuration={300}>
-        <Outlet />
-        <Toaster richColors position="bottom-right" />
-      </TooltipProvider>
+      <I18nProvider>
+        <TooltipProvider delayDuration={300}>
+          <Outlet />
+          <Toaster richColors position="bottom-right" />
+        </TooltipProvider>
+      </I18nProvider>
     )
   }
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <Sidebar />
-      <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
-        <div className="p-4 lg:p-6">
-          <div className="animate-in fade-in-0 duration-150">
-            <Outlet />
+    <I18nProvider>
+      <TooltipProvider delayDuration={300}>
+        <Sidebar />
+        <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
+          <div className="p-4 lg:p-6">
+            <div className="animate-in fade-in-0 duration-150">
+              <Outlet />
+            </div>
           </div>
-        </div>
-      </main>
-      <BottomNav />
-      <Toaster richColors position="bottom-right" />
-    </TooltipProvider>
+        </main>
+        <BottomNav />
+        <Toaster richColors position="bottom-right" />
+      </TooltipProvider>
+    </I18nProvider>
   )
 }

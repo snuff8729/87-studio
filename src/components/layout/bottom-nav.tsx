@@ -7,17 +7,20 @@ import {
   FileSearchIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
+import { useTranslation } from '@/lib/i18n'
+import type { TranslationKeys } from '@/lib/i18n'
 
 const navItems = [
-  { to: '/', label: 'Projects', icon: Home03Icon },
-  { to: '/gallery', label: 'Gallery', icon: Image02Icon },
-  { to: '/inspect', label: 'Inspect', icon: FileSearchIcon },
-  { to: '/settings', label: 'Settings', icon: Settings02Icon },
+  { to: '/', key: 'nav.projects' as TranslationKeys, icon: Home03Icon },
+  { to: '/gallery', key: 'nav.gallery' as TranslationKeys, icon: Image02Icon },
+  { to: '/inspect', key: 'nav.inspect' as TranslationKeys, icon: FileSearchIcon },
+  { to: '/settings', key: 'nav.settings' as TranslationKeys, icon: Settings02Icon },
 ] as const
 
 export function BottomNav() {
   const routerState = useRouterState()
   const currentPath = routerState.location.pathname
+  const { t } = useTranslation()
 
   return (
     <nav className="lg:hidden fixed inset-x-0 bottom-0 z-40 border-t border-border bg-background/95 backdrop-blur-sm" role="navigation" aria-label="Main navigation">
@@ -36,7 +39,7 @@ export function BottomNav() {
               )}
             >
               <HugeiconsIcon icon={item.icon} className="size-5" />
-              {item.label}
+              {t(item.key)}
             </Link>
           )
         })}

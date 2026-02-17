@@ -18,6 +18,7 @@ import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
 import { parseNAIMetadata, getUcPresetLabel } from '@/lib/nai-metadata'
 import type { NAIMetadata } from '@/lib/nai-metadata'
+import { useTranslation } from '@/lib/i18n'
 
 type SearchParams = {
   project?: number
@@ -56,6 +57,7 @@ function ImageDetailPage() {
   const search = Route.useSearch()
   const navigate = useNavigate()
   const router = useRouter()
+  const { t } = useTranslation()
 
   function goBack() {
     if (window.history.length > 1) {
@@ -128,7 +130,7 @@ function ImageDetailPage() {
   async function handleSaveMemo() {
     await updateImage({ data: { id: detail.id, memo } })
     setDetail({ ...detail, memo })
-    toast.success('메모가 저장되었습니다')
+    toast.success(t('imageDetail.memoSaved'))
   }
 
   async function handleAddTag() {
@@ -141,7 +143,7 @@ function ImageDetailPage() {
       })
       setNewTag('')
     } catch {
-      toast.error('태그 추가에 실패했습니다')
+      toast.error(t('imageDetail.tagFailed'))
     }
   }
 
@@ -157,9 +159,9 @@ function ImageDetailPage() {
     if (!detail.projectSceneId) return
     try {
       await updateProjectScene({ data: { id: detail.projectSceneId, thumbnailImageId: detail.id } })
-      toast.success('Set as scene thumbnail')
+      toast.success(t('imageDetail.setSceneThumbSuccess'))
     } catch {
-      toast.error('Failed to set scene thumbnail')
+      toast.error(t('imageDetail.setSceneThumbFailed'))
     }
   }
 
@@ -167,9 +169,9 @@ function ImageDetailPage() {
     if (!detail.projectId) return
     try {
       await updateProject({ data: { id: detail.projectId, thumbnailImageId: detail.id } })
-      toast.success('Set as project thumbnail')
+      toast.success(t('imageDetail.setProjectThumbSuccess'))
     } catch {
-      toast.error('Failed to set project thumbnail')
+      toast.error(t('imageDetail.setProjectThumbFailed'))
     }
   }
 
@@ -218,7 +220,7 @@ function ImageDetailPage() {
           className="absolute top-4 left-4 z-10 flex items-center gap-1 text-base text-white/60 hover:text-white transition-colors"
         >
           <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
-          Back
+          {t('imageDetail.back')}
         </button>
 
         {/* Prev */}
@@ -255,7 +257,7 @@ function ImageDetailPage() {
       {/* Detail panel */}
       <div className="h-[40vh] lg:h-auto lg:w-80 bg-card border-t lg:border-t-0 lg:border-l border-border p-4 overflow-y-auto shrink-0">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-medium">Details</h3>
+          <h3 className="text-base font-medium">{t('imageDetail.details')}</h3>
           <button
             onClick={goBack}
             className="text-muted-foreground hover:text-foreground transition-colors"
@@ -269,12 +271,12 @@ function ImageDetailPage() {
           <>
             <div className="mb-4">
               <label className="text-sm text-muted-foreground mb-1.5 block">
-                Context
+                {t('imageDetail.context')}
               </label>
               <div className="space-y-1">
                 {detail.projectName && detail.projectId && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">Project:</span>
+                    <span className="text-sm text-muted-foreground">{t('imageDetail.project')}</span>
                     <Link
                       to="/workspace/$projectId"
                       params={{ projectId: String(detail.projectId) }}
@@ -286,7 +288,7 @@ function ImageDetailPage() {
                 )}
                 {detail.projectSceneName && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">Scene:</span>
+                    <span className="text-sm text-muted-foreground">{t('imageDetail.scene')}</span>
                     {detail.projectId && detail.projectSceneId ? (
                       <Link
                         to="/workspace/$projectId/scenes/$sceneId"
@@ -317,12 +319,12 @@ function ImageDetailPage() {
             <div className="mb-4 flex gap-2">
               {detail.projectSceneId && (
                 <Button size="sm" variant="outline" onClick={handleSetSceneThumbnail} className="flex-1">
-                  Scene Thumb
+                  {t('imageDetail.sceneThumb')}
                 </Button>
               )}
               {detail.projectId && (
                 <Button size="sm" variant="outline" onClick={handleSetProjectThumbnail} className="flex-1">
-                  Project Thumb
+                  {t('imageDetail.projectThumb')}
                 </Button>
               )}
             </div>
@@ -338,14 +340,14 @@ function ImageDetailPage() {
             onClick={handleFavorite}
             className="w-full"
           >
-            {detail.isFavorite ? '\u2764 Favorited' : '\u2661 Favorite'}
+            {detail.isFavorite ? '\u2764 ' + t('imageDetail.favorited') : '\u2661 ' + t('imageDetail.favorite')}
           </Button>
         </div>
 
         {/* Rating */}
         <div className="mb-4">
           <label className="text-sm text-muted-foreground mb-1.5 block">
-            Rating
+            {t('imageDetail.rating')}
           </label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((r) => (
@@ -369,13 +371,13 @@ function ImageDetailPage() {
         {/* Memo */}
         <div className="mb-4">
           <label className="text-sm text-muted-foreground mb-1.5 block">
-            Memo
+            {t('imageDetail.memo')}
           </label>
           <Textarea
             value={memo}
             onChange={(e) => setMemo(e.target.value)}
             onBlur={handleSaveMemo}
-            placeholder="Add a note..."
+            placeholder={t('imageDetail.addNote')}
             className="text-base min-h-20"
           />
         </div>
@@ -383,7 +385,7 @@ function ImageDetailPage() {
         {/* Tags */}
         <div className="mb-4">
           <label className="text-sm text-muted-foreground mb-1.5 block">
-            Tags
+            {t('imageDetail.tags')}
           </label>
           <div className="flex flex-wrap gap-1 mb-2">
             {detail.tags.map((t) => (
@@ -403,11 +405,11 @@ function ImageDetailPage() {
               value={newTag}
               onChange={(e) => setNewTag(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
-              placeholder="Add tag..."
+              placeholder={t('imageDetail.addTag')}
               className="h-7 text-sm"
             />
             <Button size="xs" variant="outline" onClick={handleAddTag}>
-              Add
+              {t('common.add')}
             </Button>
           </div>
         </div>
@@ -420,7 +422,7 @@ function ImageDetailPage() {
             onClick={() => setRefExpanded(!refExpanded)}
             className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
           >
-            <span>Reference</span>
+            <span>{t('imageDetail.reference')}</span>
             <span className="text-xs">{refExpanded ? '\u25B2' : '\u25BC'}</span>
           </button>
 
@@ -428,12 +430,12 @@ function ImageDetailPage() {
             <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-1 duration-150">
               <div>
                 <label className="text-sm text-muted-foreground mb-1.5 block">
-                  Metadata
+                  {t('imageDetail.metadata')}
                 </label>
                 <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>Seed: {detail.seed ?? 'N/A'}</p>
+                  <p>{t('imageDetail.seed')}: {detail.seed ?? 'N/A'}</p>
                   <p>
-                    Created: {new Date(detail.createdAt!).toLocaleString()}
+                    {t('imageDetail.created')}: {new Date(detail.createdAt!).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -441,20 +443,20 @@ function ImageDetailPage() {
               {meta?.parameters && (
                 <div>
                   <label className="text-sm text-muted-foreground mb-1.5 block">
-                    Parameters
+                    {t('imageDetail.parameters')}
                   </label>
                   <div className="text-sm space-y-0.5 text-muted-foreground">
                     {meta.parameters.width && (
                       <p>
-                        Size: {meta.parameters.width}x{meta.parameters.height}
+                        {t('imageDetail.size')}: {meta.parameters.width}x{meta.parameters.height}
                       </p>
                     )}
-                    {meta.parameters.steps && <p>Steps: {meta.parameters.steps}</p>}
+                    {meta.parameters.steps && <p>{t('imageDetail.steps')}: {meta.parameters.steps}</p>}
                     {meta.parameters.cfg_scale && (
-                      <p>CFG: {meta.parameters.cfg_scale}</p>
+                      <p>{t('imageDetail.cfg')}: {meta.parameters.cfg_scale}</p>
                     )}
                     {meta.parameters.sampler && (
-                      <p>Sampler: {meta.parameters.sampler}</p>
+                      <p>{t('imageDetail.sampler')}: {meta.parameters.sampler}</p>
                     )}
                   </div>
                 </div>
@@ -463,7 +465,7 @@ function ImageDetailPage() {
               {meta?.prompts?.generalPrompt && (
                 <div>
                   <label className="text-sm text-muted-foreground mb-1.5 block">
-                    General Prompt
+                    {t('imageDetail.generalPrompt')}
                   </label>
                   <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">
                     {meta.prompts.generalPrompt}
@@ -474,7 +476,7 @@ function ImageDetailPage() {
               {meta?.prompts?.negativePrompt && (
                 <div>
                   <label className="text-sm text-muted-foreground mb-1.5 block">
-                    Negative Prompt
+                    {t('imageDetail.negativePrompt')}
                   </label>
                   <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">
                     {meta.prompts.negativePrompt}
@@ -493,7 +495,7 @@ function ImageDetailPage() {
             onClick={handleToggleNai}
             className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
           >
-            <span>NAI Image Metadata</span>
+            <span>{t('imageDetail.naiMetadata')}</span>
             <span className="text-xs">{naiExpanded ? '\u25B2' : '\u25BC'}</span>
           </button>
 
@@ -502,13 +504,13 @@ function ImageDetailPage() {
               {naiLoading && (
                 <div className="flex items-center gap-2 py-3">
                   <div className="size-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-xs text-muted-foreground">Parsing...</span>
+                  <span className="text-xs text-muted-foreground">{t('imageDetail.parsing')}</span>
                 </div>
               )}
 
               {naiLoaded && !naiMeta && (
                 <p className="text-xs text-muted-foreground py-2">
-                  No NAI metadata found in this image.
+                  {t('imageDetail.noNaiMetadata')}
                 </p>
               )}
 
@@ -521,7 +523,7 @@ function ImageDetailPage() {
         <div>
           <a href={imageSrc} download>
             <Button variant="outline" size="sm" className="w-full">
-              다운로드
+              {t('imageDetail.download')}
             </Button>
           </a>
         </div>

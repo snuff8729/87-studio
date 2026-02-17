@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
 import { toast } from 'sonner'
+import { useTranslation } from '@/lib/i18n'
 import { getWorkspaceData, listProjectJobs, getRecentImages, getSceneImageCounts } from '@/server/functions/workspace'
 import { updateProject } from '@/server/functions/projects'
 import { createGenerationJob, cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
@@ -34,6 +35,7 @@ export const Route = createFileRoute('/workspace/$projectId/')({
 function WorkspacePage() {
   const data = Route.useLoaderData()
   const router = useRouter()
+  const { t } = useTranslation()
   const projectId = data.project.id
 
   // ── Prompt state ──
@@ -91,7 +93,7 @@ function WorkspacePage() {
         router.invalidate()
       } catch {
         setSaveStatus('error')
-        toast.error('Save failed')
+        toast.error(t('common.saveFailed'))
       }
     },
     [projectId, router],
@@ -335,19 +337,19 @@ function WorkspacePage() {
     const candidateIds = allScenes.map((s) => s.id)
     const sceneIds = candidateIds.filter((id) => getSceneCount(id) > 0)
     if (candidateIds.length === 0) {
-      toast.error('No scenes available. Add a scene first.')
+      toast.error(t('generation.noScenesAvailable'))
       return
     }
     if (sceneIds.length === 0) {
-      toast.error('Set a count on at least one scene to generate.')
+      toast.error(t('generation.setCountFirst'))
       return
     }
 
     const apiKey = await getSetting({ data: 'nai_api_key' })
     if (!apiKey) {
-      toast.error('API key not set. Go to Settings to configure.', {
+      toast.error(t('generation.apiKeyNotSet'), {
         action: {
-          label: 'Settings',
+          label: t('nav.settings'),
           onClick: () => router.navigate({ to: '/settings' }),
         },
       })
@@ -375,11 +377,11 @@ function WorkspacePage() {
           sceneCounts: Object.keys(sceneCounts).length > 0 ? sceneCounts : undefined,
         },
       })
-      toast.success(`${batchTotal} image generation started`)
+      toast.success(t('generation.generationStarted', { count: batchTotal }))
       const { jobs } = await listProjectJobs({ data: projectId })
       setActiveJobs(jobs)
     } catch {
-      toast.error('Failed to start generation')
+      toast.error(t('generation.generationFailed'))
       setGenerating(false)
     }
   }
@@ -391,7 +393,7 @@ function WorkspacePage() {
     setActiveJobs([])
     setGenerating(false)
     setQueueStopped(null)
-    toast.success('Generation cancelled')
+    toast.success(t('generation.cancelled'))
     router.invalidate()
   }
 

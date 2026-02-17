@@ -13,6 +13,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useTranslation } from '@/lib/i18n'
 import {
   Select,
   SelectContent,
@@ -81,6 +82,7 @@ export const SceneMatrix = memo(function SceneMatrix({
   onPlaceholdersChange,
   getPrompts,
 }: SceneMatrixProps) {
+  const { t } = useTranslation()
   const [selectedScene, setSelectedScene] = useState<number | null>(null)
   const [addingScene, setAddingScene] = useState(false)
   const [newSceneName, setNewSceneName] = useState('')
@@ -149,7 +151,7 @@ export const SceneMatrix = memo(function SceneMatrix({
       setNewSceneName('')
       setAddingScene(false)
     } catch {
-      toast.error('Failed to add scene')
+      toast.error(t('scene.addSceneFailed'))
     }
   }
 
@@ -160,7 +162,7 @@ export const SceneMatrix = memo(function SceneMatrix({
       await onRenameScene(id, name)
       setEditingName(null)
     } catch {
-      toast.error('Failed to rename scene')
+      toast.error(t('scene.failedToRename'))
     }
   }
 
@@ -175,7 +177,7 @@ export const SceneMatrix = memo(function SceneMatrix({
               onValueChange={(v) => setSelectedScene(Number(v))}
             >
               <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select a scene..." />
+                <SelectValue placeholder={t('scene.selectAScene')} />
               </SelectTrigger>
               <SelectContent>
                 {scenePacks.map((pack) =>
@@ -193,7 +195,7 @@ export const SceneMatrix = memo(function SceneMatrix({
                 setTimeout(() => newSceneInputRef.current?.focus(), 50)
               }}
               className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors shrink-0"
-              title="Add Scene"
+              title={t('scene.addScene')}
             >
               <HugeiconsIcon icon={Add01Icon} className="size-5" />
             </button>
@@ -208,16 +210,16 @@ export const SceneMatrix = memo(function SceneMatrix({
                   if (e.key === 'Enter') handleAddScene()
                   if (e.key === 'Escape') { setAddingScene(false); setNewSceneName('') }
                 }}
-                placeholder="Scene name"
+                placeholder={t('scene.sceneName')}
                 className="h-8 text-base"
                 autoFocus
               />
               <div className="flex gap-1">
                 <Button size="sm" onClick={handleAddScene} disabled={!newSceneName.trim()} className="flex-1">
-                  Add
+                  {t('common.add')}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => { setAddingScene(false); setNewSceneName('') }} className="flex-1">
-                  Cancel
+                  {t('common.cancel')}
                 </Button>
               </div>
             </div>
@@ -228,7 +230,7 @@ export const SceneMatrix = memo(function SceneMatrix({
         <div className="hidden sm:flex w-52 shrink-0 bg-secondary/10 flex-col min-h-0">
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-              Scenes
+              {t('scene.scenes')}
             </span>
             <button
               onClick={() => {
@@ -236,7 +238,7 @@ export const SceneMatrix = memo(function SceneMatrix({
                 setTimeout(() => newSceneInputRef.current?.focus(), 50)
               }}
               className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              title="Add Scene"
+              title={t('scene.addScene')}
             >
               <HugeiconsIcon icon={Add01Icon} className="size-5" />
             </button>
@@ -253,16 +255,16 @@ export const SceneMatrix = memo(function SceneMatrix({
                     if (e.key === 'Enter') handleAddScene()
                     if (e.key === 'Escape') { setAddingScene(false); setNewSceneName('') }
                   }}
-                  placeholder="Scene name"
+                  placeholder={t('scene.sceneName')}
                   className="h-7 text-sm"
                   autoFocus
                 />
                 <div className="flex gap-1">
                   <Button size="xs" onClick={handleAddScene} disabled={!newSceneName.trim()} className="flex-1">
-                    Add
+                    {t('common.add')}
                   </Button>
                   <Button size="xs" variant="ghost" onClick={() => { setAddingScene(false); setNewSceneName('') }} className="flex-1">
-                    Cancel
+                    {t('common.cancel')}
                   </Button>
                 </div>
               </div>
@@ -317,8 +319,8 @@ export const SceneMatrix = memo(function SceneMatrix({
                             <HugeiconsIcon icon={Delete02Icon} className="size-4" />
                           </button>
                         }
-                        title="Delete Scene"
-                        description={`Delete "${scene.name}" and all associated images data?`}
+                        title={t('scene.deleteScene')}
+                        description={t('scene.deleteSceneDesc', { name: scene.name })}
                         onConfirm={() => {
                           if (selectedScene === scene.id) setSelectedScene(null)
                           onDeleteScene(scene.id)
@@ -379,13 +381,13 @@ export const SceneMatrix = memo(function SceneMatrix({
                         setEditNameValue(selectedSceneData.name)
                       }}
                       className="text-base font-semibold hover:text-primary transition-colors truncate block"
-                      title="Click to rename"
+                      title={t('scene.clickToRename')}
                     >
                       {selectedSceneData.name}
                     </button>
                     {selectedSceneData.recentImageCount > 0 && (
                       <span className="text-xs text-muted-foreground tabular-nums">
-                        {selectedSceneData.recentImageCount} images
+                        {t('scene.images', { count: selectedSceneData.recentImageCount })}
                       </span>
                     )}
                   </div>
@@ -399,7 +401,7 @@ export const SceneMatrix = memo(function SceneMatrix({
                   }}
                   className="text-xs text-muted-foreground hover:text-primary transition-colors shrink-0 px-2 py-1 rounded-md hover:bg-secondary/80"
                 >
-                  Gallery &rarr;
+                  {t('scene.galleryArrow')} &rarr;
                 </Link>
               </div>
 
@@ -426,7 +428,8 @@ export const SceneMatrix = memo(function SceneMatrix({
                   <HugeiconsIcon icon={GridIcon} className="size-8 text-muted-foreground/25" />
                 </div>
                 <p className="text-sm text-muted-foreground/60">
-                  Select a scene <span className="hidden sm:inline">from the left </span>to edit its placeholders.
+                  <span className="hidden sm:inline">{t('scene.selectSceneLeft')}</span>
+                  <span className="sm:hidden">{t('scene.selectScene')}</span>
                 </p>
               </div>
             </div>

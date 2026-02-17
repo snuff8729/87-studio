@@ -10,6 +10,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/lib/i18n'
 
 // --- useIsMobile hook ---
 const MOBILE_QUERY = '(max-width: 639px)'
@@ -26,26 +27,28 @@ function useIsMobile() {
 
 // --- Resolution presets ---
 const RESOLUTION_PRESETS = [
-  { label: 'Portrait', w: 832, h: 1216 },
-  { label: 'Landscape', w: 1216, h: 832 },
-  { label: 'Square', w: 1024, h: 1024 },
-  { label: 'Wide', w: 1472, h: 832 },
-  { label: 'Tall', w: 832, h: 1472 },
+  { key: 'portrait' as const, w: 832, h: 1216 },
+  { key: 'landscape' as const, w: 1216, h: 832 },
+  { key: 'square' as const, w: 1024, h: 1024 },
+  { key: 'wide' as const, w: 1472, h: 832 },
+  { key: 'tall' as const, w: 832, h: 1472 },
 ] as const
 
 // --- Param label with tooltip ---
 const PARAM_HELP: Record<string, string> = {
-  resolution: 'Image resolution in pixels',
-  steps: 'Denoising steps. Higher = better quality, slower',
-  scale: 'CFG Scale. Prompt adherence strength',
-  cfgRescale: 'CFG Rescale. Prevents color bleed at high CFG',
-  sampler: 'Sampler algorithm',
-  scheduler: 'Noise scheduler',
-  ucPreset: 'Undesired Content preset',
+  resolution: 'params.resolutionHelp',
+  steps: 'params.stepsHelp',
+  scale: 'params.scaleHelp',
+  cfgRescale: 'params.cfgRescaleHelp',
+  sampler: 'params.samplerHelp',
+  scheduler: 'params.schedulerHelp',
+  ucPreset: 'params.ucPresetHelp',
 }
 
 function ParamLabel({ name, label, value }: { name: string; label: string; value?: string | number }) {
-  const help = PARAM_HELP[name]
+  const { t } = useTranslation()
+  const helpKey = PARAM_HELP[name]
+  const help = helpKey ? t(helpKey as any) : undefined
   const labelEl = (
     <div className="flex items-center justify-between">
       {help ? (
@@ -76,6 +79,7 @@ function ParameterForm({
   localParams: Record<string, unknown>
   set: (key: string, value: unknown) => void
 }) {
+  const { t } = useTranslation()
   const w = Number(localParams.width ?? 832)
   const h = Number(localParams.height ?? 1216)
   const steps = Number(localParams.steps ?? 28)
@@ -88,27 +92,27 @@ function ParameterForm({
     <div className="space-y-4">
       {/* Resolution */}
       <section className="space-y-2.5">
-        <ParamLabel name="resolution" label="Resolution" value={`${w} × ${h}`} />
+        <ParamLabel name="resolution" label={t('params.resolution')} value={`${w} × ${h}`} />
         <div className="flex flex-wrap gap-1.5">
           {RESOLUTION_PRESETS.map((p) => (
             <button
-              key={p.label}
+              key={p.key}
               type="button"
               onClick={() => { set('width', p.w); set('height', p.h) }}
               className={cn(
                 'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
-                activePreset?.label === p.label
+                activePreset?.key === p.key
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary',
               )}
             >
-              {p.label}
+              {t(`params.${p.key}` as any)}
             </button>
           ))}
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Width</Label>
+            <Label className="text-xs text-muted-foreground">{t('params.width')}</Label>
             <Input
               type="number"
               min={64}
@@ -120,7 +124,7 @@ function ParameterForm({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Height</Label>
+            <Label className="text-xs text-muted-foreground">{t('params.height')}</Label>
             <Input
               type="number"
               min={64}
@@ -139,7 +143,7 @@ function ParameterForm({
       {/* Quality */}
       <section className="space-y-3">
         <div className="space-y-2">
-          <ParamLabel name="steps" label="Steps" value={steps} />
+          <ParamLabel name="steps" label={t('params.steps')} value={steps} />
           <Slider
             min={1}
             max={50}
@@ -149,7 +153,7 @@ function ParameterForm({
           />
         </div>
         <div className="space-y-2">
-          <ParamLabel name="scale" label="CFG Scale" value={scale} />
+          <ParamLabel name="scale" label={t('params.scale')} value={scale} />
           <Slider
             min={0}
             max={20}
@@ -159,7 +163,7 @@ function ParameterForm({
           />
         </div>
         <div className="space-y-2">
-          <ParamLabel name="cfgRescale" label="CFG Rescale" value={cfgRescale} />
+          <ParamLabel name="cfgRescale" label={t('params.cfgRescale')} value={cfgRescale} />
           <Slider
             min={0}
             max={1}
@@ -175,7 +179,7 @@ function ParameterForm({
       {/* Sampling */}
       <section className="grid grid-cols-2 gap-3">
         <div className="space-y-1.5">
-          <ParamLabel name="sampler" label="Sampler" />
+          <ParamLabel name="sampler" label={t('params.sampler')} />
           <Select
             value={String(localParams.sampler ?? 'k_euler_ancestral')}
             onValueChange={(v) => set('sampler', v)}
@@ -194,7 +198,7 @@ function ParameterForm({
           </Select>
         </div>
         <div className="space-y-1.5">
-          <ParamLabel name="scheduler" label="Scheduler" />
+          <ParamLabel name="scheduler" label={t('params.scheduler')} />
           <Select
             value={String(localParams.scheduler ?? 'karras')}
             onValueChange={(v) => set('scheduler', v)}
@@ -211,7 +215,7 @@ function ParameterForm({
           </Select>
         </div>
         <div className="col-span-2 space-y-1.5">
-          <ParamLabel name="ucPreset" label="UC Preset" />
+          <ParamLabel name="ucPreset" label={t('params.ucPreset')} />
           <Select
             value={String(localParams.ucPreset ?? 0)}
             onValueChange={(v) => set('ucPreset', Number(v))}
@@ -240,6 +244,7 @@ interface ParameterPopoverProps {
 }
 
 export const ParameterPopover = memo(function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [localParams, setLocalParams] = useState(params)
   const isMobile = useIsMobile()
@@ -260,7 +265,7 @@ export const ParameterPopover = memo(function ParameterPopover({ params, onChang
   const trigger = (
     <Button variant="ghost" size="sm">
       <HugeiconsIcon icon={Settings02Icon} className="size-5" />
-      <span className="hidden sm:inline">Parameters</span>
+      <span className="hidden sm:inline">{t('generation.parameters')}</span>
     </Button>
   )
 
@@ -270,7 +275,7 @@ export const ParameterPopover = memo(function ParameterPopover({ params, onChang
         <DialogTrigger asChild>{trigger}</DialogTrigger>
         <DialogContent className="!top-auto !bottom-0 !translate-y-0 !translate-x-[-50%] !rounded-b-none max-h-[85vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Generation Parameters</DialogTitle>
+            <DialogTitle>{t('generation.generationParameters')}</DialogTitle>
           </DialogHeader>
           <ParameterForm localParams={localParams} set={set} />
         </DialogContent>
@@ -282,7 +287,7 @@ export const ParameterPopover = memo(function ParameterPopover({ params, onChang
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
       <PopoverContent side="top" align="start" className="w-96 max-h-[70vh] overflow-y-auto">
-        <h4 className="text-base font-medium">Generation Parameters</h4>
+        <h4 className="text-base font-medium">{t('generation.generationParameters')}</h4>
         <ParameterForm localParams={localParams} set={set} />
       </PopoverContent>
     </Popover>
