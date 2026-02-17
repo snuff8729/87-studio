@@ -7,6 +7,9 @@ import {
 } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { resolvePlaceholders } from '@/lib/placeholder'
+import { createLogger } from './logger'
+
+const log = createLogger('prompt')
 
 export interface ResolvedPrompts {
   generalPrompt: string
@@ -86,6 +89,13 @@ export function synthesizePrompts(
       prompt: resolvePlaceholders(char.charPrompt, mergedPlaceholders),
       negative: resolvePlaceholders(char.charNegative, mergedPlaceholders),
     }
+  })
+
+  log.info('synthesize', 'Prompts synthesized', {
+    projectId,
+    sceneId: projectSceneId,
+    characterCount: chars.length,
+    placeholderCount: Object.keys(scenePlaceholders).length,
   })
 
   return { generalPrompt, negativePrompt, characterPrompts }

@@ -4,6 +4,9 @@ import { generationJobs, projectScenes, projects } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { synthesizePrompts } from '../services/prompt'
 import { enqueueJob, cancelPendingJobs, getQueueStatus } from '../services/generation'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.generation')
 
 export const createGenerationJob = createServerFn({ method: 'POST' })
   .inputValidator(
@@ -55,6 +58,13 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
       jobs.push(job)
     }
 
+    log.info('createJob', 'Generation jobs created', {
+      projectId: data.projectId,
+      jobCount: jobs.length,
+      jobIds: jobs.map((j) => j.id),
+      sceneIds: data.projectSceneIds,
+    })
+
     return jobs
   })
 
@@ -98,6 +108,7 @@ export const getJobStatus = createServerFn({ method: 'GET' })
 export const cancelJobs = createServerFn({ method: 'POST' })
   .inputValidator((jobIds: number[]) => jobIds)
   .handler(async ({ data: jobIds }) => {
+    log.info('cancelJobs', 'Cancelling jobs', { jobIds })
     cancelPendingJobs(jobIds)
     return { success: true }
   })
@@ -141,6 +152,7 @@ export const retryJob = createServerFn({ method: 'POST' })
       .returning()
       .get()
 
+    log.info('retryJob', 'Retrying failed job', { originalJobId: jobId, newJobId: newJob.id })
     enqueueJob(newJob.id)
     return newJob
   })

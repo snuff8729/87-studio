@@ -2,6 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { scenePacks, scenes } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.scenePacks')
 
 export const listScenePacks = createServerFn({ method: 'GET' }).handler(async () => {
   return db.select().from(scenePacks).orderBy(desc(scenePacks.createdAt)).all()
@@ -29,6 +32,7 @@ export const createScenePack = createServerFn({ method: 'POST' })
       .values({ name: data.name, description: data.description })
       .returning()
       .get()
+    log.info('create', 'Scene pack created', { scenePackId: result.id, name: data.name })
     return result
   })
 
@@ -46,6 +50,7 @@ export const updateScenePack = createServerFn({ method: 'POST' })
 export const deleteScenePack = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
+    log.info('delete', 'Scene pack deleted', { scenePackId: id })
     db.delete(scenePacks).where(eq(scenePacks.id, id)).run()
     return { success: true }
   })

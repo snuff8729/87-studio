@@ -2,6 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { projects, projectScenePacks, projectScenes, scenes, scenePacks, generatedImages } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.projects')
 
 export const listProjects = createServerFn({ method: 'GET' }).handler(async () => {
   const rows = db.select().from(projects).orderBy(desc(projects.createdAt)).all()
@@ -51,6 +54,7 @@ export const createProject = createServerFn({ method: 'POST' })
       .values({ name: data.name, description: data.description })
       .returning()
       .get()
+    log.info('create', 'Project created', { projectId: result.id, name: data.name })
     return result
   })
 
@@ -78,6 +82,7 @@ export const updateProject = createServerFn({ method: 'POST' })
 export const deleteProject = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
+    log.info('delete', 'Project deleted', { projectId: id })
     db.delete(projects).where(eq(projects.id, id)).run()
     return { success: true }
   })
@@ -123,12 +128,20 @@ export const assignScenePack = createServerFn({ method: 'POST' })
         .run()
     }
 
+    log.info('assignScenePack', 'Scene pack assigned to project', {
+      projectId: data.projectId,
+      scenePackId: data.scenePackId,
+      projectScenePackId: psp.id,
+      sceneCount: packScenes.length,
+    })
+
     return psp
   })
 
 export const removeProjectScenePack = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
+    log.info('removeScenePack', 'Project scene pack removed', { projectScenePackId: id })
     db.delete(projectScenePacks).where(eq(projectScenePacks.id, id)).run()
     return { success: true }
   })

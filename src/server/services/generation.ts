@@ -3,6 +3,9 @@ import { generationJobs, generatedImages, settings } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { generateImage } from './nai'
 import { saveImage, generateThumbnail } from './image'
+import { createLogger } from './logger'
+
+const log = createLogger('generation')
 
 
 // ─── In-memory queue singleton ──────────────────────────────────────────────
@@ -32,10 +35,13 @@ export function enqueueJob(jobId: number) {
     batchTiming.totalImages += (job?.totalCount ?? 1)
   }
 
+  log.debug('queue.enqueue', 'Job enqueued', { jobId, queueLength: queue.length })
+
   if (!processing) processQueue()
 }
 
 export function cancelPendingJobs(jobIds: number[]) {
+  log.warn('queue.cancelPending', 'Cancelling pending jobs', { jobIds })
   for (const id of jobIds) {
     const idx = queue.indexOf(id)
     if (idx !== -1) {
@@ -102,10 +108,15 @@ async function processQueue() {
     totalGenerationMs: 0,
   }
 
+  log.info('queue.start', 'Queue processing started', { queueLength: queue.length, totalImages: initialTotal })
+
   while (queue.length > 0) {
     const jobId = queue.shift()!
     await processJob(jobId)
   }
+
+  const durationMs = Date.now() - batchTiming.startedAt
+  log.info('queue.complete', 'Queue processing completed', { totalImages: batchTiming.completedImages, durationMs })
 
   processing = false
   // Keep batchTiming so the last poll can still read it.
@@ -120,6 +131,10 @@ async function processJob(jobId: number) {
     .get()
   if (!job || job.status === 'cancelled') return
 
+  log.info('job.start', 'Starting generation job', {
+    jobId, projectId: job.projectId, sceneId: job.projectSceneId, totalCount: job.totalCount ?? 1,
+  })
+
   // Get API key
   const apiKeyRow = db
     .select()
@@ -127,7 +142,7 @@ async function processJob(jobId: number) {
     .where(eq(settings.key, 'nai_api_key'))
     .get()
   if (!apiKeyRow?.value) {
-    console.error(`[Generation] Job ${jobId} failed: No API key configured`)
+    log.error('job.noApiKey', 'No API key configured', { jobId })
     db.update(generationJobs)
       .set({ status: 'failed', errorMessage: 'API 키가 설정되지 않았습니다', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))
@@ -161,7 +176,10 @@ async function processJob(jobId: number) {
         .from(generationJobs)
         .where(eq(generationJobs.id, jobId))
         .get()
-      if (currentJob?.status === 'cancelled') return
+      if (currentJob?.status === 'cancelled') {
+        log.warn('job.cancelled', 'Job cancelled mid-generation', { jobId, completedCount: i })
+        return
+      }
 
       // Generate image via NAI API (with timing)
       const imageStart = Date.now()
@@ -171,6 +189,8 @@ async function processJob(jobId: number) {
         resolvedParameters,
       )
       const imageDuration = Date.now() - imageStart
+
+      log.info('job.progress', 'Image generated', { jobId, index: i + 1, seed, durationMs: imageDuration })
 
       // Accumulate batch timing
       if (batchTiming) {
@@ -215,18 +235,20 @@ async function processJob(jobId: number) {
 
       // Delay between generations
       if (i < totalCount - 1 && delay > 0) {
+        log.debug('job.delay', 'Waiting between generations', { jobId, delayMs: delay })
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
 
     // Mark completed
+    log.info('job.complete', 'Generation job completed', { jobId, totalCount })
     db.update(generationJobs)
       .set({ status: 'completed', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))
       .run()
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : String(error)
-    console.error(`[Generation] Job ${jobId} failed:`, error)
+    log.error('job.failed', 'Generation job failed', { jobId }, error)
     db.update(generationJobs)
       .set({ status: 'failed', errorMessage: errorMsg, updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, jobId))

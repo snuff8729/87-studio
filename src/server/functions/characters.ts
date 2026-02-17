@@ -2,6 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { characters } from '../db/schema'
 import { eq, max } from 'drizzle-orm'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.characters')
 
 export const listCharacters = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -35,6 +38,7 @@ export const createCharacter = createServerFn({ method: 'POST' })
       })
       .returning()
       .get()
+    log.info('create', 'Character created', { characterId: result.id, projectId: data.projectId, name: data.name })
     return result
   })
 
@@ -52,6 +56,7 @@ export const updateCharacter = createServerFn({ method: 'POST' })
 export const deleteCharacter = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
+    log.info('delete', 'Character deleted', { characterId: id })
     db.delete(characters).where(eq(characters.id, id)).run()
     return { success: true }
   })

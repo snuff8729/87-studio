@@ -2,6 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { settings } from '../db/schema'
 import { eq } from 'drizzle-orm'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.settings')
 
 export const getSetting = createServerFn({ method: 'GET' })
   .inputValidator((key: string) => key)
@@ -20,6 +23,10 @@ export const setSetting = createServerFn({ method: 'POST' })
         set: { value: data.value, updatedAt: new Date().toISOString() },
       })
       .run()
+
+    const displayValue = data.key.includes('api_key') ? '***masked***' : data.value
+    log.info('setSetting', 'Setting updated', { key: data.key, value: displayValue })
+
     return { success: true }
   })
 

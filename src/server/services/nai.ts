@@ -1,6 +1,8 @@
 import { unzipSync } from 'fflate'
 import type { ResolvedPrompts } from './prompt'
+import { createLogger } from './logger'
 
+const log = createLogger('nai')
 const NAI_API_URL = 'https://image.novelai.net/ai/generate-image'
 
 interface GenerationParams {
@@ -91,6 +93,15 @@ export async function generateImage(
     },
   }
 
+  log.info('api.request', 'Sending NAI API request', {
+    model: body.model,
+    width: body.parameters.width ?? params.width,
+    height: body.parameters.height ?? params.height,
+    steps: body.parameters.steps,
+    seed,
+  })
+
+  const fetchStart = Date.now()
   const response = await fetch(NAI_API_URL, {
     method: 'POST',
     headers: {
@@ -99,20 +110,40 @@ export async function generateImage(
     },
     body: JSON.stringify(body),
   })
+  const fetchDuration = Date.now() - fetchStart
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
+    log.error('api.error', 'NAI API error response', {
+      status: response.status,
+      responseText: text.slice(0, 500),
+      durationMs: fetchDuration,
+    })
     throw new Error(`NAI API error ${response.status}: ${text}`)
   }
 
   const zipData = new Uint8Array(await response.arrayBuffer())
+
+  if (fetchDuration > 30000) {
+    log.warn('api.slowResponse', 'NAI API response was slow', { durationMs: fetchDuration })
+  }
+
+  log.info('api.response', 'NAI API responded', {
+    status: response.status,
+    durationMs: fetchDuration,
+    zipSizeBytes: zipData.byteLength,
+  })
+
   const files = unzipSync(zipData)
 
   // Extract the first image file from the ZIP
   const imageEntry = Object.entries(files).find(([name]) =>
     /\.(png|webp|jpg|jpeg)$/i.test(name),
   )
-  if (!imageEntry) throw new Error('No image found in NAI API response')
+  if (!imageEntry) {
+    log.error('api.noImage', 'No image found in NAI API response ZIP')
+    throw new Error('No image found in NAI API response')
+  }
 
   return { imageData: imageEntry[1], seed }
 }

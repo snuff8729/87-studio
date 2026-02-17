@@ -2,6 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { generatedImages, tags, imageTags, projects, projectScenes } from '../db/schema'
 import { eq, desc, asc, and, sql, inArray } from 'drizzle-orm'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.gallery')
 
 export const listImages = createServerFn({ method: 'GET' })
   .inputValidator(
@@ -269,6 +272,7 @@ export const bulkUpdateImages = createServerFn({ method: 'POST' })
     if (data.imageIds.length === 0) return { success: true }
 
     if (data.delete) {
+      log.info('bulkDelete', 'Bulk deleting images', { imageIds: data.imageIds, count: data.imageIds.length })
       db.delete(generatedImages)
         .where(inArray(generatedImages.id, data.imageIds))
         .run()

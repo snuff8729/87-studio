@@ -1,7 +1,9 @@
 import sharp from 'sharp'
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { createLogger } from './logger'
 
+const log = createLogger('image')
 const IMAGES_DIR = './data/images'
 const THUMBNAILS_DIR = './data/thumbnails'
 
@@ -22,6 +24,8 @@ export function saveImage(
 
   writeFileSync(filePath, imageData)
 
+  log.info('save', 'Image saved', { filePath, sizeBytes: imageData.byteLength })
+
   return { filePath, thumbnailPath }
 }
 
@@ -29,8 +33,14 @@ export async function generateThumbnail(
   sourcePath: string,
   thumbnailPath: string,
 ): Promise<void> {
-  await sharp(sourcePath)
-    .resize({ width: 300, height: 300, fit: 'inside', withoutEnlargement: true })
-    .png()
-    .toFile(thumbnailPath)
+  try {
+    await sharp(sourcePath)
+      .resize({ width: 300, height: 300, fit: 'inside', withoutEnlargement: true })
+      .png()
+      .toFile(thumbnailPath)
+    log.info('thumbnail', 'Thumbnail generated', { thumbnailPath })
+  } catch (error) {
+    log.error('thumbnail.failed', 'Thumbnail generation failed', { sourcePath, thumbnailPath }, error)
+    throw error
+  }
 }

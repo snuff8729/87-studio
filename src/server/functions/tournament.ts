@@ -2,6 +2,9 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { generatedImages, tournamentMatches } from '../db/schema'
 import { eq, sql, desc } from 'drizzle-orm'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.tournament')
 
 export const getTournamentState = createServerFn({ method: 'GET' })
   .inputValidator((projectSceneId: number) => projectSceneId)
@@ -160,6 +163,10 @@ export const recordMatch = createServerFn({ method: 'POST' })
         .run()
     }
 
+    log.info('recordMatch', 'Tournament match recorded', {
+      projectSceneId, image1Id, image2Id, result,
+    })
+
     return { ok: true }
   })
 
@@ -219,6 +226,10 @@ export const undoLastMatch = createServerFn({ method: 'POST' })
 
     db.delete(tournamentMatches).where(eq(tournamentMatches.id, last.id)).run()
 
+    log.info('undoMatch', 'Tournament match undone', {
+      projectSceneId, matchId: last.id, image1Id, image2Id, result,
+    })
+
     return { undone: last }
   })
 
@@ -245,6 +256,10 @@ export const resetTournament = createServerFn({ method: 'POST' })
         .where(eq(generatedImages.projectSceneId, projectSceneId))
         .run()
     }
+
+    log.info('resetTournament', 'Tournament reset', {
+      projectSceneId, imageCount: imageIds.length,
+    })
 
     return { ok: true }
   })

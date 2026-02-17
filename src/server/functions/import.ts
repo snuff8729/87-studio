@@ -1,6 +1,9 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { scenePacks, scenes } from '../db/schema'
+import { createLogger } from '../services/logger'
+
+const log = createLogger('fn.import')
 
 export const importScenePack = createServerFn({ method: 'POST' })
   .inputValidator(
@@ -28,6 +31,12 @@ export const importScenePack = createServerFn({ method: 'POST' })
           })
           .run()
       }
+    })
+
+    log.info('importScenePack', 'Scene pack imported', {
+      scenePackId: pack.id,
+      name: data.name,
+      sceneCount: data.scenes.length,
     })
 
     return pack
