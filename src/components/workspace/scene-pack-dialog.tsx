@@ -191,7 +191,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
           <span className="hidden sm:inline">Templates</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-4xl max-h-[85vh] min-h-[70vh] sm:min-h-0 overflow-hidden flex flex-col p-0 gap-0">
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-3 shrink-0">
           <DialogTitle>Scene Templates</DialogTitle>
@@ -201,7 +201,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
         </DialogHeader>
 
         {/* Body: Two-panel layout */}
-        <div className="flex-1 flex min-h-0 sm:min-h-[50vh] overflow-hidden">
+        <div className="flex-1 flex flex-col sm:flex-row min-h-0 sm:min-h-[50vh] overflow-hidden">
           {/* Mobile: Pack selector dropdown */}
           <div className="sm:hidden px-4 py-3 border-b border-border shrink-0">
             <div className="flex gap-2">

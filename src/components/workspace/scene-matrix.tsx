@@ -14,6 +14,13 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import {
   bulkUpdatePlaceholders,
   upsertCharacterOverride,
 } from '@/server/functions/project-scenes'
@@ -160,8 +167,65 @@ export const SceneMatrix = memo(function SceneMatrix({
   return (
     <div className="flex flex-col h-full">
       <div className="flex-1 flex min-h-0">
-        {/* ── Left: scene list ── */}
-        <div className="w-52 shrink-0 bg-secondary/10 flex flex-col min-h-0">
+        {/* ── Mobile: scene selector dropdown ── */}
+        <div className="sm:hidden px-3 py-2.5 border-b border-border shrink-0">
+          <div className="flex gap-2 items-center">
+            <Select
+              value={selectedScene != null ? String(selectedScene) : undefined}
+              onValueChange={(v) => setSelectedScene(Number(v))}
+            >
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="Select a scene..." />
+              </SelectTrigger>
+              <SelectContent>
+                {scenePacks.map((pack) =>
+                  pack.scenes.map((scene) => (
+                    <SelectItem key={scene.id} value={String(scene.id)}>
+                      {scene.name}
+                    </SelectItem>
+                  ))
+                )}
+              </SelectContent>
+            </Select>
+            <button
+              onClick={() => {
+                setAddingScene(true)
+                setTimeout(() => newSceneInputRef.current?.focus(), 50)
+              }}
+              className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors shrink-0"
+              title="Add Scene"
+            >
+              <HugeiconsIcon icon={Add01Icon} className="size-5" />
+            </button>
+          </div>
+          {addingScene && (
+            <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5">
+              <Input
+                ref={newSceneInputRef}
+                value={newSceneName}
+                onChange={(e) => setNewSceneName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleAddScene()
+                  if (e.key === 'Escape') { setAddingScene(false); setNewSceneName('') }
+                }}
+                placeholder="Scene name"
+                className="h-8 text-base"
+                autoFocus
+              />
+              <div className="flex gap-1">
+                <Button size="sm" onClick={handleAddScene} disabled={!newSceneName.trim()} className="flex-1">
+                  Add
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setAddingScene(false); setNewSceneName('') }} className="flex-1">
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── Left: scene list (desktop only) ── */}
+        <div className="hidden sm:flex w-52 shrink-0 bg-secondary/10 flex-col min-h-0">
           <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
             <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
               Scenes
@@ -362,7 +426,7 @@ export const SceneMatrix = memo(function SceneMatrix({
                   <HugeiconsIcon icon={GridIcon} className="size-8 text-muted-foreground/25" />
                 </div>
                 <p className="text-sm text-muted-foreground/60">
-                  Select a scene from the left to edit its placeholders.
+                  Select a scene <span className="hidden sm:inline">from the left </span>to edit its placeholders.
                 </p>
               </div>
             </div>
