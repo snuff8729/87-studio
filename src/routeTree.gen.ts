@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as InspectIndexRouteImport } from './routes/inspect/index'
 import { Route as GalleryIndexRouteImport } from './routes/gallery/index'
 import { Route as GalleryImageIdRouteImport } from './routes/gallery/$imageId'
 import { Route as WorkspaceProjectIdRouteRouteImport } from './routes/workspace/$projectId/route'
@@ -25,6 +26,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const InspectIndexRoute = InspectIndexRouteImport.update({
+  id: '/inspect/',
+  path: '/inspect/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryIndexRoute = GalleryIndexRouteImport.update({
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/gallery/': typeof GalleryIndexRoute
+  '/inspect/': typeof InspectIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workspace/$projectId/': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/gallery': typeof GalleryIndexRoute
+  '/inspect': typeof InspectIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workspace/$projectId': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/gallery/': typeof GalleryIndexRoute
+  '/inspect/': typeof InspectIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workspace/$projectId/': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -88,6 +97,7 @@ export interface FileRouteTypes {
     | '/workspace/$projectId'
     | '/gallery/$imageId'
     | '/gallery/'
+    | '/inspect/'
     | '/settings/'
     | '/workspace/$projectId/'
     | '/workspace/$projectId/scenes/$sceneId'
@@ -96,6 +106,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gallery/$imageId'
     | '/gallery'
+    | '/inspect'
     | '/settings'
     | '/workspace/$projectId'
     | '/workspace/$projectId/scenes/$sceneId'
@@ -105,6 +116,7 @@ export interface FileRouteTypes {
     | '/workspace/$projectId'
     | '/gallery/$imageId'
     | '/gallery/'
+    | '/inspect/'
     | '/settings/'
     | '/workspace/$projectId/'
     | '/workspace/$projectId/scenes/$sceneId'
@@ -115,6 +127,7 @@ export interface RootRouteChildren {
   WorkspaceProjectIdRouteRoute: typeof WorkspaceProjectIdRouteRouteWithChildren
   GalleryImageIdRoute: typeof GalleryImageIdRoute
   GalleryIndexRoute: typeof GalleryIndexRoute
+  InspectIndexRoute: typeof InspectIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -132,6 +145,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/inspect/': {
+      id: '/inspect/'
+      path: '/inspect'
+      fullPath: '/inspect/'
+      preLoaderRoute: typeof InspectIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery/': {
@@ -193,6 +213,7 @@ const rootRouteChildren: RootRouteChildren = {
   WorkspaceProjectIdRouteRoute: WorkspaceProjectIdRouteRouteWithChildren,
   GalleryImageIdRoute: GalleryImageIdRoute,
   GalleryIndexRoute: GalleryIndexRoute,
+  InspectIndexRoute: InspectIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport

@@ -4,12 +4,14 @@ import {
   Home03Icon,
   Image02Icon,
   Settings02Icon,
+  FileSearchIcon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 
 const navItems = [
   { to: '/', label: 'Projects', icon: Home03Icon },
   { to: '/gallery', label: 'Gallery', icon: Image02Icon },
+  { to: '/inspect', label: 'Inspect', icon: FileSearchIcon },
   { to: '/settings', label: 'Settings', icon: Settings02Icon },
 ] as const
 

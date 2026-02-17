@@ -16,6 +16,8 @@ import {
 } from '@/server/functions/gallery'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
+import { parseNAIMetadata, getUcPresetLabel } from '@/lib/nai-metadata'
+import type { NAIMetadata } from '@/lib/nai-metadata'
 
 type SearchParams = {
   project?: number
@@ -67,10 +69,18 @@ function ImageDetailPage() {
   const [memo, setMemo] = useState(data.memo || '')
   const [newTag, setNewTag] = useState('')
   const [refExpanded, setRefExpanded] = useState(false)
+  const [naiExpanded, setNaiExpanded] = useState(false)
+  const [naiMeta, setNaiMeta] = useState<NAIMetadata | null>(null)
+  const [naiLoading, setNaiLoading] = useState(false)
+  const [naiLoaded, setNaiLoaded] = useState(false)
 
   useEffect(() => {
     setDetail(data)
     setMemo(data.memo || '')
+    // Reset NAI metadata when image changes
+    setNaiMeta(null)
+    setNaiLoaded(false)
+    setNaiExpanded(false)
   }, [data])
 
   // Keyboard navigation
@@ -160,6 +170,27 @@ function ImageDetailPage() {
       toast.success('Set as project thumbnail')
     } catch {
       toast.error('Failed to set project thumbnail')
+    }
+  }
+
+  async function handleToggleNai() {
+    const willExpand = !naiExpanded
+    setNaiExpanded(willExpand)
+
+    // Lazy-load NAI metadata on first expand
+    if (willExpand && !naiLoaded && imageSrc) {
+      setNaiLoading(true)
+      try {
+        const resp = await fetch(imageSrc)
+        const buffer = await resp.arrayBuffer()
+        const result = await parseNAIMetadata(buffer)
+        setNaiMeta(result)
+      } catch {
+        // silently fail
+      } finally {
+        setNaiLoading(false)
+        setNaiLoaded(true)
+      }
     }
   }
 
@@ -454,6 +485,38 @@ function ImageDetailPage() {
           )}
         </div>
 
+        <Separator className="mb-4" />
+
+        {/* NAI Image Metadata (collapsible, lazy-loaded) */}
+        <div className="mb-4">
+          <button
+            onClick={handleToggleNai}
+            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
+          >
+            <span>NAI Image Metadata</span>
+            <span className="text-xs">{naiExpanded ? '\u25B2' : '\u25BC'}</span>
+          </button>
+
+          {naiExpanded && (
+            <div className="animate-in fade-in-0 slide-in-from-top-1 duration-150">
+              {naiLoading && (
+                <div className="flex items-center gap-2 py-3">
+                  <div className="size-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+                  <span className="text-xs text-muted-foreground">Parsing...</span>
+                </div>
+              )}
+
+              {naiLoaded && !naiMeta && (
+                <p className="text-xs text-muted-foreground py-2">
+                  No NAI metadata found in this image.
+                </p>
+              )}
+
+              {naiMeta && <GalleryNaiMetadata metadata={naiMeta} />}
+            </div>
+          )}
+        </div>
+
         {/* Download */}
         <div>
           <a href={imageSrc} download>
@@ -464,5 +527,128 @@ function ImageDetailPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// ─── Compact NAI Metadata viewer for gallery panel ──────────────────────────
+
+function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
+  return (
+    <div className="space-y-3">
+      {metadata.source && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+            {metadata.source === 'text_chunk' ? 'tEXt Chunk' : 'Stealth Alpha'}
+          </span>
+        </div>
+      )}
+
+      {metadata.model && (
+        <div>
+          <label className="text-xs text-muted-foreground block mb-0.5">Model</label>
+          <p className="text-sm font-mono text-foreground/80">{metadata.model}</p>
+        </div>
+      )}
+
+      {metadata.prompt && (
+        <div>
+          <label className="text-xs text-muted-foreground block mb-0.5">Positive</label>
+          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-28 overflow-y-auto">
+            {metadata.prompt}
+          </p>
+        </div>
+      )}
+
+      {metadata.negativePrompt && (
+        <div>
+          <label className="text-xs text-muted-foreground block mb-0.5">Negative</label>
+          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
+            {metadata.negativePrompt}
+          </p>
+        </div>
+      )}
+
+      {/* V4 Characters */}
+      {metadata.v4_prompt?.caption?.char_captions?.map((char, i) => {
+        const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+        return (
+          <div key={i} className="space-y-1.5">
+            <div>
+              <label className="text-xs text-muted-foreground block mb-0.5">
+                Character {i + 1}
+              </label>
+              <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
+                {char.char_caption}
+              </p>
+            </div>
+            {negChar?.char_caption && (
+              <div>
+                <label className="text-xs text-muted-foreground block mb-0.5">
+                  Character {i + 1} Negative
+                </label>
+                <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-16 overflow-y-auto">
+                  {negChar.char_caption}
+                </p>
+              </div>
+            )}
+          </div>
+        )
+      })}
+
+      {/* Parameters grid */}
+      <div>
+        <label className="text-xs text-muted-foreground block mb-1">Parameters</label>
+        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+          {metadata.width != null && metadata.height != null && (
+            <NaiParamRow label="Size" value={`${metadata.width}x${metadata.height}`} />
+          )}
+          {metadata.steps != null && <NaiParamRow label="Steps" value={metadata.steps} />}
+          {metadata.cfgScale != null && <NaiParamRow label="CFG" value={metadata.cfgScale} />}
+          {metadata.cfgRescale != null && metadata.cfgRescale > 0 && (
+            <NaiParamRow label="Rescale" value={metadata.cfgRescale} />
+          )}
+          {metadata.seed != null && <NaiParamRow label="Seed" value={metadata.seed} />}
+          {metadata.sampler && <NaiParamRow label="Sampler" value={metadata.sampler} />}
+          {metadata.scheduler && <NaiParamRow label="Scheduler" value={metadata.scheduler} />}
+          {metadata.smea != null && <NaiParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />}
+          {metadata.smeaDyn != null && <NaiParamRow label="DYN" value={metadata.smeaDyn ? 'On' : 'Off'} />}
+          {metadata.variety != null && <NaiParamRow label="Variety+" value={metadata.variety ? 'On' : 'Off'} />}
+          {metadata.qualityToggle != null && (
+            <NaiParamRow label="Quality" value={metadata.qualityToggle ? 'On' : 'Off'} />
+          )}
+          {metadata.ucPreset != null && (
+            <NaiParamRow label="UC" value={getUcPresetLabel(metadata.ucPreset)} />
+          )}
+        </div>
+      </div>
+
+      {/* Reference info */}
+      {(metadata.hasVibeTransfer || metadata.hasCharacterReference) && (
+        <div>
+          <label className="text-xs text-muted-foreground block mb-1">References</label>
+          <div className="text-xs space-y-0.5 text-foreground/80">
+            {metadata.hasVibeTransfer && metadata.vibeTransferInfo?.map((vt, i) => (
+              <p key={`vt-${i}`}>
+                Vibe {i + 1}: str {vt.strength.toFixed(2)}, info {vt.informationExtracted.toFixed(2)}
+              </p>
+            ))}
+            {metadata.hasCharacterReference && metadata.characterReferenceInfo?.map((cr, i) => (
+              <p key={`cr-${i}`}>
+                CharRef {i + 1}: str {cr.strength.toFixed(2)}, info {cr.informationExtracted.toFixed(2)}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function NaiParamRow({ label, value }: { label: string; value: string | number }) {
+  return (
+    <>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-foreground/80 font-mono">{value}</span>
+    </>
   )
 }
