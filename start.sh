@@ -77,6 +77,7 @@ fi
 #  Step 3: Database Migration
 # =============================================================
 echo "  [3/5] 데이터베이스 확인 중..."
+mkdir -p data
 "${NODE_BIN}/npx" --yes drizzle-kit migrate 2>/dev/null
 echo "        완료!"
 

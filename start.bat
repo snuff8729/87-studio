@@ -76,6 +76,7 @@ echo         완료!
 :: ============================================================
 :migrate
 echo   [3/5] 데이터베이스 확인 중...
+if not exist "%~dp0data" mkdir "%~dp0data"
 call "%NODE_DIR%\npx.cmd" --yes drizzle-kit migrate 2>nul
 if errorlevel 1 (
     echo   [ERROR] 데이터베이스 마이그레이션에 실패했습니다.
