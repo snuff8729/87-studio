@@ -526,6 +526,7 @@ const en = {
     next: 'Next',
     finish: 'Finish',
     stepOf: 'Step {{current}} of {{total}}',
+    skippedNotice: 'You can restart the tutorial anytime from Settings.',
     restartTutorial: 'Restart Tutorial',
     restartDesc: 'Run the onboarding tutorial again from the beginning.',
     restart: 'Restart',

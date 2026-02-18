@@ -529,6 +529,7 @@ const ko: DeepStringify<typeof en> = {
     next: '다음',
     finish: '완료',
     stepOf: '{{total}} 중 {{current}} 단계',
+    skippedNotice: '설정에서 언제든 튜토리얼을 다시 시작할 수 있습니다.',
     restartTutorial: '튜토리얼 다시 시작',
     restartDesc: '온보딩 튜토리얼을 처음부터 다시 실행합니다.',
     restart: '다시 시작',

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/common/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -37,7 +37,6 @@ function PendingComponent() {
             </div>
           </div>
         ))}
-        <Skeleton className="h-9 w-32 rounded-md" />
       </div>
     </div>
   )
@@ -68,10 +67,11 @@ function SettingsPage() {
   const [apiKey, setApiKey] = useState(initialApiKey)
   const [showKey, setShowKey] = useState(false)
   const [delay, setDelay] = useState(Number(initialDelay))
-  const [saving, setSaving] = useState(false)
   const [validating, setValidating] = useState(false)
   const { t, locale, setLocale } = useTranslation()
   const onboarding = useOnboardingMaybe()
+  const lastSavedApiKey = useRef(initialApiKey)
+  const lastSavedDelay = useRef(Number(initialDelay))
 
   function handleRestartTutorial() {
     onboarding?.restart()
@@ -85,7 +85,32 @@ function SettingsPage() {
   useEffect(() => {
     setApiKey(initialApiKey)
     setDelay(Number(initialDelay))
+    lastSavedApiKey.current = initialApiKey
+    lastSavedDelay.current = Number(initialDelay)
   }, [initialApiKey, initialDelay])
+
+  const saveApiKey = useCallback(async (value: string) => {
+    if (value === lastSavedApiKey.current) return
+    lastSavedApiKey.current = value
+    try {
+      await setSetting({ data: { key: 'nai_api_key', value } })
+      toast.success(t('settings.saved'))
+      window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
+    } catch {
+      toast.error(t('settings.saveFailed'))
+    }
+  }, [t])
+
+  const saveDelay = useCallback(async (value: number) => {
+    if (value === lastSavedDelay.current) return
+    lastSavedDelay.current = value
+    try {
+      await setSetting({ data: { key: 'generation_delay', value: String(value) } })
+      toast.success(t('settings.saved'))
+    } catch {
+      toast.error(t('settings.saveFailed'))
+    }
+  }, [t])
 
   async function handleScan() {
     setScanning(true)
@@ -135,21 +160,6 @@ function SettingsPage() {
     setValidating(false)
   }
 
-  async function handleSave() {
-    setSaving(true)
-    try {
-      await Promise.all([
-        setSetting({ data: { key: 'nai_api_key', value: apiKey } }),
-        setSetting({ data: { key: 'generation_delay', value: String(delay) } }),
-      ])
-      toast.success(t('settings.saved'))
-      window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
-    } catch {
-      toast.error(t('settings.saveFailed'))
-    }
-    setSaving(false)
-  }
-
   return (
     <div>
       <PageHeader title={t('settings.title')} description={t('settings.description')} />
@@ -169,6 +179,7 @@ function SettingsPage() {
                   type={showKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
+                  onBlur={(e) => saveApiKey(e.target.value)}
                   placeholder={t('settings.enterApiKey')}
                 />
                 <Button variant="outline" onClick={() => setShowKey(!showKey)}>
@@ -194,6 +205,7 @@ function SettingsPage() {
               <Slider
                 value={[delay]}
                 onValueChange={([v]) => setDelay(v)}
+                onValueCommit={([v]) => saveDelay(v)}
                 min={0}
                 max={30000}
                 step={100}
@@ -300,9 +312,6 @@ function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Button onClick={handleSave} disabled={saving} data-onboarding="save-settings-btn">
-          {saving ? t('common.saving') : t('settings.saveSettings')}
-        </Button>
       </div>
     </div>
   )

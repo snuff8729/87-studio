@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { createPortal } from 'react-dom'
+import { toast } from 'sonner'
 import { useOnboardingMaybe } from '@/lib/onboarding'
+import { useTranslation } from '@/lib/i18n'
 import { ONBOARDING_STEPS, TOTAL_STEPS } from '@/lib/onboarding/steps'
 import { WelcomeDialog } from './welcome-dialog'
 import { CompletionDialog } from './completion-dialog'
@@ -142,9 +144,16 @@ function OnboardingActiveOverlay() {
     return () => clearInterval(interval)
   }, [step, isStepInRange, stepDef, ctx])
 
+  const { t } = useTranslation()
+
+  const handleSkip = useCallback(() => {
+    ctx?.skip()
+    toast.info(t('onboarding.skippedNotice'))
+  }, [ctx, t])
+
   if (!ctx) return null
 
-  const { advance, skip, skipStep } = ctx
+  const { advance, skipStep } = ctx
 
   return (
     <>
@@ -163,7 +172,7 @@ function OnboardingActiveOverlay() {
             conditionMet={conditionMet}
             onNext={advance}
             onSkipStep={skipStep}
-            onSkip={skip}
+            onSkip={handleSkip}
           />
         </>
       )}
