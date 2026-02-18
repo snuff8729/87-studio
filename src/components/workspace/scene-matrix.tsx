@@ -4,8 +4,10 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
+  Copy01Icon,
   Delete02Icon,
   Image02Icon,
+  PencilEdit02Icon,
   Tick01Icon,
   Cancel01Icon,
   GridIcon,
@@ -62,9 +64,12 @@ interface SceneMatrixProps {
   characterPlaceholderKeys: CharacterPlaceholderKeyEntry[]
   characters: Array<{ id: number; name: string; charPrompt: string; charNegative: string }>
   characterOverrides: Record<number, CharacterOverride[]>
+  selectedScene: number | null
+  onSelectedSceneChange: (id: number | null) => void
   onAddScene: (name: string) => Promise<void>
   onDeleteScene: (sceneId: number) => Promise<void>
   onRenameScene: (id: number, name: string) => Promise<void>
+  onDuplicateScene: (sceneId: number) => Promise<void>
   onPlaceholdersChange: () => void
   getPrompts?: () => { generalPrompt: string; negativePrompt: string }
 }
@@ -76,14 +81,16 @@ export const SceneMatrix = memo(function SceneMatrix({
   characterPlaceholderKeys,
   characters,
   characterOverrides,
+  selectedScene,
+  onSelectedSceneChange: setSelectedScene,
   onAddScene,
   onDeleteScene,
   onRenameScene,
+  onDuplicateScene,
   onPlaceholdersChange,
   getPrompts,
 }: SceneMatrixProps) {
   const { t } = useTranslation()
-  const [selectedScene, setSelectedScene] = useState<number | null>(null)
   const [addingScene, setAddingScene] = useState(false)
   const [newSceneName, setNewSceneName] = useState('')
   const [editingName, setEditingName] = useState<number | null>(null)
@@ -168,7 +175,7 @@ export const SceneMatrix = memo(function SceneMatrix({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex flex-col sm:flex-row min-h-0">
         {/* ── Mobile: scene selector dropdown ── */}
         <div className="sm:hidden px-3 py-2.5 border-b border-border shrink-0">
           <div className="flex gap-2 items-center">
@@ -310,6 +317,16 @@ export const SceneMatrix = memo(function SceneMatrix({
                       <div className={`text-sm font-medium truncate flex-1 ${isSelected ? 'text-primary' : 'text-foreground/90'}`}>
                         {scene.name}
                       </div>
+                      <button
+                        className="text-muted-foreground/40 hover:text-foreground transition-all p-0.5 rounded shrink-0"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onDuplicateScene(scene.id)
+                        }}
+                        title={t('scene.duplicateScene')}
+                      >
+                        <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+                      </button>
                       <ConfirmDialog
                         trigger={
                           <button
@@ -339,7 +356,7 @@ export const SceneMatrix = memo(function SceneMatrix({
           {selectedSceneData ? (
             <>
               {/* Header */}
-              <div className="flex items-center gap-3 px-4 py-2.5 border-b border-border shrink-0">
+              <div className="flex items-center gap-2 sm:gap-3 px-3 sm:px-4 py-2 sm:py-2.5 border-b border-border shrink-0">
                 <div className="size-8 rounded-md overflow-hidden shrink-0 bg-secondary/60">
                   {selectedSceneData.thumbnailPath ? (
                     <img
@@ -380,10 +397,11 @@ export const SceneMatrix = memo(function SceneMatrix({
                         setEditingName(selectedSceneData.id)
                         setEditNameValue(selectedSceneData.name)
                       }}
-                      className="text-base font-semibold hover:text-primary transition-colors truncate block"
+                      className="flex items-center gap-1.5 text-base font-semibold hover:text-primary transition-colors truncate group/rename"
                       title={t('scene.clickToRename')}
                     >
-                      {selectedSceneData.name}
+                      <span className="truncate">{selectedSceneData.name}</span>
+                      <HugeiconsIcon icon={PencilEdit02Icon} className="size-3.5 text-muted-foreground/40 group-hover/rename:text-primary shrink-0" />
                     </button>
                     {selectedSceneData.recentImageCount > 0 && (
                       <span className="text-xs text-muted-foreground tabular-nums">
@@ -406,7 +424,7 @@ export const SceneMatrix = memo(function SceneMatrix({
               </div>
 
               {/* Placeholder Editor */}
-              <div className="flex-1 overflow-y-auto px-5 py-4">
+              <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4">
                 <PlaceholderEditor
                   sceneId={selectedSceneData.id}
                   scenePlaceholders={parsedPlaceholders[selectedSceneData.id] ?? {}}

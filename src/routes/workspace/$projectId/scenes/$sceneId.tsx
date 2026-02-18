@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter, useNavigate } from '@tanstack/react-router'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
@@ -65,7 +65,19 @@ function PendingComponent() {
   )
 }
 
+const VALID_IMAGE_SORT = ['newest', 'tournament_winrate', 'tournament_wins'] as const
+type ImageSortBy = (typeof VALID_IMAGE_SORT)[number]
+
+type SceneDetailSearch = {
+  imageSort?: ImageSortBy
+}
+
 export const Route = createFileRoute('/workspace/$projectId/scenes/$sceneId')({
+  validateSearch: (search: Record<string, unknown>): SceneDetailSearch => ({
+    imageSort: VALID_IMAGE_SORT.includes(search.imageSort as ImageSortBy) && search.imageSort !== 'newest'
+      ? (search.imageSort as ImageSortBy)
+      : undefined,
+  }),
   loader: async ({ params }) => {
     const projectId = Number(params.projectId)
     const [context, jobsResult] = await Promise.all([
@@ -281,6 +293,15 @@ function SceneDetailPage() {
     }
   }
 
+  // ── URL search params ──
+  const searchParams = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+
+  const imageSortBy = searchParams.imageSort ?? 'newest'
+  const setImageSortBy = useCallback((sort: ImageSortBy) => {
+    navigate({ search: (prev) => ({ ...prev, imageSort: sort === 'newest' ? undefined : sort }) })
+  }, [navigate])
+
   // ── Mobile panel ──
   const [leftOpen, setLeftOpen] = useState(false)
 
@@ -385,6 +406,8 @@ function SceneDetailPage() {
             refreshKey={refreshKey}
             hidePlaceholders
             sceneName={data.sceneName}
+            sortBy={imageSortBy}
+            onSortByChange={setImageSortBy}
           />
         </main>
       </div>

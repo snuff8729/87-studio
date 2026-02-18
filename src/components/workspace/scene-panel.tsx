@@ -1,21 +1,34 @@
-import { useState, useRef, memo } from 'react'
+import { useState, useRef, useMemo, memo } from 'react'
 import { Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   ArrowRight01Icon,
+  Copy01Icon,
   Delete02Icon,
   Image02Icon,
   GridIcon,
   PencilEdit02Icon,
+  Search01Icon,
+  SortingDownIcon,
+  Cancel01Icon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { NumberStepper } from '@/components/ui/number-stepper'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { SceneMatrix } from './scene-matrix'
 import { useTranslation } from '@/lib/i18n'
+
+export type SceneSortBy = 'default' | 'name_asc' | 'name_desc' | 'images_desc' | 'images_asc' | 'created_asc' | 'created_desc'
 
 interface CharacterOverride {
   projectSceneId: number
@@ -59,9 +72,16 @@ interface ScenePanelProps {
   onAddScene: (name: string) => Promise<void>
   onDeleteScene: (sceneId: number) => Promise<void>
   onRenameScene: (id: number, name: string) => Promise<void>
+  onDuplicateScene: (sceneId: number) => Promise<void>
   onPlaceholdersChange: () => void
   viewMode: 'reserve' | 'edit'
   onViewModeChange: (mode: 'reserve' | 'edit') => void
+  sortBy: string
+  onSortByChange: (sort: string) => void
+  searchQuery: string
+  onSearchQueryChange: (q: string) => void
+  selectedSceneId: number | null
+  onSelectedSceneChange: (id: number | null) => void
   getPrompts?: () => { generalPrompt: string; negativePrompt: string }
 }
 
@@ -78,13 +98,55 @@ export const ScenePanel = memo(function ScenePanel({
   onAddScene,
   onDeleteScene,
   onRenameScene,
+  onDuplicateScene,
   onPlaceholdersChange,
   viewMode,
   onViewModeChange,
+  sortBy,
+  onSortByChange,
+  searchQuery,
+  onSearchQueryChange,
+  selectedSceneId,
+  onSelectedSceneChange,
   getPrompts,
 }: ScenePanelProps) {
-  const allScenes = scenePacks.flatMap((pack) => pack.scenes)
   const { t } = useTranslation()
+  const [searchVisible, setSearchVisible] = useState(searchQuery.length > 0)
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  const sortedScenePacks = useMemo(() => {
+    if (sortBy === 'default') return scenePacks
+
+    const sortFn = (a: (typeof scenePacks)[0]['scenes'][0], b: (typeof scenePacks)[0]['scenes'][0]) => {
+      switch (sortBy) {
+        case 'name_asc': return a.name.localeCompare(b.name)
+        case 'name_desc': return b.name.localeCompare(a.name)
+        case 'images_desc': return b.recentImageCount - a.recentImageCount
+        case 'images_asc': return a.recentImageCount - b.recentImageCount
+        case 'created_asc': return a.id - b.id
+        case 'created_desc': return b.id - a.id
+        default: return 0
+      }
+    }
+
+    return scenePacks.map((pack) => ({
+      ...pack,
+      scenes: [...pack.scenes].sort(sortFn),
+    }))
+  }, [scenePacks, sortBy])
+
+  const filteredScenePacks = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return sortedScenePacks
+    return sortedScenePacks
+      .map((pack) => ({
+        ...pack,
+        scenes: pack.scenes.filter((s) => s.name.toLowerCase().includes(q)),
+      }))
+      .filter((pack) => pack.scenes.length > 0)
+  }, [sortedScenePacks, searchQuery])
+
+  const allScenes = filteredScenePacks.flatMap((pack) => pack.scenes)
 
   // ── Add scene state (shared) ──
   const [addingScene, setAddingScene] = useState(false)
@@ -103,8 +165,10 @@ export const ScenePanel = memo(function ScenePanel({
     }
   }
 
-  // ── Empty state ──
-  if (allScenes.length === 0 && !addingScene) {
+  const totalSceneCount = scenePacks.reduce((sum, p) => sum + p.scenes.length, 0)
+
+  // ── Empty state (only when truly no scenes, not when search filters everything) ──
+  if (totalSceneCount === 0 && !addingScene) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
         <div className="rounded-2xl bg-secondary/30 p-6 mb-4">
@@ -160,6 +224,37 @@ export const ScenePanel = memo(function ScenePanel({
 
         <div className="flex-1" />
 
+        {/* Sort dropdown */}
+        <Select value={sortBy} onValueChange={onSortByChange}>
+          <SelectTrigger size="sm" className="h-7 w-auto gap-1.5 text-xs text-muted-foreground border-none bg-transparent hover:bg-secondary/80 px-2">
+            <HugeiconsIcon icon={SortingDownIcon} className="size-4" />
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="default">{t('scene.sortDefault')}</SelectItem>
+            <SelectItem value="name_asc">{t('scene.sortNameAsc')}</SelectItem>
+            <SelectItem value="name_desc">{t('scene.sortNameDesc')}</SelectItem>
+            <SelectItem value="images_desc">{t('scene.sortImagesDesc')}</SelectItem>
+            <SelectItem value="images_asc">{t('scene.sortImagesAsc')}</SelectItem>
+            <SelectItem value="created_asc">{t('scene.sortCreatedAsc')}</SelectItem>
+            <SelectItem value="created_desc">{t('scene.sortCreatedDesc')}</SelectItem>
+          </SelectContent>
+        </Select>
+
+        {/* Search toggle */}
+        <button
+          onClick={() => {
+            const next = !searchVisible
+            setSearchVisible(next)
+            if (!next) onSearchQueryChange('')
+            else setTimeout(() => searchInputRef.current?.focus(), 50)
+          }}
+          className={`rounded-md p-1.5 transition-colors ${searchVisible ? 'text-primary bg-secondary/80' : 'text-muted-foreground hover:text-foreground hover:bg-secondary/80'}`}
+          title={t('scene.searchScenes')}
+        >
+          <HugeiconsIcon icon={Search01Icon} className="size-5" />
+        </button>
+
         {/* Add scene button */}
         <button
           onClick={() => {
@@ -173,9 +268,42 @@ export const ScenePanel = memo(function ScenePanel({
         </button>
       </div>
 
+      {/* ── Search bar ── */}
+      {searchVisible && (
+        <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border shrink-0">
+          <HugeiconsIcon icon={Search01Icon} className="size-4 text-muted-foreground shrink-0" />
+          <Input
+            ref={searchInputRef}
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape') { setSearchVisible(false); onSearchQueryChange('') }
+            }}
+            placeholder={t('scene.searchPlaceholder')}
+            className="h-7 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 px-0"
+            autoFocus
+          />
+          {searchQuery && (
+            <button
+              onClick={() => onSearchQueryChange('')}
+              className="text-muted-foreground hover:text-foreground transition-colors shrink-0"
+            >
+              <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* ── Content ── */}
       <div className="flex-1 min-h-0">
-        {viewMode === 'reserve' ? (
+        {allScenes.length === 0 && searchQuery ? (
+          <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
+            <HugeiconsIcon icon={Search01Icon} className="size-8 text-muted-foreground/20 mb-3" />
+            <p className="text-sm text-muted-foreground">
+              {t('scene.noSearchResults', { query: searchQuery })}
+            </p>
+          </div>
+        ) : viewMode === 'reserve' ? (
           <ReserveGrid
             scenes={allScenes}
             projectId={projectId}
@@ -183,6 +311,7 @@ export const ScenePanel = memo(function ScenePanel({
             defaultCount={defaultCount}
             onSceneCountChange={onSceneCountChange}
             onDeleteScene={onDeleteScene}
+            onDuplicateScene={onDuplicateScene}
             addingScene={addingScene}
             newSceneName={newSceneName}
             newSceneInputRef={newSceneInputRef}
@@ -192,15 +321,18 @@ export const ScenePanel = memo(function ScenePanel({
           />
         ) : (
           <SceneMatrix
-            scenePacks={scenePacks}
+            scenePacks={filteredScenePacks}
             projectId={projectId}
             generalPlaceholderKeys={generalPlaceholderKeys}
             characterPlaceholderKeys={characterPlaceholderKeys}
             characters={characters}
             characterOverrides={characterOverrides}
+            selectedScene={selectedSceneId}
+            onSelectedSceneChange={onSelectedSceneChange}
             onAddScene={onAddScene}
             onDeleteScene={onDeleteScene}
             onRenameScene={onRenameScene}
+            onDuplicateScene={onDuplicateScene}
             onPlaceholdersChange={onPlaceholdersChange}
             getPrompts={getPrompts}
           />
@@ -227,6 +359,7 @@ interface ReserveGridProps {
   defaultCount: number
   onSceneCountChange: (sceneId: number, count: number | null) => void
   onDeleteScene: (sceneId: number) => Promise<void>
+  onDuplicateScene: (sceneId: number) => Promise<void>
   addingScene: boolean
   newSceneName: string
   newSceneInputRef: React.RefObject<HTMLInputElement | null>
@@ -242,6 +375,7 @@ function ReserveGrid({
   defaultCount,
   onSceneCountChange,
   onDeleteScene,
+  onDuplicateScene,
   addingScene,
   newSceneName,
   newSceneInputRef,
@@ -328,6 +462,13 @@ function ReserveGrid({
                     </button>
                   )}
                   <div className="flex-1" />
+                  <button
+                    onClick={() => onDuplicateScene(scene.id)}
+                    className="rounded-md p-1 text-muted-foreground/40 hover:text-foreground hover:bg-secondary/80 transition-all"
+                    title={t('scene.duplicateScene')}
+                  >
+                    <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
+                  </button>
                   <ConfirmDialog
                     trigger={
                       <button className="rounded-md p-1 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-all">

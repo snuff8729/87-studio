@@ -157,6 +157,57 @@ export const renameProjectScene = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+export const duplicateProjectScene = createServerFn({ method: 'POST' })
+  .inputValidator((projectSceneId: number) => projectSceneId)
+  .handler(async ({ data: projectSceneId }) => {
+    const scene = db
+      .select()
+      .from(projectScenes)
+      .where(eq(projectScenes.id, projectSceneId))
+      .get()
+
+    if (!scene) throw new Error('Scene not found')
+
+    // Get next sort order within same pack
+    const maxSort = db
+      .select({ max: sql<number>`coalesce(max(${projectScenes.sortOrder}), -1)` })
+      .from(projectScenes)
+      .where(eq(projectScenes.projectScenePackId, scene.projectScenePackId))
+      .get()
+
+    // Insert duplicated scene
+    const newScene = db
+      .insert(projectScenes)
+      .values({
+        projectScenePackId: scene.projectScenePackId,
+        sourceSceneId: scene.sourceSceneId,
+        name: `${scene.name} (Copy)`,
+        placeholders: scene.placeholders,
+        sortOrder: (maxSort?.max ?? -1) + 1,
+      })
+      .returning()
+      .get()
+
+    // Copy character overrides
+    const overrides = db
+      .select()
+      .from(characterSceneOverrides)
+      .where(eq(characterSceneOverrides.projectSceneId, projectSceneId))
+      .all()
+
+    for (const override of overrides) {
+      db.insert(characterSceneOverrides)
+        .values({
+          projectSceneId: newScene.id,
+          characterId: override.characterId,
+          placeholders: override.placeholders,
+        })
+        .run()
+    }
+
+    return newScene
+  })
+
 export const bulkUpdatePlaceholders = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: { updates: Array<{ sceneId: number; placeholders: string }> }) => data,

@@ -6,6 +6,7 @@ const log = createLogger('nai')
 const NAI_API_URL = 'https://image.novelai.net/ai/generate-image'
 
 interface GenerationParams {
+  model?: string
   width?: number
   height?: number
   steps?: number
@@ -38,7 +39,7 @@ export async function generateImage(
 
   const body = {
     input: prompts.generalPrompt,
-    model: 'nai-diffusion-4-5-curated',
+    model: params.model ?? 'nai-diffusion-4-5-full',
     action: 'generate',
     parameters: {
       add_original_image: true,

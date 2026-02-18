@@ -193,7 +193,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
           <span className="hidden sm:inline">{t('templates.title')}</span>
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-4xl max-h-[85vh] min-h-[70vh] sm:min-h-0 overflow-hidden flex flex-col p-0 gap-0">
+      <DialogContent className="sm:max-w-4xl max-h-[85vh] sm:min-h-[50vh] overflow-hidden flex flex-col p-0 gap-0">
         {/* Header */}
         <DialogHeader className="px-6 pt-5 pb-3 shrink-0">
           <DialogTitle>{t('templates.title')}</DialogTitle>
@@ -211,7 +211,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                 value={selectedPack ? String(selectedPack.id) : undefined}
                 onValueChange={(v) => handleSelectPack(Number(v))}
               >
-                <SelectTrigger className="w-full">
+                <SelectTrigger className="flex-1 min-w-0">
                   <SelectValue placeholder={t('templates.selectPack')} />
                 </SelectTrigger>
                 <SelectContent>

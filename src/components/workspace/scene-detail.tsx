@@ -18,6 +18,7 @@ import { useTranslation } from '@/lib/i18n'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { TournamentDialog } from './tournament-dialog'
+import { CompareDialog } from './compare-dialog'
 
 interface SceneDetailProps {
   sceneId: number
@@ -36,6 +37,8 @@ interface SceneDetailProps {
   refreshKey?: number
   hidePlaceholders?: boolean
   sceneName?: string
+  sortBy?: SortBy
+  onSortByChange?: (sort: SortBy) => void
 }
 
 type SortBy = 'newest' | 'tournament_winrate' | 'tournament_wins'
@@ -89,6 +92,8 @@ export function SceneDetail({
   refreshKey,
   hidePlaceholders,
   sceneName,
+  sortBy: externalSortBy,
+  onSortByChange: externalOnSortByChange,
 }: SceneDetailProps) {
   const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
@@ -100,9 +105,13 @@ export function SceneDetail({
   const [loadingMore, setLoadingMore] = useState(false)
   const hasMore = images.length < totalImageCount
 
-  // Tournament
+  // Tournament & Compare
   const [tournamentOpen, setTournamentOpen] = useState(false)
-  const [sortBy, setSortBy] = useState<SortBy>('newest')
+  const [tournamentImageIds, setTournamentImageIds] = useState<number[] | undefined>(undefined)
+  const [compareOpen, setCompareOpen] = useState(false)
+  const [internalSortBy, setInternalSortBy] = useState<SortBy>('newest')
+  const sortBy = externalSortBy ?? internalSortBy
+  const setSortBy = externalOnSortByChange ?? setInternalSortBy
 
   // Bulk selection
   const [selectMode, setSelectMode] = useState(false)
@@ -452,7 +461,10 @@ export function SceneDetail({
             </Label>
             <div className="flex items-center gap-2">
               {totalImageCount >= 2 && (
-                <Button variant="outline" size="xs" onClick={() => setTournamentOpen(true)}>
+                <Button variant="outline" size="xs" onClick={() => {
+                  setTournamentImageIds(undefined)
+                  setTournamentOpen(true)
+                }}>
                   {t('tournament.tournament')}
                 </Button>
               )}
@@ -681,8 +693,27 @@ export function SceneDetail({
 
       {/* Bulk action bar — outside space-y-4 to prevent margin change triggering scrollbar/resize */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg">
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
           <span className="text-base font-medium">{t('gallery.selectedCount', { count: selectedIds.size })}</span>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={selectedIds.size < 2}
+            onClick={() => setCompareOpen(true)}
+          >
+            {t('scene.compare')}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={selectedIds.size < 2}
+            onClick={() => {
+              setTournamentImageIds([...selectedIds])
+              setTournamentOpen(true)
+            }}
+          >
+            {t('tournament.tournament')}
+          </Button>
           <DownloadDialog
             trigger={
               <Button size="sm" variant="outline">
@@ -704,6 +735,13 @@ export function SceneDetail({
         </div>
       )}
 
+      {/* Compare Dialog */}
+      <CompareDialog
+        open={compareOpen}
+        onOpenChange={setCompareOpen}
+        images={images.filter((img) => selectedIds.has(img.id))}
+      />
+
       {/* Tournament Dialog */}
       <TournamentDialog
         open={tournamentOpen}
@@ -713,6 +751,7 @@ export function SceneDetail({
         }}
         projectSceneId={sceneId}
         sceneName={sceneName ?? 'Scene'}
+        imageIds={tournamentImageIds}
       />
     </>
   )

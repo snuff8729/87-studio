@@ -1,4 +1,4 @@
-import { createFileRoute, useRouter } from '@tanstack/react-router'
+import { createFileRoute, useRouter, useNavigate } from '@tanstack/react-router'
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
@@ -12,6 +12,7 @@ import {
   addProjectScene,
   deleteProjectScene,
   renameProjectScene,
+  duplicateProjectScene,
   getAllCharacterOverrides,
 } from '@/server/functions/project-scenes'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
@@ -88,7 +89,25 @@ function PendingComponent() {
   )
 }
 
+const VALID_SORT = ['default', 'name_asc', 'name_desc', 'images_desc', 'images_asc', 'created_asc', 'created_desc'] as const
+type SceneSortBy = (typeof VALID_SORT)[number]
+
+type WorkspaceSearch = {
+  view?: 'reserve' | 'edit'
+  sort?: SceneSortBy
+  q?: string
+  scene?: number
+}
+
 export const Route = createFileRoute('/workspace/$projectId/')({
+  validateSearch: (search: Record<string, unknown>): WorkspaceSearch => ({
+    view: search.view === 'edit' ? 'edit' : undefined,
+    sort: VALID_SORT.includes(search.sort as SceneSortBy) && search.sort !== 'default'
+      ? (search.sort as SceneSortBy)
+      : undefined,
+    q: typeof search.q === 'string' && search.q ? search.q : undefined,
+    scene: search.scene ? Number(search.scene) : undefined,
+  }),
   loader: async ({ params }) => {
     const projectId = Number(params.projectId)
     return getWorkspaceData({ data: projectId })
@@ -287,6 +306,16 @@ function WorkspacePage() {
     await renameProjectScene({ data: { id, name } })
     router.invalidate()
   }, [router])
+
+  const handleDuplicateScene = useCallback(async (sceneId: number) => {
+    try {
+      await duplicateProjectScene({ data: sceneId })
+      router.invalidate()
+      toast.success(t('scene.sceneDuplicated'))
+    } catch {
+      toast.error(t('scene.duplicateSceneFailed'))
+    }
+  }, [router, t])
 
   const handlePlaceholdersChange = useCallback(() => {
     // Reload workspace data to reflect saved placeholders
@@ -487,8 +516,29 @@ function WorkspacePage() {
     }
   }
 
-  // ── View mode ──
-  const [viewMode, setViewMode] = useState<'reserve' | 'edit'>('reserve')
+  // ── URL search params for filters/sort ──
+  const searchParams = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+
+  const viewMode = searchParams.view ?? 'reserve'
+  const setViewMode = useCallback((mode: 'reserve' | 'edit') => {
+    navigate({ search: (prev) => ({ ...prev, view: mode === 'reserve' ? undefined : mode }) })
+  }, [navigate])
+
+  const sceneSortBy = searchParams.sort ?? 'default'
+  const setSceneSortBy = useCallback((sort: string) => {
+    navigate({ search: (prev) => ({ ...prev, sort: sort === 'default' ? undefined : sort as SceneSortBy }) })
+  }, [navigate])
+
+  const sceneSearch = searchParams.q ?? ''
+  const setSceneSearch = useCallback((q: string) => {
+    navigate({ search: (prev) => ({ ...prev, q: q || undefined }), replace: true })
+  }, [navigate])
+
+  const selectedSceneId = searchParams.scene ?? null
+  const setSelectedSceneId = useCallback((id: number | null) => {
+    navigate({ search: (prev) => ({ ...prev, scene: id ?? undefined }) })
+  }, [navigate])
 
   // ── Mobile panel state ──
   const [leftOpen, setLeftOpen] = useState(false)
@@ -532,9 +582,16 @@ function WorkspacePage() {
           onAddScene={handleAddScene}
           onDeleteScene={handleDeleteScene}
           onRenameScene={handleRenameScene}
+          onDuplicateScene={handleDuplicateScene}
           onPlaceholdersChange={handlePlaceholdersChange}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          sortBy={sceneSortBy}
+          onSortByChange={setSceneSortBy}
+          searchQuery={sceneSearch}
+          onSearchQueryChange={setSceneSearch}
+          selectedSceneId={selectedSceneId}
+          onSelectedSceneChange={setSelectedSceneId}
           getPrompts={getPrompts}
         />
       }

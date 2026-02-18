@@ -497,7 +497,7 @@ function GalleryPage() {
 
       {/* Bulk action bar */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-4 py-2 flex items-center gap-3 shadow-lg">
+        <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
           <span className="text-base font-medium">{t('gallery.selectedCount', { count: selectedIds.size })}</span>
           <DownloadDialog
             trigger={

@@ -25,6 +25,7 @@ interface TournamentDialogProps {
   onOpenChange: (open: boolean) => void
   projectSceneId: number
   sceneName: string
+  imageIds?: number[]
 }
 
 function winRate(wins: number, losses: number): string {
@@ -45,6 +46,7 @@ export function TournamentDialog({
   onOpenChange,
   projectSceneId,
   sceneName,
+  imageIds: filterImageIds,
 }: TournamentDialogProps) {
   const { t } = useTranslation()
   const [pair, setPair] = useState<{ image1: PairImage; image2: PairImage } | null>(null)
@@ -56,9 +58,10 @@ export function TournamentDialog({
 
   const loadPair = useCallback(async () => {
     try {
+      const fnInput = { projectSceneId, imageIds: filterImageIds }
       const [nextPair, state] = await Promise.all([
-        getNextPair({ data: projectSceneId }),
-        getTournamentState({ data: projectSceneId }),
+        getNextPair({ data: fnInput }),
+        getTournamentState({ data: fnInput }),
       ])
       setPair(nextPair)
       setMatchCount(state.matchCount)
@@ -77,7 +80,7 @@ export function TournamentDialog({
       toast.error(t('tournament.failedToLoad'))
     }
     setLoading(false)
-  }, [projectSceneId])
+  }, [projectSceneId, filterImageIds])
 
   useEffect(() => {
     if (open) {

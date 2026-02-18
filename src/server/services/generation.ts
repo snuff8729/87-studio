@@ -11,6 +11,7 @@ const log = createLogger('generation')
 // ─── In-memory queue singleton ──────────────────────────────────────────────
 
 let processing = false
+let recovered = false
 const queue: number[] = [] // job IDs
 
 // Unified queue stop state: 'error' | 'paused' | null
@@ -25,6 +26,47 @@ interface BatchTiming {
   totalGenerationMs: number  // cumulative API call time (for avg calc)
 }
 let batchTiming: BatchTiming | null = null
+
+// Recover pending/running jobs from DB on first access after server restart
+export function recoverJobs() {
+  if (recovered) return
+  recovered = true
+
+  // Reset running → pending (interrupted mid-generation)
+  const running = db
+    .select({ id: generationJobs.id })
+    .from(generationJobs)
+    .where(eq(generationJobs.status, 'running'))
+    .all()
+
+  for (const job of running) {
+    db.update(generationJobs)
+      .set({ status: 'pending', updatedAt: new Date().toISOString() })
+      .where(eq(generationJobs.id, job.id))
+      .run()
+  }
+
+  // Re-enqueue all pending jobs (ordered by creation time)
+  const pending = db
+    .select({ id: generationJobs.id })
+    .from(generationJobs)
+    .where(eq(generationJobs.status, 'pending'))
+    .orderBy(generationJobs.createdAt)
+    .all()
+
+  if (pending.length > 0 || running.length > 0) {
+    log.info('queue.recover', 'Recovering jobs after restart', {
+      resetRunning: running.length,
+      pendingJobs: pending.length,
+    })
+  }
+
+  for (const job of pending) {
+    queue.push(job.id)
+  }
+
+  if (queue.length > 0 && !processing) processQueue()
+}
 
 export function enqueueJob(jobId: number) {
   queue.push(jobId)
@@ -67,6 +109,7 @@ export function cancelPendingJobs(jobIds: number[]) {
 }
 
 export function getQueueStatus() {
+  recoverJobs()
   return {
     processing,
     queueLength: queue.length,

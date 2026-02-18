@@ -497,8 +497,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                   <textarea
                     value={getCellValue(key, 'general')}
                     onChange={(e) => handleCellChange('general', key, e.target.value)}
-                    rows={4}
-                    className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
+                    rows={2}
+                    className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
                     placeholder={t('scene.valueFor', { key })}
                   />
                 </div>
@@ -520,8 +520,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                   <textarea
                     value={getCellValue(key, charId)}
                     onChange={(e) => handleCellChange(charId, key, e.target.value)}
-                    rows={4}
-                    className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
+                    rows={2}
+                    className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
                     placeholder={`${charName}: ${key}`}
                   />
                 </div>
@@ -566,8 +566,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       <textarea
                         value={getCellValue(key, 'general')}
                         onChange={(e) => handleCellChange('general', key, e.target.value)}
-                        rows={4}
-                        className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
+                        rows={2}
+                        className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
                         placeholder={t('scene.valueFor', { key })}
                       />
                     </div>
@@ -610,8 +610,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                             <textarea
                               value={getEffectiveCharValue(key, charId)}
                               onChange={(e) => handleCellChange(charId, key, e.target.value)}
-                              rows={4}
-                              className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-[5rem] transition-all"
+                              rows={2}
+                              className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
                               placeholder={`${charName}: ${key}`}
                             />
                           </div>

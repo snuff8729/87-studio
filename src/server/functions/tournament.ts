@@ -1,14 +1,18 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { generatedImages, tournamentMatches } from '../db/schema'
-import { eq, sql, desc } from 'drizzle-orm'
+import { eq, sql, desc, inArray, and } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.tournament')
 
 export const getTournamentState = createServerFn({ method: 'GET' })
-  .inputValidator((projectSceneId: number) => projectSceneId)
-  .handler(async ({ data: projectSceneId }) => {
+  .inputValidator((input: { projectSceneId: number; imageIds?: number[] }) => input)
+  .handler(async ({ data: { projectSceneId, imageIds: filterIds } }) => {
+    const whereClause = filterIds && filterIds.length > 0
+      ? and(eq(generatedImages.projectSceneId, projectSceneId), inArray(generatedImages.id, filterIds))
+      : eq(generatedImages.projectSceneId, projectSceneId)
+
     const images = db
       .select({
         id: generatedImages.id,
@@ -18,7 +22,7 @@ export const getTournamentState = createServerFn({ method: 'GET' })
         tournamentLosses: generatedImages.tournamentLosses,
       })
       .from(generatedImages)
-      .where(eq(generatedImages.projectSceneId, projectSceneId))
+      .where(whereClause)
       .all()
 
     const matchCount = db
@@ -31,12 +35,16 @@ export const getTournamentState = createServerFn({ method: 'GET' })
   })
 
 export const getNextPair = createServerFn({ method: 'GET' })
-  .inputValidator((projectSceneId: number) => projectSceneId)
-  .handler(async ({ data: projectSceneId }) => {
+  .inputValidator((input: { projectSceneId: number; imageIds?: number[] }) => input)
+  .handler(async ({ data: { projectSceneId, imageIds: filterIds } }) => {
+    const whereClause = filterIds && filterIds.length > 0
+      ? and(eq(generatedImages.projectSceneId, projectSceneId), inArray(generatedImages.id, filterIds))
+      : eq(generatedImages.projectSceneId, projectSceneId)
+
     const imageIds = db
       .select({ id: generatedImages.id })
       .from(generatedImages)
-      .where(eq(generatedImages.projectSceneId, projectSceneId))
+      .where(whereClause)
       .all()
       .map((r) => r.id)
 

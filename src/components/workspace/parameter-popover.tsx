@@ -26,6 +26,18 @@ function useIsMobile() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
 
+// --- Model presets ---
+export const AVAILABLE_MODELS = [
+  { id: 'nai-diffusion-4-5-curated', name: 'NAI Diffusion V4.5 Curated' },
+  { id: 'nai-diffusion-4-5-full', name: 'NAI Diffusion V4.5 Full' },
+  { id: 'nai-diffusion-4-curated-preview', name: 'NAI Diffusion V4 Curated' },
+  { id: 'nai-diffusion-4-full', name: 'NAI Diffusion V4 Full' },
+  { id: 'nai-diffusion-3', name: 'NAI Diffusion V3 (Anime)' },
+  { id: 'nai-diffusion-furry-3', name: 'NAI Diffusion Furry V3' },
+] as const
+
+export const DEFAULT_MODEL = 'nai-diffusion-4-5-full'
+
 // --- Resolution presets ---
 const RESOLUTION_PRESETS = [
   { key: 'portrait' as const, w: 832, h: 1216 },
@@ -37,6 +49,7 @@ const RESOLUTION_PRESETS = [
 
 // --- Param label with tooltip ---
 const PARAM_HELP: Record<string, string> = {
+  model: 'params.modelHelp',
   resolution: 'params.resolutionHelp',
   steps: 'params.stepsHelp',
   scale: 'params.scaleHelp',
@@ -91,6 +104,26 @@ function ParameterForm({
 
   return (
     <div className="space-y-4">
+      {/* Model */}
+      <section className="space-y-1.5">
+        <ParamLabel name="model" label={t('params.model')} />
+        <Select
+          value={String(localParams.model ?? DEFAULT_MODEL)}
+          onValueChange={(v) => set('model', v)}
+        >
+          <SelectTrigger className="h-8 text-sm">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {AVAILABLE_MODELS.map((m) => (
+              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </section>
+
+      <hr className="border-border" />
+
       {/* Resolution */}
       <section className="space-y-2.5">
         <ParamLabel name="resolution" label={t('params.resolution')} value={`${w} × ${h}`} />
