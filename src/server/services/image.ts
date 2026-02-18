@@ -3,6 +3,11 @@ import { mkdirSync, writeFileSync, unlinkSync, existsSync, readdirSync, rmSync, 
 import { dirname, join } from 'node:path'
 import { createLogger } from './logger'
 
+/** Normalize path separators to forward slashes (for consistent DB storage across OS) */
+function normalizePath(p: string): string {
+  return p.replaceAll('\\', '/')
+}
+
 const log = createLogger('image')
 const IMAGES_DIR = './data/images'
 const THUMBNAILS_DIR = './data/thumbnails'
@@ -26,7 +31,7 @@ export function saveImage(
 
   log.info('save', 'Image saved', { filePath, sizeBytes: imageData.byteLength })
 
-  return { filePath, thumbnailPath }
+  return { filePath: normalizePath(filePath), thumbnailPath: normalizePath(thumbnailPath) }
 }
 
 export async function generateThumbnail(
@@ -107,7 +112,7 @@ export function getAllStoredFiles(): { images: string[]; thumbnails: string[] } 
       try {
         if (!statSync(projectPath).isDirectory()) continue
         for (const file of readdirSync(projectPath)) {
-          list.push(join(baseDir, projectDir, file))
+          list.push(normalizePath(join(baseDir, projectDir, file)))
         }
       } catch { /* ignore */ }
     }
