@@ -473,6 +473,7 @@ function WorkspacePage() {
         },
       })
       toast.success(t('generation.generationStarted', { count: batchTotal }))
+      window.dispatchEvent(new CustomEvent('onboarding:generation-started'))
       const { jobs } = await listProjectJobs({ data: projectId })
       setActiveJobs(jobs)
     } catch {

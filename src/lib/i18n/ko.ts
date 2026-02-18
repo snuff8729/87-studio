@@ -238,8 +238,8 @@ const ko: DeepStringify<typeof en> = {
     characters: '캐릭터',
     noCharactersEmpty: '캐릭터가 없습니다. 다중 캐릭터 이미지를 위해 추가하세요.',
     characterName: '캐릭터 이름',
-    promptPlaceholder: '{{placeholders}}를 포함한 일반 프롬프트를 입력하세요...',
-    charPromptPlaceholder: '{{name}} 프롬프트 ({{placeholders}} 사용 가능)...',
+    promptPlaceholder: '\\\\placeholders\\\\를 포함한 일반 프롬프트를 입력하세요...',
+    charPromptPlaceholder: '{{name}} 프롬프트 (\\\\placeholders\\\\ 사용 가능)...',
     negativePromptPlaceholder: '네거티브 프롬프트를 입력하세요...',
     charNegativePlaceholder: '{{name}} 네거티브...',
   },
@@ -413,7 +413,7 @@ const ko: DeepStringify<typeof en> = {
     promptPreview: '프롬프트 미리보기',
     generalPrompt: '일반 프롬프트',
     negativePrompt: '네거티브 프롬프트',
-    addPlaceholders: '프롬프트에 {{placeholders}}를 추가하여 키 슬롯을 만드세요.',
+    addPlaceholders: '프롬프트에 \\\\placeholders\\\\를 추가하여 키 슬롯을 만드세요.',
     empty: '비어있음',
     keyAlreadyExists: '이미 존재하는 키입니다',
     failedToAddKey: '키 추가에 실패했습니다',
@@ -481,6 +481,57 @@ const ko: DeepStringify<typeof en> = {
     deselectAll: '모두 해제',
     searchScenes: '씬 검색...',
     noMatchingScenes: '일치하는 씬이 없습니다',
+  },
+  onboarding: {
+    welcome: {
+      title: '87 Studio에 오신 것을 환영합니다',
+      description: '이 튜토리얼은 핵심 워크플로우를 안내합니다: API 키 설정, 프로젝트 생성, 프롬프트 작성, 씬 관리, 이미지 생성.',
+    },
+    step1: {
+      title: 'API 키 설정',
+      description: 'NovelAI API 키를 입력하여 이미지 생성을 활성화하세요. 이 단계는 건너뛰고 나중에 설정할 수 있습니다.',
+    },
+    step2: {
+      title: '프로젝트 생성',
+      description: '아래 버튼을 클릭하여 첫 번째 프로젝트를 만드세요. 이름을 지정하여 시작합니다.',
+    },
+    step3: {
+      title: '프로젝트 열기',
+      description: '새로 만든 프로젝트를 클릭하여 워크스페이스에 진입하세요.',
+    },
+    step4: {
+      title: '프롬프트 작성',
+      description: '이미지 생성 프롬프트를 작성하세요. \\\\placeholder\\\\ 구문을 사용하여 씬마다 변경되는 변수 슬롯을 만들 수 있습니다. 예: "1girl, \\\\expression\\\\, \\\\background\\\\"',
+    },
+    step5: {
+      title: '씬 추가',
+      description: '+ 버튼을 클릭하여 씬을 추가하세요. 이름을 입력하고 (예: "행복", "슬픔") 저장합니다.',
+    },
+    step6: {
+      title: '씬 편집',
+      description: 'Edit 모드로 전환하고 씬을 선택하여 플레이스홀더 값을 편집하세요.',
+    },
+    step7: {
+      title: '플레이스홀더 입력',
+      description: '씬의 플레이스홀더 값을 입력하세요. 이 값들이 프롬프트의 \\\\placeholders\\\\를 대체합니다.',
+    },
+    step8: {
+      title: '이미지 생성',
+      description: '생성할 이미지 수를 설정하고 생성 버튼을 클릭하세요. 이미지가 백그라운드에서 생성됩니다.',
+    },
+    completion: {
+      title: '튜토리얼 완료!',
+      description: '준비 완료! 갤러리에서 생성된 이미지를 확인하고, 토너먼트로 순위를 매기고, 마음에 드는 이미지를 다운로드하세요.',
+    },
+    startTutorial: '튜토리얼 시작',
+    skipTutorial: '건너뛰기',
+    later: '나중에',
+    next: '다음',
+    finish: '완료',
+    stepOf: '{{total}} 중 {{current}} 단계',
+    restartTutorial: '튜토리얼 다시 시작',
+    restartDesc: '온보딩 튜토리얼을 처음부터 다시 실행합니다.',
+    restart: '다시 시작',
   },
 }
 

@@ -4,6 +4,8 @@ import { BottomNav } from '@/components/layout/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider, useTranslation } from '@/lib/i18n'
+import { OnboardingProvider } from '@/lib/onboarding'
+import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay'
 
 import appCss from '../styles.css?url'
 
@@ -102,31 +104,30 @@ function RootComponent() {
   const isWorkspace = pathname.startsWith('/workspace')
   const isImageDetail = /^\/gallery\/\d+/.test(pathname)
 
-  if (isWorkspace || isImageDetail) {
-    return (
-      <I18nProvider>
-        <TooltipProvider delayDuration={300}>
-          <Outlet />
-          <Toaster richColors position="top-center" />
-        </TooltipProvider>
-      </I18nProvider>
-    )
-  }
-
   return (
     <I18nProvider>
-      <TooltipProvider delayDuration={300}>
-        <Sidebar />
-        <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
-          <div className="p-4 lg:p-6">
-            <div className="animate-in fade-in-0 duration-150">
-              <Outlet />
-            </div>
-          </div>
-        </main>
-        <BottomNav />
-        <Toaster richColors position="bottom-right" />
-      </TooltipProvider>
+      <OnboardingProvider>
+        {isWorkspace || isImageDetail ? (
+          <TooltipProvider delayDuration={300}>
+            <Outlet />
+            <Toaster richColors position="top-center" />
+          </TooltipProvider>
+        ) : (
+          <TooltipProvider delayDuration={300}>
+            <Sidebar />
+            <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
+              <div className="p-4 lg:p-6">
+                <div className="animate-in fade-in-0 duration-150">
+                  <Outlet />
+                </div>
+              </div>
+            </main>
+            <BottomNav />
+            <Toaster richColors position="bottom-right" />
+          </TooltipProvider>
+        )}
+        <OnboardingOverlay />
+      </OnboardingProvider>
     </I18nProvider>
   )
 }

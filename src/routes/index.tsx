@@ -37,6 +37,7 @@ import {
   PencilEdit01Icon,
 } from '@hugeicons/core-free-icons'
 import { useTranslation, type TranslationKeys } from '@/lib/i18n'
+import { useOnboardingMaybe } from '@/lib/onboarding'
 
 type TFn = (key: TranslationKeys, params?: Record<string, string | number>) => string
 
@@ -120,6 +121,7 @@ function ProjectSelectorPage() {
   const [renameTarget, setRenameTarget] = useState<{ id: number; name: string } | null>(null)
   const [renameName, setRenameName] = useState('')
   const { t } = useTranslation()
+  const onboarding = useOnboardingMaybe()
 
   // Sync from loader when navigating back
   useEffect(() => {
@@ -166,6 +168,12 @@ function ProjectSelectorPage() {
       setDescription('')
       setDialogOpen(false)
       toast.success(t('dashboard.projectCreated'))
+      window.dispatchEvent(new CustomEvent('onboarding:project-created', { detail: { projectId: project.id } }))
+      // During onboarding step 2, don't auto-navigate - let step 3 highlight the card
+      if (onboarding?.state.active && onboarding.state.step === 2) {
+        router.invalidate()
+        return
+      }
       router.navigate({ to: '/workspace/$projectId', params: { projectId: String(project.id) } })
     } catch {
       toast.error(t('dashboard.createFailed'))
@@ -289,6 +297,7 @@ function ProjectSelectorPage() {
               to="/workspace/$projectId"
               params={{ projectId: String(p.id) }}
               className="flex items-center gap-3 p-3 min-w-0"
+              data-onboarding={`project-card-${p.id}`}
             >
               {/* Project thumbnail */}
               <div className="size-12 rounded-lg overflow-hidden bg-secondary/40 shrink-0 flex items-center justify-center">
@@ -378,12 +387,12 @@ function ProjectSelectorPage() {
       <div className="mt-4">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" data-onboarding="new-project-btn">
               <HugeiconsIcon icon={Add01Icon} className="size-5" />
               {t('dashboard.newProject')}
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent data-onboarding="create-project-dialog">
             <DialogHeader>
               <DialogTitle>{t('dashboard.newProject')}</DialogTitle>
             </DialogHeader>

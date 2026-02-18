@@ -18,6 +18,7 @@ import {
   FileExportIcon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
+import { useOnboardingMaybe } from '@/lib/onboarding'
 import { Input } from '@/components/ui/input'
 import { Checkbox } from '@/components/ui/checkbox'
 import { NumberStepper } from '@/components/ui/number-stepper'
@@ -224,9 +225,12 @@ export const ScenePanel = memo(function ScenePanel({
   }
 
   const totalSceneCount = scenePacks.reduce((sum, p) => sum + p.scenes.length, 0)
+  const onboarding = useOnboardingMaybe()
+  const onboardingActive = onboarding?.state.active ?? false
 
   // ── Empty state (only when truly no scenes, not when search filters everything) ──
-  if (totalSceneCount === 0 && !addingScene) {
+  // Skip empty state during onboarding so the toolbar + button is always visible
+  if (totalSceneCount === 0 && !addingScene && !onboardingActive) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
         <div className="rounded-2xl bg-secondary/30 p-6 mb-4">
@@ -287,6 +291,7 @@ export const ScenePanel = memo(function ScenePanel({
               </button>
               <button
                 onClick={() => onViewModeChange('edit')}
+                data-onboarding="scene-edit-tab"
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
                   viewMode === 'edit'
                     ? 'bg-background text-foreground shadow-sm'
@@ -355,6 +360,7 @@ export const ScenePanel = memo(function ScenePanel({
               }}
               className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
               title="Add Scene"
+              data-onboarding="add-scene-btn"
             >
               <HugeiconsIcon icon={Add01Icon} className="size-5" />
             </button>
@@ -544,6 +550,7 @@ function ReserveGrid({
           return (
             <div
               key={scene.id}
+              data-onboarding="scene-item"
               className={`rounded-lg border transition-all group/card ${
                 isSelected
                   ? 'border-primary ring-2 ring-primary/50 bg-primary/10'
@@ -656,7 +663,7 @@ function ReserveGrid({
 
         {/* Add scene inline form / button */}
         {addingScene ? (
-          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 flex flex-col justify-center">
+          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 flex flex-col justify-center" data-onboarding="add-scene-form">
             <Input
               ref={newSceneInputRef}
               value={newSceneName}

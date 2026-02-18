@@ -405,7 +405,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" data-onboarding="placeholder-editor">
       {/* ── Keys Section ── */}
       <div>
         <div className="flex items-center justify-between mb-2.5">

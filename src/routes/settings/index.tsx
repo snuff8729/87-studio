@@ -12,6 +12,7 @@ import { getSetting, setSetting, validateApiKey } from '@/server/functions/setti
 import { getStorageStats, cleanupOrphanFiles } from '@/server/functions/storage'
 import { useTranslation } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
+import { useOnboardingMaybe } from '@/lib/onboarding'
 
 function PendingComponent() {
   return (
@@ -70,6 +71,11 @@ function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [validating, setValidating] = useState(false)
   const { t, locale, setLocale } = useTranslation()
+  const onboarding = useOnboardingMaybe()
+
+  function handleRestartTutorial() {
+    onboarding?.restart()
+  }
 
   // Storage management state
   const [storageStats, setStorageStats] = useState<Awaited<ReturnType<typeof getStorageStats>> | null>(null)
@@ -137,6 +143,7 @@ function SettingsPage() {
         setSetting({ data: { key: 'generation_delay', value: String(delay) } }),
       ])
       toast.success(t('settings.saved'))
+      window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
     } catch {
       toast.error(t('settings.saveFailed'))
     }
@@ -148,7 +155,7 @@ function SettingsPage() {
       <PageHeader title={t('settings.title')} description={t('settings.description')} />
 
       <div className="max-w-2xl space-y-6">
-        <Card>
+        <Card data-onboarding="api-key-section">
           <CardHeader>
             <CardTitle>{t('settings.naiApiKey')}</CardTitle>
           </CardHeader>
@@ -158,6 +165,7 @@ function SettingsPage() {
               <div className="flex gap-2">
                 <Input
                   id="api-key"
+                  data-onboarding="api-key-input"
                   type={showKey ? 'text' : 'password'}
                   value={apiKey}
                   onChange={(e) => setApiKey(e.target.value)}
@@ -280,7 +288,19 @@ function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Button onClick={handleSave} disabled={saving}>
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('onboarding.restartTutorial')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t('onboarding.restartDesc')}</p>
+            <Button variant="outline" size="sm" onClick={handleRestartTutorial}>
+              {t('onboarding.restart')}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <Button onClick={handleSave} disabled={saving} data-onboarding="save-settings-btn">
           {saving ? t('common.saving') : t('settings.saveSettings')}
         </Button>
       </div>

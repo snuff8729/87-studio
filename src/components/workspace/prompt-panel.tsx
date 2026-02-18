@@ -369,17 +369,19 @@ export function PromptPanel({
             <Label className="text-sm text-muted-foreground uppercase tracking-wider">
               {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
             </Label>
-            <LazyPromptEditor
-              key={`prompt-${activeContext}`}
-              value={displayPrompt}
-              onChange={handlePromptChange}
-              placeholder={
-                isCharacterTab
-                  ? t('workspace.charPromptPlaceholder', { name: activeChar?.name ?? '' })
-                  : t('workspace.promptPlaceholder')
-              }
-              minHeight="200px"
-            />
+            <div data-onboarding="prompt-editor">
+              <LazyPromptEditor
+                key={`prompt-${activeContext}`}
+                value={displayPrompt}
+                onChange={handlePromptChange}
+                placeholder={
+                  isCharacterTab
+                    ? t('workspace.charPromptPlaceholder', { name: activeChar?.name ?? '' })
+                    : t('workspace.promptPlaceholder')
+                }
+                minHeight="200px"
+              />
+            </div>
             {promptPlaceholders.length > 0 && (
               <div className="flex flex-wrap gap-1">
                 {promptPlaceholders.map((p) => (

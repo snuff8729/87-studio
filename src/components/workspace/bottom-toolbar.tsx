@@ -50,7 +50,7 @@ export const BottomToolbar = memo(function BottomToolbar({
       </div>
 
       {/* Row 2 / Desktop right — generation controls */}
-      <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
+      <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1" data-onboarding="generation-controls">
         <NumberStepper
           value={countPerScene}
           onChange={(v) => onCountChange(Math.max(0, v ?? 0))}

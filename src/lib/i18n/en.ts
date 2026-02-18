@@ -235,8 +235,8 @@ const en = {
     characters: 'Characters',
     noCharactersEmpty: 'No characters. Add one for multi-character images.',
     characterName: 'Character name',
-    promptPlaceholder: 'Enter general prompt with {{placeholders}}...',
-    charPromptPlaceholder: '{{name}} prompt with {{placeholders}}...',
+    promptPlaceholder: 'Enter general prompt with \\\\placeholders\\\\...',
+    charPromptPlaceholder: '{{name}} prompt with \\\\placeholders\\\\...',
     negativePromptPlaceholder: 'Enter negative prompt...',
     charNegativePlaceholder: '{{name}} negative...',
   },
@@ -410,7 +410,7 @@ const en = {
     promptPreview: 'Prompt Preview',
     generalPrompt: 'General Prompt',
     negativePrompt: 'Negative Prompt',
-    addPlaceholders: 'Add {{placeholders}} to your prompts to create key slots.',
+    addPlaceholders: 'Add \\\\placeholders\\\\ to your prompts to create key slots.',
     empty: 'Empty',
     keyAlreadyExists: 'Key already exists',
     failedToAddKey: 'Failed to add key',
@@ -478,6 +478,57 @@ const en = {
     deselectAll: 'Deselect all',
     searchScenes: 'Search scenes...',
     noMatchingScenes: 'No matching scenes',
+  },
+  onboarding: {
+    welcome: {
+      title: 'Welcome to 87 Studio',
+      description: 'This tutorial will guide you through the key workflow: setting up your API key, creating a project, writing prompts, managing scenes, and generating images.',
+    },
+    step1: {
+      title: 'Set Up API Key',
+      description: 'Enter your NovelAI API key to enable image generation. You can skip this step and set it up later.',
+    },
+    step2: {
+      title: 'Create a Project',
+      description: 'Click the button below to create your first project. Give it a name to get started.',
+    },
+    step3: {
+      title: 'Open Your Project',
+      description: 'Click your newly created project to enter the workspace.',
+    },
+    step4: {
+      title: 'Write a Prompt',
+      description: 'Write your image generation prompt. Use \\\\placeholder\\\\ syntax to create variable slots that can change per scene. For example: "1girl, \\\\expression\\\\, \\\\background\\\\"',
+    },
+    step5: {
+      title: 'Add a Scene',
+      description: 'Click the + button to add a scene. Enter a name (e.g., "happy", "sad") and save it.',
+    },
+    step6: {
+      title: 'Edit a Scene',
+      description: 'Switch to Edit mode and select a scene to edit its placeholder values.',
+    },
+    step7: {
+      title: 'Fill Placeholders',
+      description: 'Fill in the placeholder values for your scene. These values replace the \\\\placeholders\\\\ in your prompt.',
+    },
+    step8: {
+      title: 'Generate Images',
+      description: 'Set the number of images to generate and click the Generate button. Your images will be created in the background.',
+    },
+    completion: {
+      title: 'Tutorial Complete!',
+      description: 'You\'re all set! Explore the gallery to review generated images, use tournaments to rank them, and download your favorites.',
+    },
+    startTutorial: 'Start Tutorial',
+    skipTutorial: 'Skip',
+    later: 'Later',
+    next: 'Next',
+    finish: 'Finish',
+    stepOf: 'Step {{current}} of {{total}}',
+    restartTutorial: 'Restart Tutorial',
+    restartDesc: 'Run the onboarding tutorial again from the beginning.',
+    restart: 'Restart',
   },
 } as const
 
