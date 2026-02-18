@@ -1,5 +1,6 @@
-import { useState, useRef, useMemo, useCallback, memo } from 'react'
+import { useState, useRef, useMemo, useCallback, useEffect, memo } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -433,12 +434,17 @@ export const ScenePanel = memo(function ScenePanel({
             characterOverrides={characterOverrides}
             selectedScene={selectedSceneId}
             onSelectedSceneChange={onSelectedSceneChange}
-            onAddScene={onAddScene}
             onDeleteScene={onDeleteScene}
             onRenameScene={onRenameScene}
             onDuplicateScene={onDuplicateScene}
             onPlaceholdersChange={onPlaceholdersChange}
             getPrompts={getPrompts}
+            addingScene={addingScene}
+            newSceneName={newSceneName}
+            newSceneInputRef={newSceneInputRef}
+            onNewSceneNameChange={setNewSceneName}
+            onSubmitAddScene={handleAddScene}
+            onCancelAdd={() => { setAddingScene(false); setNewSceneName('') }}
           />
         )}
       </div>
@@ -513,10 +519,27 @@ interface ReserveGridProps {
   gridSize: GridSize
 }
 
-const reserveGridSizeMap: Record<GridSize, string> = {
-  sm: 'grid-cols-3 md:grid-cols-4',
-  md: 'grid-cols-2 md:grid-cols-3',
-  lg: 'grid-cols-1 md:grid-cols-2',
+const GRID_GAP = 12 // gap-3 = 12px
+const INFO_HEIGHT = 72 // approximate height of name + stepper area
+
+const sceneGridCols: Record<GridSize, [number, number]> = {
+  sm: [3, 4],  // [<768px, >=768px]
+  md: [2, 3],
+  lg: [1, 2],
+}
+
+function useSceneColumns(gridSize: GridSize) {
+  const [cols, setCols] = useState(sceneGridCols[gridSize][0])
+  useEffect(() => {
+    const bp = sceneGridCols[gridSize]
+    function update() {
+      setCols(window.innerWidth >= 768 ? bp[1] : bp[0])
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [gridSize])
+  return cols
 }
 
 function ReserveGrid({
@@ -539,154 +562,247 @@ function ReserveGrid({
   gridSize,
 }: ReserveGridProps) {
   const { t } = useTranslation()
+  const parentRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
+  const cols = useSceneColumns(gridSize)
+
+  useEffect(() => {
+    const el = parentRef.current
+    if (!el) return
+    const measure = () => setContainerWidth(el.clientWidth - 24) // p-3 = 12px each side
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const cardWidth = containerWidth > 0 ? Math.floor((containerWidth - GRID_GAP * (cols - 1)) / cols) : 150
+  const rowHeight = Math.floor(cardWidth * 4 / 3) + INFO_HEIGHT + GRID_GAP
+  const rowCount = Math.ceil(scenes.length / cols)
+
+  const virtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => rowHeight,
+    overscan: 2,
+  })
+
+  useEffect(() => {
+    virtualizer.measure()
+  }, [virtualizer, rowHeight])
+
   return (
-    <div className="h-full overflow-y-auto p-3">
-      <div className={`grid ${reserveGridSizeMap[gridSize]} gap-3`}>
-        {scenes.map((scene) => {
-          const count = sceneCounts[scene.id] ?? null
-          const effectiveCount = count ?? defaultCount
-          const isSelected = selectMode && selectedSceneIds.has(scene.id)
+    <div ref={parentRef} className="h-full overflow-y-auto p-3">
+      {/* Add scene form (outside virtualized area) */}
+      {addingScene && (
+        <div className="mb-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 flex flex-col justify-center" style={{ maxWidth: `${cardWidth}px` }}>
+          <Input
+            ref={newSceneInputRef}
+            value={newSceneName}
+            onChange={(e) => onNewSceneNameChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') onAddScene()
+              if (e.key === 'Escape') onCancelAdd()
+            }}
+            placeholder={t('scene.sceneName')}
+            className="h-7 text-sm mb-2"
+            autoFocus
+          />
+          <div className="flex gap-1">
+            <Button size="xs" onClick={onAddScene} disabled={!newSceneName.trim()} className="flex-1">
+              {t('common.add')}
+            </Button>
+            <Button size="xs" variant="ghost" onClick={onCancelAdd} className="flex-1">
+              {t('common.cancel')}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Virtualized grid */}
+      <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+        {virtualizer.getVirtualItems().map((vRow) => {
+          const startIdx = vRow.index * cols
+          const rowScenes = scenes.slice(startIdx, startIdx + cols)
 
           return (
             <div
-              key={scene.id}
-              data-onboarding="scene-item"
-              className={`rounded-lg border transition-all group/card ${
-                isSelected
-                  ? 'border-primary ring-2 ring-primary/50 bg-primary/10'
-                  : effectiveCount > 0
-                    ? 'border-primary/30 bg-primary/5'
-                    : 'border-border bg-secondary/10'
-              }`}
-              onClick={selectMode ? () => onToggleSelect(scene.id) : undefined}
-              role={selectMode ? 'button' : undefined}
+              key={vRow.key}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                transform: `translateY(${vRow.start}px)`,
+              }}
             >
-              {/* Thumbnail */}
-              <div className="relative">
-                {scene.thumbnailPath ? (
-                  <div className="aspect-[3/4] rounded-t-lg overflow-hidden">
-                    <img
-                      src={`/api/thumbnails/${scene.thumbnailPath.replace('data/thumbnails/', '')}`}
-                      alt=""
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                    />
-                  </div>
-                ) : (
-                  <div className="aspect-[3/4] rounded-t-lg bg-secondary/40 flex items-center justify-center">
-                    <HugeiconsIcon icon={Image02Icon} className="size-6 text-muted-foreground/15" />
-                  </div>
-                )}
-
-                {/* Select checkbox */}
-                {selectMode && (
-                  <div className="absolute top-1.5 left-1.5">
-                    <Checkbox
-                      checked={isSelected}
-                      tabIndex={-1}
-                      className="pointer-events-none bg-black/40 border-white/60 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
-                    />
-                  </div>
-                )}
-
-                {/* Image count badge */}
-                {scene.recentImageCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 rounded-full bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-xs text-white/80 tabular-nums">
-                    <HugeiconsIcon icon={Image02Icon} className="size-2.5" />
-                    {scene.recentImageCount}
-                  </span>
-                )}
-
-              </div>
-
-              {/* Info + count */}
-              <div className="px-2.5 pt-2 pb-2.5">
-                <div className="flex items-center gap-1">
-                  <div className="text-sm font-medium truncate flex-1 text-foreground/90">
-                    {scene.name}
-                  </div>
-                  {!selectMode && (
-                    <Link
-                      to="/workspace/$projectId/scenes/$sceneId"
-                      params={{ projectId: String(projectId), sceneId: String(scene.id) }}
-                      className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary/80 transition-colors"
-                      title="View gallery"
-                    >
-                      <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
-                    </Link>
-                  )}
-                </div>
-
-                {/* Count stepper + delete (hidden in select mode) */}
-                {!selectMode && (
-                  <div className="flex items-center gap-1 mt-2">
-                    <NumberStepper
-                      value={count}
-                      onChange={(v) => onSceneCountChange(scene.id, v)}
-                      min={0}
-                      max={100}
-                      placeholder={String(defaultCount)}
-                    />
-                    {count != null && (
-                      <button
-                        onClick={() => onSceneCountChange(scene.id, null)}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                        title="Reset to default"
-                      >
-                        &times;
-                      </button>
-                    )}
-                    <div className="flex-1" />
-                    <button
-                      onClick={() => onDuplicateScene(scene.id)}
-                      className="rounded-md p-1 text-muted-foreground/40 hover:text-foreground hover:bg-secondary/80 transition-all"
-                      title={t('scene.duplicateScene')}
-                    >
-                      <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
-                    </button>
-                    <ConfirmDialog
-                      trigger={
-                        <button className="rounded-md p-1 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-all">
-                          <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
-                        </button>
-                      }
-                      title={t('scene.deleteScene')}
-                      description={t('scene.deleteSceneDesc', { name: scene.name })}
-                      onConfirm={() => onDeleteScene(scene.id)}
-                    />
-                  </div>
-                )}
+              <div style={{ display: 'flex', gap: `${GRID_GAP}px` }}>
+                {rowScenes.map((scene) => (
+                  <SceneCard
+                    key={scene.id}
+                    scene={scene}
+                    width={cardWidth}
+                    projectId={projectId}
+                    count={sceneCounts[scene.id] ?? null}
+                    defaultCount={defaultCount}
+                    onSceneCountChange={onSceneCountChange}
+                    onDeleteScene={onDeleteScene}
+                    onDuplicateScene={onDuplicateScene}
+                    selectMode={selectMode}
+                    isSelected={selectMode && selectedSceneIds.has(scene.id)}
+                    onToggleSelect={onToggleSelect}
+                  />
+                ))}
               </div>
             </div>
           )
         })}
-
-        {/* Add scene inline form / button */}
-        {addingScene ? (
-          <div className="rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 flex flex-col justify-center" data-onboarding="add-scene-form">
-            <Input
-              ref={newSceneInputRef}
-              value={newSceneName}
-              onChange={(e) => onNewSceneNameChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') onAddScene()
-                if (e.key === 'Escape') onCancelAdd()
-              }}
-              placeholder={t('scene.sceneName')}
-              className="h-7 text-sm mb-2"
-              autoFocus
-            />
-            <div className="flex gap-1">
-              <Button size="xs" onClick={onAddScene} disabled={!newSceneName.trim()} className="flex-1">
-                {t('common.add')}
-              </Button>
-              <Button size="xs" variant="ghost" onClick={onCancelAdd} className="flex-1">
-                {t('common.cancel')}
-              </Button>
-            </div>
-          </div>
-        ) : null}
       </div>
     </div>
   )
 }
+
+// ── Memoized Scene Card ──
+
+interface SceneCardProps {
+  scene: ReserveGridProps['scenes'][0]
+  width: number
+  projectId: number
+  count: number | null
+  defaultCount: number
+  onSceneCountChange: (sceneId: number, count: number | null) => void
+  onDeleteScene: (sceneId: number) => Promise<void>
+  onDuplicateScene: (sceneId: number) => Promise<void>
+  selectMode: boolean
+  isSelected: boolean
+  onToggleSelect: (id: number) => void
+}
+
+const SceneCard = memo(function SceneCard({
+  scene,
+  width,
+  projectId,
+  count,
+  defaultCount,
+  onSceneCountChange,
+  onDeleteScene,
+  onDuplicateScene,
+  selectMode,
+  isSelected,
+  onToggleSelect,
+}: SceneCardProps) {
+  const { t } = useTranslation()
+  const effectiveCount = count ?? defaultCount
+
+  return (
+    <div
+      style={{ width: `${width}px` }}
+      data-onboarding="scene-item"
+      className={`rounded-lg border transition-all group/card shrink-0 ${
+        isSelected
+          ? 'border-primary ring-2 ring-primary/50 bg-primary/10'
+          : effectiveCount > 0
+            ? 'border-primary/30 bg-primary/5'
+            : 'border-border bg-secondary/10'
+      }`}
+      onClick={selectMode ? () => onToggleSelect(scene.id) : undefined}
+      role={selectMode ? 'button' : undefined}
+    >
+      {/* Thumbnail */}
+      <div className="relative">
+        {scene.thumbnailPath ? (
+          <div className="aspect-[3/4] rounded-t-lg overflow-hidden">
+            <img
+              src={`/api/thumbnails/${scene.thumbnailPath.replace('data/thumbnails/', '')}`}
+              alt=""
+              className="w-full h-full object-cover"
+              loading="lazy"
+            />
+          </div>
+        ) : (
+          <div className="aspect-[3/4] rounded-t-lg bg-secondary/40 flex items-center justify-center">
+            <HugeiconsIcon icon={Image02Icon} className="size-6 text-muted-foreground/15" />
+          </div>
+        )}
+
+        {/* Select checkbox */}
+        {selectMode && (
+          <div className="absolute top-1.5 left-1.5">
+            <Checkbox
+              checked={isSelected}
+              tabIndex={-1}
+              className="pointer-events-none bg-black/40 border-white/60 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+            />
+          </div>
+        )}
+
+        {/* Image count badge */}
+        {scene.recentImageCount > 0 && (
+          <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 rounded-full bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-xs text-white/80 tabular-nums">
+            <HugeiconsIcon icon={Image02Icon} className="size-2.5" />
+            {scene.recentImageCount}
+          </span>
+        )}
+      </div>
+
+      {/* Info + count */}
+      <div className="px-2.5 pt-2 pb-2.5">
+        <div className="flex items-center gap-1">
+          <div className="text-sm font-medium truncate flex-1 text-foreground/90">
+            {scene.name}
+          </div>
+          {!selectMode && (
+            <Link
+              to="/workspace/$projectId/scenes/$sceneId"
+              params={{ projectId: String(projectId), sceneId: String(scene.id) }}
+              className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary/80 transition-colors"
+              title="View gallery"
+            >
+              <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+            </Link>
+          )}
+        </div>
+
+        {/* Count stepper + delete (hidden in select mode) */}
+        {!selectMode && (
+          <div className="flex items-center gap-1 mt-2">
+            <NumberStepper
+              value={count}
+              onChange={(v) => onSceneCountChange(scene.id, v)}
+              min={0}
+              max={100}
+              placeholder={String(defaultCount)}
+            />
+            {count != null && (
+              <button
+                onClick={() => onSceneCountChange(scene.id, null)}
+                className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                title="Reset to default"
+              >
+                &times;
+              </button>
+            )}
+            <div className="flex-1" />
+            <button
+              onClick={() => onDuplicateScene(scene.id)}
+              className="rounded-md p-1 text-muted-foreground/40 hover:text-foreground hover:bg-secondary/80 transition-all"
+              title={t('scene.duplicateScene')}
+            >
+              <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
+            </button>
+            <ConfirmDialog
+              trigger={
+                <button className="rounded-md p-1 text-muted-foreground/40 hover:text-destructive hover:bg-destructive/10 transition-all">
+                  <HugeiconsIcon icon={Delete02Icon} className="size-3.5" />
+                </button>
+              }
+              title={t('scene.deleteScene')}
+              description={t('scene.deleteSceneDesc', { name: scene.name })}
+              onConfirm={() => onDeleteScene(scene.id)}
+            />
+          </div>
+        )}
+      </div>
+    </div>
+  )
+})

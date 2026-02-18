@@ -35,52 +35,106 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .where(eq(projectScenePacks.projectId, projectId))
       .all()
 
-    const scenePacks = []
-    for (const pack of packs) {
-      const sceneList = db
-        .select()
-        .from(projectScenes)
-        .where(eq(projectScenes.projectScenePackId, pack.id))
-        .orderBy(projectScenes.sortOrder)
+    // Load all scenes across all packs in one query
+    const packIds = packs.map((p) => p.id)
+    const allScenes = packIds.length > 0
+      ? db
+          .select()
+          .from(projectScenes)
+          .where(inArray(projectScenes.projectScenePackId, packIds))
+          .orderBy(projectScenes.sortOrder)
+          .all()
+      : []
+
+    // Batch: image counts per scene (single GROUP BY)
+    const countRows = db
+      .select({
+        projectSceneId: generatedImages.projectSceneId,
+        count: sql<number>`count(*)`,
+      })
+      .from(generatedImages)
+      .where(eq(generatedImages.projectId, projectId))
+      .groupBy(generatedImages.projectSceneId)
+      .all()
+    const countMap: Record<number, number> = {}
+    for (const row of countRows) {
+      if (row.projectSceneId != null) countMap[row.projectSceneId] = row.count
+    }
+
+    // Batch: explicit thumbnail lookups
+    const explicitThumbIds = allScenes
+      .filter((s) => s.thumbnailImageId != null)
+      .map((s) => s.thumbnailImageId!)
+    const explicitThumbMap: Record<number, string> = {}
+    if (explicitThumbIds.length > 0) {
+      const rows = db
+        .select({ id: generatedImages.id, thumbnailPath: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(inArray(generatedImages.id, explicitThumbIds))
+        .all()
+      for (const row of rows) {
+        if (row.thumbnailPath) explicitThumbMap[row.id] = row.thumbnailPath
+      }
+    }
+
+    // Batch: latest thumbnail per scene (2-step: get latest image ID per scene, then lookup paths)
+    const sceneIds = allScenes.map((s) => s.id)
+    const latestThumbMap: Record<number, string> = {}
+    if (sceneIds.length > 0) {
+      // Step 1: Get the latest image ID per scene
+      const latestPerScene = db
+        .select({
+          projectSceneId: generatedImages.projectSceneId,
+          latestId: sql<number>`max(${generatedImages.id})`,
+        })
+        .from(generatedImages)
+        .where(inArray(generatedImages.projectSceneId, sceneIds))
+        .groupBy(generatedImages.projectSceneId)
         .all()
 
-      const scenesWithCounts = sceneList.map((scene) => {
-        const countResult = db
-          .select({ count: sql<number>`count(*)` })
+      // Step 2: Batch-fetch thumbnail paths for those latest images
+      const latestImageIds = latestPerScene.map((r) => r.latestId).filter(Boolean)
+      if (latestImageIds.length > 0) {
+        const thumbRows = db
+          .select({
+            id: generatedImages.id,
+            projectSceneId: generatedImages.projectSceneId,
+            thumbnailPath: generatedImages.thumbnailPath,
+          })
           .from(generatedImages)
-          .where(eq(generatedImages.projectSceneId, scene.id))
-          .get()
+          .where(inArray(generatedImages.id, latestImageIds))
+          .all()
+        for (const row of thumbRows) {
+          if (row.projectSceneId != null && row.thumbnailPath) {
+            latestThumbMap[row.projectSceneId] = row.thumbnailPath
+          }
+        }
+      }
+    }
 
-        // Resolve thumbnail: explicit pick or fallback to most recent image
+    // Assemble scene packs with counts and thumbnails
+    const scenesByPack: Record<number, typeof allScenes> = {}
+    for (const scene of allScenes) {
+      ;(scenesByPack[scene.projectScenePackId] ??= []).push(scene)
+    }
+
+    const scenePacks = packs.map((pack) => {
+      const scenes = (scenesByPack[pack.id] ?? []).map((scene) => {
         let thumbnailPath: string | null = null
         if (scene.thumbnailImageId) {
-          const picked = db
-            .select({ thumbnailPath: generatedImages.thumbnailPath })
-            .from(generatedImages)
-            .where(eq(generatedImages.id, scene.thumbnailImageId))
-            .get()
-          thumbnailPath = picked?.thumbnailPath ?? null
+          thumbnailPath = explicitThumbMap[scene.thumbnailImageId] ?? null
         }
         if (!thumbnailPath) {
-          const latest = db
-            .select({ thumbnailPath: generatedImages.thumbnailPath })
-            .from(generatedImages)
-            .where(eq(generatedImages.projectSceneId, scene.id))
-            .orderBy(desc(generatedImages.createdAt))
-            .limit(1)
-            .get()
-          thumbnailPath = latest?.thumbnailPath ?? null
+          thumbnailPath = latestThumbMap[scene.id] ?? null
         }
-
         return {
           ...scene,
-          recentImageCount: countResult?.count ?? 0,
+          recentImageCount: countMap[scene.id] ?? 0,
           thumbnailPath,
         }
       })
-
-      scenePacks.push({ ...pack, scenes: scenesWithCounts })
-    }
+      return { ...pack, scenes }
+    })
 
     // Resolve project thumbnail
     let projectThumbnailPath: string | null = null

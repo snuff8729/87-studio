@@ -1,9 +1,9 @@
-import { useState, useRef, useEffect, useMemo, useCallback, memo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
 import { Link } from '@tanstack/react-router'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Add01Icon,
   Copy01Icon,
   Delete02Icon,
   Image02Icon,
@@ -66,12 +66,17 @@ interface SceneMatrixProps {
   characterOverrides: Record<number, CharacterOverride[]>
   selectedScene: number | null
   onSelectedSceneChange: (id: number | null) => void
-  onAddScene: (name: string) => Promise<void>
   onDeleteScene: (sceneId: number) => Promise<void>
   onRenameScene: (id: number, name: string) => Promise<void>
   onDuplicateScene: (sceneId: number) => Promise<void>
   onPlaceholdersChange: () => void
   getPrompts?: () => { generalPrompt: string; negativePrompt: string }
+  addingScene: boolean
+  newSceneName: string
+  newSceneInputRef: React.RefObject<HTMLInputElement | null>
+  onNewSceneNameChange: (name: string) => void
+  onSubmitAddScene: () => void
+  onCancelAdd: () => void
 }
 
 export const SceneMatrix = memo(function SceneMatrix({
@@ -83,19 +88,21 @@ export const SceneMatrix = memo(function SceneMatrix({
   characterOverrides,
   selectedScene,
   onSelectedSceneChange: setSelectedScene,
-  onAddScene,
   onDeleteScene,
   onRenameScene,
   onDuplicateScene,
   onPlaceholdersChange,
   getPrompts,
+  addingScene,
+  newSceneName,
+  newSceneInputRef,
+  onNewSceneNameChange,
+  onSubmitAddScene,
+  onCancelAdd,
 }: SceneMatrixProps) {
   const { t } = useTranslation()
-  const [addingScene, setAddingScene] = useState(false)
-  const [newSceneName, setNewSceneName] = useState('')
   const [editingName, setEditingName] = useState<number | null>(null)
   const [editNameValue, setEditNameValue] = useState('')
-  const newSceneInputRef = useRef<HTMLInputElement>(null)
 
   const allScenes = useMemo(
     () => scenePacks.flatMap((pack) => pack.scenes),
@@ -150,18 +157,6 @@ export const SceneMatrix = memo(function SceneMatrix({
   }, [selectedScene])
 
   // ── Actions ──
-  async function handleAddScene() {
-    const name = newSceneName.trim()
-    if (!name) return
-    try {
-      await onAddScene(name)
-      setNewSceneName('')
-      setAddingScene(false)
-    } catch {
-      toast.error(t('scene.addSceneFailed'))
-    }
-  }
-
   async function handleRename(id: number) {
     const name = editNameValue.trim()
     if (!name) return
@@ -196,36 +191,26 @@ export const SceneMatrix = memo(function SceneMatrix({
                 )}
               </SelectContent>
             </Select>
-            <button
-              onClick={() => {
-                setAddingScene(true)
-                setTimeout(() => newSceneInputRef.current?.focus(), 50)
-              }}
-              className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors shrink-0"
-              title={t('scene.addScene')}
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-5" />
-            </button>
           </div>
           {addingScene && (
             <div className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5">
               <Input
                 ref={newSceneInputRef}
                 value={newSceneName}
-                onChange={(e) => setNewSceneName(e.target.value)}
+                onChange={(e) => onNewSceneNameChange(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddScene()
-                  if (e.key === 'Escape') { setAddingScene(false); setNewSceneName('') }
+                  if (e.key === 'Enter') onSubmitAddScene()
+                  if (e.key === 'Escape') onCancelAdd()
                 }}
                 placeholder={t('scene.sceneName')}
                 className="h-8 text-base"
                 autoFocus
               />
               <div className="flex gap-1">
-                <Button size="sm" onClick={handleAddScene} disabled={!newSceneName.trim()} className="flex-1">
+                <Button size="sm" onClick={onSubmitAddScene} disabled={!newSceneName.trim()} className="flex-1">
                   {t('common.add')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { setAddingScene(false); setNewSceneName('') }} className="flex-1">
+                <Button size="sm" variant="ghost" onClick={onCancelAdd} className="flex-1">
                   {t('common.cancel')}
                 </Button>
               </div>
@@ -234,122 +219,19 @@ export const SceneMatrix = memo(function SceneMatrix({
         </div>
 
         {/* ── Left: scene list (desktop only) ── */}
-        <div className="hidden sm:flex w-52 shrink-0 bg-secondary/10 flex-col min-h-0">
-          <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
-            <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-              {t('scene.scenes')}
-            </span>
-            <button
-              onClick={() => {
-                setAddingScene(true)
-                setTimeout(() => newSceneInputRef.current?.focus(), 50)
-              }}
-              className="rounded-md p-1 text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
-              title={t('scene.addScene')}
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-5" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-1">
-            {addingScene && (
-              <div className="rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5">
-                <Input
-                  ref={newSceneInputRef}
-                  value={newSceneName}
-                  onChange={(e) => setNewSceneName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleAddScene()
-                    if (e.key === 'Escape') { setAddingScene(false); setNewSceneName('') }
-                  }}
-                  placeholder={t('scene.sceneName')}
-                  className="h-7 text-sm"
-                  autoFocus
-                />
-                <div className="flex gap-1">
-                  <Button size="xs" onClick={handleAddScene} disabled={!newSceneName.trim()} className="flex-1">
-                    {t('common.add')}
-                  </Button>
-                  <Button size="xs" variant="ghost" onClick={() => { setAddingScene(false); setNewSceneName('') }} className="flex-1">
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {allScenes.map((scene) => {
-              const isSelected = selectedScene === scene.id
-              return (
-                <div
-                  key={scene.id}
-                  onClick={() => setSelectedScene(scene.id)}
-                  className={`rounded-lg cursor-pointer transition-all group/item ${
-                    isSelected
-                      ? 'bg-secondary ring-1 ring-primary/30'
-                      : 'hover:bg-secondary/60'
-                  }`}
-                >
-                  <div className="relative">
-                    {scene.thumbnailPath ? (
-                      <div className="aspect-[3/4] rounded-t-lg overflow-hidden">
-                        <img
-                          src={`/api/thumbnails/${scene.thumbnailPath.replace('data/thumbnails/', '')}`}
-                          alt=""
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      </div>
-                    ) : (
-                      <div className="aspect-[3/4] rounded-t-lg bg-secondary/60 flex items-center justify-center">
-                        <HugeiconsIcon icon={Image02Icon} className="size-5 text-muted-foreground/15" />
-                      </div>
-                    )}
-                    {scene.recentImageCount > 0 && (
-                      <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 rounded-full bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-xs text-white/80 tabular-nums">
-                        <HugeiconsIcon icon={Image02Icon} className="size-2.5" />
-                        {scene.recentImageCount}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="px-2.5 pt-1.5 pb-2">
-                    <div className="flex items-center gap-1">
-                      <div className={`text-sm font-medium truncate flex-1 ${isSelected ? 'text-primary' : 'text-foreground/90'}`}>
-                        {scene.name}
-                      </div>
-                      <button
-                        className="text-muted-foreground/40 hover:text-foreground transition-all p-0.5 rounded shrink-0"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          onDuplicateScene(scene.id)
-                        }}
-                        title={t('scene.duplicateScene')}
-                      >
-                        <HugeiconsIcon icon={Copy01Icon} className="size-4" />
-                      </button>
-                      <ConfirmDialog
-                        trigger={
-                          <button
-                            className="text-muted-foreground/40 hover:text-destructive transition-all p-0.5 rounded shrink-0"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-                          </button>
-                        }
-                        title={t('scene.deleteScene')}
-                        description={t('scene.deleteSceneDesc', { name: scene.name })}
-                        onConfirm={() => {
-                          if (selectedScene === scene.id) setSelectedScene(null)
-                          onDeleteScene(scene.id)
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
+        <VirtualSceneList
+          allScenes={allScenes}
+          selectedScene={selectedScene}
+          setSelectedScene={setSelectedScene}
+          onDuplicateScene={onDuplicateScene}
+          onDeleteScene={onDeleteScene}
+          addingScene={addingScene}
+          newSceneName={newSceneName}
+          newSceneInputRef={newSceneInputRef}
+          onNewSceneNameChange={onNewSceneNameChange}
+          onSubmitAddScene={onSubmitAddScene}
+          onCancelAdd={onCancelAdd}
+        />
 
         {/* ── Right: placeholder editor ── */}
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
@@ -452,6 +334,221 @@ export const SceneMatrix = memo(function SceneMatrix({
               </div>
             </div>
           )}
+        </div>
+      </div>
+    </div>
+  )
+})
+
+// ── Virtualized scene list for SceneMatrix left sidebar ──
+
+const SCENE_LIST_ITEM_HEIGHT = 240 // approximate: aspect-[3/4] on ~192px wide + info area
+const SCENE_LIST_GAP = 4 // space-y-1 = 4px
+
+interface VirtualSceneListProps {
+  allScenes: SceneData[]
+  selectedScene: number | null
+  setSelectedScene: (id: number | null) => void
+  onDuplicateScene: (sceneId: number) => Promise<void>
+  onDeleteScene: (sceneId: number) => Promise<void>
+  addingScene: boolean
+  newSceneName: string
+  newSceneInputRef: React.RefObject<HTMLInputElement | null>
+  onNewSceneNameChange: (name: string) => void
+  onSubmitAddScene: () => void
+  onCancelAdd: () => void
+}
+
+function VirtualSceneList({
+  allScenes,
+  selectedScene,
+  setSelectedScene,
+  onDuplicateScene,
+  onDeleteScene,
+  addingScene,
+  newSceneName,
+  newSceneInputRef,
+  onNewSceneNameChange,
+  onSubmitAddScene,
+  onCancelAdd,
+}: VirtualSceneListProps) {
+  const { t } = useTranslation()
+  const listRef = useRef<HTMLDivElement>(null)
+  const [itemHeight, setItemHeight] = useState(SCENE_LIST_ITEM_HEIGHT)
+
+  // Measure actual item height based on sidebar width
+  useEffect(() => {
+    const el = listRef.current
+    if (!el) return
+    const measure = () => {
+      const w = el.clientWidth - 16 // px-2 = 8px each side
+      // thumbnail height (aspect 3:4) + info area (~36px) + gap
+      setItemHeight(Math.floor(w * 4 / 3) + 36 + SCENE_LIST_GAP)
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const virtualizer = useVirtualizer({
+    count: allScenes.length,
+    getScrollElement: () => listRef.current,
+    estimateSize: () => itemHeight,
+    overscan: 3,
+  })
+
+  useEffect(() => {
+    virtualizer.measure()
+  }, [virtualizer, itemHeight])
+
+  return (
+    <div className="hidden sm:flex w-52 shrink-0 bg-secondary/10 flex-col min-h-0">
+      <div className="flex items-center justify-between px-3 py-2.5 shrink-0">
+        <span className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
+          {t('scene.scenes')}
+        </span>
+      </div>
+
+      <div ref={listRef} className="flex-1 overflow-y-auto px-2 pb-2">
+        {addingScene && (
+          <div className="rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5 mb-1">
+            <Input
+              ref={newSceneInputRef}
+              value={newSceneName}
+              onChange={(e) => onNewSceneNameChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onSubmitAddScene()
+                if (e.key === 'Escape') onCancelAdd()
+              }}
+              placeholder={t('scene.sceneName')}
+              className="h-7 text-sm"
+              autoFocus
+            />
+            <div className="flex gap-1">
+              <Button size="xs" onClick={onSubmitAddScene} disabled={!newSceneName.trim()} className="flex-1">
+                {t('common.add')}
+              </Button>
+              <Button size="xs" variant="ghost" onClick={onCancelAdd} className="flex-1">
+                {t('common.cancel')}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+          {virtualizer.getVirtualItems().map((vItem) => {
+            const scene = allScenes[vItem.index]
+            return (
+              <MatrixSceneItem
+                key={scene.id}
+                scene={scene}
+                isSelected={selectedScene === scene.id}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  transform: `translateY(${vItem.start}px)`,
+                  paddingBottom: `${SCENE_LIST_GAP}px`,
+                }}
+                onSelect={() => setSelectedScene(scene.id)}
+                onDuplicate={() => onDuplicateScene(scene.id)}
+                onDelete={() => {
+                  if (selectedScene === scene.id) setSelectedScene(null)
+                  onDeleteScene(scene.id)
+                }}
+              />
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Memoized matrix scene list item ──
+
+interface MatrixSceneItemProps {
+  scene: SceneData
+  isSelected: boolean
+  style: React.CSSProperties
+  onSelect: () => void
+  onDuplicate: () => void
+  onDelete: () => void
+}
+
+const MatrixSceneItem = memo(function MatrixSceneItem({
+  scene,
+  isSelected,
+  style,
+  onSelect,
+  onDuplicate,
+  onDelete,
+}: MatrixSceneItemProps) {
+  const { t } = useTranslation()
+  return (
+    <div style={style}>
+      <div
+        onClick={onSelect}
+        className={`rounded-lg cursor-pointer transition-all group/item ${
+          isSelected
+            ? 'bg-secondary ring-1 ring-primary/30'
+            : 'hover:bg-secondary/60'
+        }`}
+      >
+        <div className="relative">
+          {scene.thumbnailPath ? (
+            <div className="aspect-[3/4] rounded-t-lg overflow-hidden">
+              <img
+                src={`/api/thumbnails/${scene.thumbnailPath.replace('data/thumbnails/', '')}`}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+            </div>
+          ) : (
+            <div className="aspect-[3/4] rounded-t-lg bg-secondary/60 flex items-center justify-center">
+              <HugeiconsIcon icon={Image02Icon} className="size-5 text-muted-foreground/15" />
+            </div>
+          )}
+          {scene.recentImageCount > 0 && (
+            <span className="absolute top-1.5 right-1.5 inline-flex items-center gap-0.5 rounded-full bg-black/60 backdrop-blur-sm px-1.5 py-0.5 text-xs text-white/80 tabular-nums">
+              <HugeiconsIcon icon={Image02Icon} className="size-2.5" />
+              {scene.recentImageCount}
+            </span>
+          )}
+        </div>
+
+        <div className="px-2.5 pt-1.5 pb-2">
+          <div className="flex items-center gap-1">
+            <div className={`text-sm font-medium truncate flex-1 ${isSelected ? 'text-primary' : 'text-foreground/90'}`}>
+              {scene.name}
+            </div>
+            <button
+              className="text-muted-foreground/40 hover:text-foreground transition-all p-0.5 rounded shrink-0"
+              onClick={(e) => {
+                e.stopPropagation()
+                onDuplicate()
+              }}
+              title={t('scene.duplicateScene')}
+            >
+              <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+            </button>
+            <ConfirmDialog
+              trigger={
+                <button
+                  className="text-muted-foreground/40 hover:text-destructive transition-all p-0.5 rounded shrink-0"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                </button>
+              }
+              title={t('scene.deleteScene')}
+              description={t('scene.deleteSceneDesc', { name: scene.name })}
+              onConfirm={onDelete}
+            />
+          </div>
         </div>
       </div>
     </div>
