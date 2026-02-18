@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Upload01Icon, Cancel01Icon, ArrowRight01Icon } from '@hugeicons/core-free-icons'
@@ -65,35 +65,42 @@ function InspectPage() {
     }
   }, [imageUrl])
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
+  // Use document-level listeners so drag works anywhere on the page
+  const handleFileRef = useRef(handleFile)
+  handleFileRef.current = handleFile
+
+  useEffect(() => {
+    const onDragEnter = (e: DragEvent) => {
       e.preventDefault()
-      e.stopPropagation()
+      dragCounterRef.current++
+      if (dragCounterRef.current === 1) setDragging(true)
+    }
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault()
+    }
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current--
+      if (dragCounterRef.current === 0) setDragging(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault()
       dragCounterRef.current = 0
       setDragging(false)
-      const file = e.dataTransfer.files[0]
-      if (file) handleFile(file)
-    },
-    [handleFile],
-  )
+      const file = e.dataTransfer?.files[0]
+      if (file) handleFileRef.current(file)
+    }
 
-  const handleDragEnter = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current++
-    if (dragCounterRef.current === 1) setDragging(true)
-  }, [])
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-  }, [])
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    dragCounterRef.current--
-    if (dragCounterRef.current === 0) setDragging(false)
+    document.addEventListener('dragenter', onDragEnter)
+    document.addEventListener('dragover', onDragOver)
+    document.addEventListener('dragleave', onDragLeave)
+    document.addEventListener('drop', onDrop)
+    return () => {
+      document.removeEventListener('dragenter', onDragEnter)
+      document.removeEventListener('dragover', onDragOver)
+      document.removeEventListener('dragleave', onDragLeave)
+      document.removeEventListener('drop', onDrop)
+    }
   }, [])
 
   function handleClear() {
@@ -107,16 +114,10 @@ function InspectPage() {
   }
 
   return (
-    <div
-      onDrop={handleDrop}
-      onDragEnter={handleDragEnter}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      className="relative"
-    >
-      {/* Drag overlay */}
+    <div>
+      {/* Full-screen drag overlay */}
       {dragging && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-background/80 backdrop-blur-sm rounded-xl border-2 border-dashed border-primary pointer-events-none">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary pointer-events-none">
           <div className="flex flex-col items-center gap-3">
             <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center">
               <HugeiconsIcon icon={Upload01Icon} className="size-7 text-primary" />
@@ -128,35 +129,23 @@ function InspectPage() {
         </div>
       )}
 
-      <PageHeader
-        title={t('metadata.title')}
-        description={t('metadata.description')}
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0]
+          if (file) handleFile(file)
+        }}
       />
 
-      <div className="max-w-5xl">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0]
-            if (file) handleFile(file)
-          }}
-        />
-
-        {/* Empty state drop zone */}
-        {!imageUrl && (
+      {/* Empty state — centered in viewport */}
+      {!imageUrl && (
+        <div className="flex flex-col items-center justify-center min-h-[60vh]">
           <div
             onClick={() => fileInputRef.current?.click()}
-            className={`
-              flex flex-col items-center justify-center gap-4 p-12
-              border-2 border-dashed rounded-xl cursor-pointer transition-colors
-              ${dragging
-                ? 'border-primary bg-primary/5'
-                : 'border-border hover:border-muted-foreground/50 hover:bg-accent/30'
-              }
-            `}
+            className="flex flex-col items-center justify-center gap-4 p-16 w-full max-w-lg border-2 border-dashed rounded-xl cursor-pointer transition-colors border-border hover:border-muted-foreground/50 hover:bg-accent/30"
           >
             <div className="size-14 rounded-2xl bg-muted flex items-center justify-center">
               <HugeiconsIcon icon={Upload01Icon} className="size-7 text-muted-foreground" />
@@ -170,24 +159,17 @@ function InspectPage() {
               </p>
             </div>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Image + Metadata view */}
-        {imageUrl && (
-          <div className="space-y-6">
-            {/* Image preview + actions bar */}
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 min-w-0">
-                <span className="text-sm text-muted-foreground truncate">
-                  {fileName}
-                </span>
-                {metadata?.source && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-                    {metadata.source === 'text_chunk' ? 'tEXt Chunk' : 'Stealth Alpha'}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
+      {/* Image + Metadata view */}
+      {imageUrl && (
+        <div className="space-y-6">
+          <PageHeader
+            title={t('metadata.title')}
+            description={t('metadata.description')}
+            actions={
+              <div className="flex items-center gap-2">
                 {metadata && (
                   <Button
                     size="sm"
@@ -206,44 +188,56 @@ function InspectPage() {
                   {t('common.clear')}
                 </Button>
               </div>
+            }
+          />
+
+          {/* File info badge */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground truncate">
+              {fileName}
+            </span>
+            {metadata?.source && (
+              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
+                {metadata.source === 'text_chunk' ? 'tEXt Chunk' : 'Stealth Alpha'}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
+            {/* Image preview */}
+            <div className="bg-black/20 rounded-xl flex items-center justify-center p-4 min-h-64 max-h-[70vh]">
+              <img
+                src={imageUrl}
+                alt=""
+                draggable={false}
+                className="max-h-full max-w-full object-contain rounded"
+              />
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)] gap-6">
-              {/* Image preview */}
-              <div className="bg-black/20 rounded-xl flex items-center justify-center p-4 min-h-64 max-h-[70vh]">
-                <img
-                  src={imageUrl}
-                  alt=""
-                  draggable={false}
-                  className="max-h-full max-w-full object-contain rounded"
-                />
-              </div>
+            {/* Metadata panel */}
+            <div className="space-y-4 overflow-y-auto max-h-[70vh] pr-1">
+              {parsing && (
+                <div className="flex items-center gap-3 p-6">
+                  <div className="size-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+                  <span className="text-sm text-muted-foreground">{t('metadata.parsingMetadata')}</span>
+                </div>
+              )}
 
-              {/* Metadata panel */}
-              <div className="space-y-4 overflow-y-auto max-h-[70vh] pr-1">
-                {parsing && (
-                  <div className="flex items-center gap-3 p-6">
-                    <div className="size-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                    <span className="text-sm text-muted-foreground">{t('metadata.parsingMetadata')}</span>
-                  </div>
-                )}
+              {!parsing && !metadata && (
+                <Card>
+                  <CardContent className="py-8 text-center">
+                    <p className="text-sm text-muted-foreground">
+                      {t('metadata.noMetadataFound')}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
 
-                {!parsing && !metadata && (
-                  <Card>
-                    <CardContent className="py-8 text-center">
-                      <p className="text-sm text-muted-foreground">
-                        {t('metadata.noMetadataFound')}
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-
-                {metadata && <MetadataViewer metadata={metadata} />}
-              </div>
+              {metadata && <MetadataViewer metadata={metadata} />}
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {metadata && (
         <CreateProjectDialog
