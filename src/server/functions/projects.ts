@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { projects, projectScenePacks, projectScenes, scenes, scenePacks, generatedImages, characters, characterSceneOverrides } from '../db/schema'
-import { eq, desc, inArray } from 'drizzle-orm'
+import { eq, desc, inArray, count, max } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
 
@@ -9,6 +9,19 @@ const log = createLogger('fn.projects')
 
 export const listProjects = createServerFn({ method: 'GET' }).handler(async () => {
   const rows = db.select().from(projects).orderBy(desc(projects.createdAt)).all()
+
+  // Batch: image count + last activity per project
+  const stats = db
+    .select({
+      projectId: generatedImages.projectId,
+      imageCount: count(generatedImages.id),
+      lastActivityAt: max(generatedImages.createdAt),
+    })
+    .from(generatedImages)
+    .groupBy(generatedImages.projectId)
+    .all()
+
+  const statsMap = new Map(stats.map((s) => [s.projectId, s]))
 
   return rows.map((project) => {
     let thumbnailPath: string | null = null
@@ -35,7 +48,14 @@ export const listProjects = createServerFn({ method: 'GET' }).handler(async () =
       thumbnailPath = latest?.thumbnailPath ?? null
     }
 
-    return { ...project, thumbnailPath }
+    const s = statsMap.get(project.id)
+
+    return {
+      ...project,
+      thumbnailPath,
+      imageCount: s?.imageCount ?? 0,
+      lastActivityAt: s?.lastActivityAt ?? null,
+    }
   })
 })
 

@@ -14,6 +14,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { listProjects, createProject, deleteProject, duplicateProject } from '@/server/functions/projects'
 import { listJobs } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
@@ -22,12 +29,31 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   FolderOpenIcon,
   Add01Icon,
-  ArrowRight01Icon,
   Delete02Icon,
   Settings02Icon,
   Copy01Icon,
+  MoreHorizontalIcon,
+  Image02Icon,
 } from '@hugeicons/core-free-icons'
-import { useTranslation } from '@/lib/i18n'
+import { useTranslation, type TranslationKeys } from '@/lib/i18n'
+
+type TFn = (key: TranslationKeys, params?: Record<string, string | number>) => string
+
+function formatRelativeDate(dateStr: string, t: TFn): string {
+  const date = new Date(dateStr + 'Z')
+  const now = new Date()
+  const diffMs = now.getTime() - date.getTime()
+  const diffMin = Math.floor(diffMs / 60000)
+  const diffHr = Math.floor(diffMs / 3600000)
+  const diffDay = Math.floor(diffMs / 86400000)
+
+  if (diffMin < 1) return t('dashboard.justNow')
+  if (diffMin < 60) return t('dashboard.minutesAgo', { count: diffMin })
+  if (diffHr < 24) return t('dashboard.hoursAgo', { count: diffHr })
+  if (diffDay < 30) return t('dashboard.daysAgo', { count: diffDay })
+
+  return date.toLocaleDateString()
+}
 
 function PendingComponent() {
   return (
@@ -42,13 +68,13 @@ function PendingComponent() {
       </div>
 
       {/* Project list */}
-      <div className="space-y-1">
-        {Array.from({ length: 5 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 px-3 py-3">
-            <Skeleton className="size-10 rounded-lg shrink-0" />
-            <div className="flex-1 min-w-0 space-y-1.5">
+      <div className="space-y-2">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3 rounded-xl border border-border p-3">
+            <Skeleton className="size-12 rounded-lg shrink-0" />
+            <div className="flex-1 min-w-0 space-y-2">
               <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3.5 w-48" />
+              <Skeleton className="h-3 w-24" />
             </div>
           </div>
         ))}
@@ -89,6 +115,7 @@ function ProjectSelectorPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
   const { t } = useTranslation()
 
   // Sync from loader when navigating back
@@ -237,19 +264,19 @@ function ProjectSelectorPage() {
       })()}
 
       {/* Project list */}
-      <div className="space-y-1">
+      <div className="space-y-2">
         {projects.map((p) => (
           <div
             key={p.id}
-            className="flex items-center gap-2 rounded-lg hover:bg-accent/50 transition-colors group"
+            className="group relative rounded-xl border border-border hover:border-primary/30 transition-colors"
           >
             <Link
               to="/workspace/$projectId"
               params={{ projectId: String(p.id) }}
-              className="flex-1 flex items-center gap-3 px-3 py-3 min-w-0"
+              className="flex items-center gap-3 p-3 min-w-0"
             >
               {/* Project thumbnail */}
-              <div className="size-10 rounded-lg overflow-hidden bg-secondary/40 shrink-0 flex items-center justify-center">
+              <div className="size-12 rounded-lg overflow-hidden bg-secondary/40 shrink-0 flex items-center justify-center">
                 {p.thumbnailPath ? (
                   <img
                     src={`/api/thumbnails/${p.thumbnailPath.replace('data/thumbnails/', '')}`}
@@ -261,39 +288,61 @@ function ProjectSelectorPage() {
                   <HugeiconsIcon icon={FolderOpenIcon} className="size-5 text-muted-foreground/20" />
                 )}
               </div>
+
+              {/* Info */}
               <div className="min-w-0 flex-1">
-                <span className="text-base font-medium group-hover:text-primary transition-colors truncate block">
-                  {p.name}
-                </span>
-                {p.description && (
-                  <span className="text-sm text-muted-foreground truncate block">{p.description}</span>
-                )}
+                <div className="flex items-center gap-2">
+                  <span className="text-base font-medium group-hover:text-primary transition-colors truncate">
+                    {p.name}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className="text-xs text-muted-foreground flex items-center gap-1">
+                    <HugeiconsIcon icon={Image02Icon} className="size-3.5" />
+                    {p.imageCount > 0
+                      ? t('dashboard.imageCount', { count: p.imageCount })
+                      : t('dashboard.noImages')}
+                  </span>
+                  {p.lastActivityAt && (
+                    <span className="text-xs text-muted-foreground">
+                      {formatRelativeDate(p.lastActivityAt, t)}
+                    </span>
+                  )}
+                </div>
               </div>
-              <HugeiconsIcon icon={ArrowRight01Icon} className="size-5 text-muted-foreground/50 group-hover:text-primary transition-colors shrink-0" />
+
+              {/* Spacer for menu button */}
+              <div className="w-8 shrink-0" />
             </Link>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="opacity-0 group-hover:opacity-100 text-muted-foreground shrink-0"
-              onClick={() => handleDuplicate(p.id)}
-              title={t('dashboard.duplicateProject')}
-            >
-              <HugeiconsIcon icon={Copy01Icon} className="size-5" />
-            </Button>
-            <ConfirmDialog
-              trigger={
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="opacity-0 group-hover:opacity-100 text-destructive mr-2 shrink-0"
-                >
-                  <HugeiconsIcon icon={Delete02Icon} className="size-5" />
-                </Button>
-              }
-              title={t('dashboard.deleteProject')}
-              description={t('dashboard.deleteProjectDesc', { name: p.name })}
-              onConfirm={() => handleDelete(p.id)}
-            />
+
+            {/* Context menu - positioned absolute to avoid interfering with the Link */}
+            <div className="absolute right-2 top-1/2 -translate-y-1/2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 text-muted-foreground"
+                  >
+                    <HugeiconsIcon icon={MoreHorizontalIcon} className="size-5" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleDuplicate(p.id)}>
+                    <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+                    {t('dashboard.duplicateProject')}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    className="text-destructive focus:text-destructive"
+                    onClick={() => setDeleteTarget({ id: p.id, name: p.name })}
+                  >
+                    <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                    {t('dashboard.deleteProject')}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         ))}
       </div>
@@ -346,6 +395,18 @@ function ProjectSelectorPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* Delete confirmation dialog */}
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title={t('dashboard.deleteProject')}
+        description={t('dashboard.deleteProjectDesc', { name: deleteTarget?.name ?? '' })}
+        onConfirm={() => {
+          if (deleteTarget) handleDelete(deleteTarget.id)
+          setDeleteTarget(null)
+        }}
+      />
     </div>
   )
 }

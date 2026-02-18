@@ -12,14 +12,27 @@ import {
 } from '@/components/ui/alert-dialog'
 import { useTranslation } from '@/lib/i18n'
 
-interface ConfirmDialogProps {
-  trigger: React.ReactNode
+interface ConfirmDialogBaseProps {
   title: string
   description: string
   actionLabel?: string
   variant?: 'destructive' | 'default'
   onConfirm: () => void | Promise<void>
 }
+
+interface TriggerProps extends ConfirmDialogBaseProps {
+  trigger: React.ReactNode
+  open?: never
+  onOpenChange?: never
+}
+
+interface ControlledProps extends ConfirmDialogBaseProps {
+  trigger?: never
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}
+
+type ConfirmDialogProps = TriggerProps | ControlledProps
 
 export function ConfirmDialog({
   trigger,
@@ -28,10 +41,16 @@ export function ConfirmDialog({
   actionLabel,
   variant = 'destructive',
   onConfirm,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
 }: ConfirmDialogProps) {
-  const [open, setOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const { t } = useTranslation()
+
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = isControlled ? controlledOnOpenChange! : setInternalOpen
 
   async function handleConfirm() {
     setLoading(true)
@@ -45,7 +64,7 @@ export function ConfirmDialog({
 
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
-      <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>
+      {trigger && <AlertDialogTrigger asChild>{trigger}</AlertDialogTrigger>}
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
