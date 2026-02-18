@@ -4,6 +4,9 @@
 NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로 생성하고 관리하는 개인용 웹 애플리케이션.
 포즈/제스처별 프롬프트 프리셋을 관리하고, 대량 생성 후 즐겨찾기·토너먼트로 최종 이미지를 선별하는 워크플로우를 지원한다.
 
+## 라이선스
+- **PolyForm Noncommercial License 1.0.0** (`LICENSE` 파일)
+
 ## 기술 스택
 
 ### 프레임워크
@@ -45,12 +48,15 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
   - 커스텀 다크 테마
   - React.lazy()로 지연 로딩 (`<Textarea>` 폴백)
 
-### 이미지 저장
+### 이미지 저장 및 서빙
 - 로컬 파일시스템 (`data/` 디렉토리)
   - 원본: `data/images/{projectId}/{jobId}_{seed}_{timestamp}.png`
   - 썸네일: `data/thumbnails/{projectId}/{동일 파일명}`
   - 다운로드 ZIP: `data/downloads/{downloadId}.zip` (5분 후 자동 삭제)
 - 썸네일 자동 생성 (sharp 라이브러리, 장변 300px 기준, 원본 비율 유지)
+- **이미지 서빙**: Vite 커스텀 플러그인 (`serveDataFiles()` in `vite.config.ts`)
+  - `/api/images/`, `/api/thumbnails/`, `/api/downloads/` 경로 매핑
+  - 프로덕션은 Nitro가 정적 파일 서빙 처리
 
 ### 로깅
 - 구조화된 JSON 로깅 (`src/server/services/logger.ts`)
@@ -91,8 +97,14 @@ src/
 │       └── index.tsx          # 설정 (NAI API 키, 생성 딜레이, 언어 등)
 ├── components/
 │   ├── ui/                    # shadcn/ui 컴포넌트 (22개)
-│   ├── common/                # 공통 컴포넌트 (confirm-dialog, page-header, download-dialog)
+│   ├── common/                # 공통 컴포넌트 (confirm-dialog, page-header, download-dialog, grid-size-toggle)
 │   ├── layout/                # 레이아웃 (sidebar, bottom-nav)
+│   ├── onboarding/            # 온보딩 시스템
+│   │   ├── welcome-dialog.tsx     # 환영 다이얼로그
+│   │   ├── onboarding-overlay.tsx # 메인 오버레이 컨트롤러
+│   │   ├── instruction-tooltip.tsx # 단계별 안내 툴팁
+│   │   ├── spotlight-backdrop.tsx # 포커스 영역 하이라이트
+│   │   └── completion-dialog.tsx  # 완료 다이얼로그
 │   ├── prompt-editor/         # CodeMirror 기반 프롬프트 에디터
 │   │   ├── prompt-editor.tsx  # 메인 에디터 컴포넌트
 │   │   ├── danbooru-completion.ts  # 단부루 태그 자동완성
@@ -104,13 +116,13 @@ src/
 │       ├── workspace-header.tsx   # 헤더
 │       ├── prompt-panel.tsx       # 프롬프트 편집 패널
 │       ├── scene-panel.tsx        # 씬 관리 패널
-│       ├── scene-list.tsx         # 씬 리스트 뷰
 │       ├── scene-matrix.tsx       # 씬 그리드 매트릭스
 │       ├── scene-detail.tsx       # 씬 상세 편집
 │       ├── scene-placeholder-panel.tsx  # 플레이스홀더 편집
 │       ├── placeholder-editor.tsx # 플레이스홀더 값 에디터
 │       ├── scene-pack-dialog.tsx  # 씬 팩 선택 다이얼로그
-│       ├── character-popover.tsx  # 캐릭터 선택
+│       ├── compare-dialog.tsx     # 이미지 비교 다이얼로그
+│       ├── convert-to-template-dialog.tsx  # 프로젝트 씬 → 글로벌 씬 팩 변환
 │       ├── parameter-popover.tsx  # 생성 파라미터 설정 (모델 선택 포함)
 │       ├── bottom-toolbar.tsx     # 생성 컨트롤
 │       ├── generation-progress.tsx  # 진행률 표시
@@ -149,6 +161,12 @@ src/
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
 │   ├── nai-metadata.ts        # NAI 이미지 메타데이터 파서 (PNG tEXt, Stealth Alpha)
+│   ├── use-image-grid-size.ts # 갤러리 그리드 크기 훅 (sm/md/lg)
+│   ├── onboarding/            # 온보딩 시스템
+│   │   ├── index.ts           # 공개 API
+│   │   ├── context.tsx        # React Context 프로바이더
+│   │   ├── steps.ts           # 온보딩 단계 정의 (9단계)
+│   │   └── types.ts           # 타입 정의
 │   └── i18n/                  # 다국어 시스템
 │       ├── index.ts           # 공개 API (I18nProvider, useTranslation)
 │       ├── context.tsx        # React Context 프로바이더
@@ -170,6 +188,9 @@ data/
     └── app.log
 public/
 └── danbooru-tags.json         # 단부루 태그 데이터 (자동완성용)
+start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js 자동 다운로드)
+start.bat                      # Windows 간편 실행 스크립트
+LICENSE                        # PolyForm Noncommercial 1.0.0
 ```
 
 ## 핵심 개념
@@ -235,12 +256,26 @@ public/
 - 파일시스템 vs DB 정합성 통계 조회 (총 파일 수, 크기, 고아 파일 수)
 - 고아 파일 정리 (DB에 없는 파일 삭제 + 빈 디렉토리 정리)
 
+### 온보딩 시스템
+- 처음 사용자를 위한 단계별 가이드 튜토리얼 (9단계: 환영 → API 키 설정 → 프로젝트 생성 → 워크스페이스 진입 → 프롬프트 작성 → 씬 추가 → 씬 편집 → 플레이스홀더 입력 → 이미지 생성)
+- Spotlight 하이라이트 + 안내 툴팁으로 UI 요소 강조
+- 이벤트/라우트/조건 기반 자동 진행, 수동 진행, 건너뛰기 지원
+- localStorage에 진행 상태 저장
+
+### 이미지 비교
+- 같은 씬에서 생성된 이미지들을 나란히 비교 (`compare-dialog.tsx`)
+- 4장씩 페이지네이션, 시드/즐겨찾기/별점/승률 정보 표시
+
+### 씬 팩 변환 (프로젝트 씬 → 글로벌 템플릿)
+- 프로젝트의 커스텀 씬을 글로벌 씬 팩으로 역변환 (`convert-to-template-dialog.tsx`)
+- 선택한 씬들의 플레이스홀더를 글로벌 씬 팩 템플릿으로 저장
+
 ## 프롬프트 합성 규칙
 1. project.general_prompt의 `\\placeholder\\`를 project_scenes.placeholders 값으로 치환
 2. 각 character.char_prompt의 `\\placeholder\\`를 character_scene_overrides.placeholders 값으로 치환
 3. 매칭되지 않는 플레이스홀더는 빈 문자열로 처리
 4. 합성된 최종 프롬프트는 generation_jobs.resolved_prompts에 JSON으로 저장 (재현용)
-5. **중첩 플레이스홀더 불가** (`\\outer_\\inner\\\\` 형태 미지원)
+5. **중첩 플레이스홀더 불가** (`\\\\outer_\\\\inner\\\\\\\\` 형태 미지원)
 6. 프롬프트 템플릿에서 **플레이스홀더 목록을 자동 추출**하여 씬 편집 UI에 입력 필드로 표시
 
 ## 이미지 생성 (비동기)
@@ -278,10 +313,12 @@ public/
 
 ### 워크스페이스 (/workspace/$projectId)
 - 프롬프트 편집 패널 (general_prompt, negative_prompt, 캐릭터별 char_prompt/char_negative)
-- 씬 관리 패널 (리스트 뷰, 매트릭스 뷰)
+- 씬 관리 패널 (매트릭스 뷰)
 - 씬 상세 편집 (플레이스홀더, 캐릭터별 오버라이드)
 - 생성 파라미터 설정 (parameter-popover, 모델 선택 포함)
 - 이미지 생성 진행률 및 이력
+- 이미지 비교 (같은 씬 이미지 나란히 비교)
+- 씬 팩 변환 (프로젝트 씬 → 글로벌 템플릿)
 - SD Studio JSON 임포트
 - 이상형 월드컵 (토너먼트)
 
@@ -502,12 +539,21 @@ public/
 7. 이상형 월드컵으로 이미지 랭킹 → 최종 이미지 세트 완성
 8. 갤러리에서 필터/선택 기반 일괄 다운로드
 
+## 배포 / 실행
+- **간편 실행**: `start.sh` (Linux/macOS) / `start.bat` (Windows)
+  - Node.js v22.12.0 자동 다운로드 (`./runtime/node/`), 의존성 설치, DB 마이그레이션, 빌드, 서버 실행, 브라우저 오픈
+  - Node.js가 설치되지 않은 환경에서도 사용 가능
+
 ## 개발 명령어
 ```bash
 pnpm install                    # 의존성 설치
 pnpm dev                        # 개발 서버 실행 (포트 3000)
 pnpm build                      # 프로덕션 빌드
 pnpm start                      # 프로덕션 서버 실행
+pnpm test                       # 테스트 실행 (vitest)
+pnpm lint                       # ESLint
+pnpm format                     # Prettier
+pnpm check                      # Prettier + ESLint 자동 수정
 pnpm db:generate                # 마이그레이션 생성
 pnpm db:migrate                 # 마이그레이션 적용
 pnpm db:studio                  # Drizzle Studio (DB 브라우저)
