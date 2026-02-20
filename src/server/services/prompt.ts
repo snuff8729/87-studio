@@ -4,9 +4,11 @@ import {
   characters,
   projectScenes,
   characterSceneOverrides,
+  promptBundles,
 } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { resolvePlaceholders } from '@/lib/placeholder'
+import { resolveBundles, extractBundleReferences } from '@/lib/bundle'
 import { createLogger } from './logger'
 
 const log = createLogger('prompt')
@@ -20,6 +22,33 @@ export interface ResolvedPrompts {
     prompt: string
     negative: string
   }>
+  usedBundleIds?: number[]
+}
+
+/** Load all bundles as name→{id, content} map */
+function loadBundleMap(): Map<string, { id: number; content: string }> {
+  const rows = db
+    .select({ id: promptBundles.id, name: promptBundles.name, content: promptBundles.content })
+    .from(promptBundles)
+    .all()
+  return new Map(rows.map((r) => [r.name, { id: r.id, content: r.content }]))
+}
+
+/** Resolve @{bundleName} in a template and collect used bundle IDs */
+function resolveBundlesWithTracking(
+  template: string,
+  bundleMap: Map<string, { id: number; content: string }>,
+  usedIds: Set<number>,
+): string {
+  const contentMap: Record<string, string> = {}
+  for (const name of extractBundleReferences(template)) {
+    const entry = bundleMap.get(name)
+    if (entry) {
+      contentMap[name] = entry.content
+      usedIds.add(entry.id)
+    }
+  }
+  return resolveBundles(template, contentMap)
 }
 
 export function synthesizePrompts(
@@ -44,14 +73,18 @@ export function synthesizePrompts(
     scene.placeholders || '{}',
   )
 
-  // Resolve general prompt
+  // Load bundle map for @{...} resolution
+  const bundleMap = loadBundleMap()
+  const usedBundleIds = new Set<number>()
+
+  // 1) Resolve @{bundles} first, then \\placeholders\\
   const generalPrompt = resolvePlaceholders(
-    project.generalPrompt || '',
+    resolveBundlesWithTracking(project.generalPrompt || '', bundleMap, usedBundleIds),
     scenePlaceholders,
   )
 
   const negativePrompt = resolvePlaceholders(
-    project.negativePrompt || '',
+    resolveBundlesWithTracking(project.negativePrompt || '', bundleMap, usedBundleIds),
     scenePlaceholders,
   )
 
@@ -86,8 +119,14 @@ export function synthesizePrompts(
     return {
       characterId: char.id,
       name: char.name,
-      prompt: resolvePlaceholders(char.charPrompt, mergedPlaceholders),
-      negative: resolvePlaceholders(char.charNegative, mergedPlaceholders),
+      prompt: resolvePlaceholders(
+        resolveBundlesWithTracking(char.charPrompt, bundleMap, usedBundleIds),
+        mergedPlaceholders,
+      ),
+      negative: resolvePlaceholders(
+        resolveBundlesWithTracking(char.charNegative, bundleMap, usedBundleIds),
+        mergedPlaceholders,
+      ),
     }
   })
 
@@ -96,7 +135,34 @@ export function synthesizePrompts(
     sceneId: projectSceneId,
     characterCount: chars.length,
     placeholderCount: Object.keys(scenePlaceholders).length,
+    bundleCount: usedBundleIds.size,
   })
 
-  return { generalPrompt, negativePrompt, characterPrompts }
+  return {
+    generalPrompt,
+    negativePrompt,
+    characterPrompts,
+    usedBundleIds: [...usedBundleIds],
+  }
+}
+
+/** Resolve bundles in raw prompts (for Quick Generate) */
+export function resolveBundlesInRawPrompts(prompts: ResolvedPrompts): ResolvedPrompts {
+  const bundleMap = loadBundleMap()
+  const usedBundleIds = new Set<number>()
+
+  const generalPrompt = resolveBundlesWithTracking(prompts.generalPrompt, bundleMap, usedBundleIds)
+  const negativePrompt = resolveBundlesWithTracking(prompts.negativePrompt, bundleMap, usedBundleIds)
+  const characterPrompts = prompts.characterPrompts.map((c) => ({
+    ...c,
+    prompt: resolveBundlesWithTracking(c.prompt, bundleMap, usedBundleIds),
+    negative: resolveBundlesWithTracking(c.negative, bundleMap, usedBundleIds),
+  }))
+
+  return {
+    generalPrompt,
+    negativePrompt,
+    characterPrompts,
+    usedBundleIds: [...usedBundleIds],
+  }
 }

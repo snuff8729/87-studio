@@ -1,5 +1,5 @@
 import { db } from '../db'
-import { generationJobs, generatedImages, settings } from '../db/schema'
+import { generationJobs, generatedImages, settings, imageBundles } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { generateImage } from './nai'
 import { saveImage, generateThumbnail } from './image'
@@ -322,7 +322,7 @@ async function processJob(jobId: number) {
       await generateThumbnail(filePath, thumbnailPath)
 
       // Record in DB
-      db.insert(generatedImages)
+      const insertedImage = db.insert(generatedImages)
         .values({
           jobId,
           projectId: job.projectId,
@@ -336,7 +336,17 @@ async function processJob(jobId: number) {
             parameters: resolvedParameters,
           }),
         })
-        .run()
+        .returning()
+        .get()
+
+      // Link image to used bundles
+      const usedBundleIds: number[] = resolvedPrompts.usedBundleIds ?? []
+      for (const bundleId of usedBundleIds) {
+        db.insert(imageBundles)
+          .values({ imageId: insertedImage.id, bundleId })
+          .onConflictDoNothing()
+          .run()
+      }
 
       // Update progress
       db.update(generationJobs)

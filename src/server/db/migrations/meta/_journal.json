@@ -57,6 +57,13 @@
       "when": 1771573223845,
       "tag": "0007_massive_the_phantom",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1771577160533,
+      "tag": "0008_glossy_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }

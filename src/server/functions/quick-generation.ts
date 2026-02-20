@@ -4,7 +4,7 @@ import { generationJobs, generatedImages } from '../db/schema'
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
 import { enqueueJob, getQueueStatus, getBatchTiming } from '../services/generation'
 import { createLogger } from '../services/logger'
-import type { ResolvedPrompts } from '../services/prompt'
+import { resolveBundlesInRawPrompts, type ResolvedPrompts } from '../services/prompt'
 
 const log = createLogger('fn.quickGeneration')
 
@@ -19,7 +19,7 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const resolvedPrompts: ResolvedPrompts = {
+    const rawPrompts: ResolvedPrompts = {
       generalPrompt: data.generalPrompt,
       negativePrompt: data.negativePrompt,
       characterPrompts: data.characterPrompts.map((c, i) => ({
@@ -29,6 +29,9 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
         negative: c.negative,
       })),
     }
+
+    // Resolve @{bundle} references server-side
+    const resolvedPrompts = resolveBundlesInRawPrompts(rawPrompts)
 
     const job = db
       .insert(generationJobs)

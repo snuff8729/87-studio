@@ -11,6 +11,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { resolvePlaceholders } from '@/lib/placeholder'
+import { resolveBundles } from '@/lib/bundle'
+import { useBundleMap } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
 
 function StatusDot({ filled, template }: { filled: boolean; template?: boolean }) {
@@ -57,6 +59,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   getPrompts,
 }: PlaceholderEditorProps) {
   const { t } = useTranslation()
+  const bundleMap = useBundleMap()
 
   // ── Collapsed state ──
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set())
@@ -324,11 +327,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   // Pack latest computation inputs into a ref so the interval always reads fresh data
   const previewInputsRef = useRef({
     getCellValue, getPrompts, characters, generalPlaceholderKeys, characterPlaceholderKeys,
-    scenePlaceholders, characterOverrides, localValues,
+    scenePlaceholders, characterOverrides, localValues, bundleMap,
   })
   previewInputsRef.current = {
     getCellValue, getPrompts, characters, generalPlaceholderKeys, characterPlaceholderKeys,
-    scenePlaceholders, characterOverrides, localValues,
+    scenePlaceholders, characterOverrides, localValues, bundleMap,
   }
 
   useEffect(() => {
@@ -359,14 +362,14 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           }
           return {
             name: char.name,
-            prompt: resolvePlaceholders(char.charPrompt || '', charValues),
-            negative: resolvePlaceholders(char.charNegative || '', charValues),
+            prompt: resolvePlaceholders(resolveBundles(char.charPrompt || '', ref.bundleMap), charValues),
+            negative: resolvePlaceholders(resolveBundles(char.charNegative || '', ref.bundleMap), charValues),
           }
         })
 
       setResolvedPrompts({
-        general: resolvePlaceholders(generalPrompt, generalValues),
-        negative: negativePrompt ? resolvePlaceholders(negativePrompt, generalValues) : '',
+        general: resolvePlaceholders(resolveBundles(generalPrompt, ref.bundleMap), generalValues),
+        negative: negativePrompt ? resolvePlaceholders(resolveBundles(negativePrompt, ref.bundleMap), generalValues) : '',
         characters: resolvedChars,
       })
     }

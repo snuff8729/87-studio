@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
-import { generatedImages, tags, imageTags, projects, projectScenes } from '../db/schema'
+import { generatedImages, tags, imageTags, projects, projectScenes, imageBundles, promptBundles } from '../db/schema'
 import { eq, desc, asc, and, sql, inArray, isNull } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
@@ -256,6 +256,14 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
       .limit(1)
       .get()
 
+    // Fetch linked bundles
+    const linkedBundles = db
+      .select({ bundleId: imageBundles.bundleId, bundleName: promptBundles.name })
+      .from(imageBundles)
+      .innerJoin(promptBundles, eq(imageBundles.bundleId, promptBundles.id))
+      .where(eq(imageBundles.imageId, data.imageId))
+      .all()
+
     return {
       ...image,
       tags: imgTags,
@@ -263,6 +271,7 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
       projectSceneName,
       prevId: prevResult?.id ?? null,
       nextId: nextResult?.id ?? null,
+      bundles: linkedBundles,
     }
   })
 

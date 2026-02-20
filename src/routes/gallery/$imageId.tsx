@@ -437,6 +437,25 @@ function ImageDetailPage() {
           />
         </div>
 
+        {/* Bundles */}
+        {detail.bundles && detail.bundles.length > 0 && (
+          <>
+            <div className="mb-4">
+              <label className="text-sm text-muted-foreground mb-1.5 block">
+                {t('nav.bundles')}
+              </label>
+              <div className="flex flex-wrap gap-1">
+                {detail.bundles.map((b: { bundleId: number; bundleName: string }) => (
+                  <Badge key={b.bundleId} variant="outline" className="text-xs gap-1">
+                    @{'{' + b.bundleName + '}'}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+            <Separator className="mb-4" />
+          </>
+        )}
+
         {/* Tags */}
         <div className="mb-4">
           <label className="text-sm text-muted-foreground mb-1.5 block">

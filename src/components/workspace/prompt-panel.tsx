@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { extractPlaceholders } from '@/lib/placeholder'
+import { useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
 import { updateCharacter, createCharacter, deleteCharacter } from '@/server/functions/characters'
 
@@ -32,6 +33,7 @@ function LazyPromptEditor(props: {
   onChange: (v: string) => void
   placeholder?: string
   minHeight?: string
+  bundleNames?: Array<{ name: string; content: string }>
 }) {
   return (
     <Suspense
@@ -75,6 +77,7 @@ export function PromptPanel({
 }: PromptPanelProps) {
   const router = useRouter()
   const { t } = useTranslation()
+  const bundleNames = useBundleNames()
   // 'general' = General tab, 'character' = Character tab (no chars), number = specific character
   const [activeContext, setActiveContext] = useState<'general' | 'character' | number>('general')
   const isCharacterTab = activeContext !== 'general'
@@ -380,6 +383,7 @@ export function PromptPanel({
                     : t('workspace.promptPlaceholder')
                 }
                 minHeight="200px"
+                bundleNames={bundleNames}
               />
             </div>
             {promptPlaceholders.length > 0 && (
@@ -411,6 +415,7 @@ export function PromptPanel({
                   : t('workspace.negativePromptPlaceholder')
               }
               minHeight="120px"
+              bundleNames={bundleNames}
             />
             {negativePlaceholders.length > 0 && (
               <div className="flex flex-wrap gap-1">

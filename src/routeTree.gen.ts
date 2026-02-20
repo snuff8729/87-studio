@@ -14,6 +14,7 @@ import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as MetadataIndexRouteImport } from './routes/metadata/index'
 import { Route as GenerateIndexRouteImport } from './routes/generate/index'
 import { Route as GalleryIndexRouteImport } from './routes/gallery/index'
+import { Route as BundlesIndexRouteImport } from './routes/bundles/index'
 import { Route as GalleryImageIdRouteImport } from './routes/gallery/$imageId'
 import { Route as WorkspaceProjectIdRouteRouteImport } from './routes/workspace/$projectId/route'
 import { Route as WorkspaceProjectIdIndexRouteImport } from './routes/workspace/$projectId/index'
@@ -44,6 +45,11 @@ const GalleryIndexRoute = GalleryIndexRouteImport.update({
   path: '/gallery/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BundlesIndexRoute = BundlesIndexRouteImport.update({
+  id: '/bundles/',
+  path: '/bundles/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GalleryImageIdRoute = GalleryImageIdRouteImport.update({
   id: '/gallery/$imageId',
   path: '/gallery/$imageId',
@@ -70,6 +76,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
+  '/bundles/': typeof BundlesIndexRoute
   '/gallery/': typeof GalleryIndexRoute
   '/generate/': typeof GenerateIndexRoute
   '/metadata/': typeof MetadataIndexRoute
@@ -80,6 +87,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/gallery/$imageId': typeof GalleryImageIdRoute
+  '/bundles': typeof BundlesIndexRoute
   '/gallery': typeof GalleryIndexRoute
   '/generate': typeof GenerateIndexRoute
   '/metadata': typeof MetadataIndexRoute
@@ -92,6 +100,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
+  '/bundles/': typeof BundlesIndexRoute
   '/gallery/': typeof GalleryIndexRoute
   '/generate/': typeof GenerateIndexRoute
   '/metadata/': typeof MetadataIndexRoute
@@ -105,6 +114,7 @@ export interface FileRouteTypes {
     | '/'
     | '/workspace/$projectId'
     | '/gallery/$imageId'
+    | '/bundles/'
     | '/gallery/'
     | '/generate/'
     | '/metadata/'
@@ -115,6 +125,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/gallery/$imageId'
+    | '/bundles'
     | '/gallery'
     | '/generate'
     | '/metadata'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/'
     | '/workspace/$projectId'
     | '/gallery/$imageId'
+    | '/bundles/'
     | '/gallery/'
     | '/generate/'
     | '/metadata/'
@@ -138,6 +150,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   WorkspaceProjectIdRouteRoute: typeof WorkspaceProjectIdRouteRouteWithChildren
   GalleryImageIdRoute: typeof GalleryImageIdRoute
+  BundlesIndexRoute: typeof BundlesIndexRoute
   GalleryIndexRoute: typeof GalleryIndexRoute
   GenerateIndexRoute: typeof GenerateIndexRoute
   MetadataIndexRoute: typeof MetadataIndexRoute
@@ -179,6 +192,13 @@ declare module '@tanstack/react-router' {
       path: '/gallery'
       fullPath: '/gallery/'
       preLoaderRoute: typeof GalleryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/bundles/': {
+      id: '/bundles/'
+      path: '/bundles'
+      fullPath: '/bundles/'
+      preLoaderRoute: typeof BundlesIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery/$imageId': {
@@ -232,6 +252,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   WorkspaceProjectIdRouteRoute: WorkspaceProjectIdRouteRouteWithChildren,
   GalleryImageIdRoute: GalleryImageIdRoute,
+  BundlesIndexRoute: BundlesIndexRoute,
   GalleryIndexRoute: GalleryIndexRoute,
   GenerateIndexRoute: GenerateIndexRoute,
   MetadataIndexRoute: MetadataIndexRoute,

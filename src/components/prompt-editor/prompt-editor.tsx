@@ -5,8 +5,10 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { autocompletion } from '@codemirror/autocomplete'
 import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
+import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
 import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
+import { bundleCompletion, setBundleNames } from './bundle-completion'
 
 // CM6 bug workaround: When lineWrapping is on and cursor is at a wrap boundary,
 // enforceCursorAssoc() modifies the DOM selection without checking hasFocus,
@@ -24,6 +26,7 @@ interface PromptEditorProps {
   onChange: (value: string) => void
   placeholder?: string
   minHeight?: string
+  bundleNames?: Array<{ name: string; content: string }>
 }
 
 export function PromptEditor({
@@ -31,6 +34,7 @@ export function PromptEditor({
   onChange,
   placeholder,
   minHeight = '200px',
+  bundleNames: bundleNamesProp,
 }: PromptEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -40,6 +44,12 @@ export function PromptEditor({
   useEffect(() => {
     loadTagDatabase()
   }, [])
+
+  useEffect(() => {
+    if (bundleNamesProp) {
+      setBundleNames(bundleNamesProp)
+    }
+  }, [bundleNamesProp])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -53,9 +63,10 @@ export function PromptEditor({
         fixLineWrapFocusSteal,
         darkTheme,
         placeholderHighlight,
+        bundleHighlight,
         weightHighlight,
         autocompletion({
-          override: [danbooruCompletion],
+          override: [bundleCompletion, danbooruCompletion],
           activateOnTyping: true,
         }),
         EditorView.updateListener.of((update) => {

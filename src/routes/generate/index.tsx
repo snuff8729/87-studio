@@ -24,6 +24,7 @@ import { GridSizeToggle } from '@/components/common/grid-size-toggle'
 import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from '@/lib/i18n'
+import { useBundleNames } from '@/lib/use-bundles'
 import { createQuickGenerationJob, listQuickImages, listQuickJobs } from '@/server/functions/quick-generation'
 import { cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
 import { updateImage } from '@/server/functions/gallery'
@@ -39,6 +40,7 @@ function LazyPromptEditor(props: {
   onChange: (v: string) => void
   placeholder?: string
   minHeight?: string
+  bundleNames?: Array<{ name: string; content: string }>
 }) {
   return (
     <Suspense
@@ -501,6 +503,7 @@ function PromptPanelLocal({
   updateCharacterField: (id: string, field: keyof CharacterEntry, value: string) => void
 }) {
   const { t } = useTranslation()
+  const bundleNames = useBundleNames()
 
   return (
     <div className="p-3 space-y-3">
@@ -514,6 +517,7 @@ function PromptPanelLocal({
           onChange={(v) => setState((prev) => ({ ...prev, generalPrompt: v }))}
           placeholder={t('quickGenerate.promptPlaceholder')}
           minHeight="200px"
+          bundleNames={bundleNames}
         />
       </div>
 
@@ -527,6 +531,7 @@ function PromptPanelLocal({
           onChange={(v) => setState((prev) => ({ ...prev, negativePrompt: v }))}
           placeholder={t('quickGenerate.negativePlaceholder')}
           minHeight="120px"
+          bundleNames={bundleNames}
         />
       </div>
 
@@ -566,6 +571,7 @@ function PromptPanelLocal({
                 onChange={(v) => updateCharacterField(char.id, 'prompt', v)}
                 placeholder={t('quickGenerate.characterPrompt')}
                 minHeight="80px"
+                bundleNames={bundleNames}
               />
             </div>
             <div className="space-y-1">
@@ -575,6 +581,7 @@ function PromptPanelLocal({
                 onChange={(v) => updateCharacterField(char.id, 'negative', v)}
                 placeholder={t('quickGenerate.characterNegative')}
                 minHeight="60px"
+                bundleNames={bundleNames}
               />
             </div>
           </div>

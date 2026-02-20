@@ -238,6 +238,34 @@ export const tournamentMatches = sqliteTable(
   ],
 )
 
+// ─── Prompt Bundles ─────────────────────────────────────────────────────────
+export const promptBundles = sqliteTable('prompt_bundles', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  description: text('description'),
+  content: text('content').notNull().default(''),
+  thumbnailImageId: integer('thumbnail_image_id'),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+})
+
+// ─── Image Bundles (junction) ───────────────────────────────────────────────
+export const imageBundles = sqliteTable(
+  'image_bundles',
+  {
+    imageId: integer('image_id')
+      .notNull()
+      .references(() => generatedImages.id, { onDelete: 'cascade' }),
+    bundleId: integer('bundle_id')
+      .notNull()
+      .references(() => promptBundles.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.imageId, table.bundleId] }),
+    index('image_bundles_bundle_id_idx').on(table.bundleId),
+  ],
+)
+
 // ─── Settings ───────────────────────────────────────────────────────────────
 export const settings = sqliteTable('settings', {
   key: text('key').primaryKey(),

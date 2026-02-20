@@ -6,6 +6,7 @@ import {
   Image02Icon,
   Settings02Icon,
   FileSearchIcon,
+  Package01Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from '@/lib/i18n'
@@ -16,6 +17,7 @@ const navItems = [
   { to: '/generate', key: 'nav.generate' as TranslationKeys, icon: MagicWand01Icon },
   { to: '/gallery', key: 'nav.gallery' as TranslationKeys, icon: Image02Icon },
   { to: '/metadata', key: 'nav.metadata' as TranslationKeys, icon: FileSearchIcon },
+  { to: '/bundles', key: 'nav.bundles' as TranslationKeys, icon: Package01Icon },
   { to: '/settings', key: 'nav.settings' as TranslationKeys, icon: Settings02Icon },
 ] as const
 

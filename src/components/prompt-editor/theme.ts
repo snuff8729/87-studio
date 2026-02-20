@@ -42,6 +42,13 @@ export const darkTheme = EditorView.theme(
       padding: '1px 0',
       border: '1px solid oklch(0.72 0.14 70 / 30%)',
     },
+    // Bundle highlight — teal/cyan signature
+    '.cm-bundle-highlight': {
+      backgroundColor: 'oklch(0.65 0.12 200 / 15%)',
+      borderRadius: '3px',
+      padding: '1px 0',
+      border: '1px solid oklch(0.65 0.12 200 / 30%)',
+    },
     // Autocomplete styling
     '.cm-tooltip-autocomplete': {
       backgroundColor: 'oklch(0.20 0.008 70)',
