@@ -55,6 +55,20 @@ pnpm build            # 빌드
 pnpm start            # 서버 실행
 ```
 
+### 테스트
+
+```bash
+pnpm test             # 전체 테스트 실행 (vitest)
+pnpm test -- --watch  # 워치 모드
+```
+
+테스트 대상 모듈:
+- **플레이스홀더 시스템** — `\\placeholder\\` 추출/치환 (`src/lib/placeholder.ts`)
+- **프롬프트 번들** — `@{bundle}` 참조 추출/치환 (`src/lib/bundle.ts`)
+- **SD Studio 임포트** — JSON 파싱, 카테시안 곱, 라이브러리 참조 (`src/lib/sd-studio-import.ts`)
+- **NAI 메타데이터 파서** — PNG tEXt 청크, NAI/A1111 형식 (`src/lib/nai-metadata.ts`)
+- **다운로드 파일명 템플릿** — 파일명 변수 치환, 금지 문자 처리 (`src/server/services/download.ts`)
+
 ### DB 관리
 
 ```bash

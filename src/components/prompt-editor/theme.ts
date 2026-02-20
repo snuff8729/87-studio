@@ -71,6 +71,33 @@ export const darkTheme = EditorView.theme(
       fontStyle: 'normal',
       marginLeft: '8px',
     },
+    // Bundle hover tooltip — compact card
+    '.cm-tooltip-bundle-preview': {
+      backgroundColor: 'oklch(0.20 0.008 70)',
+      border: '1px solid oklch(1 0.03 70 / 12%)',
+      borderRadius: '8px',
+      padding: '8px 10px',
+      maxWidth: '320px',
+      fontSize: '11px',
+      lineHeight: '1.5',
+      boxShadow: '0 4px 12px oklch(0 0 0 / 40%)',
+    },
+    '.cm-tooltip-bundle-name': {
+      color: 'oklch(0.72 0.12 200)',
+      fontWeight: '600',
+      fontSize: '12px',
+    },
+    '.cm-tooltip-bundle-sep': {
+      height: '1px',
+      backgroundColor: 'oklch(1 0 0 / 8%)',
+      margin: '5px 0',
+    },
+    '.cm-tooltip-bundle-content': {
+      color: 'oklch(0.70 0.01 80)',
+      whiteSpace: 'pre-wrap',
+      wordBreak: 'break-word',
+      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+    },
   },
   { dark: true },
 )

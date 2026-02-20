@@ -95,7 +95,6 @@ function SettingsPage() {
     try {
       await setSetting({ data: { key: 'nai_api_key', value } })
       toast.success(t('settings.saved'))
-      window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
     } catch {
       toast.error(t('settings.saveFailed'))
     }
@@ -144,9 +143,15 @@ function SettingsPage() {
     }
     setValidating(true)
     try {
+      // Save the key first (in case blur didn't fire yet)
+      if (apiKey !== lastSavedApiKey.current) {
+        lastSavedApiKey.current = apiKey
+        await setSetting({ data: { key: 'nai_api_key', value: apiKey } })
+      }
       const result = await validateApiKey({ data: apiKey })
       if (result.valid) {
         toast.success(t('settings.apiKeyValid'))
+        window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
       } else if (result.error === 'unauthorized') {
         toast.error(t('settings.apiKeyInvalid'))
       } else if (result.error === 'network') {

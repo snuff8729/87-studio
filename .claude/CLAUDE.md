@@ -558,3 +558,41 @@ pnpm db:generate                # 마이그레이션 생성
 pnpm db:migrate                 # 마이그레이션 적용
 pnpm db:studio                  # Drizzle Studio (DB 브라우저)
 ```
+
+## 테스트
+
+### 구성
+- **Vitest** v3 — 테스트 프레임워크 (`vitest.config.ts`에서 별도 설정)
+- **환경**: Node (서버 유틸리티 대상, 브라우저 API 불필요)
+- **경로 별칭**: `@/*` → `./src/*` (vite-tsconfig-paths 플러그인)
+- **실행**: `pnpm test` (one-shot), `pnpm test -- --watch` (워치 모드)
+
+### 테스트 파일 구조
+테스트 파일은 대상 모듈과 같은 디렉토리의 `__tests__/` 하위에 배치:
+```
+src/
+├── lib/
+│   └── __tests__/
+│       ├── placeholder.test.ts      # 플레이스홀더 추출/치환
+│       ├── bundle.test.ts           # 번들 참조 추출/치환
+│       ├── sd-studio-import.test.ts # SD Studio JSON 파싱
+│       └── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
+└── server/
+    └── services/
+        └── __tests__/
+            └── download.test.ts     # 파일명 템플릿 치환
+```
+
+### 테스트 대상 모듈
+| 모듈 | 테스트 항목 |
+|------|-------------|
+| `src/lib/placeholder.ts` | `extractPlaceholders`, `resolvePlaceholders` — 정규식 기반 플레이스홀더 추출/치환, 엣지 케이스 |
+| `src/lib/bundle.ts` | `extractBundleReferences`, `resolveBundles` — `@{name}` 구문 추출/치환 |
+| `src/lib/sd-studio-import.ts` | `parseSdStudioFile` — 입력 검증, 카테시안 곱, 라이브러리 참조, 이름 중복 처리, 프롬프트 정리 |
+| `src/lib/nai-metadata.ts` | `parseNAIMetadata`, `getUcPresetLabel` — PNG 바이너리 tEXt 청크 파싱, NAI/A1111 형식 변환, V4 프롬프트, Vibe Transfer |
+| `src/server/services/download.ts` | `resolveFilenameTemplate` — 변수 치환, 금지 문자 제거, 빈 결과 폴백 |
+
+### 테스트 작성 규칙
+- `import { describe, it, expect } from 'vitest'` 명시적 임포트
+- DB 의존성이 있는 서비스(`prompt.ts`, `generation.ts`)는 현재 테스트 제외 (별도 모킹 필요)
+- `nai-metadata.test.ts`에서 PNG 바이너리를 직접 생성하여 tEXt 청크 파싱 테스트 (Stealth Alpha는 브라우저 API 의존으로 제외)

@@ -2,13 +2,14 @@ import { useEffect, useRef } from 'react'
 import { EditorState } from '@codemirror/state'
 import { EditorView, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { autocompletion } from '@codemirror/autocomplete'
+import { autocompletion, acceptCompletion } from '@codemirror/autocomplete'
 import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
 import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
 import { bundleCompletion, setBundleNames } from './bundle-completion'
+import { bundleTooltip } from './bundle-tooltip'
 
 // CM6 bug workaround: When lineWrapping is on and cursor is at a wrap boundary,
 // enforceCursorAssoc() modifies the DOM selection without checking hasFocus,
@@ -57,7 +58,11 @@ export function PromptEditor({
     const state = EditorState.create({
       doc: value,
       extensions: [
-        keymap.of([...defaultKeymap, ...historyKeymap]),
+        keymap.of([
+          { key: 'Tab', run: acceptCompletion },
+          ...defaultKeymap,
+          ...historyKeymap,
+        ]),
         history(),
         EditorView.lineWrapping,
         fixLineWrapFocusSteal,
@@ -65,6 +70,7 @@ export function PromptEditor({
         placeholderHighlight,
         bundleHighlight,
         weightHighlight,
+        bundleTooltip,
         autocompletion({
           override: [bundleCompletion, danbooruCompletion],
           activateOnTyping: true,

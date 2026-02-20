@@ -7,6 +7,10 @@ export function setBundleNames(names: Array<{ name: string; content: string }>) 
   bundleNames = names
 }
 
+export function getBundleNames(): Array<{ name: string; content: string }> {
+  return bundleNames
+}
+
 export function bundleCompletion(context: CompletionContext): CompletionResult | null {
   // Look for @{ before cursor without a closing }
   const beforeCursor = context.state.sliceDoc(0, context.pos)
