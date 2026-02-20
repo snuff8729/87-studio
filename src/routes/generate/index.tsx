@@ -559,18 +559,24 @@ function PromptPanelLocal({
                 <HugeiconsIcon icon={Delete02Icon} className="size-4" />
               </Button>
             </div>
-            <LazyPromptEditor
-              value={char.prompt}
-              onChange={(v) => updateCharacterField(char.id, 'prompt', v)}
-              placeholder={t('quickGenerate.characterPrompt')}
-              minHeight="80px"
-            />
-            <LazyPromptEditor
-              value={char.negative}
-              onChange={(v) => updateCharacterField(char.id, 'negative', v)}
-              placeholder={t('quickGenerate.characterNegative')}
-              minHeight="60px"
-            />
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{t('quickGenerate.prompt')}</Label>
+              <LazyPromptEditor
+                value={char.prompt}
+                onChange={(v) => updateCharacterField(char.id, 'prompt', v)}
+                placeholder={t('quickGenerate.characterPrompt')}
+                minHeight="80px"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">{t('quickGenerate.negativePrompt')}</Label>
+              <LazyPromptEditor
+                value={char.negative}
+                onChange={(v) => updateCharacterField(char.id, 'negative', v)}
+                placeholder={t('quickGenerate.characterNegative')}
+                minHeight="60px"
+              />
+            </div>
           </div>
         ))}
       </div>
