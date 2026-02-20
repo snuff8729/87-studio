@@ -24,7 +24,6 @@ CREATE TABLE `__new_generated_images` (
 INSERT INTO `__new_generated_images`("id", "job_id", "project_id", "project_scene_id", "source_scene_id", "file_path", "thumbnail_path", "seed", "metadata", "is_favorite", "rating", "memo", "tournament_wins", "tournament_losses", "created_at") SELECT "id", "job_id", "project_id", "project_scene_id", "source_scene_id", "file_path", "thumbnail_path", "seed", "metadata", "is_favorite", "rating", "memo", "tournament_wins", "tournament_losses", "created_at" FROM `generated_images`;--> statement-breakpoint
 DROP TABLE `generated_images`;--> statement-breakpoint
 ALTER TABLE `__new_generated_images` RENAME TO `generated_images`;--> statement-breakpoint
-PRAGMA foreign_keys=ON;--> statement-breakpoint
 CREATE INDEX `generated_images_project_id_idx` ON `generated_images` (`project_id`);--> statement-breakpoint
 CREATE INDEX `generated_images_scene_id_idx` ON `generated_images` (`project_scene_id`);--> statement-breakpoint
 CREATE INDEX `generated_images_source_scene_idx` ON `generated_images` (`source_scene_id`);--> statement-breakpoint
@@ -55,4 +54,5 @@ DROP TABLE `generation_jobs`;--> statement-breakpoint
 ALTER TABLE `__new_generation_jobs` RENAME TO `generation_jobs`;--> statement-breakpoint
 CREATE INDEX `generation_jobs_status_idx` ON `generation_jobs` (`status`);--> statement-breakpoint
 CREATE INDEX `generation_jobs_project_id_idx` ON `generation_jobs` (`project_id`);--> statement-breakpoint
-CREATE INDEX `generation_jobs_scene_id_idx` ON `generation_jobs` (`project_scene_id`);
+CREATE INDEX `generation_jobs_scene_id_idx` ON `generation_jobs` (`project_scene_id`);--> statement-breakpoint
+PRAGMA foreign_keys=ON;
