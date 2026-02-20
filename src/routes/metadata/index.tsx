@@ -27,13 +27,13 @@ export const Route = createFileRoute('/metadata/')({
 })
 
 function InspectPage() {
-  const navigate = useNavigate()
   const [metadata, setMetadata] = useState<NAIMetadata | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showQuickDialog, setShowQuickDialog] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounterRef = useRef(0)
   const { t } = useTranslation()
@@ -183,48 +183,7 @@ function InspectPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => {
-                        const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
-                          metadata.v4_prompt.caption.char_captions.length > 0
-
-                        let generalPrompt = ''
-                        if (metadata.v4_prompt?.caption?.base_caption) {
-                          generalPrompt = metadata.v4_prompt.caption.base_caption
-                        } else {
-                          generalPrompt = metadata.prompt ?? ''
-                        }
-
-                        const characterPrompts = hasV4Chars
-                          ? metadata.v4_prompt!.caption!.char_captions!.map((cc, i) => {
-                              const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-                              return {
-                                name: `Character ${i + 1}`,
-                                prompt: cc.char_caption,
-                                negative: negChar?.char_caption ?? '',
-                              }
-                            })
-                          : []
-
-                        const parameters: Record<string, unknown> = {}
-                        if (metadata.steps != null) parameters.steps = metadata.steps
-                        if (metadata.cfgScale != null) parameters.scale = metadata.cfgScale
-                        if (metadata.cfgRescale != null) parameters.cfgRescale = metadata.cfgRescale
-                        if (metadata.sampler) parameters.sampler = metadata.sampler
-                        if (metadata.scheduler) parameters.scheduler = metadata.scheduler
-                        if (metadata.ucPreset != null) parameters.ucPreset = metadata.ucPreset
-                        if (metadata.width != null) parameters.width = metadata.width
-                        if (metadata.height != null) parameters.height = metadata.height
-
-                        navigate({
-                          to: '/generate',
-                          state: {
-                            generalPrompt,
-                            negativePrompt: metadata.negativePrompt ?? '',
-                            characterPrompts,
-                            parameters,
-                          } as any,
-                        })
-                      }}
+                      onClick={() => setShowQuickDialog(true)}
                     >
                       <HugeiconsIcon icon={MagicWand01Icon} className="size-4 mr-1.5" />
                       {t('metadata.quickGenerate')}
@@ -292,11 +251,18 @@ function InspectPage() {
       )}
 
       {metadata && (
-        <CreateProjectDialog
-          metadata={metadata}
-          open={showCreateDialog}
-          onOpenChange={setShowCreateDialog}
-        />
+        <>
+          <CreateProjectDialog
+            metadata={metadata}
+            open={showCreateDialog}
+            onOpenChange={setShowCreateDialog}
+          />
+          <QuickGenerateDialog
+            metadata={metadata}
+            open={showQuickDialog}
+            onOpenChange={setShowQuickDialog}
+          />
+        </>
       )}
     </div>
   )
@@ -705,11 +671,164 @@ function FieldCheckbox({
       <div className="min-w-0 flex-1">
         <span className="text-sm font-medium">{label}</span>
         {preview && (
-          <p className="text-xs text-muted-foreground truncate mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 break-all">
             {preview}
           </p>
         )}
       </div>
     </label>
+  )
+}
+
+// ─── Quick Generate Dialog ──────────────────────────────────────────────────
+
+type QuickImportField = 'generalPrompt' | 'negativePrompt' | 'characters' | 'parameters' | 'resolution'
+
+function QuickGenerateDialog({
+  metadata,
+  open,
+  onOpenChange,
+}: {
+  metadata: NAIMetadata
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const { t } = useTranslation()
+  const navigate = useNavigate()
+  const [fields, setFields] = useState<Record<QuickImportField, boolean>>({
+    generalPrompt: true,
+    negativePrompt: true,
+    characters: true,
+    parameters: true,
+    resolution: true,
+  })
+
+  const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
+    metadata.v4_prompt.caption.char_captions.length > 0
+
+  function toggleField(field: QuickImportField) {
+    setFields((prev) => ({ ...prev, [field]: !prev[field] }))
+  }
+
+  function handleApply() {
+    let generalPrompt: string | undefined
+    if (fields.generalPrompt) {
+      generalPrompt = metadata.v4_prompt?.caption?.base_caption ?? metadata.prompt ?? ''
+    }
+
+    let negativePrompt: string | undefined
+    if (fields.negativePrompt) {
+      negativePrompt = metadata.negativePrompt ?? ''
+    }
+
+    let characterPrompts: Array<{ name: string; prompt: string; negative: string }> | undefined
+    if (fields.characters && hasV4Chars) {
+      characterPrompts = metadata.v4_prompt!.caption!.char_captions!.map((cc, i) => {
+        const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+        return {
+          name: `Character ${i + 1}`,
+          prompt: cc.char_caption,
+          negative: negChar?.char_caption ?? '',
+        }
+      })
+    }
+
+    const parameters: Record<string, unknown> = {}
+    if (fields.parameters) {
+      if (metadata.steps != null) parameters.steps = metadata.steps
+      if (metadata.cfgScale != null) parameters.scale = metadata.cfgScale
+      if (metadata.cfgRescale != null) parameters.cfgRescale = metadata.cfgRescale
+      if (metadata.sampler) parameters.sampler = metadata.sampler
+      if (metadata.scheduler) parameters.scheduler = metadata.scheduler
+      if (metadata.ucPreset != null) parameters.ucPreset = metadata.ucPreset
+    }
+    if (fields.resolution) {
+      if (metadata.width != null) parameters.width = metadata.width
+      if (metadata.height != null) parameters.height = metadata.height
+    }
+
+    onOpenChange(false)
+    navigate({
+      to: '/generate',
+      state: {
+        generalPrompt,
+        negativePrompt,
+        characterPrompts,
+        parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+      } as any,
+    })
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('metadata.quickGenerate')}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
+          <div className="space-y-1">
+            <Label className="text-sm text-muted-foreground">{t('metadata.importFields')}</Label>
+            <div className="space-y-2.5 pt-1">
+              <FieldCheckbox
+                checked={fields.generalPrompt}
+                onCheckedChange={() => toggleField('generalPrompt')}
+                label={t('metadata.generalPrompt')}
+                preview={
+                  metadata.v4_prompt?.caption?.base_caption
+                    || metadata.prompt
+                    || undefined
+                }
+              />
+              <FieldCheckbox
+                checked={fields.negativePrompt}
+                onCheckedChange={() => toggleField('negativePrompt')}
+                label={t('metadata.negativePrompt')}
+                preview={metadata.negativePrompt}
+              />
+              {hasV4Chars && (
+                <FieldCheckbox
+                  checked={fields.characters}
+                  onCheckedChange={() => toggleField('characters')}
+                  label={t('metadata.characterPrompts', { count: metadata.v4_prompt!.caption!.char_captions!.length })}
+                  preview={metadata.v4_prompt!.caption!.char_captions!.map(
+                    (c) => c.char_caption,
+                  ).join(' | ')}
+                />
+              )}
+              <FieldCheckbox
+                checked={fields.parameters}
+                onCheckedChange={() => toggleField('parameters')}
+                label={t('metadata.generationParameters')}
+                preview={[
+                  metadata.steps && `Steps: ${metadata.steps}`,
+                  metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
+                  metadata.sampler && `Sampler: ${metadata.sampler}`,
+                ].filter(Boolean).join(', ') || undefined}
+              />
+              <FieldCheckbox
+                checked={fields.resolution}
+                onCheckedChange={() => toggleField('resolution')}
+                label={t('metadata.resolution')}
+                preview={
+                  metadata.width && metadata.height
+                    ? `${metadata.width} x ${metadata.height}`
+                    : undefined
+                }
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handleApply}>
+            {t('metadata.quickGenerate')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

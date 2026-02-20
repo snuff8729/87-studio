@@ -11,12 +11,21 @@ import {
   Menu01Icon,
   TimeQuarter02Icon,
   PlayIcon,
+  Upload01Icon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Checkbox } from '@/components/ui/checkbox'
 import { NumberStepper } from '@/components/ui/number-stepper'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
@@ -25,6 +34,8 @@ import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
+import { parseMetadataFromFile } from '@/lib/nai-metadata'
+import type { NAIMetadata } from '@/lib/nai-metadata'
 import { createQuickGenerationJob, listQuickImages, listQuickJobs } from '@/server/functions/quick-generation'
 import { cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
 import { updateImage } from '@/server/functions/gallery'
@@ -139,6 +150,59 @@ function QuickGeneratePage() {
     avgImageDurationMs: number | null
   } | null>(null)
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(null)
+
+  // DnD import
+  const [dragging, setDragging] = useState(false)
+  const [pendingMetadata, setPendingMetadata] = useState<NAIMetadata | null>(null)
+  const dragCounterRef = useRef(0)
+
+  const handleDropFile = useCallback(async (file: File) => {
+    if (!file.type.startsWith('image/')) return
+    try {
+      const result = await parseMetadataFromFile(file)
+      if (result) {
+        setPendingMetadata(result)
+      } else {
+        toast.error(t('quickGenerate.noMetadata'))
+      }
+    } catch {
+      toast.error(t('quickGenerate.noMetadata'))
+    }
+  }, [t])
+
+  const handleDropFileRef = useRef(handleDropFile)
+  handleDropFileRef.current = handleDropFile
+
+  useEffect(() => {
+    const onDragEnter = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current++
+      if (dragCounterRef.current === 1) setDragging(true)
+    }
+    const onDragOver = (e: DragEvent) => { e.preventDefault() }
+    const onDragLeave = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current--
+      if (dragCounterRef.current === 0) setDragging(false)
+    }
+    const onDrop = (e: DragEvent) => {
+      e.preventDefault()
+      dragCounterRef.current = 0
+      setDragging(false)
+      const file = e.dataTransfer?.files[0]
+      if (file) handleDropFileRef.current(file)
+    }
+    document.addEventListener('dragenter', onDragEnter)
+    document.addEventListener('dragover', onDragOver)
+    document.addEventListener('dragleave', onDragLeave)
+    document.addEventListener('drop', onDrop)
+    return () => {
+      document.removeEventListener('dragenter', onDragEnter)
+      document.removeEventListener('dragover', onDragOver)
+      document.removeEventListener('dragleave', onDragLeave)
+      document.removeEventListener('drop', onDrop)
+    }
+  }, [])
 
   // Polling ref
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -367,82 +431,118 @@ function QuickGeneratePage() {
   const batchTotal = activeJobs.reduce((sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)), 0)
 
   return (
-    <WorkspaceLayout
-      leftOpen={leftOpen}
-      rightOpen={rightOpen}
-      onDismiss={() => { setLeftOpen(false); setRightOpen(false) }}
-      header={
-        <QuickGenerateHeader
-          onToggleLeft={() => setLeftOpen(!leftOpen)}
-          onToggleRight={() => setRightOpen(!rightOpen)}
-        />
-      }
-      leftPanel={
-        <PromptPanelLocal
-          state={state}
-          setState={setState}
-          addCharacter={addCharacter}
-          removeCharacter={removeCharacter}
-          updateCharacterField={updateCharacterField}
-        />
-      }
-      centerPanel={
-        <CenterPreview
-          selectedImage={selectedImage}
-          imageParams={imageParams}
-          onToggleFavorite={handleToggleFavorite}
-          onSetRating={handleSetRating}
-        />
-      }
-      rightPanel={
-        <HistoryPanelLocal
-          images={images}
-          selectedImageId={selectedImageId}
-          onSelect={setSelectedImageId}
-        />
-      }
-      bottomToolbar={
-        <div className="border-t border-border bg-background shrink-0 grid px-3 pb-2 lg:pb-0 gap-x-2 grid-cols-[auto_1fr] grid-rows-[2.25rem_2.75rem] lg:grid-cols-[auto_1fr_auto] lg:grid-rows-[3rem]">
-          <div className="flex items-center gap-1">
-            <ParameterPopover
-              params={state.parameters}
-              onChange={(p) => setState((prev) => ({ ...prev, parameters: p }))}
-            />
-          </div>
-          <div className="flex items-center justify-end lg:justify-center min-w-0 overflow-hidden">
-            <GenerationProgress
-              jobs={activeJobs}
-              batchTotal={batchTotal}
-              batchTiming={batchTiming}
-              queueStopped={queueStopped}
-              onCancel={handleCancelJobs}
-              onPause={handlePause}
-              onResume={handleResume}
-              onDismissError={handleDismissError}
-            />
-          </div>
-          <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
-            <NumberStepper
-              value={state.count}
-              onChange={(v) => setState((prev) => ({ ...prev, count: Math.max(1, v ?? 1) }))}
-              min={1}
-              max={100}
-              size="md"
-            />
-            <Button
-              size="sm"
-              onClick={handleGenerate}
-              disabled={generating || !state.generalPrompt.trim()}
-            >
-              <HugeiconsIcon icon={PlayIcon} className="size-5" />
-              <span className="hidden sm:inline">
-                {generating ? t('generation.generating') : t('generation.generateCount', { count: state.count })}
-              </span>
-            </Button>
+    <>
+      {/* Full-screen drag overlay */}
+      {dragging && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary pointer-events-none">
+          <div className="flex flex-col items-center gap-3">
+            <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center">
+              <HugeiconsIcon icon={Upload01Icon} className="size-7 text-primary" />
+            </div>
+            <p className="text-base font-medium">{t('quickGenerate.dropToImport')}</p>
           </div>
         </div>
-      }
-    />
+      )}
+
+      {/* Import dialog */}
+      {pendingMetadata && (
+        <ImportMetadataDialog
+          metadata={pendingMetadata}
+          open={!!pendingMetadata}
+          onOpenChange={(open) => { if (!open) setPendingMetadata(null) }}
+          onApply={(applied) => {
+            setState((prev) => {
+              const next = { ...prev }
+              if (applied.generalPrompt != null) next.generalPrompt = applied.generalPrompt
+              if (applied.negativePrompt != null) next.negativePrompt = applied.negativePrompt
+              if (applied.characters) next.characters = applied.characters
+              if (applied.parameters) next.parameters = { ...prev.parameters, ...applied.parameters }
+              saveState(next)
+              return next
+            })
+            setPendingMetadata(null)
+            toast.success(t('quickGenerate.imported'))
+          }}
+        />
+      )}
+
+      <WorkspaceLayout
+        leftOpen={leftOpen}
+        rightOpen={rightOpen}
+        onDismiss={() => { setLeftOpen(false); setRightOpen(false) }}
+        header={
+          <QuickGenerateHeader
+            onToggleLeft={() => setLeftOpen(!leftOpen)}
+            onToggleRight={() => setRightOpen(!rightOpen)}
+          />
+        }
+        leftPanel={
+          <PromptPanelLocal
+            state={state}
+            setState={setState}
+            addCharacter={addCharacter}
+            removeCharacter={removeCharacter}
+            updateCharacterField={updateCharacterField}
+          />
+        }
+        centerPanel={
+          <CenterPreview
+            selectedImage={selectedImage}
+            imageParams={imageParams}
+            onToggleFavorite={handleToggleFavorite}
+            onSetRating={handleSetRating}
+          />
+        }
+        rightPanel={
+          <HistoryPanelLocal
+            images={images}
+            selectedImageId={selectedImageId}
+            onSelect={setSelectedImageId}
+          />
+        }
+        bottomToolbar={
+          <div className="border-t border-border bg-background shrink-0 grid px-3 pb-2 lg:pb-0 gap-x-2 grid-cols-[auto_1fr] grid-rows-[2.25rem_2.75rem] lg:grid-cols-[auto_1fr_auto] lg:grid-rows-[3rem]">
+            <div className="flex items-center gap-1">
+              <ParameterPopover
+                params={state.parameters}
+                onChange={(p) => setState((prev) => ({ ...prev, parameters: p }))}
+              />
+            </div>
+            <div className="flex items-center justify-end lg:justify-center min-w-0 overflow-hidden">
+              <GenerationProgress
+                jobs={activeJobs}
+                batchTotal={batchTotal}
+                batchTiming={batchTiming}
+                queueStopped={queueStopped}
+                onCancel={handleCancelJobs}
+                onPause={handlePause}
+                onResume={handleResume}
+                onDismissError={handleDismissError}
+              />
+            </div>
+            <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
+              <NumberStepper
+                value={state.count}
+                onChange={(v) => setState((prev) => ({ ...prev, count: Math.max(1, v ?? 1) }))}
+                min={1}
+                max={100}
+                size="md"
+              />
+              <Button
+                size="sm"
+                onClick={handleGenerate}
+                disabled={generating || !state.generalPrompt.trim()}
+              >
+                <HugeiconsIcon icon={PlayIcon} className="size-5" />
+                <span className="hidden sm:inline">
+                  {generating ? t('generation.generating') : t('generation.generateCount', { count: state.count })}
+                </span>
+              </Button>
+            </div>
+          </div>
+        }
+      />
+    </>
   )
 }
 
@@ -828,5 +928,192 @@ function HistoryPanelLocal({
         </Link>
       </div>
     </div>
+  )
+}
+
+// ─── Import Metadata Dialog ───────────────────────────────────────────────
+
+type ImportField = 'generalPrompt' | 'negativePrompt' | 'characters' | 'parameters' | 'resolution'
+
+function ImportMetadataDialog({
+  metadata,
+  open,
+  onOpenChange,
+  onApply,
+}: {
+  metadata: NAIMetadata
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onApply: (data: {
+    generalPrompt?: string
+    negativePrompt?: string
+    characters?: CharacterEntry[]
+    parameters?: Record<string, unknown>
+  }) => void
+}) {
+  const { t } = useTranslation()
+  const [fields, setFields] = useState<Record<ImportField, boolean>>({
+    generalPrompt: true,
+    negativePrompt: true,
+    characters: true,
+    parameters: true,
+    resolution: true,
+  })
+
+  const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
+    metadata.v4_prompt.caption.char_captions.length > 0
+
+  function toggleField(field: ImportField) {
+    setFields((prev) => ({ ...prev, [field]: !prev[field] }))
+  }
+
+  function handleApply() {
+    const result: Parameters<typeof onApply>[0] = {}
+
+    if (fields.generalPrompt) {
+      if (metadata.v4_prompt?.caption?.base_caption) {
+        result.generalPrompt = metadata.v4_prompt.caption.base_caption
+      } else {
+        result.generalPrompt = metadata.prompt ?? ''
+      }
+    }
+
+    if (fields.negativePrompt) {
+      result.negativePrompt = metadata.negativePrompt ?? ''
+    }
+
+    if (fields.characters && hasV4Chars) {
+      result.characters = metadata.v4_prompt!.caption!.char_captions!.map((cc, i) => {
+        const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+        return {
+          id: `imported-${Date.now()}-${i}`,
+          name: `Character ${i + 1}`,
+          prompt: cc.char_caption,
+          negative: negChar?.char_caption ?? '',
+        }
+      })
+    }
+
+    if (fields.parameters || fields.resolution) {
+      const params: Record<string, unknown> = {}
+      if (fields.parameters) {
+        if (metadata.steps != null) params.steps = metadata.steps
+        if (metadata.cfgScale != null) params.scale = metadata.cfgScale
+        if (metadata.cfgRescale != null) params.cfgRescale = metadata.cfgRescale
+        if (metadata.sampler) params.sampler = metadata.sampler
+        if (metadata.scheduler) params.scheduler = metadata.scheduler
+        if (metadata.ucPreset != null) params.ucPreset = metadata.ucPreset
+      }
+      if (fields.resolution) {
+        if (metadata.width != null) params.width = metadata.width
+        if (metadata.height != null) params.height = metadata.height
+      }
+      result.parameters = params
+    }
+
+    onApply(result)
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{t('quickGenerate.importFromImage')}</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
+          <div className="space-y-1">
+            <Label className="text-sm text-muted-foreground">{t('quickGenerate.importFields')}</Label>
+            <div className="space-y-2.5 pt-1">
+              <ImportFieldCheckbox
+                checked={fields.generalPrompt}
+                onCheckedChange={() => toggleField('generalPrompt')}
+                label={t('quickGenerate.generalPrompt')}
+                preview={
+                  metadata.v4_prompt?.caption?.base_caption
+                    || metadata.prompt
+                    || undefined
+                }
+              />
+              <ImportFieldCheckbox
+                checked={fields.negativePrompt}
+                onCheckedChange={() => toggleField('negativePrompt')}
+                label={t('quickGenerate.negativePrompt2')}
+                preview={metadata.negativePrompt}
+              />
+              {hasV4Chars && (
+                <ImportFieldCheckbox
+                  checked={fields.characters}
+                  onCheckedChange={() => toggleField('characters')}
+                  label={t('quickGenerate.characterPrompts', { count: metadata.v4_prompt!.caption!.char_captions!.length })}
+                  preview={metadata.v4_prompt!.caption!.char_captions!.map(
+                    (c) => c.char_caption,
+                  ).join(' | ')}
+                />
+              )}
+              <ImportFieldCheckbox
+                checked={fields.parameters}
+                onCheckedChange={() => toggleField('parameters')}
+                label={t('quickGenerate.generationParameters')}
+                preview={[
+                  metadata.steps && `Steps: ${metadata.steps}`,
+                  metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
+                  metadata.sampler && `Sampler: ${metadata.sampler}`,
+                ].filter(Boolean).join(', ') || undefined}
+              />
+              <ImportFieldCheckbox
+                checked={fields.resolution}
+                onCheckedChange={() => toggleField('resolution')}
+                label={t('quickGenerate.resolution')}
+                preview={
+                  metadata.width && metadata.height
+                    ? `${metadata.width} x ${metadata.height}`
+                    : undefined
+                }
+              />
+            </div>
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            {t('common.cancel')}
+          </Button>
+          <Button onClick={handleApply}>
+            {t('quickGenerate.importApply')}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+function ImportFieldCheckbox({
+  checked,
+  onCheckedChange,
+  label,
+  preview,
+}: {
+  checked: boolean
+  onCheckedChange: () => void
+  label: string
+  preview?: string
+}) {
+  return (
+    <label className="flex items-start gap-2.5 cursor-pointer group overflow-hidden">
+      <Checkbox
+        checked={checked}
+        onCheckedChange={onCheckedChange}
+        className="mt-0.5 shrink-0"
+      />
+      <div className="min-w-0 flex-1">
+        <span className="text-sm font-medium">{label}</span>
+        {preview && (
+          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 break-all">
+            {preview}
+          </p>
+        )}
+      </div>
+    </label>
   )
 }
