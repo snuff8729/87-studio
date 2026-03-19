@@ -576,6 +576,38 @@ function ImageDetailPage() {
                   </p>
                 </div>
               )}
+
+              {/* Reference info from stored metadata */}
+              {meta?.referenceMode && meta.referenceMode !== 'none' && meta?.references && (
+                <div>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
+                    {t('imageDetail.references')}
+                  </label>
+                  <div className="text-sm space-y-1 bg-secondary/50 p-2 rounded-md">
+                    <p className="text-xs text-muted-foreground mb-1.5">
+                      {meta.referenceMode === 'vibe' ? t('reference.vibeTransfer') : t('reference.preciseReference')}
+                    </p>
+                    {meta.referenceMode === 'vibe' && meta.references.vibes?.map((v: { strength: number; informationExtracted: number }, i: number) => (
+                      <div key={i} className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                        <span className="text-muted-foreground">Vibe {i + 1} {t('reference.strength')}</span>
+                        <span className="text-foreground/80 font-mono">{v.strength.toFixed(2)}</span>
+                        <span className="text-muted-foreground">Vibe {i + 1} {t('reference.informationExtracted')}</span>
+                        <span className="text-foreground/80 font-mono">{v.informationExtracted.toFixed(2)}</span>
+                      </div>
+                    ))}
+                    {meta.referenceMode === 'precise' && meta.references.precise?.map((r: { strength: number; fidelity: number; mode: string }, i: number) => (
+                      <div key={i} className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
+                        <span className="text-muted-foreground">Ref {i + 1} {t('reference.strength')}</span>
+                        <span className="text-foreground/80 font-mono">{r.strength.toFixed(2)}</span>
+                        <span className="text-muted-foreground">Ref {i + 1} {t('reference.fidelity')}</span>
+                        <span className="text-foreground/80 font-mono">{r.fidelity.toFixed(2)}</span>
+                        <span className="text-muted-foreground">Ref {i + 1} {t('reference.mode')}</span>
+                        <span className="text-foreground/80 font-mono">{r.mode}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
