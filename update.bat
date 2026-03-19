@@ -64,13 +64,41 @@ echo.
 goto :fail
 
 :git_pull
-echo   [1/5] 최신 버전 가져오는 중...
-"%GIT_CMD%" pull
+echo   [1/5] 최신 릴리스 가져오는 중...
+"%GIT_CMD%" fetch --tags
 if errorlevel 1 (
     echo.
-    echo   [ERROR] Git pull에 실패했습니다.
+    echo   [ERROR] Git fetch에 실패했습니다.
     echo   인터넷 연결 또는 저장소 상태를 확인해주세요.
     goto :fail
+)
+
+:: Find latest tag
+for /f "delims=" %%T in ('"%GIT_CMD%" describe --tags --abbrev^=0 HEAD 2^>nul') do set "CURRENT_TAG=%%T"
+for /f "delims=" %%T in ('"%GIT_CMD%" tag --sort^=-v:refname') do (
+    if not defined LATEST_TAG set "LATEST_TAG=%%T"
+)
+
+if not defined LATEST_TAG (
+    echo.
+    echo   [ERROR] 릴리스 태그를 찾을 수 없습니다.
+    goto :fail
+)
+
+if "%CURRENT_TAG%"=="%LATEST_TAG%" (
+    echo         이미 최신 버전입니다: %LATEST_TAG%
+) else (
+    if defined CURRENT_TAG (
+        echo         %CURRENT_TAG% -^> %LATEST_TAG%
+    ) else (
+        echo         -^> %LATEST_TAG%
+    )
+    "%GIT_CMD%" checkout "%LATEST_TAG%"
+    if errorlevel 1 (
+        echo.
+        echo   [ERROR] 버전 전환에 실패했습니다.
+        goto :fail
+    )
 )
 echo         완료!
 
