@@ -1,3 +1,4 @@
-# Ensure correct line endings for startup scripts
-*.bat text eol=crlf
+# Ensure correct line endings for scripts
+# .bat files: stored as-is (CRLF) so GitHub raw downloads also work on Windows
+*.bat -text
 *.sh  text eol=lf
