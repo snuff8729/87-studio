@@ -5,6 +5,12 @@ import { createLogger } from './logger'
 const log = createLogger('nai')
 const NAI_API_URL = 'https://image.novelai.net/ai/generate-image'
 
+function getDefaultSkipCfgAboveSigma(model: string): number {
+  if (model.startsWith('nai-diffusion-4-5')) return 58
+  if (model.startsWith('nai-diffusion-4')) return 19
+  return 0
+}
+
 interface GenerationParams {
   model?: string
   width?: number
@@ -17,12 +23,19 @@ interface GenerationParams {
   seed?: number
   ucPreset?: number
   imageFormat?: string
+  referenceMode?: string
+}
+
+export interface ReferenceData {
+  vibes?: Array<{ encoded: string; strength: number; infoExtracted: number }>
+  precise?: Array<{ imageBase64: string; strength: number; fidelity: number; mode: string }>
 }
 
 export async function generateImage(
   apiKey: string,
   prompts: ResolvedPrompts,
   params: GenerationParams,
+  referenceData?: ReferenceData,
 ): Promise<{ imageData: Uint8Array; seed: number }> {
   const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
 
@@ -43,7 +56,7 @@ export async function generateImage(
     action: 'generate',
     parameters: {
       add_original_image: true,
-      autoSmea: false,
+      autoSmea: true,
       cfg_rescale: params.cfgRescale,
       characterPrompts: prompts.characterPrompts.map((cp) => ({
         center: { x: 0.5, y: 0.5 },
@@ -71,7 +84,7 @@ export async function generateImage(
       sampler: params.sampler ?? "k_euler_ancestral",
       scale: params.scale ?? 5,
       seed: seed,
-      skip_cfg_above_sigma: null,
+      skip_cfg_above_sigma: getDefaultSkipCfgAboveSigma(params.model ?? 'nai-diffusion-4-5-full'),
       steps: params.steps ?? 28,
       ucPreset: params.ucPreset ?? 0,
       use_coords: false,
@@ -81,7 +94,7 @@ export async function generateImage(
           char_captions: charCaptions,
         },
         use_coords: false,
-        use_order: true
+        use_order: false
       },
       v4_negative_prompt: {
         caption: {
@@ -90,7 +103,31 @@ export async function generateImage(
         },
         legacy_uc: false
       },
-    },
+    } as Record<string, unknown>,
+  }
+
+  // Inject Vibe Transfer parameters
+  if (referenceData?.vibes && referenceData.vibes.length > 0) {
+    body.parameters.reference_image_multiple = referenceData.vibes.map((v) => v.encoded)
+    body.parameters.reference_strength_multiple = referenceData.vibes.map((v) => v.strength)
+    body.parameters.reference_information_extracted_multiple = referenceData.vibes.map((v) => v.infoExtracted)
+  }
+
+  // Inject Precise Reference parameters
+  if (referenceData?.precise && referenceData.precise.length > 0) {
+    body.parameters.director_reference_images = referenceData.precise.map((r) => r.imageBase64)
+    body.parameters.director_reference_information_extracted = referenceData.precise.map(() => 1.0)
+    body.parameters.director_reference_strength_values = referenceData.precise.map((r) => r.strength)
+    body.parameters.director_reference_secondary_strength_values = referenceData.precise.map((r) => 1 - r.fidelity)
+    body.parameters.director_reference_descriptions = referenceData.precise.map((r) => ({
+      caption: {
+        base_caption: r.mode,
+        char_captions: [],
+      },
+      legacy_uc: false,
+    }))
+    // VAR+ (skip_cfg_above_sigma) must be disabled when Precise Reference is active
+    body.parameters.skip_cfg_above_sigma = null
   }
 
   log.info('api.request', 'Sending NAI API request', body)

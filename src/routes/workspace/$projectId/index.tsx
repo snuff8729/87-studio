@@ -19,6 +19,7 @@ import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { WorkspaceHeader } from '@/components/workspace/workspace-header'
 import { BottomToolbar } from '@/components/workspace/bottom-toolbar'
 import { PromptPanel } from '@/components/workspace/prompt-panel'
+import { ReferencePanel } from '@/components/workspace/reference-panel'
 import { ScenePanel } from '@/components/workspace/scene-panel'
 import { HistoryPanel } from '@/components/workspace/history-panel'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
@@ -560,14 +561,22 @@ function WorkspacePage() {
         />
       }
       leftPanel={
-        <PromptPanel
-          generalPrompt={generalPrompt}
-          negativePrompt={negativePrompt}
-          characters={data.characters}
-          onGeneralPromptChange={handleGeneralPromptChange}
-          onNegativePromptChange={handleNegativePromptChange}
-          projectId={projectId}
-        />
+        <>
+          <PromptPanel
+            generalPrompt={generalPrompt}
+            negativePrompt={negativePrompt}
+            characters={data.characters}
+            onGeneralPromptChange={handleGeneralPromptChange}
+            onNegativePromptChange={handleNegativePromptChange}
+            projectId={projectId}
+          />
+          <ReferencePanel
+            projectId={projectId}
+            referenceMode={(params.referenceMode as 'none' | 'vibe' | 'precise') ?? 'none'}
+            currentModel={(params.model as string) ?? 'nai-diffusion-4-5-full'}
+            onReferenceModeChange={(mode) => handleParamsChange({ ...params, referenceMode: mode })}
+          />
+        </>
       }
       centerPanel={
         <ScenePanel

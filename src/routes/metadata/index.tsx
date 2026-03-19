@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Upload01Icon, Cancel01Icon, ArrowRight01Icon, Copy01Icon, MagicWand01Icon } from '@hugeicons/core-free-icons'
+import { Upload01Icon, Cancel01Icon, ArrowRight01Icon, Copy01Icon, MagicWand01Icon, AlertCircleIcon } from '@hugeicons/core-free-icons'
 import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -635,6 +635,8 @@ function CreateProjectDialog({
               />
             </div>
           </div>
+
+          <ReferenceWarningBanner metadata={metadata} />
         </div>
 
         <DialogFooter>
@@ -818,6 +820,8 @@ function QuickGenerateDialog({
               />
             </div>
           </div>
+
+          <ReferenceWarningBanner metadata={metadata} />
         </div>
 
         <DialogFooter>
@@ -830,5 +834,37 @@ function QuickGenerateDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Reference Warning Banner ─────────────────────────────────────────────
+
+function ReferenceWarningBanner({ metadata }: { metadata: NAIMetadata }) {
+  const { t } = useTranslation()
+  const hasVibe = metadata.hasVibeTransfer && metadata.vibeTransferInfo && metadata.vibeTransferInfo.length > 0
+  const hasPrecise = metadata.hasCharacterReference && metadata.characterReferenceInfo && metadata.characterReferenceInfo.length > 0
+
+  if (!hasVibe && !hasPrecise) return null
+
+  let message: string
+  if (hasVibe && hasPrecise) {
+    message = t('reference.importWarningBoth', {
+      vibeCount: String(metadata.vibeTransferInfo!.length),
+      preciseCount: String(metadata.characterReferenceInfo!.length),
+    })
+  } else if (hasVibe) {
+    message = t('reference.importWarningVibe', { count: String(metadata.vibeTransferInfo!.length) })
+  } else {
+    message = t('reference.importWarningPrecise', { count: String(metadata.characterReferenceInfo!.length) })
+  }
+
+  return (
+    <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+      <HugeiconsIcon icon={AlertCircleIcon} className="size-4 text-amber-500 shrink-0 mt-0.5" />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-amber-500">{t('reference.importWarningTitle')}</p>
+        <p className="text-xs text-amber-500/80 mt-0.5">{message}</p>
+      </div>
+    </div>
   )
 }

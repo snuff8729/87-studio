@@ -2,7 +2,9 @@ import { db } from '../db'
 import { generationJobs, generatedImages, settings, imageBundles } from '../db/schema'
 import { eq } from 'drizzle-orm'
 import { generateImage } from './nai'
+import type { ReferenceData } from './nai'
 import { saveImage, generateThumbnail } from './image'
+import { prepareVibeData, preparePreciseData } from './reference'
 import { createLogger } from './logger'
 
 const log = createLogger('generation')
@@ -270,6 +272,23 @@ async function processJob(jobId: number) {
     const resolvedParameters = JSON.parse(job.resolvedParameters)
     const totalCount = job.totalCount ?? 1
 
+    // Prepare reference data (once per job, reused for all images)
+    // projectId can be null (Quick Generate) — references with null projectId are used
+    const referenceMode = resolvedParameters.referenceMode ?? 'none'
+    const refProjectId = job.projectId ?? null
+    let referenceData: ReferenceData | undefined
+    if (referenceMode === 'vibe') {
+      const vibeResult = await prepareVibeData(refProjectId, apiKeyRow.value, resolvedParameters.model ?? 'nai-diffusion-4-5-full')
+      if (vibeResult) referenceData = vibeResult
+    } else if (referenceMode === 'precise') {
+      const model = resolvedParameters.model ?? 'nai-diffusion-4-5-full'
+      if (!model.includes('4-5')) {
+        throw new Error('Precise Reference requires V4.5 model')
+      }
+      const preciseResult = await preparePreciseData(refProjectId)
+      if (preciseResult) referenceData = preciseResult
+    }
+
     const startIndex = job.completedCount ?? 0
 
     for (let i = startIndex; i < totalCount; i++) {
@@ -301,6 +320,7 @@ async function processJob(jobId: number) {
         apiKeyRow.value,
         resolvedPrompts,
         resolvedParameters,
+        referenceData,
       )
       const imageDuration = Date.now() - imageStart
 
@@ -334,6 +354,12 @@ async function processJob(jobId: number) {
           metadata: JSON.stringify({
             prompts: resolvedPrompts,
             parameters: resolvedParameters,
+            ...(referenceMode !== 'none' && referenceData && {
+              referenceMode,
+              references: referenceMode === 'vibe'
+                ? { vibes: referenceData.vibes?.map((v) => ({ strength: v.strength, informationExtracted: v.infoExtracted })) }
+                : { precise: referenceData.precise?.map((r) => ({ strength: r.strength, fidelity: r.fidelity, mode: r.mode })) },
+            }),
           }),
         })
         .returning()

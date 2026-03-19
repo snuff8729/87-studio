@@ -16,6 +16,9 @@ export default defineHandler((event) => {
   } else if (pathname.startsWith('/api/thumbnails/')) {
     basePath = resolve('./data/thumbnails')
     relativePath = pathname.slice('/api/thumbnails/'.length)
+  } else if (pathname.startsWith('/api/references/')) {
+    basePath = resolve('./data/references')
+    relativePath = pathname.slice('/api/references/'.length)
   } else if (pathname.startsWith('/api/downloads/')) {
     basePath = resolve('./data/downloads')
     relativePath = pathname.slice('/api/downloads/'.length)

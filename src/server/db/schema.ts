@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex, index, primaryKey } from 'drizzle-orm/sqlite-core'
+import { sqliteTable, text, integer, real, uniqueIndex, index, primaryKey } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 // ─── Projects ───────────────────────────────────────────────────────────────
@@ -263,6 +263,34 @@ export const imageBundles = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.imageId, table.bundleId] }),
     index('image_bundles_bundle_id_idx').on(table.bundleId),
+  ],
+)
+
+// ─── Reference Images ──────────────────────────────────────────────────────
+export const referenceImages = sqliteTable(
+  'reference_images',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    projectId: integer('project_id')
+      .references(() => projects.id, { onDelete: 'cascade' }), // null = Quick Generate
+    type: text('type').notNull(), // 'vibe' | 'precise'
+    filePath: text('file_path').notNull(),
+    thumbnailPath: text('thumbnail_path'),
+    processedPath: text('processed_path'), // precise: resized+letterboxed image
+    encodedVibePath: text('encoded_vibe_path'), // vibe: encoded .bin path
+    encodedModel: text('encoded_model'), // vibe: model used for encoding
+    strength: real('strength').notNull().default(0.6),
+    informationExtracted: real('information_extracted').notNull().default(1.0), // vibe only
+    fidelity: real('fidelity').notNull().default(1.0), // precise only
+    referenceMode: text('reference_mode').notNull().default('character&style'), // precise: character/style/character&style
+    sortOrder: integer('sort_order').notNull().default(0),
+    enabled: integer('enabled').notNull().default(1),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('reference_images_project_id_idx').on(table.projectId),
+    index('reference_images_project_type_idx').on(table.projectId, table.type),
   ],
 )
 

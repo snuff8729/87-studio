@@ -12,6 +12,7 @@ import {
   TimeQuarter02Icon,
   PlayIcon,
   Upload01Icon,
+  AlertCircleIcon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +29,7 @@ import {
 } from '@/components/ui/dialog'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
+import { ReferencePanel } from '@/components/workspace/reference-panel'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import { GridSizeToggle } from '@/components/common/grid-size-toggle'
 import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
@@ -477,13 +479,26 @@ function QuickGeneratePage() {
           />
         }
         leftPanel={
-          <PromptPanelLocal
-            state={state}
-            setState={setState}
-            addCharacter={addCharacter}
-            removeCharacter={removeCharacter}
-            updateCharacterField={updateCharacterField}
-          />
+          <>
+            <PromptPanelLocal
+              state={state}
+              setState={setState}
+              addCharacter={addCharacter}
+              removeCharacter={removeCharacter}
+              updateCharacterField={updateCharacterField}
+            />
+            <ReferencePanel
+              projectId={null}
+              referenceMode={(state.parameters.referenceMode as 'none' | 'vibe' | 'precise') ?? 'none'}
+              currentModel={(state.parameters.model as string) ?? 'nai-diffusion-4-5-full'}
+              onReferenceModeChange={(mode) => {
+                setState((prev) => ({
+                  ...prev,
+                  parameters: { ...prev.parameters, referenceMode: mode },
+                }))
+              }}
+            />
+          </>
         }
         centerPanel={
           <CenterPreview
@@ -1073,6 +1088,8 @@ function ImportMetadataDialog({
               />
             </div>
           </div>
+
+          <ImportReferenceWarning metadata={metadata} />
         </div>
 
         <DialogFooter>
@@ -1115,5 +1132,35 @@ function ImportFieldCheckbox({
         )}
       </div>
     </label>
+  )
+}
+
+function ImportReferenceWarning({ metadata }: { metadata: NAIMetadata }) {
+  const { t } = useTranslation()
+  const hasVibe = metadata.hasVibeTransfer && metadata.vibeTransferInfo && metadata.vibeTransferInfo.length > 0
+  const hasPrecise = metadata.hasCharacterReference && metadata.characterReferenceInfo && metadata.characterReferenceInfo.length > 0
+
+  if (!hasVibe && !hasPrecise) return null
+
+  let message: string
+  if (hasVibe && hasPrecise) {
+    message = t('reference.importWarningBoth', {
+      vibeCount: String(metadata.vibeTransferInfo!.length),
+      preciseCount: String(metadata.characterReferenceInfo!.length),
+    })
+  } else if (hasVibe) {
+    message = t('reference.importWarningVibe', { count: String(metadata.vibeTransferInfo!.length) })
+  } else {
+    message = t('reference.importWarningPrecise', { count: String(metadata.characterReferenceInfo!.length) })
+  }
+
+  return (
+    <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+      <HugeiconsIcon icon={AlertCircleIcon} className="size-4 text-amber-500 shrink-0 mt-0.5" />
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-amber-500">{t('reference.importWarningTitle')}</p>
+        <p className="text-xs text-amber-500/80 mt-0.5">{message}</p>
+      </div>
+    </div>
   )
 }
