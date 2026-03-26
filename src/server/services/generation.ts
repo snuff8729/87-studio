@@ -294,9 +294,10 @@ export function getQueueStatus() {
 }
 
 export function getGlobalQueueStats() {
+  // Include ALL jobs in active batches (not just pending/running) so totals stay stable
   const stats = db
     .select({
-      totalRemaining: sql<number>`SUM(${generationJobs.totalCount} - ${generationJobs.completedCount})`,
+      totalRemaining: sql<number>`SUM(CASE WHEN ${generationJobs.status} IN ('pending', 'running') THEN ${generationJobs.totalCount} - ${generationJobs.completedCount} ELSE 0 END)`,
       totalImages: sql<number>`SUM(${generationJobs.totalCount})`,
       completedImages: sql<number>`SUM(${generationJobs.completedCount})`,
     })
@@ -305,12 +306,7 @@ export function getGlobalQueueStats() {
       generationBatches,
       eq(generationJobs.batchId, generationBatches.id),
     )
-    .where(
-      and(
-        inArray(generationJobs.status, ['pending', 'running']),
-        inArray(generationBatches.status, ['pending', 'running']),
-      ),
-    )
+    .where(inArray(generationBatches.status, ['pending', 'running']))
     .get()
 
   const avgMs =
