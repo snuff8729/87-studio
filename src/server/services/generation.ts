@@ -405,7 +405,6 @@ export function getBatchTiming() {
 async function processQueue() {
   if (processing) return
   processing = true
-  queueStopped = null
 
   // Start or resume session timing
   const isResume = sessionTiming && sessionTiming.completedImages > 0
