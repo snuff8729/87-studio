@@ -1,15 +1,16 @@
 import { useEffect, useRef } from 'react'
 import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view'
+import { EditorView, keymap, ViewPlugin, type ViewUpdate, Compartment } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { autocompletion, acceptCompletion } from '@codemirror/autocomplete'
-import { darkTheme } from './theme'
+import { darkTheme, lightTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
 import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
 import { bundleCompletion, setBundleNames } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
+import { useTheme } from '@/lib/theme'
 
 // CM6 bug workaround: When lineWrapping is on and cursor is at a wrap boundary,
 // enforceCursorAssoc() modifies the DOM selection without checking hasFocus,
@@ -37,10 +38,12 @@ export function PromptEditor({
   minHeight = '200px',
   bundleNames: bundleNamesProp,
 }: PromptEditorProps) {
+  const { resolvedTheme } = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
+  const themeCompartmentRef = useRef(new Compartment())
 
   useEffect(() => {
     loadTagDatabase()
@@ -66,7 +69,7 @@ export function PromptEditor({
         history(),
         EditorView.lineWrapping,
         fixLineWrapFocusSteal,
-        darkTheme,
+        themeCompartmentRef.current.of(resolvedTheme === 'dark' ? darkTheme : lightTheme),
         placeholderHighlight,
         bundleHighlight,
         weightHighlight,
@@ -107,6 +110,17 @@ export function PromptEditor({
     // Only recreate on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Sync theme changes at runtime
+  useEffect(() => {
+    const view = viewRef.current
+    if (!view) return
+    view.dispatch({
+      effects: themeCompartmentRef.current.reconfigure(
+        resolvedTheme === 'dark' ? darkTheme : lightTheme,
+      ),
+    })
+  }, [resolvedTheme])
 
   // Sync external value changes (skip if editor is focused to avoid cursor jumps)
   useEffect(() => {
