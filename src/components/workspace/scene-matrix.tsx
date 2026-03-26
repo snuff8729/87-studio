@@ -376,14 +376,17 @@ function VirtualSceneList({
   const listRef = useRef<HTMLDivElement>(null)
   const [itemHeight, setItemHeight] = useState(SCENE_LIST_ITEM_HEIGHT)
 
-  // Measure actual item height based on sidebar width
+  // Measure actual item height based on sidebar width (rem-aware for UI scale)
   useEffect(() => {
     const el = listRef.current
     if (!el) return
     const measure = () => {
-      const w = el.clientWidth - 16 // px-2 = 8px each side
-      // thumbnail height (aspect 3:4) + info area (~36px) + gap
-      setItemHeight(Math.floor(w * 4 / 3) + 36 + SCENE_LIST_GAP)
+      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
+      const style = getComputedStyle(el)
+      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+      const w = el.clientWidth - padding
+      // thumbnail height (aspect 3:4) + info area (~2.25rem) + gap
+      setItemHeight(Math.floor(w * 4 / 3) + Math.ceil(rem * 2.25) + SCENE_LIST_GAP)
     }
     measure()
     const ro = new ResizeObserver(measure)

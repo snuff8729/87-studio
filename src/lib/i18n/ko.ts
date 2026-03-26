@@ -114,6 +114,9 @@ const ko: DeepStringify<typeof en> = {
     apiKeyEmpty: 'API 키를 먼저 입력하세요',
     apiKeyNetworkError: 'NAI 서버에 연결할 수 없습니다',
     apiKeyUnknownError: '검증에 실패했습니다',
+    uiScale: 'UI 크기',
+    uiScaleDesc: '인터페이스의 전체 크기를 조절합니다. 고해상도 디스플레이에서 유용합니다.',
+    uiScaleReset: '초기화',
   },
   gallery: {
     title: '갤러리',

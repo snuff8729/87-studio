@@ -96,7 +96,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('87studio-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d)})()`,
+            __html: `(function(){var t=localStorage.getItem('87studio-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);var s=localStorage.getItem('87studio-ui-scale');if(s){document.documentElement.style.fontSize=s+'%'}})()`,
           }}
         />
       </head>

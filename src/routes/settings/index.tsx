@@ -66,12 +66,36 @@ function formatBytes(bytes: number): string {
   return `${(bytes / Math.pow(k, i)).toFixed(1)} ${sizes[i]}`
 }
 
+const UI_SCALE_KEY = '87studio-ui-scale'
+const DEFAULT_UI_SCALE = 100
+
+function getInitialUiScale(): number {
+  if (typeof window === 'undefined') return DEFAULT_UI_SCALE
+  const stored = localStorage.getItem(UI_SCALE_KEY)
+  if (stored) {
+    const n = Number(stored)
+    if (n >= 80 && n <= 150) return n
+  }
+  return DEFAULT_UI_SCALE
+}
+
+function applyUiScale(scale: number) {
+  if (scale === DEFAULT_UI_SCALE) {
+    document.documentElement.style.removeProperty('font-size')
+    localStorage.removeItem(UI_SCALE_KEY)
+  } else {
+    document.documentElement.style.fontSize = `${scale}%`
+    localStorage.setItem(UI_SCALE_KEY, String(scale))
+  }
+}
+
 function SettingsPage() {
   const { apiKey: initialApiKey, delay: initialDelay } = Route.useLoaderData()
   const [apiKey, setApiKey] = useState(initialApiKey)
   const [showKey, setShowKey] = useState(false)
   const [delay, setDelay] = useState(Number(initialDelay))
   const [validating, setValidating] = useState(false)
+  const [uiScale, setUiScale] = useState(getInitialUiScale)
   const { t, locale, setLocale } = useTranslation()
   const onboarding = useOnboardingMaybe()
   const { theme, setTheme } = useTheme()
@@ -273,6 +297,54 @@ function SettingsPage() {
                   {label}
                 </Button>
               ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('settings.uiScale')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t('settings.uiScaleDesc')}</p>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Slider
+                  value={[uiScale]}
+                  onValueChange={([v]) => {
+                    setUiScale(v)
+                    applyUiScale(v)
+                  }}
+                  min={80}
+                  max={150}
+                  step={5}
+                  className="flex-1"
+                />
+                <span className="text-sm font-mono text-primary w-12 text-right">{uiScale}%</span>
+                {uiScale !== DEFAULT_UI_SCALE && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setUiScale(DEFAULT_UI_SCALE)
+                      applyUiScale(DEFAULT_UI_SCALE)
+                    }}
+                  >
+                    {t('settings.uiScaleReset')}
+                  </Button>
+                )}
+              </div>
+              <div className="relative text-sm text-muted-foreground h-5">
+                {[80, 100, 125, 150].map((v) => (
+                  <span
+                    key={v}
+                    className="absolute -translate-x-1/2"
+                    style={{ left: `${((v - 80) / 70) * 100}%` }}
+                  >
+                    {v}%
+                  </span>
+                ))}
+              </div>
             </div>
           </CardContent>
         </Card>

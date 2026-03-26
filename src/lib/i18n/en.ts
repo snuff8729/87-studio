@@ -111,6 +111,9 @@ const en = {
     apiKeyEmpty: 'Please enter an API key first',
     apiKeyNetworkError: 'Could not connect to NAI server',
     apiKeyUnknownError: 'Validation failed',
+    uiScale: 'UI Scale',
+    uiScaleDesc: 'Adjust the overall size of the interface. Useful for high-resolution displays.',
+    uiScaleReset: 'Reset',
   },
   gallery: {
     title: 'Gallery',
