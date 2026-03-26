@@ -1,8 +1,8 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
-import { generationJobs, generatedImages } from '../db/schema'
+import { generationBatches, generationJobs, generatedImages } from '../db/schema'
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
-import { enqueueJob, getQueueStatus, getBatchTiming } from '../services/generation'
+import { enqueueBatch, getQueueStatus, getGlobalQueueStats, getNextBatchOrder } from '../services/generation'
 import { createLogger } from '../services/logger'
 import { resolveBundlesInRawPrompts, type ResolvedPrompts } from '../services/prompt'
 
@@ -33,12 +33,26 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
     // Resolve @{bundle} references server-side
     const resolvedPrompts = resolveBundlesInRawPrompts(rawPrompts)
 
+    // Create batch (projectId = null for quick generate)
+    const batch = db
+      .insert(generationBatches)
+      .values({
+        projectId: null,
+        label: 'Quick Generate',
+        queueOrder: getNextBatchOrder(),
+        status: 'pending',
+      })
+      .returning()
+      .get()
+
     const job = db
       .insert(generationJobs)
       .values({
         projectId: null,
         projectSceneId: null,
         sourceSceneId: null,
+        batchId: batch.id,
+        queueOrder: 0,
         resolvedPrompts: JSON.stringify(resolvedPrompts),
         resolvedParameters: JSON.stringify(data.parameters),
         totalCount: data.count,
@@ -48,10 +62,11 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
       .returning()
       .get()
 
-    enqueueJob(job.id)
+    enqueueBatch(batch.id)
 
     log.info('createQuickJob', 'Quick generation job created', {
       jobId: job.id,
+      batchId: batch.id,
       count: data.count,
     })
 
@@ -77,6 +92,7 @@ export const listQuickImages = createServerFn({ method: 'GET' })
 export const listQuickJobs = createServerFn({ method: 'GET' })
   .handler(async () => {
     const queueStatus = getQueueStatus()
+    const globalStats = getGlobalQueueStats()
 
     const jobs = db
       .select({
@@ -112,5 +128,14 @@ export const listQuickJobs = createServerFn({ method: 'GET' })
       if (failedJob) jobs.unshift(failedJob)
     }
 
-    return { jobs, batchTiming: getBatchTiming(), queueStatus }
+    const batchTiming = globalStats.sessionTiming
+      ? {
+          startedAt: globalStats.sessionTiming.startedAt,
+          totalImages: globalStats.totalImages,
+          completedImages: globalStats.completedImages,
+          avgImageDurationMs: globalStats.avgImageDurationMs,
+        }
+      : null
+
+    return { jobs, batchTiming, queueStatus }
   })
