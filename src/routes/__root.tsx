@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider, useTranslation } from '@/lib/i18n'
 import { OnboardingProvider } from '@/lib/onboarding'
+import { ThemeProvider } from '@/lib/theme'
 import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay'
 
 import appCss from '../styles.css?url'
@@ -86,9 +87,14 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <head>
         <HeadContent />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var t=localStorage.getItem('87studio-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d)})()`,
+          }}
+        />
       </head>
       <body>
         {children}
@@ -106,29 +112,31 @@ function RootComponent() {
   const isImageDetail = /^\/gallery\/\d+/.test(pathname)
 
   return (
-    <I18nProvider>
-      <OnboardingProvider>
-        {isWorkspace || isImageDetail || isGenerate ? (
-          <TooltipProvider delayDuration={300}>
-            <Outlet />
-            <Toaster richColors position="top-center" />
-          </TooltipProvider>
-        ) : (
-          <TooltipProvider delayDuration={300}>
-            <Sidebar />
-            <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
-              <div className="p-4 lg:p-6">
-                <div className="animate-in fade-in-0 duration-150">
-                  <Outlet />
+    <ThemeProvider>
+      <I18nProvider>
+        <OnboardingProvider>
+          {isWorkspace || isImageDetail || isGenerate ? (
+            <TooltipProvider delayDuration={300}>
+              <Outlet />
+              <Toaster richColors position="top-center" />
+            </TooltipProvider>
+          ) : (
+            <TooltipProvider delayDuration={300}>
+              <Sidebar />
+              <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
+                <div className="p-4 lg:p-6">
+                  <div className="animate-in fade-in-0 duration-150">
+                    <Outlet />
+                  </div>
                 </div>
-              </div>
-            </main>
-            <BottomNav />
-            <Toaster richColors position="bottom-right" />
-          </TooltipProvider>
-        )}
-        <OnboardingOverlay />
-      </OnboardingProvider>
-    </I18nProvider>
+              </main>
+              <BottomNav />
+              <Toaster richColors position="bottom-right" />
+            </TooltipProvider>
+          )}
+          <OnboardingOverlay />
+        </OnboardingProvider>
+      </I18nProvider>
+    </ThemeProvider>
   )
 }
