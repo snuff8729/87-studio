@@ -2,7 +2,7 @@ import { lazy, Suspense, useState, useRef, useEffect, useMemo } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
+import { Add01Icon, Delete02Icon, ArrowExpand01Icon } from '@hugeicons/core-free-icons'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -17,6 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
@@ -86,6 +87,9 @@ export function PromptPanel({
   const [charPrompt, setCharPrompt] = useState('')
   const [charNegative, setCharNegative] = useState('')
   const charSaveRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  // Expanded editor dialog
+  const [expandTarget, setExpandTarget] = useState<'prompt' | 'negative' | null>(null)
 
   // Add character popover
   const [addOpen, setAddOpen] = useState(false)
@@ -369,9 +373,19 @@ export function PromptPanel({
       {(activeContext === 'general' || activeChar) && (
         <>
           <div className="space-y-1.5">
-            <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
+              </Label>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setExpandTarget('prompt')}
+                title={t('workspace.expandEditor')}
+              >
+                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+              </Button>
+            </div>
             <div data-onboarding="prompt-editor">
               <LazyPromptEditor
                 key={`prompt-${activeContext}`}
@@ -402,9 +416,19 @@ export function PromptPanel({
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
-            </Label>
+            <div className="flex items-center justify-between">
+              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
+              </Label>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                onClick={() => setExpandTarget('negative')}
+                title={t('workspace.expandEditor')}
+              >
+                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+              </Button>
+            </div>
             <LazyPromptEditor
               key={`negative-${activeContext}`}
               value={displayNegative}
@@ -433,6 +457,19 @@ export function PromptPanel({
           </div>
         </>
       )}
+
+      <ExpandedEditorDialog
+        open={expandTarget !== null}
+        onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
+        title={
+          expandTarget === 'prompt'
+            ? (isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt'))
+            : (isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt'))
+        }
+        value={expandTarget === 'prompt' ? displayPrompt : displayNegative}
+        onChange={expandTarget === 'prompt' ? handlePromptChange : handleNegativeChange}
+        bundleNames={bundleNames}
+      />
     </div>
   )
 }
