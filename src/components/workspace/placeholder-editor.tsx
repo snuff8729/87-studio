@@ -6,7 +6,9 @@ import {
   ArrowDown01Icon,
   Add01Icon,
   Cancel01Icon,
+  ArrowExpand01Icon,
 } from '@hugeicons/core-free-icons'
+import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -316,6 +318,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
   const unusedCount = extraGeneralKeys.length + extraCharacterKeys.reduce((s, c) => s + c.keys.length, 0)
 
+  // ── Expanded textarea dialog ──
+  const [expandTarget, setExpandTarget] = useState<{ key: string; owner: 'general' | number } | null>(null)
+
   // ── Prompt Preview (throttled) ──
   const [previewOpen, setPreviewOpen] = useState(false)
   const [resolvedPrompts, setResolvedPrompts] = useState<{
@@ -521,12 +526,22 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               )}
               {classifiedKeys.unfilledGeneral.map((key) => (
                 <div key={key} id={`slot-g-${key}`}>
-                  <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mb-1.5">
-                    <StatusDot filled={!!getCellValue(key, 'general')} />
-                    <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                      {`\\\\${key}\\\\`}
-                    </span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                      <StatusDot filled={!!getCellValue(key, 'general')} />
+                      <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
+                        {`\\\\${key}\\\\`}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setExpandTarget({ key, owner: 'general' })}
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                      title={t('workspace.expandEditor')}
+                    >
+                      <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                    </button>
+                  </div>
                   <textarea
                     value={getCellValue(key, 'general')}
                     onChange={(e) => handleCellChange('general', key, e.target.value)}
@@ -546,12 +561,22 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               <div className="text-xs text-muted-foreground/60">{charName}</div>
               {keys.map((key) => (
                 <div key={key} id={`slot-c-${charId}-${key}`}>
-                  <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mb-1.5">
-                    <StatusDot filled={false} />
-                    <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                      {`\\\\${key}\\\\`}
-                    </span>
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                      <StatusDot filled={false} />
+                      <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
+                        {`\\\\${key}\\\\`}
+                      </span>
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setExpandTarget({ key, owner: charId })}
+                      className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                      title={t('workspace.expandEditor')}
+                    >
+                      <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                    </button>
+                  </div>
                   <textarea
                     value={getCellValue(key, charId)}
                     onChange={(e) => handleCellChange(charId, key, e.target.value)}
@@ -594,12 +619,22 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                   )}
                   {classifiedKeys.filledGeneral.map((key) => (
                     <div key={key} id={`slot-g-${key}`}>
-                      <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mb-1.5">
-                        <StatusDot filled={!!getCellValue(key, 'general')} />
-                        <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                          {`\\\\${key}\\\\`}
-                        </span>
-                      </label>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                          <StatusDot filled={!!getCellValue(key, 'general')} />
+                          <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
+                            {`\\\\${key}\\\\`}
+                          </span>
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setExpandTarget({ key, owner: 'general' })}
+                          className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                          title={t('workspace.expandEditor')}
+                        >
+                          <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                        </button>
+                      </div>
                       <textarea
                         value={getCellValue(key, 'general')}
                         onChange={(e) => handleCellChange('general', key, e.target.value)}
@@ -637,15 +672,25 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       <div className="px-4 pb-3 space-y-2.5">
                         {keys.map(({ key, isTemplate }) => (
                           <div key={key} id={`slot-c-${charId}-${key}`}>
-                            <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mb-1.5">
-                              <StatusDot filled={true} template={isTemplate} />
-                              <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                                {`\\\\${key}\\\\`}
-                              </span>
-                              {isTemplate && (
-                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">{t('placeholder.defaultValue')}</span>
-                              )}
-                            </label>
+                            <div className="flex items-center justify-between mb-1.5">
+                              <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+                                <StatusDot filled={true} template={isTemplate} />
+                                <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
+                                  {`\\\\${key}\\\\`}
+                                </span>
+                                {isTemplate && (
+                                  <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">{t('placeholder.defaultValue')}</span>
+                                )}
+                              </label>
+                              <button
+                                type="button"
+                                onClick={() => setExpandTarget({ key, owner: charId })}
+                                className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                                title={t('workspace.expandEditor')}
+                              >
+                                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                              </button>
+                            </div>
                             <textarea
                               value={getEffectiveCharValue(key, charId)}
                               onChange={(e) => handleCellChange(charId, key, e.target.value)}
@@ -795,6 +840,20 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           </div>
         </>
       )}
+      <ExpandedTextareaDialog
+        open={expandTarget !== null}
+        onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
+        title={expandTarget ? `\\${expandTarget.key}\\` : ''}
+        value={expandTarget ? (
+          typeof expandTarget.owner === 'number'
+            ? getEffectiveCharValue(expandTarget.key, expandTarget.owner)
+            : getCellValue(expandTarget.key, 'general')
+        ) : ''}
+        onChange={(val) => {
+          if (expandTarget) handleCellChange(expandTarget.owner, expandTarget.key, val)
+        }}
+        placeholder={expandTarget ? t('scene.valueFor', { key: expandTarget.key }) : ''}
+      />
     </div>
   )
 })
