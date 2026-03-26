@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useRouter, Link } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft02Icon, Cancel01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
+import { ArrowLeft02Icon, Cancel01Icon, Delete02Icon, ArrowExpand01Icon } from '@hugeicons/core-free-icons'
+import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -85,6 +86,7 @@ function ImageDetailContent({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const [memo, setMemo] = useState(detail.memo || '')
+  const [memoExpanded, setMemoExpanded] = useState(false)
   const [newTag, setNewTag] = useState('')
   const [refExpanded, setRefExpanded] = useState(false)
   const [naiExpanded, setNaiExpanded] = useState(false)
@@ -310,8 +312,27 @@ function ImageDetailContent({
 
         {/* Memo */}
         <div className="mb-4">
-          <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.memo')}</label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-sm text-muted-foreground">{t('imageDetail.memo')}</label>
+            <button
+              type="button"
+              onClick={() => setMemoExpanded(true)}
+              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+              title={t('workspace.expandEditor')}
+            >
+              <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+            </button>
+          </div>
           <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} onBlur={handleSaveMemo} placeholder={t('imageDetail.addNote')} className="text-base min-h-20" />
+          <ExpandedTextareaDialog
+            open={memoExpanded}
+            onOpenChange={setMemoExpanded}
+            title={t('imageDetail.memo')}
+            value={memo}
+            onChange={setMemo}
+            onBlur={handleSaveMemo}
+            placeholder={t('imageDetail.addNote')}
+          />
         </div>
 
         {/* Tags */}

@@ -12,12 +12,14 @@ import {
   PencilEdit01Icon,
   Tick02Icon,
   FileImportIcon,
+  ArrowExpand01Icon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import {
   Select,
   SelectContent,
@@ -621,6 +623,7 @@ function SceneEditPanel({
   const [values, setValues] = useState<Record<string, string>>(initialPlaceholders)
   const [newKey, setNewKey] = useState('')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [expandKey, setExpandKey] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -735,6 +738,14 @@ function SceneEditPanel({
                 placeholder={t('templates.valueForKey', { key })}
                 className="flex-1 text-base font-mono min-h-10 py-2 px-3 rounded-lg"
               />
+              <button
+                type="button"
+                onClick={() => setExpandKey(key)}
+                className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors mt-2 shrink-0"
+                title={t('workspace.expandEditor')}
+              >
+                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+              </button>
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -761,6 +772,15 @@ function SceneEditPanel({
           {t('templates.addKey')}
         </Button>
       </div>
+
+      <ExpandedTextareaDialog
+        open={expandKey !== null}
+        onOpenChange={(open) => { if (!open) setExpandKey(null) }}
+        title={expandKey ? `\\${expandKey}\\` : ''}
+        value={expandKey ? (values[expandKey] ?? '') : ''}
+        onChange={(val) => { if (expandKey) handleValueChange(expandKey, val) }}
+        placeholder={expandKey ? t('templates.valueForKey', { key: expandKey }) : ''}
+      />
     </div>
   )
 }

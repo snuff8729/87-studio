@@ -35,7 +35,9 @@ import {
   MoreHorizontalIcon,
   Image02Icon,
   PencilEdit01Icon,
+  ArrowExpand01Icon,
 } from '@hugeicons/core-free-icons'
+import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { useTranslation, type TranslationKeys } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 
@@ -117,6 +119,7 @@ function ProjectSelectorPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [descExpanded, setDescExpanded] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
   const [renameTarget, setRenameTarget] = useState<{ id: number; name: string } | null>(null)
   const [renameName, setRenameName] = useState('')
@@ -408,12 +411,30 @@ function ProjectSelectorPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t('dashboard.descriptionOptional')}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>{t('dashboard.descriptionOptional')}</Label>
+                  <button
+                    type="button"
+                    onClick={() => setDescExpanded(true)}
+                    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                    title={t('workspace.expandEditor')}
+                  >
+                    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                  </button>
+                </div>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t('dashboard.briefDescription')}
                   rows={2}
+                />
+                <ExpandedTextareaDialog
+                  open={descExpanded}
+                  onOpenChange={setDescExpanded}
+                  title={t('dashboard.descriptionOptional')}
+                  value={description}
+                  onChange={setDescription}
+                  placeholder={t('dashboard.briefDescription')}
                 />
               </div>
               <Button onClick={handleCreate} disabled={!name.trim()} className="w-full">
