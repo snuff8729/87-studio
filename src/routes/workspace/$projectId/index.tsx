@@ -431,6 +431,11 @@ function WorkspacePage() {
         data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
       )
       setQueueStopped(stopped)
+    } else {
+      // No active jobs and no queue stop state — clear generating
+      setActiveJobs([])
+      setGenerating(false)
+      setQueueStopped(null)
     }
   }, [data.activeJobs, data.queueStatus])
 
