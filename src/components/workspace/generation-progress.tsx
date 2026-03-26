@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { Link } from '@tanstack/react-router'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -237,6 +238,17 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
                 </>
               )}
             </div>
+          </div>
+
+          {/* Link to full queue */}
+          <div className="px-3 pb-1">
+            <Link
+              to="/queue"
+              className="text-xs text-primary hover:underline"
+              onClick={() => setOpen(false)}
+            >
+              {t('queue.viewFullQueue' as any)}
+            </Link>
           </div>
 
           {/* Per-scene list */}
