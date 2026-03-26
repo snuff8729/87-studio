@@ -79,9 +79,10 @@ interface SortableBatchRowProps {
   batch: BatchData
   onCancel: (batchId: number) => void
   onRetry: (batchId: number) => void
+  queuePaused: boolean
 }
 
-function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
+function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -139,10 +140,10 @@ function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
     batch.totalImages > 0
       ? (batch.completedImages / batch.totalImages) * 100
       : 0
-  const isRunning = batch.status === 'running'
-  const isPending = batch.status === 'pending'
+  const isRunning = batch.status === 'running' && !queuePaused
+  const isPaused = queuePaused && (batch.status === 'running' || batch.status === 'pending')
 
-  const barColor = isRunning ? 'bg-primary' : 'bg-muted-foreground/40'
+  const barColor = isPaused ? 'bg-amber-500' : isRunning ? 'bg-primary' : 'bg-muted-foreground/40'
 
   return (
     <div
@@ -163,12 +164,12 @@ function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
 
         {/* Status indicator */}
         <div className="shrink-0">
-          {isRunning ? (
+          {isPaused ? (
+            <span className="size-2 rounded-full bg-amber-500 inline-block" />
+          ) : isRunning ? (
             <span className="size-2 rounded-full bg-primary animate-pulse inline-block" />
-          ) : isPending ? (
-            <span className="size-2 rounded-full bg-muted-foreground/40 inline-block" />
           ) : (
-            <span className="size-2 rounded-full bg-muted-foreground/20 inline-block" />
+            <span className="size-2 rounded-full bg-muted-foreground/40 inline-block" />
           )}
         </div>
 
@@ -713,6 +714,7 @@ function QueuePage() {
                     batch={batch}
                     onCancel={(id) => cancelBatchMutation.mutate(id)}
                     onRetry={(id) => retryBatchMutation.mutate(id)}
+                    queuePaused={isPaused}
                   />
                 ))}
               </div>
