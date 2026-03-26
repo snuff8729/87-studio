@@ -126,6 +126,24 @@ export const characterSceneOverrides = sqliteTable(
   ],
 )
 
+// ─── Generation Batches ────────────────────────────────────────────────────
+export const generationBatches = sqliteTable(
+  'generation_batches',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    projectId: integer('project_id').references(() => projects.id, {
+      onDelete: 'set null',
+    }),
+    label: text('label').notNull(),
+    queueOrder: integer('queue_order').notNull(),
+    status: text('status').default('pending'), // pending, running, completed, failed, cancelled
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('generation_batches_status_order_idx').on(table.status, table.queueOrder),
+  ],
+)
+
 // ─── Generation Jobs ────────────────────────────────────────────────────────
 export const generationJobs = sqliteTable(
   'generation_jobs',
@@ -138,6 +156,10 @@ export const generationJobs = sqliteTable(
     sourceSceneId: integer('source_scene_id').references(() => scenes.id, {
       onDelete: 'set null',
     }),
+    batchId: integer('batch_id').references(() => generationBatches.id, {
+      onDelete: 'cascade',
+    }),
+    queueOrder: integer('queue_order').default(0),
     resolvedPrompts: text('resolved_prompts').notNull(),
     resolvedParameters: text('resolved_parameters').notNull(),
     totalCount: integer('total_count').default(1),
@@ -151,6 +173,7 @@ export const generationJobs = sqliteTable(
     index('generation_jobs_status_idx').on(table.status),
     index('generation_jobs_project_id_idx').on(table.projectId),
     index('generation_jobs_scene_id_idx').on(table.projectSceneId),
+    index('generation_jobs_batch_order_idx').on(table.batchId, table.queueOrder),
   ],
 )
 
