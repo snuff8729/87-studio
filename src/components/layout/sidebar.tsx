@@ -12,6 +12,7 @@ import {
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from '@/lib/i18n'
 import type { TranslationKeys } from '@/lib/i18n'
+import { QueueStatusWidget } from '@/components/queue/queue-status-widget'
 
 const navItems = [
   { to: '/', key: 'nav.projects' as TranslationKeys, icon: Home03Icon },
@@ -59,6 +60,10 @@ export function Sidebar() {
           )
         })}
       </nav>
+
+      <div className="mt-auto px-3 pb-3">
+        <QueueStatusWidget />
+      </div>
     </aside>
   )
 }
