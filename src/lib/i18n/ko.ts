@@ -259,6 +259,7 @@ const ko: DeepStringify<typeof en> = {
     charPromptPlaceholder: '{{name}} 프롬프트 (\\\\placeholders\\\\ 사용 가능)...',
     negativePromptPlaceholder: '네거티브 프롬프트를 입력하세요...',
     charNegativePlaceholder: '{{name}} 네거티브...',
+    expandEditor: '에디터 확대',
   },
   scene: {
     reserve: '예약',

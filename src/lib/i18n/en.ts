@@ -256,6 +256,7 @@ const en = {
     charPromptPlaceholder: '{{name}} prompt with \\\\placeholders\\\\...',
     negativePromptPlaceholder: 'Enter negative prompt...',
     charNegativePlaceholder: '{{name}} negative...',
+    expandEditor: 'Expand editor',
   },
   scene: {
     reserve: 'Reserve',
