@@ -549,6 +549,7 @@ function WorkspacePage() {
         },
       })
       toast.success(t('generation.generationStarted', { count: batchTotal }))
+      window.dispatchEvent(new CustomEvent('queue-updated'))
       window.dispatchEvent(new CustomEvent('onboarding:generation-started'))
     } catch {
       toast.error(t('generation.generationFailed'))

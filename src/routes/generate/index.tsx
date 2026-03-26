@@ -375,6 +375,7 @@ function QuickGeneratePage() {
         },
       })
       toast.success(t('generation.generationStarted', { count: state.count }))
+      window.dispatchEvent(new CustomEvent('queue-updated'))
       startPolling()
     } catch {
       toast.error(t('generation.generationFailed'))

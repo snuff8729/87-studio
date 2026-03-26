@@ -80,9 +80,17 @@ export function GenerationProgress() {
     }
     poll()
     const id = setInterval(poll, 2000)
+
+    // Immediate refresh when a new batch is enqueued
+    function onQueueUpdated() {
+      poll()
+    }
+    window.addEventListener('queue-updated', onQueueUpdated)
+
     return () => {
       active = false
       clearInterval(id)
+      window.removeEventListener('queue-updated', onQueueUpdated)
     }
   }, [])
 
