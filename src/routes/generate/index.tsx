@@ -632,7 +632,7 @@ function QuickGeneratePage() {
               <Button
                 size="sm"
                 onClick={handleGenerate}
-                disabled={generating || !state.generalPrompt.trim()}
+                disabled={!state.generalPrompt.trim()}
               >
                 <HugeiconsIcon icon={PlayIcon} className="size-5" />
                 <span className="hidden sm:inline">

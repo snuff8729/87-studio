@@ -64,7 +64,7 @@ export const BottomToolbar = memo(function BottomToolbar({
         <Button
           size="sm"
           onClick={onGenerate}
-          disabled={generating || totalImages === 0}
+          disabled={totalImages === 0}
         >
           <HugeiconsIcon icon={PlayIcon} className="size-5" />
           <span className="hidden sm:inline">
