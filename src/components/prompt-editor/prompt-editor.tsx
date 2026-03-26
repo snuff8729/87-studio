@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
-import { EditorState } from '@codemirror/state'
-import { EditorView, keymap, ViewPlugin, type ViewUpdate, Compartment } from '@codemirror/view'
+import { EditorState, Compartment } from '@codemirror/state'
+import { EditorView, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { autocompletion, acceptCompletion } from '@codemirror/autocomplete'
 import { darkTheme, lightTheme } from './theme'
