@@ -356,54 +356,122 @@ function RecentBatchRow({
   onRetry: (batchId: number) => void
 }) {
   const { t } = useTranslation()
+  const [expanded, setExpanded] = useState(false)
+
+  const { data: jobs } = useQuery({
+    queryKey: ['batch-jobs', batch.id],
+    queryFn: () => getBatchJobs({ data: batch.id }),
+    enabled: expanded,
+  })
 
   const isCompleted = batch.status === 'completed'
   const isFailed = batch.status === 'failed'
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 border border-border rounded-lg bg-card">
-      <div className="shrink-0">
-        {isCompleted ? (
-          <HugeiconsIcon
-            icon={CheckmarkCircle01Icon}
-            className="size-4 text-green-500"
-          />
-        ) : isFailed ? (
-          <HugeiconsIcon
-            icon={AlertCircleIcon}
-            className="size-4 text-destructive"
-          />
-        ) : (
-          <HugeiconsIcon
-            icon={Cancel01Icon}
-            className="size-4 text-muted-foreground"
-          />
-        )}
+    <div className="border border-border rounded-lg bg-card overflow-hidden">
+      <div className="flex items-center gap-3 px-3 py-2">
+        <div className="shrink-0">
+          {isCompleted ? (
+            <HugeiconsIcon
+              icon={CheckmarkCircle01Icon}
+              className="size-4 text-green-500"
+            />
+          ) : isFailed ? (
+            <HugeiconsIcon
+              icon={AlertCircleIcon}
+              className="size-4 text-destructive"
+            />
+          ) : (
+            <HugeiconsIcon
+              icon={Cancel01Icon}
+              className="size-4 text-muted-foreground"
+            />
+          )}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <span className="text-sm text-foreground truncate block">
+            {batch.label ?? `Batch #${batch.id}`}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {batch.completedImages}/{batch.totalImages}
+            {' · '}
+            {isCompleted
+              ? t('queue.completed' as any)
+              : isFailed
+                ? t('queue.failed' as any)
+                : t('queue.cancelled' as any)}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-1 shrink-0">
+          {isFailed && (
+            <button
+              onClick={() => onRetry(batch.id)}
+              className="p-1.5 text-muted-foreground hover:text-foreground rounded text-xs flex items-center gap-1"
+              title={t('queue.retryBatch' as any)}
+            >
+              <HugeiconsIcon icon={ArrowReloadHorizontalIcon} className="size-4" />
+            </button>
+          )}
+          <button
+            onClick={() => setExpanded((v) => !v)}
+            className="p-1 text-muted-foreground hover:text-foreground rounded"
+            aria-label={expanded ? 'Collapse' : 'Expand'}
+          >
+            <HugeiconsIcon
+              icon={expanded ? ChevronUpIcon : ChevronDownIcon}
+              className="size-4"
+            />
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 min-w-0">
-        <span className="text-sm text-foreground truncate block">
-          {batch.label ?? `Batch #${batch.id}`}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {batch.completedImages}/{batch.totalImages}
-          {' · '}
-          {isCompleted
-            ? t('queue.completed' as any)
-            : isFailed
-              ? t('queue.failed' as any)
-              : t('queue.cancelled' as any)}
-        </span>
-      </div>
-
-      {isFailed && (
-        <button
-          onClick={() => onRetry(batch.id)}
-          className="p-1.5 text-muted-foreground hover:text-foreground rounded text-xs flex items-center gap-1"
-          title={t('queue.retryBatch' as any)}
-        >
-          <HugeiconsIcon icon={ArrowReloadHorizontalIcon} className="size-4" />
-        </button>
+      {/* Expanded jobs */}
+      {expanded && jobs && jobs.length > 0 && (
+        <div className="border-t border-border bg-muted/30 px-3 py-2 space-y-0.5">
+          {jobs.map((job) => {
+            const isJobRunning = job.status === 'running'
+            const isJobFailed = job.status === 'failed'
+            const isJobCompleted = job.status === 'completed'
+            const completed = job.completedCount ?? 0
+            const total = job.totalCount ?? 0
+            const pct = total > 0 ? (completed / total) * 100 : 0
+            const statusColor = isJobFailed
+              ? 'bg-destructive'
+              : isJobRunning
+                ? 'bg-primary animate-pulse'
+                : isJobCompleted
+                  ? 'bg-green-500'
+                  : 'bg-muted-foreground/30'
+            return (
+              <div key={job.id}>
+                <div className="flex items-center gap-2 py-1 pl-1">
+                  <span
+                    className={`size-1.5 rounded-full shrink-0 inline-block ${statusColor}`}
+                  />
+                  <span className="text-xs truncate flex-1 min-w-0">
+                    {job.sceneName ?? `Job #${job.id}`}
+                  </span>
+                  <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
+                    <div
+                      className="h-full rounded-full bg-primary"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                  <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-10 text-right">
+                    {completed}/{total}
+                  </span>
+                </div>
+                {job.status === 'failed' && job.errorMessage && (
+                  <p className="text-[11px] text-destructive/80 pl-3.5 line-clamp-2">
+                    {job.errorMessage}
+                  </p>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
     </div>
   )
