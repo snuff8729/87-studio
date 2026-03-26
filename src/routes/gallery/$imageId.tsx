@@ -172,6 +172,7 @@ function ImageDetailPage() {
           to: '/gallery/$imageId',
           params: { imageId: String(detail.prevId) },
           search,
+          replace: true,
         })
       }
       if (e.key === 'ArrowRight' && detail.nextId) {
@@ -179,6 +180,7 @@ function ImageDetailPage() {
           to: '/gallery/$imageId',
           params: { imageId: String(detail.nextId) },
           search,
+          replace: true,
         })
       }
       if (e.key === 'Escape') {
@@ -303,6 +305,7 @@ function ImageDetailPage() {
             to="/gallery/$imageId"
             params={{ imageId: String(detail.prevId) }}
             search={search}
+            replace
             className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/80 text-4xl transition-colors z-10"
           >
             &lsaquo;
@@ -321,6 +324,7 @@ function ImageDetailPage() {
             to="/gallery/$imageId"
             params={{ imageId: String(detail.nextId) }}
             search={search}
+            replace
             className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/80 text-4xl transition-colors z-10"
           >
             &rsaquo;
