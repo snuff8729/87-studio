@@ -88,7 +88,10 @@ function updateBatchStatusFromJobs(batchId: number) {
   let newStatus: string
   if (stats.cancelled === stats.total) {
     newStatus = 'cancelled'
-  } else if (stats.completed + stats.cancelled === stats.total) {
+  } else if (stats.completed + stats.cancelled === stats.total && stats.cancelled > 0 && stats.completed > 0) {
+    // Mix of completed and cancelled — mark as cancelled (partial cancel)
+    newStatus = 'cancelled'
+  } else if (stats.completed === stats.total) {
     newStatus = 'completed'
   } else if (stats.failed > 0 && stats.pending === 0 && stats.running === 0) {
     newStatus = 'failed'
