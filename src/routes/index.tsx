@@ -1,5 +1,5 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -41,7 +41,6 @@ import {
   listProjects,
   updateProject,
 } from '@/server/functions/projects'
-import { listJobs } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
@@ -107,16 +106,12 @@ function PendingComponent() {
 
 export const Route = createFileRoute('/')({
   loader: async () => {
-    const [projectList, jobs, apiKey] = await Promise.all([
+    const [projectList, apiKey] = await Promise.all([
       listProjects(),
-      listJobs(),
       getSetting({ data: 'nai_api_key' }),
     ])
     return {
       projects: projectList,
-      activeJobs: jobs.filter(
-        (j) => j.status === 'running' || j.status === 'pending',
-      ),
       hasApiKey: !!apiKey && apiKey.length > 0,
     }
   },
@@ -128,7 +123,6 @@ function ProjectSelectorPage() {
   const data = Route.useLoaderData()
   const router = useRouter()
   const { projects, hasApiKey } = data
-  const [liveJobs, setLiveJobs] = useState(data.activeJobs)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -144,43 +138,6 @@ function ProjectSelectorPage() {
   const [renameName, setRenameName] = useState('')
   const { t } = useTranslation()
   const onboarding = useOnboardingMaybe()
-
-  // Sync from loader when navigating back
-  useEffect(() => {
-    setLiveJobs(data.activeJobs)
-  }, [data.activeJobs])
-
-  // Poll active jobs for real-time progress
-  const pollingRef = useRef(false)
-  useEffect(() => {
-    if (liveJobs.length === 0) return
-    let cancelled = false
-
-    const interval = setInterval(async () => {
-      if (cancelled || pollingRef.current) return
-      pollingRef.current = true
-      try {
-        const jobs = await listJobs()
-        if (cancelled) return
-        const active = jobs.filter(
-          (j) => j.status === 'running' || j.status === 'pending',
-        )
-        setLiveJobs(active)
-        if (active.length === 0) {
-          router.invalidate()
-        }
-      } catch {
-        // ignore poll errors
-      } finally {
-        pollingRef.current = false
-      }
-    }, 2000)
-
-    return () => {
-      cancelled = true
-      clearInterval(interval)
-    }
-  }, [liveJobs.length > 0, router])
 
   async function handleCreate() {
     if (!name.trim()) {
@@ -278,63 +235,6 @@ function ProjectSelectorPage() {
           </Button>
         </div>
       </div>
-
-      {/* Active jobs notice */}
-      {liveJobs.length > 0 &&
-        (() => {
-          const runningJobs = liveJobs.filter((j) => j.status === 'running')
-          const pendingJobs = liveJobs.filter((j) => j.status === 'pending')
-          const MAX_PENDING = 3
-          const visiblePending = pendingJobs.slice(0, MAX_PENDING)
-          const hiddenPendingCount = pendingJobs.length - visiblePending.length
-          const visibleJobs = [...runningJobs, ...visiblePending]
-
-          return (
-            <div className="mb-4 space-y-1.5">
-              {visibleJobs.map((j) => (
-                <Link
-                  key={j.id}
-                  to="/workspace/$projectId"
-                  params={{ projectId: String(j.projectId) }}
-                  search={{ imageDetail: undefined }}
-                  className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 transition-colors hover:bg-primary/8"
-                >
-                  <div
-                    className={`size-2 rounded-full shrink-0 ${j.status === 'running' ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'}`}
-                  />
-                  <span className="text-base font-medium truncate">
-                    {j.projectName && j.projectSceneName
-                      ? `${j.projectName} / ${j.projectSceneName}`
-                      : `Job #${j.id}`}
-                  </span>
-                  <Badge variant="secondary" className="text-sm shrink-0">
-                    {j.status}
-                  </Badge>
-                  <div className="flex-1 min-w-16">
-                    <div className="h-1 rounded-full bg-secondary overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-primary transition-all duration-500"
-                        style={{
-                          width: `${((j.completedCount ?? 0) / (j.totalCount ?? 1)) * 100}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <span className="text-sm text-muted-foreground tabular-nums shrink-0">
-                    {j.completedCount}/{j.totalCount}
-                  </span>
-                </Link>
-              ))}
-              {hiddenPendingCount > 0 && (
-                <div className="text-sm text-muted-foreground text-center py-1">
-                  {t('dashboard.morePendingJobs', {
-                    count: hiddenPendingCount,
-                  })}
-                </div>
-              )}
-            </div>
-          )
-        })()}
 
       {/* Project list */}
       <div className="space-y-2">
