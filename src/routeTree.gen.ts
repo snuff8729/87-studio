@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as GalleryRouteRouteImport } from './routes/gallery/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
+import { Route as QueueIndexRouteImport } from './routes/queue/index'
 import { Route as MetadataIndexRouteImport } from './routes/metadata/index'
 import { Route as GenerateIndexRouteImport } from './routes/generate/index'
 import { Route as GalleryIndexRouteImport } from './routes/gallery/index'
@@ -34,6 +35,11 @@ const IndexRoute = IndexRouteImport.update({
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/settings/',
   path: '/settings/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const QueueIndexRoute = QueueIndexRouteImport.update({
+  id: '/queue/',
+  path: '/queue/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const MetadataIndexRoute = MetadataIndexRouteImport.update({
@@ -87,6 +93,7 @@ export interface FileRoutesByFullPath {
   '/gallery/': typeof GalleryIndexRoute
   '/generate/': typeof GenerateIndexRoute
   '/metadata/': typeof MetadataIndexRoute
+  '/queue/': typeof QueueIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workspace/$projectId/': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryIndexRoute
   '/generate': typeof GenerateIndexRoute
   '/metadata': typeof MetadataIndexRoute
+  '/queue': typeof QueueIndexRoute
   '/settings': typeof SettingsIndexRoute
   '/workspace/$projectId': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -112,6 +120,7 @@ export interface FileRoutesById {
   '/gallery/': typeof GalleryIndexRoute
   '/generate/': typeof GenerateIndexRoute
   '/metadata/': typeof MetadataIndexRoute
+  '/queue/': typeof QueueIndexRoute
   '/settings/': typeof SettingsIndexRoute
   '/workspace/$projectId/': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -127,6 +136,7 @@ export interface FileRouteTypes {
     | '/gallery/'
     | '/generate/'
     | '/metadata/'
+    | '/queue/'
     | '/settings/'
     | '/workspace/$projectId/'
     | '/workspace/$projectId/scenes/$sceneId'
@@ -138,6 +148,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/generate'
     | '/metadata'
+    | '/queue'
     | '/settings'
     | '/workspace/$projectId'
     | '/workspace/$projectId/scenes/$sceneId'
@@ -151,6 +162,7 @@ export interface FileRouteTypes {
     | '/gallery/'
     | '/generate/'
     | '/metadata/'
+    | '/queue/'
     | '/settings/'
     | '/workspace/$projectId/'
     | '/workspace/$projectId/scenes/$sceneId'
@@ -163,6 +175,7 @@ export interface RootRouteChildren {
   BundlesIndexRoute: typeof BundlesIndexRoute
   GenerateIndexRoute: typeof GenerateIndexRoute
   MetadataIndexRoute: typeof MetadataIndexRoute
+  QueueIndexRoute: typeof QueueIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
 }
 
@@ -187,6 +200,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings/'
       preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/queue/': {
+      id: '/queue/'
+      path: '/queue'
+      fullPath: '/queue/'
+      preLoaderRoute: typeof QueueIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/metadata/': {
@@ -285,6 +305,7 @@ const rootRouteChildren: RootRouteChildren = {
   BundlesIndexRoute: BundlesIndexRoute,
   GenerateIndexRoute: GenerateIndexRoute,
   MetadataIndexRoute: MetadataIndexRoute,
+  QueueIndexRoute: QueueIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
 }
 export const routeTree = rootRouteImport
