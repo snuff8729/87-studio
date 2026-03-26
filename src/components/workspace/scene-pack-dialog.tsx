@@ -776,7 +776,7 @@ function SceneEditPanel({
       <ExpandedTextareaDialog
         open={expandKey !== null}
         onOpenChange={(open) => { if (!open) setExpandKey(null) }}
-        title={expandKey ? `\\${expandKey}\\` : ''}
+        title={expandKey ? `\\\\${expandKey}\\\\` : ''}
         value={expandKey ? (values[expandKey] ?? '') : ''}
         onChange={(val) => { if (expandKey) handleValueChange(expandKey, val) }}
         placeholder={expandKey ? t('templates.valueForKey', { key: expandKey }) : ''}

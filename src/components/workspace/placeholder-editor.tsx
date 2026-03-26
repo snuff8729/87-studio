@@ -843,7 +843,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       <ExpandedTextareaDialog
         open={expandTarget !== null}
         onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
-        title={expandTarget ? `\\${expandTarget.key}\\` : ''}
+        title={expandTarget ? `\\\\${expandTarget.key}\\\\` : ''}
         value={expandTarget ? (
           typeof expandTarget.owner === 'number'
             ? getEffectiveCharValue(expandTarget.key, expandTarget.owner)
