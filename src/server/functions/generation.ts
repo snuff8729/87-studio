@@ -1,9 +1,19 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
-import { generationJobs, projectScenes, projects } from '../db/schema'
+import { generationBatches, generationJobs, projectScenes, projects } from '../db/schema'
 import { eq, desc } from 'drizzle-orm'
 import { synthesizePrompts } from '../services/prompt'
-import { enqueueJob, cancelPendingJobs, getQueueStatus, pauseQueue, resumeQueue, dismissError } from '../services/generation'
+import {
+  enqueueBatch,
+  cancelPendingJobs,
+  cancelBatch as cancelBatchService,
+  getQueueStatus,
+  getGlobalQueueStats,
+  pauseQueue,
+  resumeQueue,
+  dismissError,
+  getNextBatchOrder,
+} from '../services/generation'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.generation')
@@ -25,7 +35,30 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
       .get()
     const parameters = JSON.parse(project?.parameters || '{}')
 
+    // Build label from scene names
+    const sceneNames: string[] = []
+    for (const sceneId of data.projectSceneIds) {
+      const count = data.sceneCounts?.[sceneId] ?? data.countPerScene
+      if (count <= 0) continue
+      const scene = db.select({ name: projectScenes.name }).from(projectScenes).where(eq(projectScenes.id, sceneId)).get()
+      if (scene) sceneNames.push(scene.name)
+    }
+    const label = `${project?.name ?? 'Project'} — ${sceneNames.join(', ')}`
+
+    // Create batch
+    const batch = db
+      .insert(generationBatches)
+      .values({
+        projectId: data.projectId,
+        label,
+        queueOrder: getNextBatchOrder(),
+        status: 'pending',
+      })
+      .returning()
+      .get()
+
     const jobs = []
+    let jobOrder = 0
 
     for (const sceneId of data.projectSceneIds) {
       const count = data.sceneCounts?.[sceneId] ?? data.countPerScene
@@ -45,6 +78,8 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
           projectId: data.projectId,
           projectSceneId: sceneId,
           sourceSceneId: scene?.sourceSceneId,
+          batchId: batch.id,
+          queueOrder: jobOrder++,
           resolvedPrompts: JSON.stringify(prompts),
           resolvedParameters: JSON.stringify(parameters),
           totalCount: count,
@@ -54,12 +89,14 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
         .returning()
         .get()
 
-      enqueueJob(job.id)
       jobs.push(job)
     }
 
+    enqueueBatch(batch.id)
+
     log.info('createJob', 'Generation jobs created', {
       projectId: data.projectId,
+      batchId: batch.id,
       jobCount: jobs.length,
       jobIds: jobs.map((j) => j.id),
       sceneIds: data.projectSceneIds,
@@ -115,7 +152,9 @@ export const cancelJobs = createServerFn({ method: 'POST' })
 
 export const fetchQueueStatus = createServerFn({ method: 'GET' }).handler(
   async () => {
-    return getQueueStatus()
+    const status = getQueueStatus()
+    const globalStats = getGlobalQueueStats()
+    return { ...status, globalStats }
   },
 )
 
@@ -158,12 +197,38 @@ export const retryJob = createServerFn({ method: 'POST' })
       .get()
     if (!job || job.status !== 'failed') throw new Error('Job not found or not failed')
 
+    // Get project name for batch label
+    const project = job.projectId
+      ? db.select({ name: projects.name }).from(projects).where(eq(projects.id, job.projectId)).get()
+      : null
+    const scene = job.projectSceneId
+      ? db.select({ name: projectScenes.name }).from(projectScenes).where(eq(projectScenes.id, job.projectSceneId)).get()
+      : null
+
+    const label = project && scene
+      ? `${project.name} — ${scene.name} (retry)`
+      : 'Retry'
+
+    // Create a new batch for the retried job
+    const batch = db
+      .insert(generationBatches)
+      .values({
+        projectId: job.projectId,
+        label,
+        queueOrder: getNextBatchOrder(),
+        status: 'pending',
+      })
+      .returning()
+      .get()
+
     const newJob = db
       .insert(generationJobs)
       .values({
         projectId: job.projectId,
         projectSceneId: job.projectSceneId,
         sourceSceneId: job.sourceSceneId,
+        batchId: batch.id,
+        queueOrder: 0,
         resolvedPrompts: job.resolvedPrompts,
         resolvedParameters: job.resolvedParameters,
         totalCount: job.totalCount,
@@ -173,7 +238,7 @@ export const retryJob = createServerFn({ method: 'POST' })
       .returning()
       .get()
 
-    log.info('retryJob', 'Retrying failed job', { originalJobId: jobId, newJobId: newJob.id })
-    enqueueJob(newJob.id)
+    log.info('retryJob', 'Retrying failed job', { originalJobId: jobId, newJobId: newJob.id, batchId: batch.id })
+    enqueueBatch(batch.id)
     return newJob
   })
