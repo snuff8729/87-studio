@@ -1,6 +1,6 @@
 import { db } from '../db'
-import { generationJobs, generatedImages, settings, imageBundles } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { generationJobs, generatedImages, generationBatches, settings, imageBundles } from '../db/schema'
+import { eq, and, inArray, sql, asc, ne } from 'drizzle-orm'
 import { generateImage } from './nai'
 import type { ReferenceData } from './nai'
 import { saveImage, generateThumbnail } from './image'
@@ -10,92 +10,160 @@ import { createLogger } from './logger'
 const log = createLogger('generation')
 
 
-// ─── In-memory queue singleton ──────────────────────────────────────────────
+// ─── Queue state (in-memory, non-persistent) ─────────────────────────────
 
 let processing = false
 let recovered = false
-const queue: number[] = [] // job IDs
 
 // Unified queue stop state: 'error' | 'paused' | null
 let queueStopped: 'error' | 'paused' | null = null
 let stoppedJobId: number | null = null
 
-// Batch-level timing (persists across jobs within a single processQueue run)
-interface BatchTiming {
+// Session-level timing (persists across jobs within a single processQueue run)
+interface SessionTiming {
   startedAt: number
-  totalImages: number        // total images across all jobs in the batch
-  completedImages: number    // images completed so far
-  totalGenerationMs: number  // cumulative API call time (for avg calc)
+  completedImages: number
+  totalGenerationMs: number
 }
-let batchTiming: BatchTiming | null = null
+let sessionTiming: SessionTiming | null = null
 
-// Recover pending/running jobs from DB on first access after server restart
+
+// ─── DB-driven queue helpers ──────────────────────────────────────────────
+
+function getNextJob(): { jobId: number; batchId: number } | null {
+  const row = db
+    .select({
+      jobId: generationJobs.id,
+      batchId: generationBatches.id,
+    })
+    .from(generationJobs)
+    .innerJoin(generationBatches, eq(generationJobs.batchId, generationBatches.id))
+    .where(
+      and(
+        eq(generationJobs.status, 'pending'),
+        inArray(generationBatches.status, ['pending', 'running']),
+      ),
+    )
+    .orderBy(asc(generationBatches.queueOrder), asc(generationJobs.queueOrder))
+    .limit(1)
+    .get()
+  return row ? { jobId: row.jobId, batchId: row.batchId } : null
+}
+
+/** Get next max queue_order for batches */
+export function getNextBatchOrder(): number {
+  const row = db
+    .select({ maxOrder: sql<number>`COALESCE(MAX(${generationBatches.queueOrder}), -1)` })
+    .from(generationBatches)
+    .where(inArray(generationBatches.status, ['pending', 'running']))
+    .get()
+  return (row?.maxOrder ?? -1) + 1
+}
+
+function updateBatchStatusFromJobs(batchId: number) {
+  const stats = db
+    .select({
+      total: sql<number>`COUNT(*)`,
+      completed: sql<number>`SUM(CASE WHEN ${generationJobs.status} = 'completed' THEN 1 ELSE 0 END)`,
+      failed: sql<number>`SUM(CASE WHEN ${generationJobs.status} = 'failed' THEN 1 ELSE 0 END)`,
+      cancelled: sql<number>`SUM(CASE WHEN ${generationJobs.status} = 'cancelled' THEN 1 ELSE 0 END)`,
+      pending: sql<number>`SUM(CASE WHEN ${generationJobs.status} = 'pending' THEN 1 ELSE 0 END)`,
+      running: sql<number>`SUM(CASE WHEN ${generationJobs.status} = 'running' THEN 1 ELSE 0 END)`,
+    })
+    .from(generationJobs)
+    .where(eq(generationJobs.batchId, batchId))
+    .get()
+
+  if (!stats) return
+
+  let newStatus: string
+  if (stats.cancelled === stats.total) {
+    newStatus = 'cancelled'
+  } else if (stats.completed + stats.cancelled === stats.total) {
+    newStatus = 'completed'
+  } else if (stats.failed > 0 && stats.pending === 0 && stats.running === 0) {
+    newStatus = 'failed'
+  } else if (stats.running > 0 || (stats.completed > 0 && stats.pending > 0)) {
+    newStatus = 'running'
+  } else {
+    newStatus = 'pending'
+  }
+
+  db.update(generationBatches)
+    .set({ status: newStatus })
+    .where(eq(generationBatches.id, batchId))
+    .run()
+}
+
+
+// ─── Recovery ─────────────────────────────────────────────────────────────
+
 export function recoverJobs() {
   if (recovered) return
   recovered = true
 
-  // Reset running → pending (interrupted mid-generation)
-  const running = db
+  // Reset running jobs → pending
+  const runningJobs = db
     .select({ id: generationJobs.id })
     .from(generationJobs)
     .where(eq(generationJobs.status, 'running'))
     .all()
 
-  for (const job of running) {
+  for (const job of runningJobs) {
     db.update(generationJobs)
       .set({ status: 'pending', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, job.id))
       .run()
   }
 
-  // Re-enqueue all pending jobs (ordered by creation time)
-  const pending = db
-    .select({ id: generationJobs.id })
-    .from(generationJobs)
-    .where(eq(generationJobs.status, 'pending'))
-    .orderBy(generationJobs.createdAt)
+  // Reset running batches → recalculate from job statuses
+  const runningBatches = db
+    .select({ id: generationBatches.id })
+    .from(generationBatches)
+    .where(eq(generationBatches.status, 'running'))
     .all()
 
-  if (pending.length > 0 || running.length > 0) {
+  for (const batch of runningBatches) {
+    updateBatchStatusFromJobs(batch.id)
+  }
+
+  // Check if there are pending jobs to process
+  const hasPending = getNextJob()
+
+  if (runningJobs.length > 0 || runningBatches.length > 0) {
     log.info('queue.recover', 'Recovering jobs after restart', {
-      resetRunning: running.length,
-      pendingJobs: pending.length,
+      resetRunningJobs: runningJobs.length,
+      resetRunningBatches: runningBatches.length,
     })
   }
 
-  for (const job of pending) {
-    queue.push(job.id)
-  }
-
-  if (queue.length > 0 && !processing) processQueue()
+  if (hasPending && !processing) processQueue()
 }
 
-export function enqueueJob(jobId: number) {
-  queue.push(jobId)
 
-  // Add this job's totalCount to the running batch (only while actively processing)
-  if (batchTiming && processing) {
-    const job = db
-      .select({ totalCount: generationJobs.totalCount })
-      .from(generationJobs)
-      .where(eq(generationJobs.id, jobId))
-      .get()
-    batchTiming.totalImages += (job?.totalCount ?? 1)
-  }
+// ─── Enqueue ──────────────────────────────────────────────────────────────
 
-  log.debug('queue.enqueue', 'Job enqueued', { jobId, queueLength: queue.length })
-
+/** Trigger queue processing after a batch has been inserted (batch+jobs already in DB) */
+export function enqueueBatch(_batchId: number) {
+  log.debug('queue.enqueueBatch', 'Batch enqueued, triggering processing', { batchId: _batchId })
   if (!processing) processQueue()
 }
+
+/**
+ * Legacy enqueue — kept for backward compatibility during transition.
+ * For jobs without a batch (shouldn't happen after migration but defensive).
+ */
+export function enqueueJob(_jobId: number) {
+  log.debug('queue.enqueueJob', 'Job enqueued (legacy)', { jobId: _jobId })
+  if (!processing) processQueue()
+}
+
+
+// ─── Cancel ───────────────────────────────────────────────────────────────
 
 export function cancelPendingJobs(jobIds: number[]) {
   log.warn('queue.cancelPending', 'Cancelling pending jobs', { jobIds })
   for (const id of jobIds) {
-    const idx = queue.indexOf(id)
-    if (idx !== -1) {
-      queue.splice(idx, 1)
-    }
-    // Clear queue stop state if the stopped job is being cancelled
     if (stoppedJobId === id) {
       stoppedJobId = null
     }
@@ -103,21 +171,143 @@ export function cancelPendingJobs(jobIds: number[]) {
       .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, id))
       .run()
+
+    // Update parent batch status
+    const job = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, id)).get()
+    if (job?.batchId) updateBatchStatusFromJobs(job.batchId)
   }
 
-  // Always clear queue stop state and batch timing after cancel
   queueStopped = null
-  batchTiming = null
 }
+
+export function cancelBatch(batchId: number) {
+  log.warn('queue.cancelBatch', 'Cancelling batch', { batchId })
+
+  // Cancel all pending jobs in this batch
+  db.update(generationJobs)
+    .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(generationJobs.batchId, batchId),
+        inArray(generationJobs.status, ['pending']),
+      ),
+    )
+    .run()
+
+  // Mark running jobs as cancelled (processJob will check on next image)
+  db.update(generationJobs)
+    .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(generationJobs.batchId, batchId),
+        eq(generationJobs.status, 'running'),
+      ),
+    )
+    .run()
+
+  // Update batch status
+  updateBatchStatusFromJobs(batchId)
+
+  // Clear error state if the stopped job was in this batch
+  if (stoppedJobId != null) {
+    const stoppedJob = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, stoppedJobId)).get()
+    if (stoppedJob?.batchId === batchId) {
+      queueStopped = null
+      stoppedJobId = null
+    }
+  }
+}
+
+
+// ─── Reorder ──────────────────────────────────────────────────────────────
+
+export function reorderBatches(batchIds: number[]) {
+  log.info('queue.reorderBatches', 'Reordering batches', { batchIds })
+  for (let i = 0; i < batchIds.length; i++) {
+    db.update(generationBatches)
+      .set({ queueOrder: i })
+      .where(eq(generationBatches.id, batchIds[i]))
+      .run()
+  }
+}
+
+export function reorderJobsInBatch(batchId: number, jobIds: number[]) {
+  log.info('queue.reorderJobs', 'Reordering jobs in batch', { batchId, jobIds })
+  for (let i = 0; i < jobIds.length; i++) {
+    db.update(generationJobs)
+      .set({ queueOrder: i })
+      .where(
+        and(
+          eq(generationJobs.id, jobIds[i]),
+          eq(generationJobs.batchId, batchId),
+        ),
+      )
+      .run()
+  }
+}
+
+
+// ─── Queue status ─────────────────────────────────────────────────────────
 
 export function getQueueStatus() {
   recoverJobs()
+
+  // Count pending jobs in active batches
+  const pendingCount = db
+    .select({ count: sql<number>`COUNT(*)` })
+    .from(generationJobs)
+    .innerJoin(generationBatches, eq(generationJobs.batchId, generationBatches.id))
+    .where(
+      and(
+        inArray(generationJobs.status, ['pending', 'running']),
+        inArray(generationBatches.status, ['pending', 'running']),
+      ),
+    )
+    .get()
+
   return {
     processing,
-    queueLength: queue.length,
-    queuedJobIds: [...queue],
+    queueLength: pendingCount?.count ?? 0,
     queueStopped,
     stoppedJobId,
+  }
+}
+
+export function getGlobalQueueStats() {
+  const stats = db
+    .select({
+      totalRemaining: sql<number>`SUM(${generationJobs.totalCount} - ${generationJobs.completedCount})`,
+      totalImages: sql<number>`SUM(${generationJobs.totalCount})`,
+      completedImages: sql<number>`SUM(${generationJobs.completedCount})`,
+    })
+    .from(generationJobs)
+    .innerJoin(generationBatches, eq(generationJobs.batchId, generationBatches.id))
+    .where(
+      and(
+        inArray(generationJobs.status, ['pending', 'running']),
+        inArray(generationBatches.status, ['pending', 'running']),
+      ),
+    )
+    .get()
+
+  const avgMs = sessionTiming && sessionTiming.completedImages > 0
+    ? Math.round(sessionTiming.totalGenerationMs / sessionTiming.completedImages)
+    : null
+
+  const remaining = stats?.totalRemaining ?? 0
+  const etaMs = avgMs != null && remaining > 0 ? remaining * avgMs : null
+
+  return {
+    totalPendingImages: remaining,
+    totalImages: stats?.totalImages ?? 0,
+    completedImages: stats?.completedImages ?? 0,
+    avgImageDurationMs: avgMs,
+    etaMs,
+    sessionTiming: sessionTiming ? {
+      startedAt: sessionTiming.startedAt,
+      completedImages: sessionTiming.completedImages,
+      avgImageDurationMs: avgMs,
+    } : null,
   }
 }
 
@@ -129,12 +319,13 @@ export function pauseQueue() {
 export function resumeQueue() {
   log.info('queue.resume', 'Queue resume requested', { previousState: queueStopped, stoppedJobId })
   if (queueStopped === 'error' && stoppedJobId != null) {
-    // Reset failed job to pending and re-enqueue at front
     db.update(generationJobs)
       .set({ status: 'pending', errorMessage: null, updatedAt: new Date().toISOString() })
       .where(eq(generationJobs.id, stoppedJobId))
       .run()
-    queue.unshift(stoppedJobId)
+    // Update parent batch status
+    const job = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, stoppedJobId)).get()
+    if (job?.batchId) updateBatchStatusFromJobs(job.batchId)
   }
   queueStopped = null
   stoppedJobId = null
@@ -143,84 +334,81 @@ export function resumeQueue() {
 
 export function dismissError() {
   log.info('queue.dismissError', 'Dismissing error, skipping failed job', { stoppedJobId })
-  // Subtract the failed job's remaining images from batch total
-  if (batchTiming && stoppedJobId != null) {
-    const job = db
-      .select({ totalCount: generationJobs.totalCount, completedCount: generationJobs.completedCount })
-      .from(generationJobs)
-      .where(eq(generationJobs.id, stoppedJobId))
-      .get()
-    if (job) {
-      const remaining = (job.totalCount ?? 0) - (job.completedCount ?? 0)
-      batchTiming.totalImages = Math.max(0, batchTiming.totalImages - remaining)
-    }
+  if (stoppedJobId != null) {
+    const job = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, stoppedJobId)).get()
+    if (job?.batchId) updateBatchStatusFromJobs(job.batchId)
   }
   queueStopped = null
   stoppedJobId = null
-  if (!processing && queue.length > 0) processQueue()
+  if (!processing && getNextJob()) processQueue()
 }
 
+/** @deprecated Use getGlobalQueueStats() instead. Kept for transition. */
 export function getBatchTiming() {
-  if (!batchTiming) return null
+  if (!sessionTiming) return null
+  const stats = getGlobalQueueStats()
   return {
-    startedAt: batchTiming.startedAt,
-    totalImages: batchTiming.totalImages,
-    completedImages: batchTiming.completedImages,
-    avgImageDurationMs: batchTiming.completedImages > 0
-      ? Math.round(batchTiming.totalGenerationMs / batchTiming.completedImages)
-      : null,
+    startedAt: sessionTiming.startedAt,
+    totalImages: stats.totalImages,
+    completedImages: stats.completedImages,
+    avgImageDurationMs: stats.avgImageDurationMs,
   }
 }
+
+
+// ─── Queue processing ─────────────────────────────────────────────────────
 
 async function processQueue() {
   if (processing) return
   processing = true
   queueStopped = null
 
-  // Sum remaining images (totalCount - completedCount) from all initially queued jobs
-  let initialTotal = 0
-  for (const id of queue) {
-    const job = db
-      .select({ totalCount: generationJobs.totalCount, completedCount: generationJobs.completedCount })
-      .from(generationJobs)
-      .where(eq(generationJobs.id, id))
-      .get()
-    initialTotal += ((job?.totalCount ?? 1) - (job?.completedCount ?? 0))
-  }
-
-  // Resume (paused→resume, error→resume): batchTiming already has correct accumulated state
-  // Fresh start (including after previous batch completed): always create new batchTiming
-  // We detect resume by checking if completedImages < totalImages (batch was interrupted)
-  const isResume = batchTiming && batchTiming.completedImages > 0 && batchTiming.completedImages < batchTiming.totalImages
+  // Start or resume session timing
+  const isResume = sessionTiming && sessionTiming.completedImages > 0
   if (!isResume) {
-    batchTiming = {
+    sessionTiming = {
       startedAt: Date.now(),
-      totalImages: initialTotal,
       completedImages: 0,
       totalGenerationMs: 0,
     }
   }
 
-  log.info('queue.start', 'Queue processing started', { queueLength: queue.length, totalImages: initialTotal })
+  log.info('queue.start', 'Queue processing started')
 
   try {
-    while (queue.length > 0) {
+    while (true) {
       if (queueStopped) {
         log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
         return
       }
-      const jobId = queue.shift()!
-      await processJob(jobId)
+
+      const next = getNextJob()
+      if (!next) break
+
+      // Mark batch as running
+      db.update(generationBatches)
+        .set({ status: 'running' })
+        .where(
+          and(
+            eq(generationBatches.id, next.batchId),
+            ne(generationBatches.status, 'running'),
+          ),
+        )
+        .run()
+
+      await processJob(next.jobId)
+
+      // Update batch status after job completes
+      updateBatchStatusFromJobs(next.batchId)
     }
 
-    const durationMs = batchTiming ? Date.now() - batchTiming.startedAt : 0
-    log.info('queue.complete', 'Queue processing completed', { totalImages: batchTiming?.completedImages ?? 0, durationMs })
+    log.info('queue.complete', 'Queue processing completed', {
+      totalImages: sessionTiming?.completedImages ?? 0,
+    })
   } catch (error) {
     log.error('queue.unexpectedError', 'Unexpected error in queue processing', {}, error)
   } finally {
     processing = false
-    // batchTiming is kept so the last poll can still read it.
-    // Next processQueue() will reset it (completedImages === totalImages → isResume=false).
   }
 }
 
@@ -273,7 +461,6 @@ async function processJob(jobId: number) {
     const totalCount = job.totalCount ?? 1
 
     // Prepare reference data (once per job, reused for all images)
-    // projectId can be null (Quick Generate) — references with null projectId are used
     const referenceMode = resolvedParameters.referenceMode ?? 'none'
     const refProjectId = job.projectId ?? null
     let referenceData: ReferenceData | undefined
@@ -299,19 +486,30 @@ async function processJob(jobId: number) {
           .set({ status: 'pending', updatedAt: new Date().toISOString() })
           .where(eq(generationJobs.id, jobId))
           .run()
-        queue.unshift(jobId)
         return
       }
 
-      // Check if cancelled mid-job
+      // Check if cancelled mid-job (job or batch level)
       const currentJob = db
-        .select()
+        .select({ status: generationJobs.status, batchId: generationJobs.batchId })
         .from(generationJobs)
         .where(eq(generationJobs.id, jobId))
         .get()
       if (currentJob?.status === 'cancelled') {
         log.warn('job.cancelled', 'Job cancelled mid-generation', { jobId, completedCount: i })
         return
+      }
+      // Check batch cancellation
+      if (currentJob?.batchId) {
+        const batch = db.select({ status: generationBatches.status }).from(generationBatches).where(eq(generationBatches.id, currentJob.batchId)).get()
+        if (batch?.status === 'cancelled') {
+          log.warn('job.batchCancelled', 'Batch cancelled, stopping job', { jobId, batchId: currentJob.batchId })
+          db.update(generationJobs)
+            .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
+            .where(eq(generationJobs.id, jobId))
+            .run()
+          return
+        }
       }
 
       // Generate image via NAI API (with timing)
@@ -326,10 +524,10 @@ async function processJob(jobId: number) {
 
       log.info('job.progress', 'Image generated', { jobId, index: i + 1, seed, durationMs: imageDuration })
 
-      // Accumulate batch timing
-      if (batchTiming) {
-        batchTiming.totalGenerationMs += imageDuration
-        batchTiming.completedImages += 1
+      // Accumulate session timing
+      if (sessionTiming) {
+        sessionTiming.totalGenerationMs += imageDuration
+        sessionTiming.completedImages += 1
       }
 
       // Save image and thumbnail
