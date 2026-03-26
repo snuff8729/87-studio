@@ -576,7 +576,7 @@ function QuickGenerateHeader({
     <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <Button variant="ghost" size="sm" asChild className="shrink-0">
-          <Link to="/">
+          <Link to="/" search={{ imageDetail: undefined }}>
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
             <span className="hidden sm:inline">{t('common.back')}</span>
           </Link>
@@ -589,7 +589,7 @@ function QuickGenerateHeader({
           <HugeiconsIcon icon={Menu01Icon} className="size-5" />
         </Button>
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/gallery" search={{ quick: true }}>
+          <Link to="/gallery" search={{ quick: true, imageDetail: undefined }}>
             <HugeiconsIcon icon={Image02Icon} className="size-5" />
             <span className="hidden sm:inline">{t('nav.gallery')}</span>
           </Link>
@@ -800,7 +800,7 @@ function CenterPreview({
 
         {/* View in gallery */}
         <button
-          onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: selectedImage.id }) })}
+          onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: selectedImage.id }) } as any)}
           className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
         >
           {t('imageDetail.details')}
@@ -935,7 +935,7 @@ function HistoryPanelLocal({
       <div className="mt-2 pt-2 border-t border-border">
         <Link
           to="/gallery"
-          search={{ quick: true }}
+          search={{ quick: true, imageDetail: undefined }}
           className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
         >
           {t('quickGenerate.viewInGallery')}

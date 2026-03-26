@@ -22,8 +22,8 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   DragDropVerticalIcon,
   Cancel01Icon,
-  ChevronDownIcon,
-  ChevronUpIcon,
+  ChevronDown as ChevronDownIcon,
+  ChevronUp as ChevronUpIcon,
   AlertCircleIcon,
   CheckmarkCircle01Icon,
   TimeQuarter02Icon,
@@ -44,7 +44,7 @@ import {
   retryBatch,
   fetchQueueSummary,
 } from '@/server/functions/queue'
-import { cancelJobs, pauseGeneration, resumeGeneration } from '@/server/functions/generation'
+import { pauseGeneration, resumeGeneration } from '@/server/functions/generation'
 
 export const Route = createFileRoute('/queue/')({
   component: QueuePage,
@@ -78,7 +78,7 @@ interface SortableBatchRowProps {
   onRetry: (batchId: number) => void
 }
 
-function SortableBatchRow({ batch, onCancel, onRetry }: SortableBatchRowProps) {
+function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -122,7 +122,6 @@ function SortableBatchRow({ batch, onCancel, onRetry }: SortableBatchRowProps) {
     reorderJobsMutation.mutate(newOrder.map((j) => j.id))
   }
 
-  const remaining = batch.totalImages - batch.completedImages
   const pct = batch.totalImages > 0 ? (batch.completedImages / batch.totalImages) * 100 : 0
   const isRunning = batch.status === 'running'
   const isPending = batch.status === 'pending'
@@ -331,7 +330,6 @@ function RecentBatchRow({
 
   const isCompleted = batch.status === 'completed'
   const isFailed = batch.status === 'failed'
-  const isCancelled = batch.status === 'cancelled'
 
   return (
     <div className="flex items-center gap-3 px-3 py-2 border border-border rounded-lg bg-card">
@@ -446,8 +444,8 @@ function QueuePage() {
     [activeBatches, reorderMutation],
   )
 
-  const isPaused = summary?.stopped === 'paused'
-  const isError = summary?.stopped === 'error'
+  const isPaused = summary?.queueStopped === 'paused'
+  const isError = summary?.queueStopped === 'error'
 
   const totalPendingImages = activeBatches.reduce(
     (sum, b) => sum + (b.totalImages - b.completedImages),
@@ -457,7 +455,7 @@ function QueuePage() {
   const completedImages = activeBatches.reduce((sum, b) => sum + b.completedImages, 0)
   const overallPct = totalImages > 0 ? (completedImages / totalImages) * 100 : 0
 
-  const avgMs = summary?.avgImageDurationMs ?? null
+  const avgMs = summary?.globalStats?.avgImageDurationMs ?? null
   const etaMs = avgMs != null && totalPendingImages > 0 ? totalPendingImages * avgMs : null
 
   const isEmpty = activeBatches.length === 0 && !loadingActive
@@ -554,10 +552,10 @@ function QueuePage() {
             </div>
             <div className="flex items-center gap-3">
               <Button variant="secondary" size="sm" asChild>
-                <Link to="/">{t('queue.goToWorkspace' as any)}</Link>
+                <Link to="/" search={{ imageDetail: undefined }}>{t('queue.goToWorkspace' as any)}</Link>
               </Button>
               <Button variant="secondary" size="sm" asChild>
-                <Link to="/generate">{t('queue.goToGenerate' as any)}</Link>
+                <Link to="/generate" search={{ imageDetail: undefined }}>{t('queue.goToGenerate' as any)}</Link>
               </Button>
             </div>
           </div>

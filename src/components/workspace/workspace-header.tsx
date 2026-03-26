@@ -56,7 +56,7 @@ export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailP
     <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
         <Button variant="ghost" size="sm" asChild className="shrink-0">
-          <Link to="/">
+          <Link to="/" search={{ imageDetail: undefined }}>
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
             <span className="hidden sm:inline">{t('nav.projects')}</span>
           </Link>
@@ -109,7 +109,7 @@ export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailP
           </Button>
         )}
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/gallery" search={{ project: projectId }}>
+          <Link to="/gallery" search={{ project: projectId, imageDetail: undefined }}>
             <HugeiconsIcon icon={Image02Icon} className="size-5" />
             <span className="hidden sm:inline">{t('nav.gallery')}</span>
           </Link>

@@ -764,6 +764,7 @@ const SceneCard = memo(function SceneCard({
             <Link
               to="/workspace/$projectId/scenes/$sceneId"
               params={{ projectId: String(projectId), sceneId: String(scene.id) }}
+              search={{ imageDetail: undefined }}
               className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary/80 transition-colors"
               title="View gallery"
             >

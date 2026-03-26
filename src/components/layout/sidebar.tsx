@@ -46,6 +46,7 @@ export function Sidebar() {
             <Link
               key={item.to}
               to={item.to}
+              search={{ imageDetail: undefined }}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 rounded-lg px-3 py-2 text-base transition-colors',

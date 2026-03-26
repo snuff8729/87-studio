@@ -51,6 +51,7 @@ export function QueueStatusWidget() {
   return (
     <Link
       to="/queue"
+      search={{ imageDetail: undefined }}
       className="block px-3 py-2.5 rounded-lg hover:bg-accent transition-colors group"
     >
       <div className="flex items-center justify-between gap-2 mb-1.5">

@@ -177,7 +177,7 @@ function ProjectSelectorPage() {
         router.invalidate()
         return
       }
-      router.navigate({ to: '/workspace/$projectId', params: { projectId: String(project.id) } })
+      router.navigate({ to: '/workspace/$projectId', params: { projectId: String(project.id) }, search: { imageDetail: undefined } })
     } catch {
       toast.error(t('dashboard.createFailed'))
     }
@@ -232,7 +232,7 @@ function ProjectSelectorPage() {
             </Badge>
           )}
           <Button variant="ghost" size="sm" asChild>
-            <Link to="/settings">
+            <Link to="/settings" search={{ imageDetail: undefined }}>
               <HugeiconsIcon icon={Settings02Icon} className="size-5" />
               {t('nav.settings')}
             </Link>
@@ -256,6 +256,7 @@ function ProjectSelectorPage() {
                 key={j.id}
                 to="/workspace/$projectId"
                 params={{ projectId: String(j.projectId) }}
+                search={{ imageDetail: undefined }}
                 className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 transition-colors hover:bg-primary/8"
               >
                 <div className={`size-2 rounded-full shrink-0 ${j.status === 'running' ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'}`} />
@@ -299,6 +300,7 @@ function ProjectSelectorPage() {
             <Link
               to="/workspace/$projectId"
               params={{ projectId: String(p.id) }}
+              search={{ imageDetail: undefined }}
               className="flex items-center gap-3 p-3 min-w-0"
               data-onboarding={`project-card-${p.id}`}
             >

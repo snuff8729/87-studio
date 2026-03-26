@@ -19,16 +19,14 @@ import {
 } from '@/server/functions/gallery'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
-import { parseNAIMetadata, getUcPresetLabel } from '@/lib/nai-metadata'
+import { parseNAIMetadata } from '@/lib/nai-metadata'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import { useTranslation } from '@/lib/i18n'
 
 type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
 
 export function ImageDetailOverlay({ imageId }: { imageId: number }) {
-  const navigate = useNavigate()
   const router = useRouter()
-  const { t } = useTranslation()
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -103,7 +101,7 @@ function ImageDetailContent({
 
   // Navigate between images (replace imageDetail param)
   function goToImage(id: number) {
-    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: id }), replace: true })
+    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: id }), replace: true } as any)
   }
 
   // Keyboard navigation
@@ -252,7 +250,7 @@ function ImageDetailContent({
                 {detail.projectName && detail.projectId && (
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm text-muted-foreground">{t('imageDetail.project')}</span>
-                    <Link to="/workspace/$projectId" params={{ projectId: String(detail.projectId) }} className="text-sm text-primary hover:underline">
+                    <Link to="/workspace/$projectId" params={{ projectId: String(detail.projectId) }} search={{ imageDetail: undefined }} className="text-sm text-primary hover:underline">
                       {detail.projectName}
                     </Link>
                   </div>
@@ -261,7 +259,7 @@ function ImageDetailContent({
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm text-muted-foreground">{t('imageDetail.scene')}</span>
                     {detail.projectId && detail.projectSceneId ? (
-                      <Link to="/workspace/$projectId/scenes/$sceneId" params={{ projectId: String(detail.projectId), sceneId: String(detail.projectSceneId) }} className="text-sm text-primary hover:underline">
+                      <Link to="/workspace/$projectId/scenes/$sceneId" params={{ projectId: String(detail.projectId), sceneId: String(detail.projectSceneId) }} search={{ imageDetail: undefined }} className="text-sm text-primary hover:underline">
                         {detail.projectSceneName}
                       </Link>
                     ) : (

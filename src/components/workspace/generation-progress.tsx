@@ -244,6 +244,7 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
           <div className="px-3 pb-1">
             <Link
               to="/queue"
+              search={{ imageDetail: undefined }}
               className="text-xs text-primary hover:underline"
               onClick={() => setOpen(false)}
             >

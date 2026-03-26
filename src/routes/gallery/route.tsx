@@ -68,6 +68,7 @@ type SearchParams = {
   minRating?: number
   sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
   quick?: boolean
+  imageDetail: number | undefined
 }
 
 export const Route = createFileRoute('/gallery')({
@@ -79,6 +80,7 @@ export const Route = createFileRoute('/gallery')({
     minRating: search.minRating ? Number(search.minRating) : undefined,
     sortBy: (search.sortBy as SearchParams['sortBy']) || undefined,
     quick: search.quick === true || search.quick === 'true' ? true : undefined,
+    imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
@@ -455,7 +457,7 @@ function GalleryLayout() {
           </Select>
 
           {hasFilters && (
-            <Button size="sm" variant="ghost" onClick={() => navigate({ search: {} })}>
+            <Button size="sm" variant="ghost" onClick={() => navigate({ search: { imageDetail: undefined } })}>
               {t('common.clear')}
             </Button>
           )}
@@ -475,7 +477,7 @@ function GalleryLayout() {
                 {t('gallery.noImagesDesc')}
               </p>
               <Button variant="outline" size="sm" asChild>
-                <Link to="/">{t('gallery.goToProjects')}</Link>
+                <Link to="/" search={{ imageDetail: undefined }}>{t('gallery.goToProjects')}</Link>
               </Button>
             </div>
           ) : (

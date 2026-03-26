@@ -556,6 +556,7 @@ function CreateProjectDialog({
       navigate({
         to: '/workspace/$projectId',
         params: { projectId: String(project.id) },
+        search: { imageDetail: undefined },
       })
     } catch {
       toast.error(t('metadata.failedToCreate'))
@@ -752,6 +753,7 @@ function QuickGenerateDialog({
     onOpenChange(false)
     navigate({
       to: '/generate',
+      search: { imageDetail: undefined },
       state: {
         generalPrompt,
         negativePrompt,

@@ -327,6 +327,7 @@ function SceneDetailPage() {
           <Link
             to="/workspace/$projectId"
             params={{ projectId: String(projectId) }}
+            search={{ imageDetail: undefined }}
           >
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
             <span className="hidden sm:inline">{data.project.name}</span>

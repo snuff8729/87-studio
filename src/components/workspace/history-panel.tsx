@@ -94,7 +94,7 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
                     {rowImages.map((img) => (
                       <button
                         key={img.id}
-                        onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) })}
+                        onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) } as any)}
                         className="relative rounded-md overflow-hidden bg-secondary group block shrink-0 cursor-pointer"
                         style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
                       >
@@ -128,7 +128,7 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
       <div className="mt-2 pt-2 border-t border-border">
         <Link
           to="/gallery"
-          search={{ project: projectId }}
+          search={{ project: projectId, imageDetail: undefined }}
           className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
         >
           {t('history.fullGallery')}

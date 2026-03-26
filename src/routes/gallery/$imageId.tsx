@@ -358,6 +358,7 @@ function ImageDetailPage() {
                     <Link
                       to="/workspace/$projectId"
                       params={{ projectId: String(detail.projectId) }}
+                      search={{ imageDetail: undefined }}
                       className="text-sm text-primary hover:underline"
                     >
                       {detail.projectName}
@@ -374,6 +375,7 @@ function ImageDetailPage() {
                           projectId: String(detail.projectId),
                           sceneId: String(detail.projectSceneId),
                         }}
+                        search={{ imageDetail: undefined }}
                         className="text-sm text-primary hover:underline"
                       >
                         {detail.projectSceneName}

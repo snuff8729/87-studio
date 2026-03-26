@@ -299,6 +299,7 @@ export const SceneMatrix = memo(function SceneMatrix({
                     projectId: String(projectId),
                     sceneId: String(selectedSceneData.id),
                   }}
+                  search={{ imageDetail: undefined }}
                   className="text-xs text-muted-foreground hover:text-primary transition-colors shrink-0 px-2 py-1 rounded-md hover:bg-secondary/80"
                 >
                   {t('scene.galleryArrow')} &rarr;

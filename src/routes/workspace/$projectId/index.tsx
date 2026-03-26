@@ -446,7 +446,7 @@ function WorkspacePage() {
       toast.error(t('generation.apiKeyNotSet'), {
         action: {
           label: t('nav.settings'),
-          onClick: () => router.navigate({ to: '/settings' }),
+          onClick: () => router.navigate({ to: '/settings', search: { imageDetail: undefined } }),
         },
       })
       return

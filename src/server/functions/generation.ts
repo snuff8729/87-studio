@@ -6,7 +6,6 @@ import { synthesizePrompts } from '../services/prompt'
 import {
   enqueueBatch,
   cancelPendingJobs,
-  cancelBatch as cancelBatchService,
   getQueueStatus,
   getGlobalQueueStats,
   pauseQueue,

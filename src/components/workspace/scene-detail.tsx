@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Link, useNavigate } from '@tanstack/react-router'
+import { useNavigate } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -92,7 +92,7 @@ export function SceneDetail({
   sceneId,
   characters,
   generalPlaceholderKeys,
-  projectId,
+  projectId: _projectId,
   thumbnailImageId,
   onThumbnailChange,
   projectThumbnailImageId,
@@ -600,7 +600,7 @@ export function SceneDetail({
                             className={`relative group rounded-lg overflow-hidden bg-secondary shrink-0 ${isThumbnail ? 'ring-2 ring-primary' : ''}`}
                           >
                             <button
-                              onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) })}
+                              onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) } as any)}
                               className="absolute inset-0 z-0 cursor-pointer"
                             />
                             {imageContent}

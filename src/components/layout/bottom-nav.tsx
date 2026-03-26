@@ -38,6 +38,7 @@ export function BottomNav() {
             <Link
               key={item.to}
               to={item.to}
+              search={{ imageDetail: undefined }}
               aria-current={isActive ? 'page' : undefined}
               className={cn(
                 'flex flex-col items-center gap-0.5 px-2 py-1.5 text-xs transition-colors',
