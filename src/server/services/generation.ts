@@ -21,8 +21,35 @@ let processing = false
 let recovered = false
 
 // Unified queue stop state: 'error' | 'paused' | null
+// Persisted to settings table so it survives server restart
 let queueStopped: 'error' | 'paused' | null = null
 let stoppedJobId: number | null = null
+
+function persistQueueStopped() {
+  const value = queueStopped
+    ? JSON.stringify({ state: queueStopped, jobId: stoppedJobId })
+    : ''
+  const existing = db.select().from(settings).where(eq(settings.key, 'queue_stopped')).get()
+  if (existing) {
+    db.update(settings).set({ value, updatedAt: new Date().toISOString() }).where(eq(settings.key, 'queue_stopped')).run()
+  } else {
+    db.insert(settings).values({ key: 'queue_stopped', value }).run()
+  }
+}
+
+function restoreQueueStopped() {
+  const row = db.select().from(settings).where(eq(settings.key, 'queue_stopped')).get()
+  if (row?.value) {
+    try {
+      const parsed = JSON.parse(row.value)
+      queueStopped = parsed.state ?? null
+      stoppedJobId = parsed.jobId ?? null
+    } catch {
+      queueStopped = null
+      stoppedJobId = null
+    }
+  }
+}
 
 // Session-level timing (persists across jobs within a single processQueue run)
 interface SessionTiming {
@@ -113,6 +140,9 @@ export function recoverJobs() {
   if (recovered) return
   recovered = true
 
+  // Restore pause/error state from DB
+  restoreQueueStopped()
+
   // Reset running jobs → pending
   const runningJobs = db
     .select({ id: generationJobs.id })
@@ -148,7 +178,7 @@ export function recoverJobs() {
     })
   }
 
-  if (hasPending && !processing) processQueue()
+  if (hasPending && !processing && !queueStopped) processQueue()
 }
 
 // ─── Enqueue ──────────────────────────────────────────────────────────────
@@ -193,6 +223,7 @@ export function cancelPendingJobs(jobIds: Array<number>) {
   }
 
   queueStopped = null
+  persistQueueStopped()
 }
 
 export function cancelBatch(batchId: number) {
@@ -233,6 +264,7 @@ export function cancelBatch(batchId: number) {
     if (stoppedJob?.batchId === batchId) {
       queueStopped = null
       stoppedJobId = null
+      persistQueueStopped()
     }
   }
 }
@@ -366,6 +398,7 @@ export function getGlobalQueueStats() {
 export function pauseQueue() {
   log.info('queue.pause', 'Queue pause requested')
   queueStopped = 'paused'
+  persistQueueStopped()
 }
 
 export function resumeQueue() {
@@ -392,6 +425,7 @@ export function resumeQueue() {
   }
   queueStopped = null
   stoppedJobId = null
+  persistQueueStopped()
   if (!processing) processQueue()
 }
 
@@ -409,6 +443,7 @@ export function dismissError() {
   }
   queueStopped = null
   stoppedJobId = null
+  persistQueueStopped()
   if (!processing && getNextJob()) processQueue()
 }
 
@@ -528,6 +563,7 @@ async function processJob(jobId: number) {
         .run()
       queueStopped = 'error'
       stoppedJobId = jobId
+      persistQueueStopped()
       return
     }
 
@@ -738,5 +774,6 @@ async function processJob(jobId: number) {
       .run()
     queueStopped = 'error'
     stoppedJobId = jobId
+    persistQueueStopped()
   }
 }
