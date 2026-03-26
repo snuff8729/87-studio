@@ -247,6 +247,34 @@ export function reorderBatches(batchIds: Array<number>) {
       .where(eq(generationBatches.id, batchIds[i]))
       .run()
   }
+  // Reset 'running' batches that have no actually-running job back to 'pending'
+  // so UI correctly shows only the batch with an active API call as running
+  for (const id of batchIds) {
+    const batch = db
+      .select({ status: generationBatches.status })
+      .from(generationBatches)
+      .where(eq(generationBatches.id, id))
+      .get()
+    if (batch?.status === 'running') {
+      const hasRunningJob = db
+        .select({ id: generationJobs.id })
+        .from(generationJobs)
+        .where(
+          and(
+            eq(generationJobs.batchId, id),
+            eq(generationJobs.status, 'running'),
+          ),
+        )
+        .limit(1)
+        .get()
+      if (!hasRunningJob) {
+        db.update(generationBatches)
+          .set({ status: 'pending' })
+          .where(eq(generationBatches.id, id))
+          .run()
+      }
+    }
+  }
 }
 
 export function reorderJobsInBatch(batchId: number, jobIds: Array<number>) {
