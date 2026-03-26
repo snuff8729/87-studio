@@ -421,9 +421,20 @@ function RecentBatchRow({
         </div>
 
         <div className="flex-1 min-w-0">
-          <span className="text-sm text-foreground truncate block">
-            {batch.label ?? `Batch #${batch.id}`}
-          </span>
+          {batch.projectId ? (
+            <Link
+              to="/workspace/$projectId"
+              params={{ projectId: String(batch.projectId) }}
+              search={{ imageDetail: undefined }}
+              className="text-sm text-foreground truncate block hover:text-primary transition-colors"
+            >
+              {batch.label ?? `Batch #${batch.id}`}
+            </Link>
+          ) : (
+            <span className="text-sm text-foreground truncate block">
+              {batch.label ?? `Batch #${batch.id}`}
+            </span>
+          )}
           <span className="text-xs text-muted-foreground">
             {batch.completedImages}/{batch.totalImages}
             {' · '}
@@ -481,9 +492,20 @@ function RecentBatchRow({
                   <span
                     className={`size-1.5 rounded-full shrink-0 inline-block ${statusColor}`}
                   />
-                  <span className="text-xs truncate flex-1 min-w-0">
-                    {job.sceneName ?? `Job #${job.id}`}
-                  </span>
+                  {job.projectId && job.projectSceneId ? (
+                    <Link
+                      to="/workspace/$projectId/scenes/$sceneId"
+                      params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
+                      search={{ imageDetail: undefined }}
+                      className="text-xs truncate flex-1 min-w-0 hover:underline"
+                    >
+                      {job.sceneName ?? `Job #${job.id}`}
+                    </Link>
+                  ) : (
+                    <span className="text-xs truncate flex-1 min-w-0">
+                      {job.sceneName ?? `Job #${job.id}`}
+                    </span>
+                  )}
                   <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
                     <div
                       className="h-full rounded-full bg-primary"
