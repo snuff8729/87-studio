@@ -43,7 +43,7 @@ export function PromptEditor({
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
-  const themeCompartmentRef = useRef(new Compartment())
+  const themeCompartmentRef = useRef<Compartment | null>(null)
 
   useEffect(() => {
     loadTagDatabase()
@@ -58,6 +58,9 @@ export function PromptEditor({
   useEffect(() => {
     if (!containerRef.current) return
 
+    const compartment = new Compartment()
+    themeCompartmentRef.current = compartment
+
     const state = EditorState.create({
       doc: value,
       extensions: [
@@ -69,7 +72,7 @@ export function PromptEditor({
         history(),
         EditorView.lineWrapping,
         fixLineWrapFocusSteal,
-        themeCompartmentRef.current.of(resolvedTheme === 'dark' ? darkTheme : lightTheme),
+        compartment.of(resolvedTheme === 'dark' ? darkTheme : lightTheme),
         placeholderHighlight,
         bundleHighlight,
         weightHighlight,
@@ -114,9 +117,10 @@ export function PromptEditor({
   // Sync theme changes at runtime
   useEffect(() => {
     const view = viewRef.current
-    if (!view) return
+    const compartment = themeCompartmentRef.current
+    if (!view || !compartment) return
     view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(
+      effects: compartment.reconfigure(
         resolvedTheme === 'dark' ? darkTheme : lightTheme,
       ),
     })

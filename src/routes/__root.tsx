@@ -13,9 +13,11 @@ import appCss from '../styles.css?url'
 
 function RootErrorComponent({ error }: { error: Error }) {
   return (
-    <I18nProvider>
-      <RootErrorContent error={error} />
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <RootErrorContent error={error} />
+      </I18nProvider>
+    </ThemeProvider>
   )
 }
 
@@ -47,9 +49,11 @@ function RootPendingComponent() {
 
 function RootNotFoundComponent() {
   return (
-    <I18nProvider>
-      <RootNotFoundContent />
-    </I18nProvider>
+    <ThemeProvider>
+      <I18nProvider>
+        <RootNotFoundContent />
+      </I18nProvider>
+    </ThemeProvider>
   )
 }
 
