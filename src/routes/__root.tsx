@@ -1,4 +1,4 @@
-import { HeadContent, Link, Outlet, Scripts, createRootRoute, useRouterState } from '@tanstack/react-router'
+import { HeadContent, Link, Outlet, Scripts, createRootRoute, useRouterState, useSearch } from '@tanstack/react-router'
 import { Sidebar } from '@/components/layout/sidebar'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
@@ -7,6 +7,7 @@ import { I18nProvider, useTranslation } from '@/lib/i18n'
 import { OnboardingProvider } from '@/lib/onboarding'
 import { ThemeProvider } from '@/lib/theme'
 import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay'
+import { ImageDetailOverlay } from '@/components/common/image-detail-overlay'
 
 import appCss from '../styles.css?url'
 
@@ -74,6 +75,9 @@ function RootNotFoundContent() {
 }
 
 export const Route = createRootRoute({
+  validateSearch: (search: Record<string, unknown>) => ({
+    imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
+  }),
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -113,13 +117,14 @@ function RootComponent() {
   const { pathname } = routerState.location
   const isWorkspace = pathname.startsWith('/workspace')
   const isGenerate = pathname.startsWith('/generate')
-  const isImageDetail = /^\/gallery\/\d+/.test(pathname)
-
+  const isGallery = pathname.startsWith('/gallery')
+  // Global image detail overlay (for non-gallery pages)
+  const { imageDetail } = useSearch({ from: '__root__' })
   return (
     <ThemeProvider>
       <I18nProvider>
         <OnboardingProvider>
-          {isWorkspace || isImageDetail || isGenerate ? (
+          {isWorkspace || isGenerate ? (
             <TooltipProvider delayDuration={300}>
               <Outlet />
               <Toaster richColors position="top-center" />
@@ -138,6 +143,7 @@ function RootComponent() {
               <Toaster richColors position="bottom-right" />
             </TooltipProvider>
           )}
+          {imageDetail && !isGallery && <ImageDetailOverlay imageId={imageDetail} />}
           <OnboardingOverlay />
         </OnboardingProvider>
       </I18nProvider>

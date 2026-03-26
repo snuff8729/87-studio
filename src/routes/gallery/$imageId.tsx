@@ -76,25 +76,11 @@ function PendingComponent() {
   )
 }
 
-type SearchParams = {
-  project?: number
-  projectSceneId?: number
-  tag?: number
-  favorite?: boolean
-  minRating?: number
-  sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
-}
-
 export const Route = createFileRoute('/gallery/$imageId')({
-  validateSearch: (search: Record<string, unknown>): SearchParams => ({
-    project: search.project ? Number(search.project) : undefined,
-    projectSceneId: search.projectSceneId ? Number(search.projectSceneId) : undefined,
-    tag: search.tag ? Number(search.tag) : undefined,
-    favorite: search.favorite === true || search.favorite === 'true' ? true : undefined,
-    minRating: search.minRating ? Number(search.minRating) : undefined,
-    sortBy: (search.sortBy as SearchParams['sortBy']) || undefined,
+  loaderDeps: ({ search }) => ({
+    project: (search as Record<string, unknown>).project as number | undefined,
+    projectSceneId: (search as Record<string, unknown>).projectSceneId as number | undefined,
   }),
-  loaderDeps: ({ search }) => search,
   loader: async ({ params, deps }) => {
     const imageId = Number(params.imageId)
     return getImageDetailPage({
@@ -105,9 +91,21 @@ export const Route = createFileRoute('/gallery/$imageId')({
       },
     })
   },
-  component: ImageDetailPage,
-  pendingComponent: PendingComponent,
+  component: ImageDetailOverlay,
+  pendingComponent: () => (
+    <div className="fixed inset-0 z-50 bg-background">
+      <PendingComponent />
+    </div>
+  ),
 })
+
+function ImageDetailOverlay() {
+  return (
+    <div className="fixed inset-0 z-50 bg-background">
+      <ImageDetailPage />
+    </div>
+  )
+}
 
 function ImageDetailPage() {
   const data = Route.useLoaderData()

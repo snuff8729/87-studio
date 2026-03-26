@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as GalleryRouteRouteImport } from './routes/gallery/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as MetadataIndexRouteImport } from './routes/metadata/index'
@@ -20,6 +21,11 @@ import { Route as WorkspaceProjectIdRouteRouteImport } from './routes/workspace/
 import { Route as WorkspaceProjectIdIndexRouteImport } from './routes/workspace/$projectId/index'
 import { Route as WorkspaceProjectIdScenesSceneIdRouteImport } from './routes/workspace/$projectId/scenes/$sceneId'
 
+const GalleryRouteRoute = GalleryRouteRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -41,9 +47,9 @@ const GenerateIndexRoute = GenerateIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryIndexRoute = GalleryIndexRouteImport.update({
-  id: '/gallery/',
-  path: '/gallery/',
-  getParentRoute: () => rootRouteImport,
+  id: '/',
+  path: '/',
+  getParentRoute: () => GalleryRouteRoute,
 } as any)
 const BundlesIndexRoute = BundlesIndexRouteImport.update({
   id: '/bundles/',
@@ -51,9 +57,9 @@ const BundlesIndexRoute = BundlesIndexRouteImport.update({
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryImageIdRoute = GalleryImageIdRouteImport.update({
-  id: '/gallery/$imageId',
-  path: '/gallery/$imageId',
-  getParentRoute: () => rootRouteImport,
+  id: '/$imageId',
+  path: '/$imageId',
+  getParentRoute: () => GalleryRouteRoute,
 } as any)
 const WorkspaceProjectIdRouteRoute = WorkspaceProjectIdRouteRouteImport.update({
   id: '/workspace/$projectId',
@@ -74,6 +80,7 @@ const WorkspaceProjectIdScenesSceneIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/gallery': typeof GalleryRouteRouteWithChildren
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/bundles/': typeof BundlesIndexRoute
@@ -98,6 +105,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/gallery': typeof GalleryRouteRouteWithChildren
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/bundles/': typeof BundlesIndexRoute
@@ -112,6 +120,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/gallery'
     | '/workspace/$projectId'
     | '/gallery/$imageId'
     | '/bundles/'
@@ -135,6 +144,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/gallery'
     | '/workspace/$projectId'
     | '/gallery/$imageId'
     | '/bundles/'
@@ -148,10 +158,9 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GalleryRouteRoute: typeof GalleryRouteRouteWithChildren
   WorkspaceProjectIdRouteRoute: typeof WorkspaceProjectIdRouteRouteWithChildren
-  GalleryImageIdRoute: typeof GalleryImageIdRoute
   BundlesIndexRoute: typeof BundlesIndexRoute
-  GalleryIndexRoute: typeof GalleryIndexRoute
   GenerateIndexRoute: typeof GenerateIndexRoute
   MetadataIndexRoute: typeof MetadataIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
@@ -159,6 +168,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -189,10 +205,10 @@ declare module '@tanstack/react-router' {
     }
     '/gallery/': {
       id: '/gallery/'
-      path: '/gallery'
+      path: '/'
       fullPath: '/gallery/'
       preLoaderRoute: typeof GalleryIndexRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof GalleryRouteRoute
     }
     '/bundles/': {
       id: '/bundles/'
@@ -203,10 +219,10 @@ declare module '@tanstack/react-router' {
     }
     '/gallery/$imageId': {
       id: '/gallery/$imageId'
-      path: '/gallery/$imageId'
+      path: '/$imageId'
       fullPath: '/gallery/$imageId'
       preLoaderRoute: typeof GalleryImageIdRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof GalleryRouteRoute
     }
     '/workspace/$projectId': {
       id: '/workspace/$projectId'
@@ -232,6 +248,20 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface GalleryRouteRouteChildren {
+  GalleryImageIdRoute: typeof GalleryImageIdRoute
+  GalleryIndexRoute: typeof GalleryIndexRoute
+}
+
+const GalleryRouteRouteChildren: GalleryRouteRouteChildren = {
+  GalleryImageIdRoute: GalleryImageIdRoute,
+  GalleryIndexRoute: GalleryIndexRoute,
+}
+
+const GalleryRouteRouteWithChildren = GalleryRouteRoute._addFileChildren(
+  GalleryRouteRouteChildren,
+)
+
 interface WorkspaceProjectIdRouteRouteChildren {
   WorkspaceProjectIdIndexRoute: typeof WorkspaceProjectIdIndexRoute
   WorkspaceProjectIdScenesSceneIdRoute: typeof WorkspaceProjectIdScenesSceneIdRoute
@@ -250,10 +280,9 @@ const WorkspaceProjectIdRouteRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GalleryRouteRoute: GalleryRouteRouteWithChildren,
   WorkspaceProjectIdRouteRoute: WorkspaceProjectIdRouteRouteWithChildren,
-  GalleryImageIdRoute: GalleryImageIdRoute,
   BundlesIndexRoute: BundlesIndexRoute,
-  GalleryIndexRoute: GalleryIndexRoute,
   GenerateIndexRoute: GenerateIndexRoute,
   MetadataIndexRoute: MetadataIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,

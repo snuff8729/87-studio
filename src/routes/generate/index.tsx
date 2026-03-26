@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
+import { createFileRoute, Link, useRouter, useNavigate } from '@tanstack/react-router'
 import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -727,6 +727,7 @@ function CenterPreview({
   onSetRating: (rating: number) => void
 }) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
 
   if (!selectedImage) {
     return (
@@ -798,14 +799,13 @@ function CenterPreview({
         <div className="flex-1" />
 
         {/* View in gallery */}
-        <Link
-          to="/gallery/$imageId"
-          params={{ imageId: String(selectedImage.id) }}
-          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+        <button
+          onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: selectedImage.id }) })}
+          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
         >
           {t('imageDetail.details')}
           <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
-        </Link>
+        </button>
       </div>
     </div>
   )

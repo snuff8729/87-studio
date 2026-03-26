@@ -1,5 +1,5 @@
 import { memo, useRef, useState, useEffect } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
@@ -24,6 +24,7 @@ const GAP = 4 // gap-1 = 4px
 
 export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: HistoryPanelProps) {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const { gridSize, setGridSize } = useImageGridSize('history')
   const cols = historyColsMap[gridSize]
 
@@ -91,12 +92,10 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
                 >
                   <div style={{ display: 'flex', gap: `${GAP}px` }}>
                     {rowImages.map((img) => (
-                      <Link
+                      <button
                         key={img.id}
-                        to="/gallery/$imageId"
-                        params={{ imageId: String(img.id) }}
-                        search={{ project: projectId }}
-                        className="relative rounded-md overflow-hidden bg-secondary group block shrink-0"
+                        onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) })}
+                        className="relative rounded-md overflow-hidden bg-secondary group block shrink-0 cursor-pointer"
                         style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
                       >
                         {img.thumbnailPath ? (
@@ -116,7 +115,7 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
                             {'\u2764'}
                           </div>
                         ) : null}
-                      </Link>
+                      </button>
                     ))}
                   </div>
                 </div>
