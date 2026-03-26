@@ -7,6 +7,7 @@ import {
   Settings02Icon,
   FileSearchIcon,
   Package01Icon,
+  TimeQuarter02Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { useTranslation } from '@/lib/i18n'
@@ -15,6 +16,7 @@ import type { TranslationKeys } from '@/lib/i18n'
 const navItems = [
   { to: '/', key: 'nav.projects' as TranslationKeys, icon: Home03Icon },
   { to: '/generate', key: 'nav.generate' as TranslationKeys, icon: MagicWand01Icon },
+  { to: '/queue', key: 'nav.queue' as TranslationKeys, icon: TimeQuarter02Icon },
   { to: '/gallery', key: 'nav.gallery' as TranslationKeys, icon: Image02Icon },
   { to: '/metadata', key: 'nav.metadata' as TranslationKeys, icon: FileSearchIcon },
   { to: '/bundles', key: 'nav.bundles' as TranslationKeys, icon: Package01Icon },
