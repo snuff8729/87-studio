@@ -13,13 +13,7 @@ import {
   listProjectJobs,
 } from '@/server/functions/workspace'
 import { updateProject } from '@/server/functions/projects'
-import {
-  cancelJobs,
-  createGenerationJob,
-  dismissGenerationError,
-  pauseGeneration,
-  resumeGeneration,
-} from '@/server/functions/generation'
+import { createGenerationJob } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import {
   addProjectScene,
@@ -407,16 +401,6 @@ function WorkspacePage() {
   const [countPerScene, setCountPerScene] = useState(0)
   const [sceneCounts, setSceneCounts] = useState<Record<number, number>>({})
   const [generating, setGenerating] = useState(data.activeJobs.length > 0)
-  const [generationTotal, setGenerationTotal] = useState(() =>
-    data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
-  )
-  const [activeJobs, setActiveJobs] = useState(data.activeJobs)
-  const [batchTimingData, setBatchTimingData] = useState<{
-    startedAt: number
-    totalImages: number
-    completedImages: number
-    avgImageDurationMs: number | null
-  } | null>(data.batchTiming)
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
     data.queueStatus?.queueStopped ?? null,
   )
@@ -425,15 +409,10 @@ function WorkspacePage() {
   useEffect(() => {
     const stopped = data.queueStatus?.queueStopped ?? null
     if (data.activeJobs.length > 0 || stopped) {
-      setActiveJobs(data.activeJobs)
       setGenerating(true)
-      setGenerationTotal(
-        data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
-      )
       setQueueStopped(stopped)
     } else {
       // No active jobs and no queue stop state — clear generating
-      setActiveJobs([])
       setGenerating(false)
       setQueueStopped(null)
     }
@@ -478,9 +457,7 @@ function WorkspacePage() {
         ])
         if (cancelled) return
 
-        const { jobs, batchTiming, queueStatus } = jobsResult
-        setActiveJobs(jobs)
-        setBatchTimingData(batchTiming)
+        const { jobs, queueStatus } = jobsResult
         setLiveImages(imgs)
         setLiveSceneCounts(counts)
 
@@ -507,7 +484,6 @@ function WorkspacePage() {
         if (jobs.length === 0 && !queueStatus?.queueStopped) {
           setGenerating(false)
           setQueueStopped(null)
-          setBatchTimingData(null)
           prevCompletedRef.current = 0
           router.invalidate()
         }
@@ -561,7 +537,6 @@ function WorkspacePage() {
     }
 
     const batchTotal = sceneIds.reduce((sum, id) => sum + getSceneCount(id), 0)
-    setGenerationTotal(batchTotal)
     setGenerating(true)
     try {
       await createGenerationJob({
@@ -575,46 +550,9 @@ function WorkspacePage() {
       })
       toast.success(t('generation.generationStarted', { count: batchTotal }))
       window.dispatchEvent(new CustomEvent('onboarding:generation-started'))
-      const { jobs } = await listProjectJobs({ data: projectId })
-      setActiveJobs(jobs)
     } catch {
       toast.error(t('generation.generationFailed'))
       setGenerating(false)
-    }
-  }
-
-  async function handleCancelJobs() {
-    const jobIds = activeJobs.map((j) => j.id)
-    if (jobIds.length === 0) return
-    await cancelJobs({ data: jobIds })
-    setActiveJobs([])
-    setGenerating(false)
-    setQueueStopped(null)
-    toast.success(t('generation.cancelled'))
-    router.invalidate()
-  }
-
-  async function handlePause() {
-    await pauseGeneration()
-    setQueueStopped('paused')
-  }
-
-  async function handleResume() {
-    setQueueStopped(null)
-    await resumeGeneration()
-  }
-
-  async function handleDismissError() {
-    setQueueStopped(null)
-    await dismissGenerationError()
-    // Re-fetch jobs to update UI
-    const { jobs, batchTiming } = await listProjectJobs({ data: projectId })
-    setActiveJobs(jobs)
-    setBatchTimingData(batchTiming)
-    if (jobs.length === 0) {
-      setGenerating(false)
-      setBatchTimingData(null)
-      router.invalidate()
     }
   }
 
@@ -771,16 +709,7 @@ function WorkspacePage() {
             />
           }
           generationProgress={
-            <GenerationProgress
-              jobs={activeJobs}
-              batchTotal={generationTotal}
-              batchTiming={batchTimingData}
-              queueStopped={queueStopped}
-              onCancel={handleCancelJobs}
-              onPause={handlePause}
-              onResume={handleResume}
-              onDismissError={handleDismissError}
-            />
+            <GenerationProgress />
           }
         />
       }

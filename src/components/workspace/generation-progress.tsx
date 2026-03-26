@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Cancel01Icon,
   NextIcon,
   PauseIcon,
   PlayIcon,
@@ -14,29 +13,15 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useTranslation } from '@/lib/i18n'
-
-interface GenerationProgressProps {
-  jobs: Array<{
-    id: number
-    sceneName: string | null
-    status: string | null
-    totalCount: number | null
-    completedCount: number | null
-    errorMessage?: string | null
-  }>
-  batchTotal: number
-  batchTiming: {
-    startedAt: number
-    totalImages: number
-    completedImages: number
-    avgImageDurationMs: number | null
-  } | null
-  queueStopped: 'error' | 'paused' | null
-  onCancel: () => void
-  onPause: () => void
-  onResume: () => void
-  onDismissError: () => void
-}
+import {
+  fetchQueueSummary,
+  listQueueBatches,
+} from '@/server/functions/queue'
+import {
+  pauseGeneration,
+  resumeGeneration,
+  dismissGenerationError,
+} from '@/server/functions/generation'
 
 function formatDuration(ms: number): string {
   const totalSec = Math.round(ms / 1000)
@@ -57,87 +42,117 @@ function formatRate(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-export function GenerationProgress({
-  jobs,
-  batchTotal,
-  batchTiming,
-  queueStopped,
-  onCancel,
-  onPause,
-  onResume,
-  onDismissError,
-}: GenerationProgressProps) {
+interface BatchInfo {
+  id: number
+  label: string | null
+  status: string | null
+  totalImages: number
+  completedImages: number
+}
+
+export function GenerationProgress() {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const startRef = useRef<number | null>(null)
 
-  // Elapsed timer — use server startedAt so it survives page refresh/navigation
-  const hasJobs = jobs.length > 0
-  const isPaused = queueStopped === 'paused'
-  const isError = queueStopped === 'error'
-  const isStopped = isPaused || isError
+  // Self-polling state
+  const [batches, setBatches] = useState<BatchInfo[]>([])
+  const [summary, setSummary] = useState<Awaited<
+    ReturnType<typeof fetchQueueSummary>
+  > | null>(null)
 
   useEffect(() => {
-    if (!hasJobs) {
+    let active = true
+    async function poll() {
+      if (!active) return
+      try {
+        const [sum, batchList] = await Promise.all([
+          fetchQueueSummary(),
+          listQueueBatches(),
+        ])
+        if (!active) return
+        setSummary(sum)
+        setBatches(batchList)
+      } catch {
+        /* ignore */
+      }
+    }
+    poll()
+    const id = setInterval(poll, 2000)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [])
+
+  const totalImages = summary?.globalStats.totalImages ?? 0
+  const completedImages = summary?.globalStats.completedImages ?? 0
+  const totalPending = summary?.globalStats.totalPendingImages ?? 0
+  const hasQueue = totalPending > 0 || (summary?.processing ?? false)
+
+  const isPaused = summary?.queueStopped === 'paused'
+  const isError = summary?.queueStopped === 'error'
+  const isStopped = isPaused || isError
+
+  // Elapsed timer
+  useEffect(() => {
+    if (!hasQueue) {
       startRef.current = null
       setElapsed(0)
       return
     }
-    if (batchTiming?.startedAt) {
-      startRef.current = batchTiming.startedAt
+    const serverStart = summary?.globalStats.sessionTiming?.startedAt
+    if (serverStart) {
+      startRef.current = serverStart
     } else if (startRef.current == null) {
       startRef.current = Date.now()
     }
-    // Don't tick when stopped
     if (isStopped) {
-      setElapsed(Date.now() - startRef.current)
+      setElapsed(Date.now() - (startRef.current ?? Date.now()))
       return
     }
-    const tick = () => setElapsed(Date.now() - startRef.current!)
+    const tick = () => setElapsed(Date.now() - (startRef.current ?? Date.now()))
     tick()
     const id = setInterval(tick, 1000)
     return () => clearInterval(id)
-  }, [hasJobs, batchTiming?.startedAt, isStopped])
+  }, [hasQueue, summary?.globalStats.sessionTiming?.startedAt, isStopped])
 
-  if (jobs.length === 0) return null
+  if (!hasQueue && batches.length === 0) return null
 
-  // Prefer server-side batch data (survives page refresh), fall back to client-side calculation
-  const total = batchTiming?.totalImages ?? batchTotal
-  const completed =
-    batchTiming?.completedImages ??
-    Math.max(
-      0,
-      batchTotal -
-        jobs.reduce(
-          (sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)),
-          0,
-        ),
-    )
-  const remaining = total - completed
+  const total = totalImages
+  const completed = completedImages
+  const remaining = totalPending
   const pct = total > 0 ? (completed / total) * 100 : 0
 
-  const avgMs = batchTiming?.avgImageDurationMs ?? null
+  const avgMs = summary?.globalStats.avgImageDurationMs ?? null
   const etaMs = avgMs != null && remaining > 0 ? remaining * avgMs : null
 
-  // Bar color based on state
   const barColor = isError
     ? 'bg-destructive'
     : isPaused
       ? 'bg-amber-500'
       : 'bg-primary'
 
-  // Status label for compact bar
   const statusLabel = isError
     ? t('generation.error')
     : isPaused
       ? t('generation.paused')
       : null
 
-  // Action handler that also closes popover
   const withClose = (fn: () => void) => () => {
     setOpen(false)
     fn()
+  }
+
+  async function handlePause() {
+    await pauseGeneration()
+  }
+  async function handleResume() {
+    await resumeGeneration()
+  }
+  async function handleDismissError() {
+    await dismissGenerationError()
   }
 
   return (
@@ -250,7 +265,7 @@ export function GenerationProgress({
               )}
             </div>
 
-            {/* Action buttons inside popover (accessible on all screen sizes) */}
+            {/* Action buttons */}
             <div className="flex items-center gap-1.5 pt-1">
               {!isStopped ? (
                 <>
@@ -258,19 +273,10 @@ export function GenerationProgress({
                     variant="secondary"
                     size="sm"
                     className="flex-1"
-                    onClick={withClose(onPause)}
+                    onClick={withClose(handlePause)}
                   >
                     <HugeiconsIcon icon={PauseIcon} className="size-4" />
                     {t('generation.pause')}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={withClose(onCancel)}
-                  >
-                    <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-                    {t('generation.cancel')}
                   </Button>
                 </>
               ) : isError ? (
@@ -279,7 +285,7 @@ export function GenerationProgress({
                     variant="secondary"
                     size="sm"
                     className="flex-1"
-                    onClick={withClose(onResume)}
+                    onClick={withClose(handleResume)}
                   >
                     <HugeiconsIcon icon={PlayIcon} className="size-4" />
                     {t('generation.retry')}
@@ -288,42 +294,22 @@ export function GenerationProgress({
                     variant="secondary"
                     size="sm"
                     className="flex-1"
-                    onClick={withClose(onDismissError)}
+                    onClick={withClose(handleDismissError)}
                   >
                     <HugeiconsIcon icon={NextIcon} className="size-4" />
                     {t('generation.skip')}
                   </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={withClose(onCancel)}
-                  >
-                    <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-                    {t('generation.cancel')}
-                  </Button>
                 </>
               ) : (
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1"
-                    onClick={withClose(onResume)}
-                  >
-                    <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                    {t('generation.resume')}
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    className="flex-1 text-destructive hover:text-destructive"
-                    onClick={withClose(onCancel)}
-                  >
-                    <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-                    {t('generation.cancel')}
-                  </Button>
-                </>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="flex-1"
+                  onClick={withClose(handleResume)}
+                >
+                  <HugeiconsIcon icon={PlayIcon} className="size-4" />
+                  {t('generation.resume')}
+                </Button>
               )}
             </div>
           </div>
@@ -340,59 +326,46 @@ export function GenerationProgress({
             </Link>
           </div>
 
-          {/* Per-scene list */}
+          {/* Per-batch list */}
           <div className="border-t border-border max-h-52 overflow-y-auto">
-            {jobs.map((job) => {
-              const isRunning = job.status === 'running'
-              const isFailed = job.status === 'failed'
-              const jobCompleted = job.completedCount ?? 0
-              const jobTotal = job.totalCount ?? 0
-              const jobPct = jobTotal > 0 ? (jobCompleted / jobTotal) * 100 : 0
+            {batches.map((batch) => {
+              const isRunning = batch.status === 'running'
+              const batchPct =
+                batch.totalImages > 0
+                  ? (batch.completedImages / batch.totalImages) * 100
+                  : 0
 
               return (
-                <div key={job.id} className="px-3 py-1.5">
+                <div key={batch.id} className="px-3 py-1.5">
                   <div
                     className={`flex items-center gap-2 ${
-                      isRunning
-                        ? 'bg-primary/5'
-                        : isFailed
-                          ? 'bg-destructive/5'
-                          : ''
+                      isRunning ? 'bg-primary/5' : ''
                     }`}
                   >
-                    {isFailed ? (
-                      <span className="size-1.5 rounded-full bg-destructive shrink-0" />
-                    ) : isRunning ? (
+                    {isRunning ? (
                       <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0" />
                     ) : (
                       <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
                     )}
                     <span
                       className={`text-xs truncate flex-1 min-w-0 ${
-                        isFailed
-                          ? 'text-destructive'
-                          : isRunning
-                            ? 'text-foreground'
-                            : 'text-muted-foreground'
+                        isRunning
+                          ? 'text-foreground'
+                          : 'text-muted-foreground'
                       }`}
                     >
-                      {job.sceneName ?? 'Scene'}
+                      {batch.label ?? `Batch #${batch.id}`}
                     </span>
                     <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
                       <div
-                        className={`h-full rounded-full ${isFailed ? 'bg-destructive' : 'bg-primary'} transition-all duration-300`}
-                        style={{ width: `${jobPct}%` }}
+                        className="h-full rounded-full bg-primary transition-all duration-300"
+                        style={{ width: `${batchPct}%` }}
                       />
                     </div>
                     <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-10 text-right">
-                      {jobCompleted}/{jobTotal}
+                      {batch.completedImages}/{batch.totalImages}
                     </span>
                   </div>
-                  {isFailed && job.errorMessage && (
-                    <p className="text-[11px] text-destructive/80 mt-0.5 ml-3.5 line-clamp-2">
-                      {job.errorMessage}
-                    </p>
-                  )}
                 </div>
               )
             })}
@@ -403,32 +376,21 @@ export function GenerationProgress({
       {/* External action buttons — hidden on mobile, visible on sm+ */}
       <div className="hidden sm:flex items-center gap-1 shrink-0">
         {!isStopped ? (
-          <>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onPause}
-              className="text-muted-foreground hover:text-foreground shrink-0"
-              title="Pause"
-            >
-              <HugeiconsIcon icon={PauseIcon} className="size-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onCancel}
-              className="text-muted-foreground hover:text-destructive shrink-0"
-              title="Cancel"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
-            </Button>
-          </>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handlePause}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+            title="Pause"
+          >
+            <HugeiconsIcon icon={PauseIcon} className="size-5" />
+          </Button>
         ) : isError ? (
           <>
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={onResume}
+              onClick={handleResume}
               className="text-muted-foreground hover:text-foreground shrink-0"
               title="Resume (retry)"
             >
@@ -437,43 +399,23 @@ export function GenerationProgress({
             <Button
               variant="ghost"
               size="icon-sm"
-              onClick={onDismissError}
+              onClick={handleDismissError}
               className="text-muted-foreground hover:text-foreground shrink-0"
               title="Skip"
             >
               <HugeiconsIcon icon={NextIcon} className="size-5" />
             </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onCancel}
-              className="text-muted-foreground hover:text-destructive shrink-0"
-              title="Cancel all"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
-            </Button>
           </>
         ) : (
-          <>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onResume}
-              className="text-muted-foreground hover:text-foreground shrink-0"
-              title="Resume"
-            >
-              <HugeiconsIcon icon={PlayIcon} className="size-5" />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={onCancel}
-              className="text-muted-foreground hover:text-destructive shrink-0"
-              title="Cancel all"
-            >
-              <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
-            </Button>
-          </>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={handleResume}
+            className="text-muted-foreground hover:text-foreground shrink-0"
+            title="Resume"
+          >
+            <HugeiconsIcon icon={PlayIcon} className="size-5" />
+          </Button>
         )}
       </div>
     </div>

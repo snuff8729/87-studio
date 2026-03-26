@@ -15,12 +15,6 @@ import {
   getScenePageContext,
   listProjectJobs,
 } from '@/server/functions/workspace'
-import {
-  cancelJobs,
-  dismissGenerationError,
-  pauseGeneration,
-  resumeGeneration,
-} from '@/server/functions/generation'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
 import { extractPlaceholders } from '@/lib/placeholder'
@@ -243,12 +237,6 @@ function SceneDetailPage() {
 
   // ── Generation polling ──
   const [activeJobs, setActiveJobs] = useState(data.activeJobs)
-  const [batchTimingData, setBatchTimingData] = useState<{
-    startedAt: number
-    totalImages: number
-    completedImages: number
-    avgImageDurationMs: number | null
-  } | null>(data.batchTiming)
   const [refreshKey, setRefreshKey] = useState(0)
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
     data.queueStatus?.queueStopped ?? null,
@@ -272,12 +260,11 @@ function SceneDetailPage() {
       if (cancelled || pollingRef.current) return
       pollingRef.current = true
       try {
-        const { jobs, batchTiming, queueStatus } = await listProjectJobs({
+        const { jobs, queueStatus } = await listProjectJobs({
           data: projectId,
         })
         if (cancelled) return
         setActiveJobs(jobs)
-        setBatchTimingData(batchTiming)
         setRefreshKey((k) => k + 1)
 
         // Detect queue stop
@@ -294,7 +281,6 @@ function SceneDetailPage() {
 
         if (jobs.length === 0 && !queueStatus?.queueStopped) {
           setQueueStopped(null)
-          setBatchTimingData(null)
           router.invalidate()
         }
       } catch {
@@ -309,39 +295,6 @@ function SceneDetailPage() {
       clearInterval(interval)
     }
   }, [hasActiveJobs, queueStopped, projectId, router])
-
-  async function handleCancelJobs() {
-    const jobIds = activeJobs.map((j) => j.id)
-    if (jobIds.length === 0) return
-    await cancelJobs({ data: jobIds })
-    setActiveJobs([])
-    setBatchTimingData(null)
-    setQueueStopped(null)
-    toast.success(t('generation.cancelled'))
-    router.invalidate()
-  }
-
-  async function handlePause() {
-    await pauseGeneration()
-    setQueueStopped('paused')
-  }
-
-  async function handleResume() {
-    setQueueStopped(null)
-    await resumeGeneration()
-  }
-
-  async function handleDismissError() {
-    setQueueStopped(null)
-    await dismissGenerationError()
-    const { jobs, batchTiming } = await listProjectJobs({ data: projectId })
-    setActiveJobs(jobs)
-    setBatchTimingData(batchTiming)
-    if (jobs.length === 0) {
-      setBatchTimingData(null)
-      router.invalidate()
-    }
-  }
 
   // ── URL search params ──
   const searchParams = Route.useSearch()
@@ -407,21 +360,7 @@ function SceneDetailPage() {
             {saveIndicator}
           </span>
         )}
-        {(activeJobs.length > 0 || queueStopped) && (
-          <GenerationProgress
-            jobs={activeJobs}
-            batchTotal={activeJobs.reduce(
-              (sum, j) => sum + (j.totalCount ?? 0),
-              0,
-            )}
-            batchTiming={batchTimingData}
-            queueStopped={queueStopped}
-            onCancel={handleCancelJobs}
-            onPause={handlePause}
-            onResume={handleResume}
-            onDismissError={handleDismissError}
-          />
-        )}
+        <GenerationProgress />
       </header>
 
       {/* Content: 3-panel layout */}

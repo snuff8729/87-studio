@@ -49,12 +49,6 @@ import {
   listQuickImages,
   listQuickJobs,
 } from '@/server/functions/quick-generation'
-import {
-  cancelJobs,
-  dismissGenerationError,
-  pauseGeneration,
-  resumeGeneration,
-} from '@/server/functions/generation'
 import { updateImage } from '@/server/functions/gallery'
 
 const PromptEditor = lazy(() =>
@@ -188,25 +182,6 @@ function QuickGeneratePage() {
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
 
   // Generation progress
-  const [activeJobs, setActiveJobs] = useState<
-    Array<{
-      id: number
-      status: string | null
-      totalCount: number | null
-      completedCount: number | null
-      errorMessage?: string | null
-      sceneName: string | null
-    }>
-  >([])
-  const [batchTiming, setBatchTiming] = useState<{
-    startedAt: number
-    totalImages: number
-    completedImages: number
-    avgImageDurationMs: number | null
-  } | null>(null)
-  const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
-    null,
-  )
 
   // DnD import
   const [dragging, setDragging] = useState(false)
@@ -345,16 +320,8 @@ function QuickGeneratePage() {
           return prev
         })
 
-        const mappedJobs = jobData.jobs.map((j) => ({
-          ...j,
-          sceneName: 'Quick Generate' as string | null,
-        }))
-        setActiveJobs(mappedJobs)
-        setBatchTiming(jobData.batchTiming)
-        setQueueStopped(jobData.queueStatus.queueStopped)
-
         // Stop polling if no more active jobs
-        if (mappedJobs.length === 0 && !jobData.queueStatus.processing) {
+        if (jobData.jobs.length === 0 && !jobData.queueStatus.processing) {
           stopPolling()
           setGenerating(false)
         }
@@ -378,15 +345,7 @@ function QuickGeneratePage() {
   // Check if there are active jobs on mount
   useEffect(() => {
     listQuickJobs().then((jobData) => {
-      const mappedJobs = jobData.jobs.map((j) => ({
-        ...j,
-        sceneName: 'Quick Generate' as string | null,
-      }))
-      setActiveJobs(mappedJobs)
-      setBatchTiming(jobData.batchTiming)
-      setQueueStopped(jobData.queueStatus.queueStopped)
-
-      if (mappedJobs.length > 0 || jobData.queueStatus.processing) {
+      if (jobData.jobs.length > 0 || jobData.queueStatus.processing) {
         setGenerating(true)
         startPolling()
       }
@@ -421,29 +380,6 @@ function QuickGeneratePage() {
       toast.error(t('generation.generationFailed'))
       setGenerating(false)
     }
-  }
-
-  function handleCancelJobs() {
-    const jobIds = activeJobs.map((j) => j.id)
-    if (jobIds.length === 0) return
-    cancelJobs({ data: jobIds }).then(() => {
-      toast.success(t('generation.cancelled'))
-      setActiveJobs([])
-      setGenerating(false)
-      stopPolling()
-    })
-  }
-
-  function handlePause() {
-    pauseGeneration()
-  }
-
-  function handleResume() {
-    resumeGeneration().then(() => startPolling())
-  }
-
-  function handleDismissError() {
-    dismissGenerationError().then(() => startPolling())
   }
 
   function addCharacter() {
@@ -518,11 +454,6 @@ function QuickGeneratePage() {
         }
       })()
     : null
-
-  const batchTotal = activeJobs.reduce(
-    (sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)),
-    0,
-  )
 
   return (
     <>
@@ -638,16 +569,7 @@ function QuickGeneratePage() {
               />
             </div>
             <div className="flex items-center justify-end lg:justify-center min-w-0 overflow-hidden">
-              <GenerationProgress
-                jobs={activeJobs}
-                batchTotal={batchTotal}
-                batchTiming={batchTiming}
-                queueStopped={queueStopped}
-                onCancel={handleCancelJobs}
-                onPause={handlePause}
-                onResume={handleResume}
-                onDismissError={handleDismissError}
-              />
+              <GenerationProgress />
             </div>
             <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
               <NumberStepper
