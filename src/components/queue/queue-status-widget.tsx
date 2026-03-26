@@ -39,13 +39,13 @@ export function QueueStatusWidget() {
   const barColor = isError
     ? 'bg-destructive'
     : isPaused
-      ? 'bg-amber-500'
+      ? 'bg-muted-foreground/40'
       : 'bg-primary'
 
   const textColor = isError
     ? 'text-destructive'
     : isPaused
-      ? 'text-amber-500'
+      ? 'text-muted-foreground'
       : 'text-primary'
 
   return (

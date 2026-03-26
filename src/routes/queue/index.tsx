@@ -143,7 +143,7 @@ function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProp
   const isRunning = batch.status === 'running' && !queuePaused
   const isPaused = queuePaused && (batch.status === 'running' || batch.status === 'pending')
 
-  const barColor = isPaused ? 'bg-amber-500' : isRunning ? 'bg-primary' : 'bg-muted-foreground/40'
+  const barColor = isPaused ? 'bg-muted-foreground/40' : isRunning ? 'bg-primary' : 'bg-muted-foreground/40'
 
   return (
     <div
@@ -165,7 +165,7 @@ function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProp
         {/* Status indicator */}
         <div className="shrink-0">
           {isPaused ? (
-            <span className="size-2 rounded-full bg-amber-500 inline-block" />
+            <span className="size-2 rounded-full bg-muted-foreground/40 inline-block" />
           ) : isRunning ? (
             <span className="size-2 rounded-full bg-primary animate-pulse inline-block" />
           ) : (
@@ -652,7 +652,7 @@ function QueuePage() {
                   isError
                     ? 'bg-destructive'
                     : isPaused
-                      ? 'bg-amber-500'
+                      ? 'bg-muted-foreground/40'
                       : 'bg-primary'
                 }`}
                 style={{ width: `${overallPct}%` }}
@@ -660,7 +660,7 @@ function QueuePage() {
             </div>
             {(isPaused || isError) && (
               <p
-                className={`text-xs font-medium ${isError ? 'text-destructive' : 'text-amber-500'}`}
+                className={`text-xs font-medium ${isError ? 'text-destructive' : 'text-muted-foreground'}`}
               >
                 {isError ? t('queue.error' as any) : t('queue.paused' as any)}
               </p>

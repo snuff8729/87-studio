@@ -139,7 +139,7 @@ export function GenerationProgress() {
   const barColor = isError
     ? 'bg-destructive'
     : isPaused
-      ? 'bg-amber-500'
+      ? 'bg-muted-foreground/40'
       : 'bg-primary'
 
   const statusLabel = isError
@@ -186,7 +186,7 @@ export function GenerationProgress() {
                     className={
                       isError
                         ? 'text-destructive font-medium'
-                        : 'text-amber-500 font-medium'
+                        : 'text-muted-foreground font-medium'
                     }
                   >
                     {statusLabel}
@@ -226,7 +226,7 @@ export function GenerationProgress() {
               <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
                 {t('generation.progress')}
                 {isPaused && (
-                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-500/15 text-amber-500">
+                  <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted-foreground/40/15 text-muted-foreground">
                     {t('generation.paused')}
                   </span>
                 )}
