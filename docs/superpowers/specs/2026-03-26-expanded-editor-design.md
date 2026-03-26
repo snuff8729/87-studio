@@ -12,7 +12,11 @@ CodeMirror 프롬프트 에디터에 확대 편집 기능을 추가한다. 프�
 - Character Prompt (200px)
 - Character Negative Prompt (120px)
 
-**대상 외**: PlaceholderEditor의 textarea 필드, 기타 텍스트 입력 필드
+**추가 대상**: 프로젝트 내 모든 textarea 편집 필드
+- PlaceholderEditor의 플레이스홀더 값 textarea (unfilled/filled, general/character)
+- ScenePackDialog의 씬 플레이스홀더 값 Textarea
+- 이미지 메모 Textarea (image-detail-overlay, gallery/$imageId)
+- 프로젝트 설명 Textarea (대시보드 프로젝트 생성 다이얼로그)
 
 ## Architecture
 
@@ -33,11 +37,43 @@ interface ExpandedEditorDialogProps {
 }
 ```
 
-### Modified Component
+### New Component (Textarea)
+
+**`src/components/common/expanded-textarea-dialog.tsx`**
+
+`ExpandedTextareaDialog` — Radix UI Dialog 안에 Textarea를 렌더링하는 컴포넌트. CodeMirror 없이 일반 textarea를 풀스크린으로 확대.
+
+```typescript
+interface ExpandedTextareaDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  title: string
+  value: string
+  onChange: (value: string) => void
+  placeholder?: string
+  onBlur?: () => void
+}
+```
+
+### Modified Components
 
 **`src/components/workspace/prompt-panel.tsx`**
+각 에디터의 라벨 행에 확대 버튼을 추가한다.
 
-각 에디터의 라벨 행에 확대 버튼을 추가한다. 버튼 클릭 시 `ExpandedEditorDialog`를 열고 해당 에디터의 value/onChange를 전달한다.
+**`src/components/workspace/placeholder-editor.tsx`**
+각 플레이스홀더 textarea 옆에 확대 버튼을 추가한다.
+
+**`src/components/workspace/scene-pack-dialog.tsx`**
+씬 편집 패널의 플레이스홀더 textarea 옆에 확대 버튼을 추가한다.
+
+**`src/components/common/image-detail-overlay.tsx`**
+이미지 메모 textarea 옆에 확대 버튼을 추가한다.
+
+**`src/routes/gallery/$imageId.tsx`**
+이미지 메모 textarea 옆에 확대 버튼을 추가한다.
+
+**`src/routes/index.tsx`**
+프로젝트 설명 textarea 옆에 확대 버튼을 추가한다.
 
 ## Expand Button
 
@@ -124,7 +160,7 @@ UI 인터랙션 중심 기능이므로 별도 유닛 테스트 대상 아님. �
 
 | Item | Detail |
 |------|--------|
-| New files | 1 (`expanded-editor-dialog.tsx`) |
-| Modified files | 3 (`prompt-panel.tsx`, `en.ts`, `ko.ts`) |
+| New files | 2 (`expanded-editor-dialog.tsx`, `expanded-textarea-dialog.tsx`) |
+| Modified files | 8 (`prompt-panel.tsx`, `placeholder-editor.tsx`, `scene-pack-dialog.tsx`, `image-detail-overlay.tsx`, `gallery/$imageId.tsx`, `index.tsx`, `en.ts`, `ko.ts`) |
 | New dependencies | None |
 | Breaking changes | None |
