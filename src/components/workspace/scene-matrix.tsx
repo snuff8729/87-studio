@@ -374,36 +374,14 @@ function VirtualSceneList({
 }: VirtualSceneListProps) {
   const { t } = useTranslation()
   const listRef = useRef<HTMLDivElement>(null)
-  const [itemHeight, setItemHeight] = useState(SCENE_LIST_ITEM_HEIGHT)
-
-  // Measure actual item height based on sidebar width (rem-aware for UI scale)
-  useEffect(() => {
-    const el = listRef.current
-    if (!el) return
-    const measure = () => {
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize)
-      const style = getComputedStyle(el)
-      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
-      const w = el.clientWidth - padding
-      // thumbnail height (aspect 3:4) + info area (~2.25rem) + gap
-      setItemHeight(Math.floor(w * 4 / 3) + Math.ceil(rem * 2.25) + SCENE_LIST_GAP)
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
 
   const virtualizer = useVirtualizer({
     count: allScenes.length,
     getScrollElement: () => listRef.current,
-    estimateSize: () => itemHeight,
+    estimateSize: () => SCENE_LIST_ITEM_HEIGHT,
     overscan: 3,
+    measureElement: (el) => el.getBoundingClientRect().height,
   })
-
-  useEffect(() => {
-    virtualizer.measure()
-  }, [virtualizer, itemHeight])
 
   return (
     <div className="hidden sm:flex w-52 shrink-0 bg-secondary/10 flex-col min-h-0">
@@ -447,6 +425,8 @@ function VirtualSceneList({
                 key={scene.id}
                 scene={scene}
                 isSelected={selectedScene === scene.id}
+                measureRef={virtualizer.measureElement}
+                virtualIndex={vItem.index}
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -475,6 +455,8 @@ function VirtualSceneList({
 interface MatrixSceneItemProps {
   scene: SceneData
   isSelected: boolean
+  measureRef: (el: HTMLElement | null) => void
+  virtualIndex: number
   style: React.CSSProperties
   onSelect: () => void
   onDuplicate: () => void
@@ -484,6 +466,8 @@ interface MatrixSceneItemProps {
 const MatrixSceneItem = memo(function MatrixSceneItem({
   scene,
   isSelected,
+  measureRef,
+  virtualIndex,
   style,
   onSelect,
   onDuplicate,
@@ -491,7 +475,7 @@ const MatrixSceneItem = memo(function MatrixSceneItem({
 }: MatrixSceneItemProps) {
   const { t } = useTranslation()
   return (
-    <div style={style}>
+    <div ref={measureRef} data-index={virtualIndex} style={style}>
       <div
         onClick={onSelect}
         className={`rounded-lg cursor-pointer transition-all group/item ${

@@ -520,7 +520,6 @@ interface ReserveGridProps {
 }
 
 const GRID_GAP = 12 // gap-3 = 12px
-const INFO_HEIGHT = 72 // approximate height of name + stepper area
 
 const sceneGridCols: Record<GridSize, [number, number]> = {
   sm: [3, 4],  // [<768px, >=768px]
@@ -569,7 +568,11 @@ function ReserveGrid({
   useEffect(() => {
     const el = parentRef.current
     if (!el) return
-    const measure = () => setContainerWidth(el.clientWidth - 24) // p-3 = 12px each side
+    const measure = () => {
+      const style = getComputedStyle(el)
+      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+      setContainerWidth(el.clientWidth - padding)
+    }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
@@ -577,19 +580,22 @@ function ReserveGrid({
   }, [])
 
   const cardWidth = containerWidth > 0 ? Math.floor((containerWidth - GRID_GAP * (cols - 1)) / cols) : 150
-  const rowHeight = Math.floor(cardWidth * 4 / 3) + INFO_HEIGHT + GRID_GAP
   const rowCount = Math.ceil(scenes.length / cols)
+
+  // Estimate: thumbnail (aspect 3:4) + info area (~72px) + gap
+  const estimatedRowHeight = Math.floor(cardWidth * 4 / 3) + 72 + GRID_GAP
 
   const virtualizer = useVirtualizer({
     count: rowCount,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => rowHeight,
+    estimateSize: () => estimatedRowHeight,
     overscan: 2,
+    measureElement: (el) => el.getBoundingClientRect().height,
   })
 
   useEffect(() => {
     virtualizer.measure()
-  }, [virtualizer, rowHeight])
+  }, [virtualizer, estimatedRowHeight])
 
   return (
     <div ref={parentRef} className="h-full overflow-y-auto p-3">
@@ -628,12 +634,15 @@ function ReserveGrid({
           return (
             <div
               key={vRow.key}
+              ref={virtualizer.measureElement}
+              data-index={vRow.index}
               style={{
                 position: 'absolute',
                 top: 0,
                 left: 0,
                 width: '100%',
                 transform: `translateY(${vRow.start}px)`,
+                paddingBottom: `${GRID_GAP}px`,
               }}
             >
               <div style={{ display: 'flex', gap: `${GRID_GAP}px` }}>
