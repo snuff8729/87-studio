@@ -1,13 +1,22 @@
-import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db'
-import { generatedImages, projects, projectScenes } from '../db/schema'
-import { eq, and, sql, desc, inArray } from 'drizzle-orm'
-import { readFileSync, writeFileSync, mkdirSync, existsSync, unlinkSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { resolve } from 'node:path'
-import { zipSync } from 'fflate'
 import { randomUUID } from 'node:crypto'
+import { createServerFn } from '@tanstack/react-start'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { zipSync } from 'fflate'
+import { db } from '../db'
+import { generatedImages, projectScenes, projects } from '../db/schema'
 import { createLogger } from '../services/logger'
-import { resolveFilenameTemplate, DEFAULT_FILENAME_TEMPLATE } from '../services/download'
+import {
+  DEFAULT_FILENAME_TEMPLATE,
+  resolveFilenameTemplate,
+} from '../services/download'
 import type { FilenameVars } from '../services/download'
 
 const log = createLogger('fn.download')
@@ -19,13 +28,13 @@ export const prepareDownload = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
       projectId?: number
-      projectSceneIds?: number[]
+      projectSceneIds?: Array<number>
       isFavorite?: boolean
       minRating?: number
       minWinRate?: number
       filenameTemplate?: string
-      imageIds?: number[]
-      tagIds?: number[]
+      imageIds?: Array<number>
+      tagIds?: Array<number>
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -36,12 +45,16 @@ export const prepareDownload = createServerFn({ method: 'POST' })
     if (data.imageIds && data.imageIds.length > 0) {
       conditions.push(inArray(generatedImages.id, data.imageIds))
     } else {
-      if (data.projectId) conditions.push(eq(generatedImages.projectId, data.projectId))
+      if (data.projectId)
+        conditions.push(eq(generatedImages.projectId, data.projectId))
       if (data.projectSceneIds && data.projectSceneIds.length > 0) {
-        conditions.push(inArray(generatedImages.projectSceneId, data.projectSceneIds))
+        conditions.push(
+          inArray(generatedImages.projectSceneId, data.projectSceneIds),
+        )
       }
       if (data.isFavorite) conditions.push(eq(generatedImages.isFavorite, 1))
-      if (data.minRating) conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
+      if (data.minRating)
+        conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
       if (data.minWinRate) {
         conditions.push(
           sql`CASE WHEN (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) > 0
@@ -51,7 +64,10 @@ export const prepareDownload = createServerFn({ method: 'POST' })
       }
       if (data.tagIds && data.tagIds.length > 0) {
         conditions.push(
-          sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(data.tagIds.map(id => sql`${id}`), sql`, `)}))`,
+          sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(
+            data.tagIds.map((id) => sql`${id}`),
+            sql`, `,
+          )}))`,
         )
       }
     }
@@ -72,18 +88,38 @@ export const prepareDownload = createServerFn({ method: 'POST' })
     }
 
     // Lookup project names
-    const projectIds = [...new Set(images.map((img) => img.projectId).filter((id): id is number => id != null))]
+    const projectIds = [
+      ...new Set(
+        images
+          .map((img) => img.projectId)
+          .filter((id): id is number => id != null),
+      ),
+    ]
     const projectMap = new Map<number, string>()
     for (const pid of projectIds) {
-      const proj = db.select({ name: projects.name }).from(projects).where(eq(projects.id, pid)).get()
+      const proj = db
+        .select({ name: projects.name })
+        .from(projects)
+        .where(eq(projects.id, pid))
+        .get()
       if (proj) projectMap.set(pid, proj.name)
     }
 
     // Lookup scene names
-    const sceneIds = [...new Set(images.map((img) => img.projectSceneId).filter((id): id is number => id != null))]
+    const sceneIds = [
+      ...new Set(
+        images
+          .map((img) => img.projectSceneId)
+          .filter((id): id is number => id != null),
+      ),
+    ]
     const sceneMap = new Map<number, string>()
     for (const sid of sceneIds) {
-      const scene = db.select({ name: projectScenes.name }).from(projectScenes).where(eq(projectScenes.id, sid)).get()
+      const scene = db
+        .select({ name: projectScenes.name })
+        .from(projectScenes)
+        .where(eq(projectScenes.id, sid))
+        .get()
       if (scene) sceneMap.set(sid, scene.name)
     }
 
@@ -99,17 +135,26 @@ export const prepareDownload = createServerFn({ method: 'POST' })
         continue
       }
 
-      const totalMatches = (img.tournamentWins ?? 0) + (img.tournamentLosses ?? 0)
-      const winRate = totalMatches > 0
-        ? ((img.tournamentWins ?? 0) / totalMatches * 100).toFixed(1)
-        : '0.0'
+      const totalMatches =
+        (img.tournamentWins ?? 0) + (img.tournamentLosses ?? 0)
+      const winRate =
+        totalMatches > 0
+          ? (((img.tournamentWins ?? 0) / totalMatches) * 100).toFixed(1)
+          : '0.0'
 
       const vars: FilenameVars = {
-        project_name: (img.projectId != null ? projectMap.get(img.projectId) : undefined) ?? 'unknown',
-        scene_name: (img.projectSceneId != null ? sceneMap.get(img.projectSceneId) : undefined) ?? 'unknown',
+        project_name:
+          (img.projectId != null ? projectMap.get(img.projectId) : undefined) ??
+          'unknown',
+        scene_name:
+          (img.projectSceneId != null
+            ? sceneMap.get(img.projectSceneId)
+            : undefined) ?? 'unknown',
         seed: img.seed,
         index: i + 1,
-        date: img.createdAt ? img.createdAt.split('T')[0] ?? img.createdAt.split(' ')[0] : '',
+        date: img.createdAt
+          ? (img.createdAt.split('T')[0] ?? img.createdAt.split(' ')[0])
+          : '',
         rating: img.rating,
         id: img.id,
         wins: img.tournamentWins ?? 0,

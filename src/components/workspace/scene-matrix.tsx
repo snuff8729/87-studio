@@ -1,17 +1,18 @@
-import { useState, useEffect, useRef, useMemo, useCallback, memo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
+  GridIcon,
   Image02Icon,
   PencilEdit02Icon,
   Tick01Icon,
-  Cancel01Icon,
-  GridIcon,
 } from '@hugeicons/core-free-icons'
+import { PlaceholderEditor } from './placeholder-editor'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -27,7 +28,6 @@ import {
   bulkUpdatePlaceholders,
   upsertCharacterOverride,
 } from '@/server/functions/project-scenes'
-import { PlaceholderEditor } from './placeholder-editor'
 
 interface SceneData {
   id: number
@@ -42,7 +42,7 @@ interface SceneData {
 interface ScenePackData {
   id: number
   name: string
-  scenes: SceneData[]
+  scenes: Array<SceneData>
 }
 
 interface CharacterOverride {
@@ -54,16 +54,21 @@ interface CharacterOverride {
 interface CharacterPlaceholderKeyEntry {
   characterId: number
   characterName: string
-  keys: string[]
+  keys: Array<string>
 }
 
 interface SceneMatrixProps {
-  scenePacks: ScenePackData[]
+  scenePacks: Array<ScenePackData>
   projectId: number
-  generalPlaceholderKeys: string[]
-  characterPlaceholderKeys: CharacterPlaceholderKeyEntry[]
-  characters: Array<{ id: number; name: string; charPrompt: string; charNegative: string }>
-  characterOverrides: Record<number, CharacterOverride[]>
+  generalPlaceholderKeys: Array<string>
+  characterPlaceholderKeys: Array<CharacterPlaceholderKeyEntry>
+  characters: Array<{
+    id: number
+    name: string
+    charPrompt: string
+    charNegative: string
+  }>
+  characterOverrides: Record<number, Array<CharacterOverride>>
   selectedScene: number | null
   onSelectedSceneChange: (id: number | null) => void
   onDeleteScene: (sceneId: number) => Promise<void>
@@ -114,7 +119,10 @@ export const SceneMatrix = memo(function SceneMatrix({
     if (selectedScene == null && allScenes.length > 0) {
       setSelectedScene(allScenes[0].id)
     }
-    if (selectedScene != null && !allScenes.some((s) => s.id === selectedScene)) {
+    if (
+      selectedScene != null &&
+      !allScenes.some((s) => s.id === selectedScene)
+    ) {
       setSelectedScene(allScenes[0]?.id ?? null)
     }
   }, [allScenes, selectedScene])
@@ -133,7 +141,9 @@ export const SceneMatrix = memo(function SceneMatrix({
     for (const [sceneId, overrides] of Object.entries(characterOverrides)) {
       result[Number(sceneId)] = {}
       for (const o of overrides) {
-        result[Number(sceneId)][o.characterId] = JSON.parse(o.placeholders || '{}')
+        result[Number(sceneId)][o.characterId] = JSON.parse(
+          o.placeholders || '{}',
+        )
       }
     }
     return result
@@ -142,19 +152,31 @@ export const SceneMatrix = memo(function SceneMatrix({
   const selectedSceneData = allScenes.find((s) => s.id === selectedScene)
 
   // ── Save callbacks for PlaceholderEditor ──
-  const handleSaveGeneral = useCallback(async (mergedJson: string) => {
-    if (!selectedScene) return
-    await bulkUpdatePlaceholders({
-      data: { updates: [{ sceneId: selectedScene, placeholders: mergedJson }] },
-    })
-  }, [selectedScene])
+  const handleSaveGeneral = useCallback(
+    async (mergedJson: string) => {
+      if (!selectedScene) return
+      await bulkUpdatePlaceholders({
+        data: {
+          updates: [{ sceneId: selectedScene, placeholders: mergedJson }],
+        },
+      })
+    },
+    [selectedScene],
+  )
 
-  const handleSaveCharOverride = useCallback(async (charId: number, mergedJson: string) => {
-    if (!selectedScene) return
-    await upsertCharacterOverride({
-      data: { projectSceneId: selectedScene, characterId: charId, placeholders: mergedJson },
-    })
-  }, [selectedScene])
+  const handleSaveCharOverride = useCallback(
+    async (charId: number, mergedJson: string) => {
+      if (!selectedScene) return
+      await upsertCharacterOverride({
+        data: {
+          projectSceneId: selectedScene,
+          characterId: charId,
+          placeholders: mergedJson,
+        },
+      })
+    },
+    [selectedScene],
+  )
 
   // ── Actions ──
   async function handleRename(id: number) {
@@ -187,13 +209,16 @@ export const SceneMatrix = memo(function SceneMatrix({
                     <SelectItem key={scene.id} value={String(scene.id)}>
                       {scene.name}
                     </SelectItem>
-                  ))
+                  )),
                 )}
               </SelectContent>
             </Select>
           </div>
           {addingScene && (
-            <div data-onboarding="add-scene-form" className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5">
+            <div
+              data-onboarding="add-scene-form"
+              className="mt-2 rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5"
+            >
               <Input
                 ref={newSceneInputRef}
                 value={newSceneName}
@@ -207,10 +232,20 @@ export const SceneMatrix = memo(function SceneMatrix({
                 autoFocus
               />
               <div className="flex gap-1">
-                <Button size="sm" onClick={onSubmitAddScene} disabled={!newSceneName.trim()} className="flex-1">
+                <Button
+                  size="sm"
+                  onClick={onSubmitAddScene}
+                  disabled={!newSceneName.trim()}
+                  className="flex-1"
+                >
                   {t('common.add')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={onCancelAdd} className="flex-1">
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={onCancelAdd}
+                  className="flex-1"
+                >
                   {t('common.cancel')}
                 </Button>
               </div>
@@ -248,7 +283,10 @@ export const SceneMatrix = memo(function SceneMatrix({
                     />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center">
-                      <HugeiconsIcon icon={Image02Icon} className="size-5 text-muted-foreground/20" />
+                      <HugeiconsIcon
+                        icon={Image02Icon}
+                        className="size-5 text-muted-foreground/20"
+                      />
                     </div>
                   )}
                 </div>
@@ -259,16 +297,23 @@ export const SceneMatrix = memo(function SceneMatrix({
                       value={editNameValue}
                       onChange={(e) => setEditNameValue(e.target.value)}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleRename(selectedSceneData.id)
+                        if (e.key === 'Enter')
+                          handleRename(selectedSceneData.id)
                         if (e.key === 'Escape') setEditingName(null)
                       }}
                       className="h-7 text-base flex-1"
                       autoFocus
                     />
-                    <button onClick={() => handleRename(selectedSceneData.id)} className="text-primary hover:text-primary/80 transition-colors shrink-0 p-1">
+                    <button
+                      onClick={() => handleRename(selectedSceneData.id)}
+                      className="text-primary hover:text-primary/80 transition-colors shrink-0 p-1"
+                    >
                       <HugeiconsIcon icon={Tick01Icon} className="size-5" />
                     </button>
-                    <button onClick={() => setEditingName(null)} className="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-1">
+                    <button
+                      onClick={() => setEditingName(null)}
+                      className="text-muted-foreground hover:text-foreground transition-colors shrink-0 p-1"
+                    >
                       <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
                     </button>
                   </div>
@@ -283,11 +328,16 @@ export const SceneMatrix = memo(function SceneMatrix({
                       title={t('scene.clickToRename')}
                     >
                       <span className="truncate">{selectedSceneData.name}</span>
-                      <HugeiconsIcon icon={PencilEdit02Icon} className="size-3.5 text-muted-foreground/40 group-hover/rename:text-primary shrink-0" />
+                      <HugeiconsIcon
+                        icon={PencilEdit02Icon}
+                        className="size-3.5 text-muted-foreground/40 group-hover/rename:text-primary shrink-0"
+                      />
                     </button>
                     {selectedSceneData.recentImageCount > 0 && (
                       <span className="text-xs text-muted-foreground tabular-nums">
-                        {t('scene.images', { count: selectedSceneData.recentImageCount })}
+                        {t('scene.images', {
+                          count: selectedSceneData.recentImageCount,
+                        })}
                       </span>
                     )}
                   </div>
@@ -310,8 +360,12 @@ export const SceneMatrix = memo(function SceneMatrix({
               <div className="flex-1 overflow-y-auto px-3 sm:px-5 py-3 sm:py-4">
                 <PlaceholderEditor
                   sceneId={selectedSceneData.id}
-                  scenePlaceholders={parsedPlaceholders[selectedSceneData.id] ?? {}}
-                  characterOverrides={parsedCharOverrides[selectedSceneData.id] ?? {}}
+                  scenePlaceholders={
+                    parsedPlaceholders[selectedSceneData.id] ?? {}
+                  }
+                  characterOverrides={
+                    parsedCharOverrides[selectedSceneData.id] ?? {}
+                  }
                   generalPlaceholderKeys={generalPlaceholderKeys}
                   characterPlaceholderKeys={characterPlaceholderKeys}
                   characters={characters}
@@ -326,10 +380,15 @@ export const SceneMatrix = memo(function SceneMatrix({
             <div className="flex-1 flex flex-col items-center justify-center p-8 text-center">
               <div className="space-y-4 max-w-xs">
                 <div className="rounded-2xl bg-secondary/20 p-5 inline-block">
-                  <HugeiconsIcon icon={GridIcon} className="size-8 text-muted-foreground/25" />
+                  <HugeiconsIcon
+                    icon={GridIcon}
+                    className="size-8 text-muted-foreground/25"
+                  />
                 </div>
                 <p className="text-sm text-muted-foreground/60">
-                  <span className="hidden sm:inline">{t('scene.selectSceneLeft')}</span>
+                  <span className="hidden sm:inline">
+                    {t('scene.selectSceneLeft')}
+                  </span>
                   <span className="sm:hidden">{t('scene.selectScene')}</span>
                 </p>
               </div>
@@ -347,7 +406,7 @@ const SCENE_LIST_ITEM_HEIGHT = 240 // approximate: aspect-[3/4] on ~192px wide +
 const SCENE_LIST_GAP = 4 // space-y-1 = 4px
 
 interface VirtualSceneListProps {
-  allScenes: SceneData[]
+  allScenes: Array<SceneData>
   selectedScene: number | null
   setSelectedScene: (id: number | null) => void
   onDuplicateScene: (sceneId: number) => Promise<void>
@@ -394,7 +453,10 @@ function VirtualSceneList({
 
       <div ref={listRef} className="flex-1 overflow-y-auto px-2 pb-2">
         {addingScene && (
-          <div data-onboarding="add-scene-form" className="rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5 mb-1">
+          <div
+            data-onboarding="add-scene-form"
+            className="rounded-lg border border-primary/30 bg-primary/5 p-2 space-y-1.5 mb-1"
+          >
             <Input
               ref={newSceneInputRef}
               value={newSceneName}
@@ -408,17 +470,33 @@ function VirtualSceneList({
               autoFocus
             />
             <div className="flex gap-1">
-              <Button size="xs" onClick={onSubmitAddScene} disabled={!newSceneName.trim()} className="flex-1">
+              <Button
+                size="xs"
+                onClick={onSubmitAddScene}
+                disabled={!newSceneName.trim()}
+                className="flex-1"
+              >
                 {t('common.add')}
               </Button>
-              <Button size="xs" variant="ghost" onClick={onCancelAdd} className="flex-1">
+              <Button
+                size="xs"
+                variant="ghost"
+                onClick={onCancelAdd}
+                className="flex-1"
+              >
                 {t('common.cancel')}
               </Button>
             </div>
           </div>
         )}
 
-        <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            position: 'relative',
+            width: '100%',
+          }}
+        >
           {virtualizer.getVirtualItems().map((vItem) => {
             const scene = allScenes[vItem.index]
             return (
@@ -497,7 +575,10 @@ const MatrixSceneItem = memo(function MatrixSceneItem({
             </div>
           ) : (
             <div className="aspect-[3/4] rounded-t-lg bg-secondary/60 flex items-center justify-center">
-              <HugeiconsIcon icon={Image02Icon} className="size-5 text-muted-foreground/15" />
+              <HugeiconsIcon
+                icon={Image02Icon}
+                className="size-5 text-muted-foreground/15"
+              />
             </div>
           )}
           {scene.recentImageCount > 0 && (
@@ -510,7 +591,9 @@ const MatrixSceneItem = memo(function MatrixSceneItem({
 
         <div className="px-2.5 pt-1.5 pb-2">
           <div className="flex items-center gap-1">
-            <div className={`text-sm font-medium truncate flex-1 ${isSelected ? 'text-primary' : 'text-foreground/90'}`}>
+            <div
+              className={`text-sm font-medium truncate flex-1 ${isSelected ? 'text-primary' : 'text-foreground/90'}`}
+            >
               {scene.name}
             </div>
             <button

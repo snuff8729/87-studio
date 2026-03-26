@@ -1,17 +1,23 @@
 import { createServerFn } from '@tanstack/react-start'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { generatedImages, tournamentMatches } from '../db/schema'
-import { eq, sql, desc, inArray, and } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.tournament')
 
 export const getTournamentState = createServerFn({ method: 'GET' })
-  .inputValidator((input: { projectSceneId: number; imageIds?: number[] }) => input)
+  .inputValidator(
+    (input: { projectSceneId: number; imageIds?: Array<number> }) => input,
+  )
   .handler(async ({ data: { projectSceneId, imageIds: filterIds } }) => {
-    const whereClause = filterIds && filterIds.length > 0
-      ? and(eq(generatedImages.projectSceneId, projectSceneId), inArray(generatedImages.id, filterIds))
-      : eq(generatedImages.projectSceneId, projectSceneId)
+    const whereClause =
+      filterIds && filterIds.length > 0
+        ? and(
+            eq(generatedImages.projectSceneId, projectSceneId),
+            inArray(generatedImages.id, filterIds),
+          )
+        : eq(generatedImages.projectSceneId, projectSceneId)
 
     const images = db
       .select({
@@ -25,21 +31,28 @@ export const getTournamentState = createServerFn({ method: 'GET' })
       .where(whereClause)
       .all()
 
-    const matchCount = db
-      .select({ count: sql<number>`count(*)` })
-      .from(tournamentMatches)
-      .where(eq(tournamentMatches.projectSceneId, projectSceneId))
-      .get()?.count ?? 0
+    const matchCount =
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(tournamentMatches)
+        .where(eq(tournamentMatches.projectSceneId, projectSceneId))
+        .get()?.count ?? 0
 
     return { images, matchCount }
   })
 
 export const getNextPair = createServerFn({ method: 'GET' })
-  .inputValidator((input: { projectSceneId: number; imageIds?: number[] }) => input)
+  .inputValidator(
+    (input: { projectSceneId: number; imageIds?: Array<number> }) => input,
+  )
   .handler(async ({ data: { projectSceneId, imageIds: filterIds } }) => {
-    const whereClause = filterIds && filterIds.length > 0
-      ? and(eq(generatedImages.projectSceneId, projectSceneId), inArray(generatedImages.id, filterIds))
-      : eq(generatedImages.projectSceneId, projectSceneId)
+    const whereClause =
+      filterIds && filterIds.length > 0
+        ? and(
+            eq(generatedImages.projectSceneId, projectSceneId),
+            inArray(generatedImages.id, filterIds),
+          )
+        : eq(generatedImages.projectSceneId, projectSceneId)
 
     const imageIds = db
       .select({ id: generatedImages.id })
@@ -55,7 +68,10 @@ export const getNextPair = createServerFn({ method: 'GET' })
     for (const id of imageIds) appearances[id] = 0
 
     const matches = db
-      .select({ image1Id: tournamentMatches.image1Id, image2Id: tournamentMatches.image2Id })
+      .select({
+        image1Id: tournamentMatches.image1Id,
+        image2Id: tournamentMatches.image2Id,
+      })
       .from(tournamentMatches)
       .where(eq(tournamentMatches.projectSceneId, projectSceneId))
       .all()
@@ -160,7 +176,8 @@ export const recordMatch = createServerFn({ method: 'POST' })
         .set({ tournamentWins: sql`${generatedImages.tournamentWins} + 1` })
         .where(eq(generatedImages.id, image2Id))
         .run()
-    } else if (result === 'both_lose') {
+    } else {
+      // both_lose
       db.update(generatedImages)
         .set({ tournamentLosses: sql`${generatedImages.tournamentLosses} + 1` })
         .where(eq(generatedImages.id, image1Id))
@@ -172,7 +189,10 @@ export const recordMatch = createServerFn({ method: 'POST' })
     }
 
     log.info('recordMatch', 'Tournament match recorded', {
-      projectSceneId, image1Id, image2Id, result,
+      projectSceneId,
+      image1Id,
+      image2Id,
+      result,
     })
 
     return { ok: true }
@@ -196,38 +216,54 @@ export const undoLastMatch = createServerFn({ method: 'POST' })
     // Reverse W/L
     if (result === 'left') {
       db.update(generatedImages)
-        .set({ tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)` })
+        .set({
+          tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)`,
+        })
         .where(eq(generatedImages.id, image1Id))
         .run()
       db.update(generatedImages)
-        .set({ tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)` })
+        .set({
+          tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)`,
+        })
         .where(eq(generatedImages.id, image2Id))
         .run()
     } else if (result === 'right') {
       db.update(generatedImages)
-        .set({ tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)` })
+        .set({
+          tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)`,
+        })
         .where(eq(generatedImages.id, image1Id))
         .run()
       db.update(generatedImages)
-        .set({ tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)` })
+        .set({
+          tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)`,
+        })
         .where(eq(generatedImages.id, image2Id))
         .run()
     } else if (result === 'both_win') {
       db.update(generatedImages)
-        .set({ tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)` })
+        .set({
+          tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)`,
+        })
         .where(eq(generatedImages.id, image1Id))
         .run()
       db.update(generatedImages)
-        .set({ tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)` })
+        .set({
+          tournamentWins: sql`max(0, ${generatedImages.tournamentWins} - 1)`,
+        })
         .where(eq(generatedImages.id, image2Id))
         .run()
     } else if (result === 'both_lose') {
       db.update(generatedImages)
-        .set({ tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)` })
+        .set({
+          tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)`,
+        })
         .where(eq(generatedImages.id, image1Id))
         .run()
       db.update(generatedImages)
-        .set({ tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)` })
+        .set({
+          tournamentLosses: sql`max(0, ${generatedImages.tournamentLosses} - 1)`,
+        })
         .where(eq(generatedImages.id, image2Id))
         .run()
     }
@@ -235,7 +271,11 @@ export const undoLastMatch = createServerFn({ method: 'POST' })
     db.delete(tournamentMatches).where(eq(tournamentMatches.id, last.id)).run()
 
     log.info('undoMatch', 'Tournament match undone', {
-      projectSceneId, matchId: last.id, image1Id, image2Id, result,
+      projectSceneId,
+      matchId: last.id,
+      image1Id,
+      image2Id,
+      result,
     })
 
     return { undone: last }
@@ -266,7 +306,8 @@ export const resetTournament = createServerFn({ method: 'POST' })
     }
 
     log.info('resetTournament', 'Tournament reset', {
-      projectSceneId, imageCount: imageIds.length,
+      projectSceneId,
+      imageCount: imageIds.length,
     })
 
     return { ok: true }

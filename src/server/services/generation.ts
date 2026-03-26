@@ -1,14 +1,19 @@
+import { and, asc, eq, inArray, ne, sql } from 'drizzle-orm'
+import {
+  generatedImages,
+  generationBatches,
+  generationJobs,
+  imageBundles,
+  settings,
+} from '../db/schema'
 import { db } from '../db'
-import { generationJobs, generatedImages, generationBatches, settings, imageBundles } from '../db/schema'
-import { eq, and, inArray, sql, asc, ne } from 'drizzle-orm'
 import { generateImage } from './nai'
-import type { ReferenceData } from './nai'
-import { saveImage, generateThumbnail } from './image'
-import { prepareVibeData, preparePreciseData } from './reference'
+import { generateThumbnail, saveImage } from './image'
+import { preparePreciseData, prepareVibeData } from './reference'
 import { createLogger } from './logger'
+import type { ReferenceData } from './nai'
 
 const log = createLogger('generation')
-
 
 // ─── Queue state (in-memory, non-persistent) ─────────────────────────────
 
@@ -27,7 +32,6 @@ interface SessionTiming {
 }
 let sessionTiming: SessionTiming | null = null
 
-
 // ─── DB-driven queue helpers ──────────────────────────────────────────────
 
 function getNextJob(): { jobId: number; batchId: number } | null {
@@ -37,7 +41,10 @@ function getNextJob(): { jobId: number; batchId: number } | null {
       batchId: generationBatches.id,
     })
     .from(generationJobs)
-    .innerJoin(generationBatches, eq(generationJobs.batchId, generationBatches.id))
+    .innerJoin(
+      generationBatches,
+      eq(generationJobs.batchId, generationBatches.id),
+    )
     .where(
       and(
         eq(generationJobs.status, 'pending'),
@@ -53,7 +60,9 @@ function getNextJob(): { jobId: number; batchId: number } | null {
 /** Get next max queue_order for batches */
 export function getNextBatchOrder(): number {
   const row = db
-    .select({ maxOrder: sql<number>`COALESCE(MAX(${generationBatches.queueOrder}), -1)` })
+    .select({
+      maxOrder: sql<number>`COALESCE(MAX(${generationBatches.queueOrder}), -1)`,
+    })
     .from(generationBatches)
     .where(inArray(generationBatches.status, ['pending', 'running']))
     .get()
@@ -94,7 +103,6 @@ function updateBatchStatusFromJobs(batchId: number) {
     .where(eq(generationBatches.id, batchId))
     .run()
 }
-
 
 // ─── Recovery ─────────────────────────────────────────────────────────────
 
@@ -140,12 +148,13 @@ export function recoverJobs() {
   if (hasPending && !processing) processQueue()
 }
 
-
 // ─── Enqueue ──────────────────────────────────────────────────────────────
 
 /** Trigger queue processing after a batch has been inserted (batch+jobs already in DB) */
 export function enqueueBatch(_batchId: number) {
-  log.debug('queue.enqueueBatch', 'Batch enqueued, triggering processing', { batchId: _batchId })
+  log.debug('queue.enqueueBatch', 'Batch enqueued, triggering processing', {
+    batchId: _batchId,
+  })
   if (!processing) processQueue()
 }
 
@@ -158,10 +167,9 @@ export function enqueueJob(_jobId: number) {
   if (!processing) processQueue()
 }
 
-
 // ─── Cancel ───────────────────────────────────────────────────────────────
 
-export function cancelPendingJobs(jobIds: number[]) {
+export function cancelPendingJobs(jobIds: Array<number>) {
   log.warn('queue.cancelPending', 'Cancelling pending jobs', { jobIds })
   for (const id of jobIds) {
     if (stoppedJobId === id) {
@@ -173,7 +181,11 @@ export function cancelPendingJobs(jobIds: number[]) {
       .run()
 
     // Update parent batch status
-    const job = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, id)).get()
+    const job = db
+      .select({ batchId: generationJobs.batchId })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, id))
+      .get()
     if (job?.batchId) updateBatchStatusFromJobs(job.batchId)
   }
 
@@ -210,7 +222,11 @@ export function cancelBatch(batchId: number) {
 
   // Clear error state if the stopped job was in this batch
   if (stoppedJobId != null) {
-    const stoppedJob = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, stoppedJobId)).get()
+    const stoppedJob = db
+      .select({ batchId: generationJobs.batchId })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, stoppedJobId))
+      .get()
     if (stoppedJob?.batchId === batchId) {
       queueStopped = null
       stoppedJobId = null
@@ -218,10 +234,9 @@ export function cancelBatch(batchId: number) {
   }
 }
 
-
 // ─── Reorder ──────────────────────────────────────────────────────────────
 
-export function reorderBatches(batchIds: number[]) {
+export function reorderBatches(batchIds: Array<number>) {
   log.info('queue.reorderBatches', 'Reordering batches', { batchIds })
   for (let i = 0; i < batchIds.length; i++) {
     db.update(generationBatches)
@@ -231,7 +246,7 @@ export function reorderBatches(batchIds: number[]) {
   }
 }
 
-export function reorderJobsInBatch(batchId: number, jobIds: number[]) {
+export function reorderJobsInBatch(batchId: number, jobIds: Array<number>) {
   log.info('queue.reorderJobs', 'Reordering jobs in batch', { batchId, jobIds })
   for (let i = 0; i < jobIds.length; i++) {
     db.update(generationJobs)
@@ -246,7 +261,6 @@ export function reorderJobsInBatch(batchId: number, jobIds: number[]) {
   }
 }
 
-
 // ─── Queue status ─────────────────────────────────────────────────────────
 
 export function getQueueStatus() {
@@ -256,7 +270,10 @@ export function getQueueStatus() {
   const pendingCount = db
     .select({ count: sql<number>`COUNT(*)` })
     .from(generationJobs)
-    .innerJoin(generationBatches, eq(generationJobs.batchId, generationBatches.id))
+    .innerJoin(
+      generationBatches,
+      eq(generationJobs.batchId, generationBatches.id),
+    )
     .where(
       and(
         inArray(generationJobs.status, ['pending', 'running']),
@@ -281,7 +298,10 @@ export function getGlobalQueueStats() {
       completedImages: sql<number>`SUM(${generationJobs.completedCount})`,
     })
     .from(generationJobs)
-    .innerJoin(generationBatches, eq(generationJobs.batchId, generationBatches.id))
+    .innerJoin(
+      generationBatches,
+      eq(generationJobs.batchId, generationBatches.id),
+    )
     .where(
       and(
         inArray(generationJobs.status, ['pending', 'running']),
@@ -290,9 +310,12 @@ export function getGlobalQueueStats() {
     )
     .get()
 
-  const avgMs = sessionTiming && sessionTiming.completedImages > 0
-    ? Math.round(sessionTiming.totalGenerationMs / sessionTiming.completedImages)
-    : null
+  const avgMs =
+    sessionTiming && sessionTiming.completedImages > 0
+      ? Math.round(
+          sessionTiming.totalGenerationMs / sessionTiming.completedImages,
+        )
+      : null
 
   const remaining = stats?.totalRemaining ?? 0
   const etaMs = avgMs != null && remaining > 0 ? remaining * avgMs : null
@@ -303,11 +326,13 @@ export function getGlobalQueueStats() {
     completedImages: stats?.completedImages ?? 0,
     avgImageDurationMs: avgMs,
     etaMs,
-    sessionTiming: sessionTiming ? {
-      startedAt: sessionTiming.startedAt,
-      completedImages: sessionTiming.completedImages,
-      avgImageDurationMs: avgMs,
-    } : null,
+    sessionTiming: sessionTiming
+      ? {
+          startedAt: sessionTiming.startedAt,
+          completedImages: sessionTiming.completedImages,
+          avgImageDurationMs: avgMs,
+        }
+      : null,
   }
 }
 
@@ -317,14 +342,25 @@ export function pauseQueue() {
 }
 
 export function resumeQueue() {
-  log.info('queue.resume', 'Queue resume requested', { previousState: queueStopped, stoppedJobId })
+  log.info('queue.resume', 'Queue resume requested', {
+    previousState: queueStopped,
+    stoppedJobId,
+  })
   if (queueStopped === 'error' && stoppedJobId != null) {
     db.update(generationJobs)
-      .set({ status: 'pending', errorMessage: null, updatedAt: new Date().toISOString() })
+      .set({
+        status: 'pending',
+        errorMessage: null,
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(generationJobs.id, stoppedJobId))
       .run()
     // Update parent batch status
-    const job = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, stoppedJobId)).get()
+    const job = db
+      .select({ batchId: generationJobs.batchId })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, stoppedJobId))
+      .get()
     if (job?.batchId) updateBatchStatusFromJobs(job.batchId)
   }
   queueStopped = null
@@ -333,9 +369,15 @@ export function resumeQueue() {
 }
 
 export function dismissError() {
-  log.info('queue.dismissError', 'Dismissing error, skipping failed job', { stoppedJobId })
+  log.info('queue.dismissError', 'Dismissing error, skipping failed job', {
+    stoppedJobId,
+  })
   if (stoppedJobId != null) {
-    const job = db.select({ batchId: generationJobs.batchId }).from(generationJobs).where(eq(generationJobs.id, stoppedJobId)).get()
+    const job = db
+      .select({ batchId: generationJobs.batchId })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, stoppedJobId))
+      .get()
     if (job?.batchId) updateBatchStatusFromJobs(job.batchId)
   }
   queueStopped = null
@@ -354,7 +396,6 @@ export function getBatchTiming() {
     avgImageDurationMs: stats.avgImageDurationMs,
   }
 }
-
 
 // ─── Queue processing ─────────────────────────────────────────────────────
 
@@ -376,12 +417,8 @@ async function processQueue() {
   log.info('queue.start', 'Queue processing started')
 
   try {
-    while (true) {
-      if (queueStopped) {
-        log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
-        return
-      }
-
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    while (!queueStopped) {
       const next = getNextJob()
       if (!next) break
 
@@ -402,11 +439,21 @@ async function processQueue() {
       updateBatchStatusFromJobs(next.batchId)
     }
 
-    log.info('queue.complete', 'Queue processing completed', {
-      totalImages: sessionTiming?.completedImages ?? 0,
-    })
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (queueStopped) {
+      log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
+    } else {
+      log.info('queue.complete', 'Queue processing completed', {
+        totalImages: sessionTiming?.completedImages ?? 0,
+      })
+    }
   } catch (error) {
-    log.error('queue.unexpectedError', 'Unexpected error in queue processing', {}, error)
+    log.error(
+      'queue.unexpectedError',
+      'Unexpected error in queue processing',
+      {},
+      error,
+    )
   } finally {
     processing = false
   }
@@ -422,7 +469,10 @@ async function processJob(jobId: number) {
     if (!job || job.status === 'cancelled') return
 
     log.info('job.start', 'Starting generation job', {
-      jobId, projectId: job.projectId, sceneId: job.projectSceneId, totalCount: job.totalCount ?? 1,
+      jobId,
+      projectId: job.projectId,
+      sceneId: job.projectSceneId,
+      totalCount: job.totalCount ?? 1,
     })
 
     // Get API key
@@ -434,7 +484,11 @@ async function processJob(jobId: number) {
     if (!apiKeyRow?.value) {
       log.error('job.noApiKey', 'No API key configured', { jobId })
       db.update(generationJobs)
-        .set({ status: 'failed', errorMessage: 'API 키가 설정되지 않았습니다', updatedAt: new Date().toISOString() })
+        .set({
+          status: 'failed',
+          errorMessage: 'API 키가 설정되지 않았습니다',
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(generationJobs.id, jobId))
         .run()
       queueStopped = 'error'
@@ -465,7 +519,11 @@ async function processJob(jobId: number) {
     const refProjectId = job.projectId ?? null
     let referenceData: ReferenceData | undefined
     if (referenceMode === 'vibe') {
-      const vibeResult = await prepareVibeData(refProjectId, apiKeyRow.value, resolvedParameters.model ?? 'nai-diffusion-4-5-full')
+      const vibeResult = await prepareVibeData(
+        refProjectId,
+        apiKeyRow.value,
+        resolvedParameters.model ?? 'nai-diffusion-4-5-full',
+      )
       if (vibeResult) referenceData = vibeResult
     } else if (referenceMode === 'precise') {
       const model = resolvedParameters.model ?? 'nai-diffusion-4-5-full'
@@ -481,7 +539,10 @@ async function processJob(jobId: number) {
     for (let i = startIndex; i < totalCount; i++) {
       // Check if paused
       if (queueStopped === 'paused') {
-        log.info('job.paused', 'Job paused mid-generation', { jobId, completedCount: i })
+        log.info('job.paused', 'Job paused mid-generation', {
+          jobId,
+          completedCount: i,
+        })
         db.update(generationJobs)
           .set({ status: 'pending', updatedAt: new Date().toISOString() })
           .where(eq(generationJobs.id, jobId))
@@ -491,19 +552,32 @@ async function processJob(jobId: number) {
 
       // Check if cancelled mid-job (job or batch level)
       const currentJob = db
-        .select({ status: generationJobs.status, batchId: generationJobs.batchId })
+        .select({
+          status: generationJobs.status,
+          batchId: generationJobs.batchId,
+        })
         .from(generationJobs)
         .where(eq(generationJobs.id, jobId))
         .get()
       if (currentJob?.status === 'cancelled') {
-        log.warn('job.cancelled', 'Job cancelled mid-generation', { jobId, completedCount: i })
+        log.warn('job.cancelled', 'Job cancelled mid-generation', {
+          jobId,
+          completedCount: i,
+        })
         return
       }
       // Check batch cancellation
       if (currentJob?.batchId) {
-        const batch = db.select({ status: generationBatches.status }).from(generationBatches).where(eq(generationBatches.id, currentJob.batchId)).get()
+        const batch = db
+          .select({ status: generationBatches.status })
+          .from(generationBatches)
+          .where(eq(generationBatches.id, currentJob.batchId))
+          .get()
         if (batch?.status === 'cancelled') {
-          log.warn('job.batchCancelled', 'Batch cancelled, stopping job', { jobId, batchId: currentJob.batchId })
+          log.warn('job.batchCancelled', 'Batch cancelled, stopping job', {
+            jobId,
+            batchId: currentJob.batchId,
+          })
           db.update(generationJobs)
             .set({ status: 'cancelled', updatedAt: new Date().toISOString() })
             .where(eq(generationJobs.id, jobId))
@@ -522,7 +596,12 @@ async function processJob(jobId: number) {
       )
       const imageDuration = Date.now() - imageStart
 
-      log.info('job.progress', 'Image generated', { jobId, index: i + 1, seed, durationMs: imageDuration })
+      log.info('job.progress', 'Image generated', {
+        jobId,
+        index: i + 1,
+        seed,
+        durationMs: imageDuration,
+      })
 
       // Accumulate session timing
       if (sessionTiming) {
@@ -540,7 +619,8 @@ async function processJob(jobId: number) {
       await generateThumbnail(filePath, thumbnailPath)
 
       // Record in DB
-      const insertedImage = db.insert(generatedImages)
+      const insertedImage = db
+        .insert(generatedImages)
         .values({
           jobId,
           projectId: job.projectId,
@@ -552,19 +632,32 @@ async function processJob(jobId: number) {
           metadata: JSON.stringify({
             prompts: resolvedPrompts,
             parameters: resolvedParameters,
-            ...(referenceMode !== 'none' && referenceData && {
-              referenceMode,
-              references: referenceMode === 'vibe'
-                ? { vibes: referenceData.vibes?.map((v) => ({ strength: v.strength, informationExtracted: v.infoExtracted })) }
-                : { precise: referenceData.precise?.map((r) => ({ strength: r.strength, fidelity: r.fidelity, mode: r.mode })) },
-            }),
+            ...(referenceMode !== 'none' &&
+              referenceData && {
+                referenceMode,
+                references:
+                  referenceMode === 'vibe'
+                    ? {
+                        vibes: referenceData.vibes?.map((v) => ({
+                          strength: v.strength,
+                          informationExtracted: v.infoExtracted,
+                        })),
+                      }
+                    : {
+                        precise: referenceData.precise?.map((r) => ({
+                          strength: r.strength,
+                          fidelity: r.fidelity,
+                          mode: r.mode,
+                        })),
+                      },
+              }),
           }),
         })
         .returning()
         .get()
 
       // Link image to used bundles
-      const usedBundleIds: number[] = resolvedPrompts.usedBundleIds ?? []
+      const usedBundleIds: Array<number> = resolvedPrompts.usedBundleIds ?? []
       for (const bundleId of usedBundleIds) {
         db.insert(imageBundles)
           .values({ imageId: insertedImage.id, bundleId })
@@ -583,7 +676,10 @@ async function processJob(jobId: number) {
 
       // Delay between generations
       if (i < totalCount - 1 && delay > 0) {
-        log.debug('job.delay', 'Waiting between generations', { jobId, delayMs: delay })
+        log.debug('job.delay', 'Waiting between generations', {
+          jobId,
+          delayMs: delay,
+        })
         await new Promise((resolve) => setTimeout(resolve, delay))
       }
     }
@@ -598,7 +694,11 @@ async function processJob(jobId: number) {
     const errorMsg = error instanceof Error ? error.message : String(error)
     log.error('job.failed', 'Generation job failed', { jobId }, error)
     db.update(generationJobs)
-      .set({ status: 'failed', errorMessage: errorMsg, updatedAt: new Date().toISOString() })
+      .set({
+        status: 'failed',
+        errorMessage: errorMsg,
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(generationJobs.id, jobId))
       .run()
     queueStopped = 'error'

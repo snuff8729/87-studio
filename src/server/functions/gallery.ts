@@ -1,7 +1,15 @@
 import { createServerFn } from '@tanstack/react-start'
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { generatedImages, tags, imageTags, projects, projectScenes, imageBundles, promptBundles } from '../db/schema'
-import { eq, desc, asc, and, sql, inArray, isNull } from 'drizzle-orm'
+import {
+  generatedImages,
+  imageBundles,
+  imageTags,
+  projectScenes,
+  projects,
+  promptBundles,
+  tags,
+} from '../db/schema'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
 
@@ -17,7 +25,7 @@ export const listImages = createServerFn({ method: 'GET' })
       sourceSceneId?: number
       isFavorite?: boolean
       minRating?: number
-      tagIds?: number[]
+      tagIds?: Array<number>
       sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
       quickGenerate?: boolean
     }) => data,
@@ -29,31 +37,44 @@ export const listImages = createServerFn({ method: 'GET' })
 
     const conditions = []
     if (data.quickGenerate) conditions.push(isNull(generatedImages.projectId))
-    if (data.projectId) conditions.push(eq(generatedImages.projectId, data.projectId))
-    if (data.projectSceneId) conditions.push(eq(generatedImages.projectSceneId, data.projectSceneId))
-    if (data.sourceSceneId) conditions.push(eq(generatedImages.sourceSceneId, data.sourceSceneId))
+    if (data.projectId)
+      conditions.push(eq(generatedImages.projectId, data.projectId))
+    if (data.projectSceneId)
+      conditions.push(eq(generatedImages.projectSceneId, data.projectSceneId))
+    if (data.sourceSceneId)
+      conditions.push(eq(generatedImages.sourceSceneId, data.sourceSceneId))
     if (data.isFavorite) conditions.push(eq(generatedImages.isFavorite, 1))
-    if (data.minRating) conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
+    if (data.minRating)
+      conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
 
     // Tag filter as SQL subquery (not post-filter)
     if (data.tagIds && data.tagIds.length > 0) {
       conditions.push(
-        sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(data.tagIds.map(id => sql`${id}`), sql`, `)}))`
+        sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(
+          data.tagIds.map((id) => sql`${id}`),
+          sql`, `,
+        )}))`,
       )
     }
 
     // Determine sort order
     const sortBy = data.sortBy ?? 'newest'
-    let orderClauses: ReturnType<typeof desc>[]
+    let orderClauses: Array<ReturnType<typeof desc>>
     switch (sortBy) {
       case 'oldest':
         orderClauses = [asc(generatedImages.createdAt)]
         break
       case 'rating':
-        orderClauses = [desc(generatedImages.rating), desc(generatedImages.createdAt)]
+        orderClauses = [
+          desc(generatedImages.rating),
+          desc(generatedImages.createdAt),
+        ]
         break
       case 'favorites':
-        orderClauses = [desc(generatedImages.isFavorite), desc(generatedImages.createdAt)]
+        orderClauses = [
+          desc(generatedImages.isFavorite),
+          desc(generatedImages.createdAt),
+        ]
         break
       case 'newest':
       default:
@@ -77,8 +98,12 @@ export const listImages = createServerFn({ method: 'GET' })
 
 export const updateImage = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { id: number; isFavorite?: number; rating?: number | null; memo?: string | null }) =>
-      data,
+    (data: {
+      id: number
+      isFavorite?: number
+      rating?: number | null
+      memo?: string | null
+    }) => data,
   )
   .handler(async ({ data }) => {
     const { id, ...updates } = data
@@ -161,7 +186,12 @@ export const removeTag = createServerFn({ method: 'POST' })
   .inputValidator((data: { imageId: number; tagId: number }) => data)
   .handler(async ({ data }) => {
     db.delete(imageTags)
-      .where(and(eq(imageTags.imageId, data.imageId), eq(imageTags.tagId, data.tagId)))
+      .where(
+        and(
+          eq(imageTags.imageId, data.imageId),
+          eq(imageTags.tagId, data.tagId),
+        ),
+      )
       .run()
     return { success: true }
   })
@@ -170,9 +200,14 @@ export const listTags = createServerFn({ method: 'GET' }).handler(async () => {
   return db.select().from(tags).orderBy(tags.name).all()
 })
 
-export const listProjectsForFilter = createServerFn({ method: 'GET' }).handler(async () => {
-  return db.select({ id: projects.id, name: projects.name }).from(projects).all()
-})
+export const listProjectsForFilter = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    return db
+      .select({ id: projects.id, name: projects.name })
+      .from(projects)
+      .all()
+  },
+)
 
 export const listScenesForFilter = createServerFn({ method: 'GET' })
   .inputValidator((data: { projectId: number }) => data)
@@ -196,7 +231,8 @@ export const listScenesForFilter = createServerFn({ method: 'GET' })
 
 export const getImageDetailPage = createServerFn({ method: 'GET' })
   .inputValidator(
-    (data: { imageId: number; projectId?: number; projectSceneId?: number }) => data,
+    (data: { imageId: number; projectId?: number; projectSceneId?: number }) =>
+      data,
   )
   .handler(async ({ data }) => {
     const image = db
@@ -235,14 +271,20 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
 
     // Prev/next within same filter context (newest-first order)
     const filterConditions = []
-    if (data.projectId) filterConditions.push(eq(generatedImages.projectId, data.projectId))
-    if (data.projectSceneId) filterConditions.push(eq(generatedImages.projectSceneId, data.projectSceneId))
+    if (data.projectId)
+      filterConditions.push(eq(generatedImages.projectId, data.projectId))
+    if (data.projectSceneId)
+      filterConditions.push(
+        eq(generatedImages.projectSceneId, data.projectSceneId),
+      )
 
     // Prev = newer image (higher id)
     const prevResult = db
       .select({ id: generatedImages.id })
       .from(generatedImages)
-      .where(and(sql`${generatedImages.id} > ${data.imageId}`, ...filterConditions))
+      .where(
+        and(sql`${generatedImages.id} > ${data.imageId}`, ...filterConditions),
+      )
       .orderBy(asc(generatedImages.id))
       .limit(1)
       .get()
@@ -251,14 +293,19 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
     const nextResult = db
       .select({ id: generatedImages.id })
       .from(generatedImages)
-      .where(and(sql`${generatedImages.id} < ${data.imageId}`, ...filterConditions))
+      .where(
+        and(sql`${generatedImages.id} < ${data.imageId}`, ...filterConditions),
+      )
       .orderBy(desc(generatedImages.id))
       .limit(1)
       .get()
 
     // Fetch linked bundles
     const linkedBundles = db
-      .select({ bundleId: imageBundles.bundleId, bundleName: promptBundles.name })
+      .select({
+        bundleId: imageBundles.bundleId,
+        bundleName: promptBundles.name,
+      })
       .from(imageBundles)
       .innerJoin(promptBundles, eq(imageBundles.bundleId, promptBundles.id))
       .where(eq(imageBundles.imageId, data.imageId))
@@ -277,17 +324,27 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
 
 export const bulkUpdateImages = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { imageIds: number[]; isFavorite?: number; rating?: number | null; delete?: boolean }) =>
-      data,
+    (data: {
+      imageIds: Array<number>
+      isFavorite?: number
+      rating?: number | null
+      delete?: boolean
+    }) => data,
   )
   .handler(async ({ data }) => {
     if (data.imageIds.length === 0) return { success: true }
 
     if (data.delete) {
-      log.info('bulkDelete', 'Bulk deleting images', { imageIds: data.imageIds, count: data.imageIds.length })
+      log.info('bulkDelete', 'Bulk deleting images', {
+        imageIds: data.imageIds,
+        count: data.imageIds.length,
+      })
       // Collect file paths before deleting DB records
       const files = db
-        .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+        .select({
+          filePath: generatedImages.filePath,
+          thumbnailPath: generatedImages.thumbnailPath,
+        })
         .from(generatedImages)
         .where(inArray(generatedImages.id, data.imageIds))
         .all()

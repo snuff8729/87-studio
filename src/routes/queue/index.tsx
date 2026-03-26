@@ -1,18 +1,17 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState, useCallback } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { Link, createFileRoute } from '@tanstack/react-router'
+import { useCallback, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   DndContext,
-  closestCenter,
   KeyboardSensor,
   PointerSensor,
+  closestCenter,
   useSensor,
   useSensors,
-  type DragEndEvent,
 } from '@dnd-kit/core'
 import {
-  arrayMove,
   SortableContext,
+  arrayMove,
   sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
@@ -20,31 +19,35 @@ import {
 import { CSS } from '@dnd-kit/utilities'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  DragDropVerticalIcon,
+  AlertCircleIcon,
+  ArrowReloadHorizontalIcon,
   Cancel01Icon,
+  CheckmarkCircle01Icon,
   ChevronDown as ChevronDownIcon,
   ChevronUp as ChevronUpIcon,
-  AlertCircleIcon,
-  CheckmarkCircle01Icon,
-  TimeQuarter02Icon,
-  PlayIcon,
+  DragDropVerticalIcon,
   PauseIcon,
-  ArrowReloadHorizontalIcon,
+  PlayIcon,
+  TimeQuarter02Icon,
 } from '@hugeicons/core-free-icons'
+import type { DragEndEvent } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useTranslation } from '@/lib/i18n'
 import {
+  cancelBatch,
+  fetchQueueSummary,
+  getBatchJobs,
   listQueueBatches,
   listRecentBatches,
-  getBatchJobs,
-  reorderQueueBatches,
   reorderBatchJobsFn,
-  cancelBatch,
+  reorderQueueBatches,
   retryBatch,
-  fetchQueueSummary,
 } from '@/server/functions/queue'
-import { pauseGeneration, resumeGeneration } from '@/server/functions/generation'
+import {
+  pauseGeneration,
+  resumeGeneration,
+} from '@/server/functions/generation'
 
 export const Route = createFileRoute('/queue/')({
   component: QueuePage,
@@ -84,7 +87,14 @@ function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
   const queryClient = useQueryClient()
 
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: batch.id,
   })
 
@@ -102,14 +112,17 @@ function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
   })
 
   const reorderJobsMutation = useMutation({
-    mutationFn: (jobIds: number[]) =>
+    mutationFn: (jobIds: Array<number>) =>
       reorderBatchJobsFn({ data: { batchId: batch.id, jobIds } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['batch-jobs', batch.id] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['batch-jobs', batch.id] }),
   })
 
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   )
 
   function handleJobDragEnd(event: DragEndEvent) {
@@ -122,7 +135,10 @@ function SortableBatchRow({ batch, onCancel }: SortableBatchRowProps) {
     reorderJobsMutation.mutate(newOrder.map((j) => j.id))
   }
 
-  const pct = batch.totalImages > 0 ? (batch.completedImages / batch.totalImages) * 100 : 0
+  const pct =
+    batch.totalImages > 0
+      ? (batch.completedImages / batch.totalImages) * 100
+      : 0
   const isRunning = batch.status === 'running'
   const isPending = batch.status === 'pending'
 
@@ -248,7 +264,14 @@ interface JobData {
 }
 
 function SortableJobRow({ job }: { job: JobData }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
     id: job.id,
   })
 
@@ -286,9 +309,15 @@ function SortableJobRow({ job }: { job: JobData }) {
         <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0 inline-block" />
       )}
 
-      <span className={`text-xs truncate flex-1 min-w-0 ${
-        isFailed ? 'text-destructive' : isRunning ? 'text-foreground' : 'text-muted-foreground'
-      }`}>
+      <span
+        className={`text-xs truncate flex-1 min-w-0 ${
+          isFailed
+            ? 'text-destructive'
+            : isRunning
+              ? 'text-foreground'
+              : 'text-muted-foreground'
+        }`}
+      >
         {job.sceneName ?? `Job #${job.id}`}
       </span>
 
@@ -335,11 +364,20 @@ function RecentBatchRow({
     <div className="flex items-center gap-3 px-3 py-2 border border-border rounded-lg bg-card">
       <div className="shrink-0">
         {isCompleted ? (
-          <HugeiconsIcon icon={CheckmarkCircle01Icon} className="size-4 text-green-500" />
+          <HugeiconsIcon
+            icon={CheckmarkCircle01Icon}
+            className="size-4 text-green-500"
+          />
         ) : isFailed ? (
-          <HugeiconsIcon icon={AlertCircleIcon} className="size-4 text-destructive" />
+          <HugeiconsIcon
+            icon={AlertCircleIcon}
+            className="size-4 text-destructive"
+          />
         ) : (
-          <HugeiconsIcon icon={Cancel01Icon} className="size-4 text-muted-foreground" />
+          <HugeiconsIcon
+            icon={Cancel01Icon}
+            className="size-4 text-muted-foreground"
+          />
         )}
       </div>
 
@@ -379,7 +417,9 @@ function QueuePage() {
 
   const sensors = useSensors(
     useSensor(PointerSensor),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
   )
 
   const { data: summary } = useQuery({
@@ -401,8 +441,10 @@ function QueuePage() {
   })
 
   const reorderMutation = useMutation({
-    mutationFn: (batchIds: number[]) => reorderQueueBatches({ data: { batchIds } }),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue-batches'] }),
+    mutationFn: (batchIds: Array<number>) =>
+      reorderQueueBatches({ data: { batchIds } }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['queue-batches'] }),
   })
 
   const cancelBatchMutation = useMutation({
@@ -423,12 +465,14 @@ function QueuePage() {
 
   const pauseMutation = useMutation({
     mutationFn: () => pauseGeneration(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue-summary'] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['queue-summary'] }),
   })
 
   const resumeMutation = useMutation({
     mutationFn: () => resumeGeneration(),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['queue-summary'] }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['queue-summary'] }),
   })
 
   const handleBatchDragEnd = useCallback(
@@ -452,11 +496,15 @@ function QueuePage() {
     0,
   )
   const totalImages = activeBatches.reduce((sum, b) => sum + b.totalImages, 0)
-  const completedImages = activeBatches.reduce((sum, b) => sum + b.completedImages, 0)
+  const completedImages = activeBatches.reduce(
+    (sum, b) => sum + b.completedImages,
+    0,
+  )
   const overallPct = totalImages > 0 ? (completedImages / totalImages) * 100 : 0
 
   const avgMs = summary?.globalStats?.avgImageDurationMs ?? null
-  const etaMs = avgMs != null && totalPendingImages > 0 ? totalPendingImages * avgMs : null
+  const etaMs =
+    avgMs != null && totalPendingImages > 0 ? totalPendingImages * avgMs : null
 
   const isEmpty = activeBatches.length === 0 && !loadingActive
 
@@ -467,22 +515,31 @@ function QueuePage() {
         <div className="flex items-start justify-between gap-4">
           <div>
             <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5 text-primary" />
+              <HugeiconsIcon
+                icon={TimeQuarter02Icon}
+                className="size-5 text-primary"
+              />
               {t('queue.title' as any)}
             </h1>
             {!isEmpty && (
               <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
                 <span>
-                  {t('queue.batchesCount' as any, { count: String(activeBatches.length) })}
+                  {t('queue.batchesCount' as any, {
+                    count: String(activeBatches.length),
+                  })}
                 </span>
                 <span className="text-muted-foreground/40">&middot;</span>
                 <span>
-                  {t('queue.imagesRemaining' as any, { count: String(totalPendingImages) })}
+                  {t('queue.imagesRemaining' as any, {
+                    count: String(totalPendingImages),
+                  })}
                 </span>
                 {etaMs != null && !isPaused && (
                   <>
                     <span className="text-muted-foreground/40">&middot;</span>
-                    <span>{t('queue.eta' as any, { time: formatDuration(etaMs) })}</span>
+                    <span>
+                      {t('queue.eta' as any, { time: formatDuration(etaMs) })}
+                    </span>
                   </>
                 )}
               </div>
@@ -533,7 +590,9 @@ function QueuePage() {
               />
             </div>
             {(isPaused || isError) && (
-              <p className={`text-xs font-medium ${isError ? 'text-destructive' : 'text-amber-500'}`}>
+              <p
+                className={`text-xs font-medium ${isError ? 'text-destructive' : 'text-amber-500'}`}
+              >
                 {isError ? t('queue.error' as any) : t('queue.paused' as any)}
               </p>
             )}
@@ -543,19 +602,28 @@ function QueuePage() {
         {/* Empty state */}
         {isEmpty ? (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
-            <HugeiconsIcon icon={TimeQuarter02Icon} className="size-12 text-muted-foreground/30" />
+            <HugeiconsIcon
+              icon={TimeQuarter02Icon}
+              className="size-12 text-muted-foreground/30"
+            />
             <div>
-              <p className="text-base font-medium text-foreground">{t('queue.empty' as any)}</p>
+              <p className="text-base font-medium text-foreground">
+                {t('queue.empty' as any)}
+              </p>
               <p className="text-sm text-muted-foreground mt-1">
                 {t('queue.emptyDescription' as any)}
               </p>
             </div>
             <div className="flex items-center gap-3">
               <Button variant="secondary" size="sm" asChild>
-                <Link to="/" search={{ imageDetail: undefined }}>{t('queue.goToWorkspace' as any)}</Link>
+                <Link to="/" search={{ imageDetail: undefined }}>
+                  {t('queue.goToWorkspace' as any)}
+                </Link>
               </Button>
               <Button variant="secondary" size="sm" asChild>
-                <Link to="/generate" search={{ imageDetail: undefined }}>{t('queue.goToGenerate' as any)}</Link>
+                <Link to="/generate" search={{ imageDetail: undefined }}>
+                  {t('queue.goToGenerate' as any)}
+                </Link>
               </Button>
             </div>
           </div>

@@ -1,19 +1,20 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useTranslation } from '@/lib/i18n'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Upload04Icon, FileImportIcon } from '@hugeicons/core-free-icons'
+import { FileImportIcon, Upload04Icon } from '@hugeicons/core-free-icons'
+import type { ParsedScenePack } from '@/lib/sd-studio-import'
+import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { parseSdStudioFile, type ParsedScenePack } from '@/lib/sd-studio-import'
+import { parseSdStudioFile } from '@/lib/sd-studio-import'
 import { importScenePack } from '@/server/functions/import'
 
 interface ImportDialogProps {
@@ -22,7 +23,11 @@ interface ImportDialogProps {
   onImported: (packId: number) => void
 }
 
-export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogProps) {
+export function ImportDialog({
+  open,
+  onOpenChange,
+  onImported,
+}: ImportDialogProps) {
   const { t } = useTranslation()
   const [parsed, setParsed] = useState<ParsedScenePack | null>(null)
   const [packName, setPackName] = useState('')
@@ -109,13 +114,13 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
               onClick={() => fileRef.current?.click()}
             >
               <HugeiconsIcon icon={Upload04Icon} className="size-5" />
-              {parsed ? t('import.chooseDifferentFile') : t('import.selectJsonFile')}
+              {parsed
+                ? t('import.chooseDifferentFile')
+                : t('import.selectJsonFile')}
             </Button>
           </div>
 
-          {error && (
-            <p className="text-sm text-destructive">{error}</p>
-          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
 
           {/* Preview */}
           {parsed && (
@@ -134,10 +139,15 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
 
               {/* Summary badges */}
               <div className="flex flex-wrap gap-2">
-                <Badge variant="secondary">{t('import.importCount', { count: parsed.scenes.length })}</Badge>
+                <Badge variant="secondary">
+                  {t('import.importCount', { count: parsed.scenes.length })}
+                </Badge>
                 {parsed.libraryPieces.length > 0 && (
                   <Badge variant="outline">
-                    {t('import.libraryPieces', { count: parsed.libraryPieces.length, names: parsed.libraryPieces.join(', ') })}
+                    {t('import.libraryPieces', {
+                      count: parsed.libraryPieces.length,
+                      names: parsed.libraryPieces.join(', '),
+                    })}
                   </Badge>
                 )}
               </div>
@@ -150,11 +160,15 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
                 <div className="rounded-lg border border-border max-h-60 overflow-y-auto divide-y divide-border/50">
                   {parsed.scenes.map((scene, i) => {
                     const template = scene.placeholders._template || ''
-                    const pieceKeys = Object.keys(scene.placeholders).filter((k) => k !== '_template')
+                    const pieceKeys = Object.keys(scene.placeholders).filter(
+                      (k) => k !== '_template',
+                    )
                     return (
                       <div key={i} className="px-3 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium truncate">{scene.name}</span>
+                          <span className="text-sm font-medium truncate">
+                            {scene.name}
+                          </span>
                           {pieceKeys.length > 0 && (
                             <span className="text-xs text-muted-foreground shrink-0">
                               {t('import.pieces', { count: pieceKeys.length })}
@@ -181,8 +195,13 @@ export function ImportDialog({ open, onOpenChange, onImported }: ImportDialogPro
             <Button variant="ghost" onClick={() => handleOpenChange(false)}>
               {t('common.cancel')}
             </Button>
-            <Button onClick={handleImport} disabled={importing || !packName.trim()}>
-              {importing ? t('import.importing') : t('import.importCount', { count: parsed.scenes.length })}
+            <Button
+              onClick={handleImport}
+              disabled={importing || !packName.trim()}
+            >
+              {importing
+                ? t('import.importing')
+                : t('import.importCount', { count: parsed.scenes.length })}
             </Button>
           </DialogFooter>
         )}

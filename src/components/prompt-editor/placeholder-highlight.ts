@@ -1,4 +1,5 @@
-import { ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { Decoration, ViewPlugin } from '@codemirror/view'
+import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
 const placeholderDeco = Decoration.mark({ class: 'cm-placeholder-highlight' })
 
@@ -19,7 +20,9 @@ export const placeholderHighlight = ViewPlugin.fromClass(
 
     constructor(view: { state: { doc: { toString: () => string } } }) {
       this.decorations = Decoration.set(
-        findPlaceholders(view.state.doc).map((d) => placeholderDeco.range(d.from, d.to)),
+        findPlaceholders(view.state.doc).map((d) =>
+          placeholderDeco.range(d.from, d.to),
+        ),
       )
     }
 

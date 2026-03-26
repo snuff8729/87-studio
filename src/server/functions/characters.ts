@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
+import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { characters } from '../db/schema'
-import { eq, max } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.characters')
@@ -18,7 +18,14 @@ export const listCharacters = createServerFn({ method: 'GET' })
   })
 
 export const createCharacter = createServerFn({ method: 'POST' })
-  .inputValidator((data: { projectId: number; name: string; charPrompt?: string; charNegative?: string }) => data)
+  .inputValidator(
+    (data: {
+      projectId: number
+      name: string
+      charPrompt?: string
+      charNegative?: string
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const maxSlot = db
       .select({ max: max(characters.slotIndex) })
@@ -38,12 +45,23 @@ export const createCharacter = createServerFn({ method: 'POST' })
       })
       .returning()
       .get()
-    log.info('create', 'Character created', { characterId: result.id, projectId: data.projectId, name: data.name })
+    log.info('create', 'Character created', {
+      characterId: result.id,
+      projectId: data.projectId,
+      name: data.name,
+    })
     return result
   })
 
 export const updateCharacter = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: number; name?: string; charPrompt?: string; charNegative?: string }) => data)
+  .inputValidator(
+    (data: {
+      id: number
+      name?: string
+      charPrompt?: string
+      charNegative?: string
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const { id, ...updates } = data
     db.update(characters)

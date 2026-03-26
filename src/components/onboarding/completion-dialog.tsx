@@ -3,9 +3,9 @@ import { useTranslation } from '@/lib/i18n'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { TOTAL_STEPS } from '@/lib/onboarding/steps'
@@ -27,9 +27,7 @@ export function CompletionDialog() {
       >
         <DialogHeader className="items-center text-center">
           <div className="mx-auto mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <span className="text-3xl font-bold text-primary">
-              {'\u2713'}
-            </span>
+            <span className="text-3xl font-bold text-primary">{'\u2713'}</span>
           </div>
           <DialogTitle className="text-lg">
             {t('onboarding.completion.title')}

@@ -40,24 +40,17 @@
       "indexes": {
         "char_scene_override_unique_idx": {
           "name": "char_scene_override_unique_idx",
-          "columns": [
-            "project_scene_id",
-            "character_id"
-          ],
+          "columns": ["project_scene_id", "character_id"],
           "isUnique": true
         },
         "char_scene_overrides_scene_idx": {
           "name": "char_scene_overrides_scene_idx",
-          "columns": [
-            "project_scene_id"
-          ],
+          "columns": ["project_scene_id"],
           "isUnique": false
         },
         "char_scene_overrides_char_idx": {
           "name": "char_scene_overrides_char_idx",
-          "columns": [
-            "character_id"
-          ],
+          "columns": ["character_id"],
           "isUnique": false
         }
       },
@@ -66,12 +59,8 @@
           "name": "character_scene_overrides_project_scene_id_project_scenes_id_fk",
           "tableFrom": "character_scene_overrides",
           "tableTo": "project_scenes",
-          "columnsFrom": [
-            "project_scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -79,12 +68,8 @@
           "name": "character_scene_overrides_character_id_characters_id_fk",
           "tableFrom": "character_scene_overrides",
           "tableTo": "characters",
-          "columnsFrom": [
-            "character_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["character_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -161,17 +146,12 @@
       "indexes": {
         "characters_project_slot_idx": {
           "name": "characters_project_slot_idx",
-          "columns": [
-            "project_id",
-            "slot_index"
-          ],
+          "columns": ["project_id", "slot_index"],
           "isUnique": true
         },
         "characters_project_id_idx": {
           "name": "characters_project_id_idx",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false
         }
       },
@@ -180,12 +160,8 @@
           "name": "characters_project_id_projects_id_fk",
           "tableFrom": "characters",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -295,37 +271,27 @@
       "indexes": {
         "generated_images_project_id_idx": {
           "name": "generated_images_project_id_idx",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false
         },
         "generated_images_scene_id_idx": {
           "name": "generated_images_scene_id_idx",
-          "columns": [
-            "project_scene_id"
-          ],
+          "columns": ["project_scene_id"],
           "isUnique": false
         },
         "generated_images_source_scene_idx": {
           "name": "generated_images_source_scene_idx",
-          "columns": [
-            "source_scene_id"
-          ],
+          "columns": ["source_scene_id"],
           "isUnique": false
         },
         "generated_images_favorite_idx": {
           "name": "generated_images_favorite_idx",
-          "columns": [
-            "is_favorite"
-          ],
+          "columns": ["is_favorite"],
           "isUnique": false
         },
         "generated_images_job_id_idx": {
           "name": "generated_images_job_id_idx",
-          "columns": [
-            "job_id"
-          ],
+          "columns": ["job_id"],
           "isUnique": false
         }
       },
@@ -334,12 +300,8 @@
           "name": "generated_images_job_id_generation_jobs_id_fk",
           "tableFrom": "generated_images",
           "tableTo": "generation_jobs",
-          "columnsFrom": [
-            "job_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["job_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -347,12 +309,8 @@
           "name": "generated_images_project_id_projects_id_fk",
           "tableFrom": "generated_images",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -360,12 +318,8 @@
           "name": "generated_images_project_scene_id_project_scenes_id_fk",
           "tableFrom": "generated_images",
           "tableTo": "project_scenes",
-          "columnsFrom": [
-            "project_scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -373,12 +327,8 @@
           "name": "generated_images_source_scene_id_scenes_id_fk",
           "tableFrom": "generated_images",
           "tableTo": "scenes",
-          "columnsFrom": [
-            "source_scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -476,23 +426,17 @@
       "indexes": {
         "generation_jobs_status_idx": {
           "name": "generation_jobs_status_idx",
-          "columns": [
-            "status"
-          ],
+          "columns": ["status"],
           "isUnique": false
         },
         "generation_jobs_project_id_idx": {
           "name": "generation_jobs_project_id_idx",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false
         },
         "generation_jobs_scene_id_idx": {
           "name": "generation_jobs_scene_id_idx",
-          "columns": [
-            "project_scene_id"
-          ],
+          "columns": ["project_scene_id"],
           "isUnique": false
         }
       },
@@ -501,12 +445,8 @@
           "name": "generation_jobs_project_id_projects_id_fk",
           "tableFrom": "generation_jobs",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -514,12 +454,8 @@
           "name": "generation_jobs_project_scene_id_project_scenes_id_fk",
           "tableFrom": "generation_jobs",
           "tableTo": "project_scenes",
-          "columnsFrom": [
-            "project_scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -527,12 +463,8 @@
           "name": "generation_jobs_source_scene_id_scenes_id_fk",
           "tableFrom": "generation_jobs",
           "tableTo": "scenes",
-          "columnsFrom": [
-            "source_scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -562,9 +494,7 @@
       "indexes": {
         "image_tags_tag_id_idx": {
           "name": "image_tags_tag_id_idx",
-          "columns": [
-            "tag_id"
-          ],
+          "columns": ["tag_id"],
           "isUnique": false
         }
       },
@@ -573,12 +503,8 @@
           "name": "image_tags_image_id_generated_images_id_fk",
           "tableFrom": "image_tags",
           "tableTo": "generated_images",
-          "columnsFrom": [
-            "image_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["image_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -586,22 +512,15 @@
           "name": "image_tags_tag_id_tags_id_fk",
           "tableFrom": "image_tags",
           "tableTo": "tags",
-          "columnsFrom": [
-            "tag_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["tag_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
         "image_tags_image_id_tag_id_pk": {
-          "columns": [
-            "image_id",
-            "tag_id"
-          ],
+          "columns": ["image_id", "tag_id"],
           "name": "image_tags_image_id_tag_id_pk"
         }
       },
@@ -651,9 +570,7 @@
       "indexes": {
         "project_scene_packs_project_id_idx": {
           "name": "project_scene_packs_project_id_idx",
-          "columns": [
-            "project_id"
-          ],
+          "columns": ["project_id"],
           "isUnique": false
         }
       },
@@ -662,12 +579,8 @@
           "name": "project_scene_packs_project_id_projects_id_fk",
           "tableFrom": "project_scene_packs",
           "tableTo": "projects",
-          "columnsFrom": [
-            "project_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -675,12 +588,8 @@
           "name": "project_scene_packs_scene_pack_id_scene_packs_id_fk",
           "tableFrom": "project_scene_packs",
           "tableTo": "scene_packs",
-          "columnsFrom": [
-            "scene_pack_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["scene_pack_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -756,17 +665,12 @@
       "indexes": {
         "project_scenes_pack_name_idx": {
           "name": "project_scenes_pack_name_idx",
-          "columns": [
-            "project_scene_pack_id",
-            "name"
-          ],
+          "columns": ["project_scene_pack_id", "name"],
           "isUnique": true
         },
         "project_scenes_pack_id_idx": {
           "name": "project_scenes_pack_id_idx",
-          "columns": [
-            "project_scene_pack_id"
-          ],
+          "columns": ["project_scene_pack_id"],
           "isUnique": false
         }
       },
@@ -775,12 +679,8 @@
           "name": "project_scenes_project_scene_pack_id_project_scene_packs_id_fk",
           "tableFrom": "project_scenes",
           "tableTo": "project_scene_packs",
-          "columnsFrom": [
-            "project_scene_pack_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["project_scene_pack_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -788,12 +688,8 @@
           "name": "project_scenes_source_scene_id_scenes_id_fk",
           "tableFrom": "project_scenes",
           "tableTo": "scenes",
-          "columnsFrom": [
-            "source_scene_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["source_scene_id"],
+          "columnsTo": ["id"],
           "onDelete": "set null",
           "onUpdate": "no action"
         }
@@ -987,17 +883,12 @@
       "indexes": {
         "scenes_pack_name_idx": {
           "name": "scenes_pack_name_idx",
-          "columns": [
-            "scene_pack_id",
-            "name"
-          ],
+          "columns": ["scene_pack_id", "name"],
           "isUnique": true
         },
         "scenes_scene_pack_id_idx": {
           "name": "scenes_scene_pack_id_idx",
-          "columns": [
-            "scene_pack_id"
-          ],
+          "columns": ["scene_pack_id"],
           "isUnique": false
         }
       },
@@ -1006,12 +897,8 @@
           "name": "scenes_scene_pack_id_scene_packs_id_fk",
           "tableFrom": "scenes",
           "tableTo": "scene_packs",
-          "columnsFrom": [
-            "scene_pack_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["scene_pack_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1073,9 +960,7 @@
       "indexes": {
         "tags_name_unique": {
           "name": "tags_name_unique",
-          "columns": [
-            "name"
-          ],
+          "columns": ["name"],
           "isUnique": true
         }
       },

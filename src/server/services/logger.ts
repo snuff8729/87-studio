@@ -1,4 +1,10 @@
-import { appendFileSync, mkdirSync, renameSync, statSync, unlinkSync } from 'node:fs'
+import {
+  appendFileSync,
+  mkdirSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 const LOGS_DIR = './data/logs'
@@ -29,10 +35,27 @@ interface LogEntry {
 }
 
 export interface Logger {
-  error(action: string, message: string, data?: Record<string, unknown>, error?: unknown): void
-  warn(action: string, message: string, data?: Record<string, unknown>): void
-  info(action: string, message: string, data?: Record<string, unknown>): void
-  debug(action: string, message: string, data?: Record<string, unknown>): void
+  error: (
+    action: string,
+    message: string,
+    data?: Record<string, unknown>,
+    error?: unknown,
+  ) => void
+  warn: (
+    action: string,
+    message: string,
+    data?: Record<string, unknown>,
+  ) => void
+  info: (
+    action: string,
+    message: string,
+    data?: Record<string, unknown>,
+  ) => void
+  debug: (
+    action: string,
+    message: string,
+    data?: Record<string, unknown>,
+  ) => void
 }
 
 function formatError(err: unknown): LogEntry['error'] {
@@ -62,15 +85,21 @@ function loadCurrentSize(): number {
 
 function rotate(): void {
   // Delete oldest
-  try { unlinkSync(getRotatedPath(MAX_FILES - 1)) } catch {}
+  try {
+    unlinkSync(getRotatedPath(MAX_FILES - 1))
+  } catch {}
 
   // Shift: app.3.log → app.4.log, ..., app.1.log → app.2.log
   for (let i = MAX_FILES - 2; i >= 1; i--) {
-    try { renameSync(getRotatedPath(i), getRotatedPath(i + 1)) } catch {}
+    try {
+      renameSync(getRotatedPath(i), getRotatedPath(i + 1))
+    } catch {}
   }
 
   // app.log → app.1.log
-  try { renameSync(getLogFilePath(), getRotatedPath(1)) } catch {}
+  try {
+    renameSync(getLogFilePath(), getRotatedPath(1))
+  } catch {}
 
   currentSize = 0
 }
@@ -87,7 +116,12 @@ function writeLog(entry: LogEntry): void {
     const levelTag = `[${entry.level.toUpperCase()}]`
     const prefix = `${levelTag} [${entry.service}] ${entry.action}`
     if (entry.level === 'error') {
-      console.error(prefix, entry.message, entry.data ?? '', entry.error?.message ?? '')
+      console.error(
+        prefix,
+        entry.message,
+        entry.data ?? '',
+        entry.error?.message ?? '',
+      )
     } else if (entry.level === 'warn') {
       console.warn(prefix, entry.message, entry.data ?? '')
     } else {
@@ -110,7 +144,13 @@ function writeLog(entry: LogEntry): void {
 }
 
 export function createLogger(service: string): Logger {
-  function log(level: LogLevel, action: string, message: string, data?: Record<string, unknown>, error?: unknown): void {
+  function log(
+    level: LogLevel,
+    action: string,
+    message: string,
+    data?: Record<string, unknown>,
+    error?: unknown,
+  ): void {
     if (!shouldLog(level, FILE_MIN_LEVEL)) return
 
     const entry: LogEntry = {
@@ -127,7 +167,8 @@ export function createLogger(service: string): Logger {
   }
 
   return {
-    error: (action, message, data?, error?) => log('error', action, message, data, error),
+    error: (action, message, data?, error?) =>
+      log('error', action, message, data, error),
     warn: (action, message, data?) => log('warn', action, message, data),
     info: (action, message, data?) => log('info', action, message, data),
     debug: (action, message, data?) => log('debug', action, message, data),

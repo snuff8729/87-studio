@@ -1,10 +1,20 @@
 import { createServerFn } from '@tanstack/react-start'
-import { db } from '../db'
-import { generationBatches, generationJobs, generatedImages } from '../db/schema'
 import { and, desc, eq, inArray, isNull } from 'drizzle-orm'
-import { enqueueBatch, getQueueStatus, getGlobalQueueStats, getNextBatchOrder } from '../services/generation'
+import { db } from '../db'
+import {
+  generatedImages,
+  generationBatches,
+  generationJobs,
+} from '../db/schema'
+import {
+  enqueueBatch,
+  getGlobalQueueStats,
+  getNextBatchOrder,
+  getQueueStatus,
+} from '../services/generation'
 import { createLogger } from '../services/logger'
-import { resolveBundlesInRawPrompts, type ResolvedPrompts } from '../services/prompt'
+import { resolveBundlesInRawPrompts } from '../services/prompt'
+import type { ResolvedPrompts } from '../services/prompt'
 
 const log = createLogger('fn.quickGeneration')
 
@@ -13,7 +23,11 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
     (data: {
       generalPrompt: string
       negativePrompt: string
-      characterPrompts: Array<{ name: string; prompt: string; negative: string }>
+      characterPrompts: Array<{
+        name: string
+        prompt: string
+        negative: string
+      }>
       parameters: Record<string, unknown>
       count: number
     }) => data,
@@ -74,9 +88,7 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
   })
 
 export const listQuickImages = createServerFn({ method: 'GET' })
-  .inputValidator(
-    (data: { limit?: number }) => data,
-  )
+  .inputValidator((data: { limit?: number }) => data)
   .handler(async ({ data }) => {
     const limit = data.limit ?? 50
 
@@ -89,8 +101,8 @@ export const listQuickImages = createServerFn({ method: 'GET' })
       .all()
   })
 
-export const listQuickJobs = createServerFn({ method: 'GET' })
-  .handler(async () => {
+export const listQuickJobs = createServerFn({ method: 'GET' }).handler(
+  async () => {
     const queueStatus = getQueueStatus()
     const globalStats = getGlobalQueueStats()
 
@@ -113,7 +125,10 @@ export const listQuickJobs = createServerFn({ method: 'GET' })
       .all()
 
     // Include the failed job when queue is error-stopped
-    if (queueStatus.stoppedJobId && !jobs.some((j) => j.id === queueStatus.stoppedJobId)) {
+    if (
+      queueStatus.stoppedJobId &&
+      !jobs.some((j) => j.id === queueStatus.stoppedJobId)
+    ) {
       const failedJob = db
         .select({
           id: generationJobs.id,
@@ -138,4 +153,5 @@ export const listQuickJobs = createServerFn({ method: 'GET' })
       : null
 
     return { jobs, batchTiming, queueStatus }
-  })
+  },
+)

@@ -1,17 +1,22 @@
 import { createServerFn } from '@tanstack/react-start'
+import { desc, eq } from 'drizzle-orm'
 import { db } from '../db'
-import { generationBatches, generationJobs, projectScenes, projects } from '../db/schema'
-import { eq, desc } from 'drizzle-orm'
+import {
+  generationBatches,
+  generationJobs,
+  projectScenes,
+  projects,
+} from '../db/schema'
 import { synthesizePrompts } from '../services/prompt'
 import {
-  enqueueBatch,
   cancelPendingJobs,
-  getQueueStatus,
+  dismissError,
+  enqueueBatch,
   getGlobalQueueStats,
+  getNextBatchOrder,
+  getQueueStatus,
   pauseQueue,
   resumeQueue,
-  dismissError,
-  getNextBatchOrder,
 } from '../services/generation'
 import { createLogger } from '../services/logger'
 
@@ -21,7 +26,7 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
       projectId: number
-      projectSceneIds: number[]
+      projectSceneIds: Array<number>
       countPerScene: number
       sceneCounts?: Record<number, number>
     }) => data,
@@ -35,11 +40,15 @@ export const createGenerationJob = createServerFn({ method: 'POST' })
     const parameters = JSON.parse(project?.parameters || '{}')
 
     // Build label from scene names
-    const sceneNames: string[] = []
+    const sceneNames: Array<string> = []
     for (const sceneId of data.projectSceneIds) {
       const count = data.sceneCounts?.[sceneId] ?? data.countPerScene
       if (count <= 0) continue
-      const scene = db.select({ name: projectScenes.name }).from(projectScenes).where(eq(projectScenes.id, sceneId)).get()
+      const scene = db
+        .select({ name: projectScenes.name })
+        .from(projectScenes)
+        .where(eq(projectScenes.id, sceneId))
+        .get()
       if (scene) sceneNames.push(scene.name)
     }
     const label = `${project?.name ?? 'Project'} — ${sceneNames.join(', ')}`
@@ -124,7 +133,10 @@ export const listJobs = createServerFn({ method: 'GET' }).handler(async () => {
     })
     .from(generationJobs)
     .leftJoin(projects, eq(generationJobs.projectId, projects.id))
-    .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+    .leftJoin(
+      projectScenes,
+      eq(generationJobs.projectSceneId, projectScenes.id),
+    )
     .orderBy(desc(generationJobs.createdAt))
     .limit(100)
     .all()
@@ -142,7 +154,7 @@ export const getJobStatus = createServerFn({ method: 'GET' })
   })
 
 export const cancelJobs = createServerFn({ method: 'POST' })
-  .inputValidator((jobIds: number[]) => jobIds)
+  .inputValidator((jobIds: Array<number>) => jobIds)
   .handler(async ({ data: jobIds }) => {
     log.info('cancelJobs', 'Cancelling jobs', { jobIds })
     cancelPendingJobs(jobIds)
@@ -171,17 +183,15 @@ export const resumeGeneration = createServerFn({ method: 'POST' }).handler(
   },
 )
 
-export const dismissGenerationError = createServerFn({ method: 'POST' }).handler(
-  async () => {
-    dismissError()
-    return { success: true }
-  },
-)
+export const dismissGenerationError = createServerFn({
+  method: 'POST',
+}).handler(async () => {
+  dismissError()
+  return { success: true }
+})
 
 export const previewPrompts = createServerFn({ method: 'GET' })
-  .inputValidator(
-    (data: { projectId: number; projectSceneId: number }) => data,
-  )
+  .inputValidator((data: { projectId: number; projectSceneId: number }) => data)
   .handler(async ({ data }) => {
     return synthesizePrompts(data.projectId, data.projectSceneId)
   })
@@ -194,19 +204,27 @@ export const retryJob = createServerFn({ method: 'POST' })
       .from(generationJobs)
       .where(eq(generationJobs.id, jobId))
       .get()
-    if (!job || job.status !== 'failed') throw new Error('Job not found or not failed')
+    if (!job || job.status !== 'failed')
+      throw new Error('Job not found or not failed')
 
     // Get project name for batch label
     const project = job.projectId
-      ? db.select({ name: projects.name }).from(projects).where(eq(projects.id, job.projectId)).get()
+      ? db
+          .select({ name: projects.name })
+          .from(projects)
+          .where(eq(projects.id, job.projectId))
+          .get()
       : null
     const scene = job.projectSceneId
-      ? db.select({ name: projectScenes.name }).from(projectScenes).where(eq(projectScenes.id, job.projectSceneId)).get()
+      ? db
+          .select({ name: projectScenes.name })
+          .from(projectScenes)
+          .where(eq(projectScenes.id, job.projectSceneId))
+          .get()
       : null
 
-    const label = project && scene
-      ? `${project.name} — ${scene.name} (retry)`
-      : 'Retry'
+    const label =
+      project && scene ? `${project.name} — ${scene.name} (retry)` : 'Retry'
 
     // Create a new batch for the retried job
     const batch = db
@@ -237,7 +255,11 @@ export const retryJob = createServerFn({ method: 'POST' })
       .returning()
       .get()
 
-    log.info('retryJob', 'Retrying failed job', { originalJobId: jobId, newJobId: newJob.id, batchId: batch.id })
+    log.info('retryJob', 'Retrying failed job', {
+      originalJobId: jobId,
+      newJobId: newJob.id,
+      batchId: batch.id,
+    })
     enqueueBatch(batch.id)
     return newJob
   })

@@ -1,15 +1,35 @@
-import { memo, useState, useSyncExternalStore, useCallback } from 'react'
+import { memo, useCallback, useState, useSyncExternalStore } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Settings02Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
 import { DEFAULT_FILENAME_TEMPLATE } from '@/server/services/download'
@@ -21,8 +41,12 @@ function subscribe(cb: () => void) {
   mql.addEventListener('change', cb)
   return () => mql.removeEventListener('change', cb)
 }
-function getSnapshot() { return window.matchMedia(MOBILE_QUERY).matches }
-function getServerSnapshot() { return false }
+function getSnapshot() {
+  return window.matchMedia(MOBILE_QUERY).matches
+}
+function getServerSnapshot() {
+  return false
+}
 function useIsMobile() {
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
 }
@@ -61,7 +85,15 @@ const PARAM_HELP: Record<string, string> = {
   seed: 'params.seedHelp',
 }
 
-function ParamLabel({ name, label, value }: { name: string; label: string; value?: string | number }) {
+function ParamLabel({
+  name,
+  label,
+  value,
+}: {
+  name: string
+  label: string
+  value?: string | number
+}) {
   const { t } = useTranslation()
   const helpKey = PARAM_HELP[name]
   const help = helpKey ? t(helpKey as any) : undefined
@@ -70,7 +102,9 @@ function ParamLabel({ name, label, value }: { name: string; label: string; value
       {help ? (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Label className="text-sm cursor-help border-b border-dashed border-muted-foreground/40">{label}</Label>
+            <Label className="text-sm cursor-help border-b border-dashed border-muted-foreground/40">
+              {label}
+            </Label>
           </TooltipTrigger>
           <TooltipContent side="top" className="max-w-52">
             <p className="text-sm">{help}</p>
@@ -80,7 +114,9 @@ function ParamLabel({ name, label, value }: { name: string; label: string; value
         <Label className="text-sm">{label}</Label>
       )}
       {value !== undefined && (
-        <span className="text-xs tabular-nums text-muted-foreground">{value}</span>
+        <span className="text-xs tabular-nums text-muted-foreground">
+          {value}
+        </span>
       )}
     </div>
   )
@@ -118,7 +154,9 @@ function ParameterForm({
           </SelectTrigger>
           <SelectContent>
             {AVAILABLE_MODELS.map((m) => (
-              <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              <SelectItem key={m.id} value={m.id}>
+                {m.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
@@ -128,13 +166,20 @@ function ParameterForm({
 
       {/* Resolution */}
       <section className="space-y-2.5">
-        <ParamLabel name="resolution" label={t('params.resolution')} value={`${w} × ${h}`} />
+        <ParamLabel
+          name="resolution"
+          label={t('params.resolution')}
+          value={`${w} × ${h}`}
+        />
         <div className="flex flex-wrap gap-1.5">
           {RESOLUTION_PRESETS.map((p) => (
             <button
               key={p.key}
               type="button"
-              onClick={() => { set('width', p.w); set('height', p.h) }}
+              onClick={() => {
+                set('width', p.w)
+                set('height', p.h)
+              }}
               className={cn(
                 'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
                 activePreset?.key === p.key
@@ -148,7 +193,9 @@ function ParameterForm({
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{t('params.width')}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {t('params.width')}
+            </Label>
             <Input
               type="number"
               min={64}
@@ -160,7 +207,9 @@ function ParameterForm({
             />
           </div>
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">{t('params.height')}</Label>
+            <Label className="text-xs text-muted-foreground">
+              {t('params.height')}
+            </Label>
             <Input
               type="number"
               min={64}
@@ -199,13 +248,19 @@ function ParameterForm({
           />
         </div>
         <div className="space-y-2">
-          <ParamLabel name="cfgRescale" label={t('params.cfgRescale')} value={cfgRescale} />
+          <ParamLabel
+            name="cfgRescale"
+            label={t('params.cfgRescale')}
+            value={cfgRescale}
+          />
           <Slider
             min={0}
             max={1}
             step={0.01}
             value={[cfgRescale]}
-            onValueChange={([v]) => set('cfgRescale', Math.round(v * 100) / 100)}
+            onValueChange={([v]) =>
+              set('cfgRescale', Math.round(v * 100) / 100)
+            }
           />
         </div>
       </section>
@@ -293,15 +348,20 @@ function ParameterForm({
             type="number"
             min={0}
             max={4294967295}
-            value={String(localParams.seed ?? 0)}
+            value={String(localParams.seed || 0)}
             onChange={(e) => {
-              const v = Math.max(0, Math.min(4294967295, Math.floor(Number(e.target.value) || 0)))
+              const v = Math.max(
+                0,
+                Math.min(4294967295, Math.floor(Number(e.target.value) || 0)),
+              )
               set('seed', v)
             }}
             className="h-8 text-sm tabular-nums"
           />
         ) : (
-          <p className="text-xs text-muted-foreground">{t('params.seedRandom')}</p>
+          <p className="text-xs text-muted-foreground">
+            {t('params.seedRandom')}
+          </p>
         )}
       </section>
 
@@ -309,11 +369,17 @@ function ParameterForm({
 
       {/* Download Settings */}
       <section className="space-y-2">
-        <Label className="text-sm font-medium">{t('export.exportSettings')}</Label>
+        <Label className="text-sm font-medium">
+          {t('export.exportSettings')}
+        </Label>
         <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">{t('export.filenameTemplate')}</Label>
+          <Label className="text-xs text-muted-foreground">
+            {t('export.filenameTemplate')}
+          </Label>
           <Input
-            value={String(localParams.filenameTemplate ?? DEFAULT_FILENAME_TEMPLATE)}
+            value={String(
+              localParams.filenameTemplate ?? DEFAULT_FILENAME_TEMPLATE,
+            )}
             onChange={(e) => set('filenameTemplate', e.target.value)}
             placeholder={DEFAULT_FILENAME_TEMPLATE}
             className="h-8 text-sm font-mono"
@@ -333,7 +399,10 @@ interface ParameterPopoverProps {
   onChange: (params: Record<string, unknown>) => void
 }
 
-export const ParameterPopover = memo(function ParameterPopover({ params, onChange }: ParameterPopoverProps) {
+export const ParameterPopover = memo(function ParameterPopover({
+  params,
+  onChange,
+}: ParameterPopoverProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [localParams, setLocalParams] = useState(params)
@@ -376,8 +445,14 @@ export const ParameterPopover = memo(function ParameterPopover({ params, onChang
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent side="top" align="start" className="w-96 max-h-[70vh] overflow-y-auto">
-        <h4 className="text-base font-medium">{t('generation.generationParameters')}</h4>
+      <PopoverContent
+        side="top"
+        align="start"
+        className="w-96 max-h-[70vh] overflow-y-auto"
+      >
+        <h4 className="text-base font-medium">
+          {t('generation.generationParameters')}
+        </h4>
         <ParameterForm localParams={localParams} set={set} />
       </PopoverContent>
     </Popover>

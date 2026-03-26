@@ -9,8 +9,8 @@ export interface SdStudioFile {
 
 interface SdScene {
   name: string
-  slots: SdAlternative[][]
-  mains?: unknown[]
+  slots: Array<Array<SdAlternative>>
+  mains?: Array<unknown>
   [key: string]: unknown
 }
 
@@ -18,12 +18,12 @@ interface SdAlternative {
   prompt: string
   enabled?: boolean
   id?: string
-  characterPrompts?: unknown[]
+  characterPrompts?: Array<unknown>
 }
 
 interface SdLibrary {
   name: string
-  pieces: SdPiece[]
+  pieces: Array<SdPiece>
 }
 
 interface SdPiece {
@@ -36,8 +36,8 @@ interface SdPiece {
 
 export interface ParsedScenePack {
   name: string
-  scenes: ParsedScene[]
-  libraryPieces: string[]
+  scenes: Array<ParsedScene>
+  libraryPieces: Array<string>
 }
 
 export interface ParsedScene {
@@ -70,7 +70,7 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
   }
 
   // Parse each scene
-  const allScenes: ParsedScene[] = []
+  const allScenes: Array<ParsedScene> = []
   const nameCount = new Map<string, number>()
   let sortOrder = 0
 
@@ -84,7 +84,10 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
       if (count > 0) {
         s.name = `${s.name} (${count + 1})`
       }
-      nameCount.set(s.name.replace(/ \(\d+\)$/, ''), (nameCount.get(s.name.replace(/ \(\d+\)$/, '')) ?? 0) + 1)
+      nameCount.set(
+        s.name.replace(/ \(\d+\)$/, ''),
+        (nameCount.get(s.name.replace(/ \(\d+\)$/, '')) ?? 0) + 1,
+      )
 
       s.sortOrder = sortOrder++
       allScenes.push(s)
@@ -94,7 +97,9 @@ export function parseSdStudioFile(raw: unknown): ParsedScenePack {
   return {
     name: file.name,
     scenes: allScenes,
-    libraryPieces: [...new Set([...pieceValues.keys()].map((k) => k.split('.').pop()!))],
+    libraryPieces: [
+      ...new Set([...pieceValues.keys()].map((k) => k.split('.').pop()!)),
+    ],
   }
 }
 
@@ -102,14 +107,14 @@ function expandScene(
   baseName: string,
   scene: SdScene,
   pieceValues: Map<string, string>,
-): ParsedScene[] {
+): Array<ParsedScene> {
   const slots = scene.slots ?? []
   if (slots.length === 0) {
     return [{ name: baseName, placeholders: {}, sortOrder: 0 }]
   }
 
   // Filter each group to enabled alternatives only
-  const enabledGroups: SdAlternative[][] = []
+  const enabledGroups: Array<Array<SdAlternative>> = []
   for (const group of slots) {
     const enabled = group.filter((alt) => alt.enabled !== false)
     if (enabled.length > 0) {
@@ -124,7 +129,7 @@ function expandScene(
   // Compute Cartesian product
   const combinations = cartesianProduct(enabledGroups)
 
-  const results: ParsedScene[] = []
+  const results: Array<ParsedScene> = []
   const needsIndex = combinations.length > 1
 
   for (let i = 0; i < combinations.length; i++) {
@@ -151,10 +156,11 @@ function expandScene(
   return results
 }
 
-function cartesianProduct<T>(arrays: T[][]): T[][] {
+function cartesianProduct<T>(arrays: Array<Array<T>>): Array<Array<T>> {
   if (arrays.length === 0) return [[]]
-  return arrays.reduce<T[][]>(
-    (acc, group) => acc.flatMap((combo) => group.map((item) => [...combo, item])),
+  return arrays.reduce<Array<Array<T>>>(
+    (acc, group) =>
+      acc.flatMap((combo) => group.map((item) => [...combo, item])),
     [[]],
   )
 }

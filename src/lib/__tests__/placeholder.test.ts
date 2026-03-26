@@ -1,13 +1,17 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { extractPlaceholders, resolvePlaceholders } from '../placeholder'
 
 describe('extractPlaceholders', () => {
   it('extracts single placeholder', () => {
-    expect(extractPlaceholders('hello \\\\expression\\\\')).toEqual(['expression'])
+    expect(extractPlaceholders('hello \\\\expression\\\\')).toEqual([
+      'expression',
+    ])
   })
 
   it('extracts multiple placeholders', () => {
-    const result = extractPlaceholders('\\\\pose\\\\, \\\\expression\\\\, \\\\background\\\\')
+    const result = extractPlaceholders(
+      '\\\\pose\\\\, \\\\expression\\\\, \\\\background\\\\',
+    )
     expect(result).toEqual(['pose', 'expression', 'background'])
   })
 
@@ -29,7 +33,10 @@ describe('extractPlaceholders', () => {
   })
 
   it('handles placeholders with digits', () => {
-    expect(extractPlaceholders('\\\\slot1\\\\ \\\\slot2\\\\')).toEqual(['slot1', 'slot2'])
+    expect(extractPlaceholders('\\\\slot1\\\\ \\\\slot2\\\\')).toEqual([
+      'slot1',
+      'slot2',
+    ])
   })
 
   it('ignores malformed placeholders (missing closing)', () => {
@@ -43,15 +50,16 @@ describe('extractPlaceholders', () => {
 
 describe('resolvePlaceholders', () => {
   it('resolves a single placeholder', () => {
-    expect(resolvePlaceholders('\\\\expression\\\\', { expression: 'smiling' }))
-      .toBe('smiling')
+    expect(
+      resolvePlaceholders('\\\\expression\\\\', { expression: 'smiling' }),
+    ).toBe('smiling')
   })
 
   it('resolves multiple placeholders', () => {
-    const result = resolvePlaceholders(
-      '\\\\pose\\\\, \\\\expression\\\\',
-      { pose: 'standing', expression: 'happy' },
-    )
+    const result = resolvePlaceholders('\\\\pose\\\\, \\\\expression\\\\', {
+      pose: 'standing',
+      expression: 'happy',
+    })
     expect(result).toBe('standing, happy')
   })
 
@@ -60,13 +68,17 @@ describe('resolvePlaceholders', () => {
   })
 
   it('preserves surrounding text', () => {
-    expect(resolvePlaceholders('1girl, \\\\pose\\\\, best quality', { pose: 'sitting' }))
-      .toBe('1girl, sitting, best quality')
+    expect(
+      resolvePlaceholders('1girl, \\\\pose\\\\, best quality', {
+        pose: 'sitting',
+      }),
+    ).toBe('1girl, sitting, best quality')
   })
 
   it('resolves same placeholder multiple times', () => {
-    expect(resolvePlaceholders('\\\\x\\\\ and \\\\x\\\\', { x: 'yes' }))
-      .toBe('yes and yes')
+    expect(resolvePlaceholders('\\\\x\\\\ and \\\\x\\\\', { x: 'yes' })).toBe(
+      'yes and yes',
+    )
   })
 
   it('handles empty values', () => {

@@ -1,4 +1,12 @@
-import { sqliteTable, text, integer, real, uniqueIndex, index, primaryKey } from 'drizzle-orm/sqlite-core'
+import {
+  index,
+  integer,
+  primaryKey,
+  real,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 // ─── Projects ───────────────────────────────────────────────────────────────
@@ -30,7 +38,10 @@ export const characters = sqliteTable(
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
   (table) => [
-    uniqueIndex('characters_project_slot_idx').on(table.projectId, table.slotIndex),
+    uniqueIndex('characters_project_slot_idx').on(
+      table.projectId,
+      table.slotIndex,
+    ),
     index('characters_project_id_idx').on(table.projectId),
   ],
 )
@@ -101,7 +112,10 @@ export const projectScenes = sqliteTable(
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
   (table) => [
-    uniqueIndex('project_scenes_pack_name_idx').on(table.projectScenePackId, table.name),
+    uniqueIndex('project_scenes_pack_name_idx').on(
+      table.projectScenePackId,
+      table.name,
+    ),
     index('project_scenes_pack_id_idx').on(table.projectScenePackId),
   ],
 )
@@ -120,7 +134,10 @@ export const characterSceneOverrides = sqliteTable(
     placeholders: text('placeholders').default('{}'),
   },
   (table) => [
-    uniqueIndex('char_scene_override_unique_idx').on(table.projectSceneId, table.characterId),
+    uniqueIndex('char_scene_override_unique_idx').on(
+      table.projectSceneId,
+      table.characterId,
+    ),
     index('char_scene_overrides_scene_idx').on(table.projectSceneId),
     index('char_scene_overrides_char_idx').on(table.characterId),
   ],
@@ -140,7 +157,10 @@ export const generationBatches = sqliteTable(
     createdAt: text('created_at').default(sql`(datetime('now'))`),
   },
   (table) => [
-    index('generation_batches_status_order_idx').on(table.status, table.queueOrder),
+    index('generation_batches_status_order_idx').on(
+      table.status,
+      table.queueOrder,
+    ),
   ],
 )
 
@@ -149,10 +169,13 @@ export const generationJobs = sqliteTable(
   'generation_jobs',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    projectId: integer('project_id')
-      .references(() => projects.id, { onDelete: 'cascade' }),
-    projectSceneId: integer('project_scene_id')
-      .references(() => projectScenes.id, { onDelete: 'cascade' }),
+    projectId: integer('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
+    projectSceneId: integer('project_scene_id').references(
+      () => projectScenes.id,
+      { onDelete: 'cascade' },
+    ),
     sourceSceneId: integer('source_scene_id').references(() => scenes.id, {
       onDelete: 'set null',
     }),
@@ -173,7 +196,10 @@ export const generationJobs = sqliteTable(
     index('generation_jobs_status_idx').on(table.status),
     index('generation_jobs_project_id_idx').on(table.projectId),
     index('generation_jobs_scene_id_idx').on(table.projectSceneId),
-    index('generation_jobs_batch_order_idx').on(table.batchId, table.queueOrder),
+    index('generation_jobs_batch_order_idx').on(
+      table.batchId,
+      table.queueOrder,
+    ),
   ],
 )
 
@@ -185,10 +211,13 @@ export const generatedImages = sqliteTable(
     jobId: integer('job_id')
       .notNull()
       .references(() => generationJobs.id, { onDelete: 'cascade' }),
-    projectId: integer('project_id')
-      .references(() => projects.id, { onDelete: 'cascade' }),
-    projectSceneId: integer('project_scene_id')
-      .references(() => projectScenes.id, { onDelete: 'cascade' }),
+    projectId: integer('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
+    projectSceneId: integer('project_scene_id').references(
+      () => projectScenes.id,
+      { onDelete: 'cascade' },
+    ),
     sourceSceneId: integer('source_scene_id').references(() => scenes.id, {
       onDelete: 'set null',
     }),
@@ -209,8 +238,14 @@ export const generatedImages = sqliteTable(
     index('generated_images_source_scene_idx').on(table.sourceSceneId),
     index('generated_images_favorite_idx').on(table.isFavorite),
     index('generated_images_job_id_idx').on(table.jobId),
-    index('generated_images_project_created_idx').on(table.projectId, table.createdAt),
-    index('generated_images_favorite_created_idx').on(table.isFavorite, table.createdAt),
+    index('generated_images_project_created_idx').on(
+      table.projectId,
+      table.createdAt,
+    ),
+    index('generated_images_favorite_created_idx').on(
+      table.isFavorite,
+      table.createdAt,
+    ),
   ],
 )
 
@@ -294,8 +329,9 @@ export const referenceImages = sqliteTable(
   'reference_images',
   {
     id: integer('id').primaryKey({ autoIncrement: true }),
-    projectId: integer('project_id')
-      .references(() => projects.id, { onDelete: 'cascade' }), // null = Quick Generate
+    projectId: integer('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }), // null = Quick Generate
     type: text('type').notNull(), // 'vibe' | 'precise'
     filePath: text('file_path').notNull(),
     thumbnailPath: text('thumbnail_path'),

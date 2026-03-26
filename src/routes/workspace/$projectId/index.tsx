@@ -1,19 +1,32 @@
-import { createFileRoute, useRouter, useNavigate } from '@tanstack/react-router'
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { toast } from 'sonner'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Download04Icon } from '@hugeicons/core-free-icons'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
-import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
-import { getWorkspaceData, listProjectJobs, getRecentImages, getSceneImageCounts } from '@/server/functions/workspace'
+import {
+  getRecentImages,
+  getSceneImageCounts,
+  getWorkspaceData,
+  listProjectJobs,
+} from '@/server/functions/workspace'
 import { updateProject } from '@/server/functions/projects'
-import { createGenerationJob, cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
+import {
+  cancelJobs,
+  createGenerationJob,
+  dismissGenerationError,
+  pauseGeneration,
+  resumeGeneration,
+} from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import {
   addProjectScene,
   deleteProjectScene,
-  renameProjectScene,
   duplicateProjectScene,
   getAllCharacterOverrides,
+  renameProjectScene,
 } from '@/server/functions/project-scenes'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { WorkspaceHeader } from '@/components/workspace/workspace-header'
@@ -26,8 +39,6 @@ import { ParameterPopover } from '@/components/workspace/parameter-popover'
 import { ScenePackDialog } from '@/components/workspace/scene-pack-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import { DownloadDialog } from '@/components/common/download-dialog'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Download04Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
@@ -90,7 +101,15 @@ function PendingComponent() {
   )
 }
 
-const VALID_SORT = ['default', 'name_asc', 'name_desc', 'images_desc', 'images_asc', 'created_asc', 'created_desc'] as const
+const VALID_SORT = [
+  'default',
+  'name_asc',
+  'name_desc',
+  'images_desc',
+  'images_asc',
+  'created_asc',
+  'created_desc',
+] as const
 type SceneSortBy = (typeof VALID_SORT)[number]
 
 type WorkspaceSearch = {
@@ -103,9 +122,11 @@ type WorkspaceSearch = {
 export const Route = createFileRoute('/workspace/$projectId/')({
   validateSearch: (search: Record<string, unknown>): WorkspaceSearch => ({
     view: search.view === 'edit' ? 'edit' : undefined,
-    sort: VALID_SORT.includes(search.sort as SceneSortBy) && search.sort !== 'default'
-      ? (search.sort as SceneSortBy)
-      : undefined,
+    sort:
+      VALID_SORT.includes(search.sort as SceneSortBy) &&
+      search.sort !== 'default'
+        ? (search.sort as SceneSortBy)
+        : undefined,
     q: typeof search.q === 'string' && search.q ? search.q : undefined,
     scene: search.scene ? Number(search.scene) : undefined,
   }),
@@ -124,8 +145,12 @@ function WorkspacePage() {
   const projectId = data.project.id
 
   // ── Prompt state ──
-  const [generalPrompt, setGeneralPrompt] = useState(data.project.generalPrompt ?? '')
-  const [negativePrompt, setNegativePrompt] = useState(data.project.negativePrompt ?? '')
+  const [generalPrompt, setGeneralPrompt] = useState(
+    data.project.generalPrompt ?? '',
+  )
+  const [negativePrompt, setNegativePrompt] = useState(
+    data.project.negativePrompt ?? '',
+  )
   const [params, setParams] = useState<Record<string, unknown>>(
     JSON.parse(data.project.parameters || '{}'),
   )
@@ -140,7 +165,12 @@ function WorkspacePage() {
 
   // ── Stable placeholder key arrays (only change when actual keys change, not on every keystroke) ──
   const rawGeneralKeys = useMemo(
-    () => [...new Set([...extractPlaceholders(generalPrompt), ...extractPlaceholders(negativePrompt)])],
+    () => [
+      ...new Set([
+        ...extractPlaceholders(generalPrompt),
+        ...extractPlaceholders(negativePrompt),
+      ]),
+    ],
     [generalPrompt, negativePrompt],
   )
   const stableGeneralKeys = useStableArray(rawGeneralKeys)
@@ -151,16 +181,24 @@ function WorkspacePage() {
   const getPrompts = useCallback(() => promptsRef.current, [])
 
   const characterPlaceholderKeys = useMemo(
-    () => data.characters.map((char) => ({
-      characterId: char.id,
-      characterName: char.name,
-      keys: [...new Set([...extractPlaceholders(char.charPrompt), ...extractPlaceholders(char.charNegative)])],
-    })),
+    () =>
+      data.characters.map((char) => ({
+        characterId: char.id,
+        characterName: char.name,
+        keys: [
+          ...new Set([
+            ...extractPlaceholders(char.charPrompt),
+            ...extractPlaceholders(char.charNegative),
+          ]),
+        ],
+      })),
     [data.characters],
   )
 
   // ── Auto-save ──
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveStatus, setSaveStatus] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle')
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const savedClearRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -186,7 +224,11 @@ function WorkspacePage() {
   )
 
   const debouncedSave = useCallback(
-    (fields: { generalPrompt?: string; negativePrompt?: string; parameters?: string }) => {
+    (fields: {
+      generalPrompt?: string
+      negativePrompt?: string
+      parameters?: string
+    }) => {
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
       saveTimeoutRef.current = setTimeout(() => saveProject(fields), 1000)
     },
@@ -224,7 +266,9 @@ function WorkspacePage() {
   }, [data.scenePacks])
 
   // ── Live scene image counts (polled during generation) ──
-  const [liveSceneCounts, setLiveSceneCounts] = useState<Record<number, number>>({})
+  const [liveSceneCounts, setLiveSceneCounts] = useState<
+    Record<number, number>
+  >({})
 
   useEffect(() => {
     setLiveSceneCounts({})
@@ -242,38 +286,61 @@ function WorkspacePage() {
   }, [liveImages])
 
   // Merge optimistic thumbnail overrides + live counts into scene packs
-  const scenePacks = useMemo(() => data.scenePacks.map((pack) => ({
-    ...pack,
-    scenes: pack.scenes.map((scene) => {
-      const override = thumbnailOverrides[scene.id]
+  const scenePacks = useMemo(
+    () =>
+      data.scenePacks.map((pack) => ({
+        ...pack,
+        scenes: pack.scenes.map((scene) => {
+          const override = thumbnailOverrides[scene.id]
 
-      return {
-        ...scene,
-        recentImageCount: liveSceneCounts[scene.id] ?? scene.recentImageCount,
-        thumbnailImageId: override ? override.imageId : scene.thumbnailImageId,
-        thumbnailPath: override
-          ? override.thumbnailPath
-          : scene.thumbnailImageId
-            ? scene.thumbnailPath
-            : (liveLatestThumbs[scene.id] ?? scene.thumbnailPath),
-      }
-    }),
-  })), [data.scenePacks, thumbnailOverrides, liveSceneCounts, liveLatestThumbs])
+          return {
+            ...scene,
+            recentImageCount:
+              liveSceneCounts[scene.id] ?? scene.recentImageCount,
+            thumbnailImageId: override
+              ? override.imageId
+              : scene.thumbnailImageId,
+            thumbnailPath: override
+              ? override.thumbnailPath
+              : scene.thumbnailImageId
+                ? scene.thumbnailPath
+                : (liveLatestThumbs[scene.id] ?? scene.thumbnailPath),
+          }
+        }),
+      })),
+    [data.scenePacks, thumbnailOverrides, liveSceneCounts, liveLatestThumbs],
+  )
 
   // ── Character overrides (loaded for matrix view) ──
   const [characterOverrides, setCharacterOverrides] = useState<
-    Record<number, Array<{ projectSceneId: number; characterId: number; placeholders: string }>>
+    Record<
+      number,
+      Array<{
+        projectSceneId: number
+        characterId: number
+        placeholders: string
+      }>
+    >
   >({})
 
   const loadCharacterOverrides = useCallback(async () => {
-    const allSceneIds = data.scenePacks.flatMap((p) => p.scenes.map((s) => s.id))
+    const allSceneIds = data.scenePacks.flatMap((p) =>
+      p.scenes.map((s) => s.id),
+    )
     if (allSceneIds.length === 0 || data.characters.length === 0) {
       setCharacterOverrides({})
       return
     }
     try {
       const overrides = await getAllCharacterOverrides({ data: allSceneIds })
-      const grouped: Record<number, Array<{ projectSceneId: number; characterId: number; placeholders: string }>> = {}
+      const grouped: Record<
+        number,
+        Array<{
+          projectSceneId: number
+          characterId: number
+          placeholders: string
+        }>
+      > = {}
       for (const o of overrides) {
         if (!grouped[o.projectSceneId]) grouped[o.projectSceneId] = []
         grouped[o.projectSceneId].push({
@@ -293,30 +360,42 @@ function WorkspacePage() {
   }, [loadCharacterOverrides])
 
   // ── Scene management handlers ──
-  const handleAddScene = useCallback(async (name: string) => {
-    await addProjectScene({ data: { projectId, name } })
-    router.invalidate()
-  }, [projectId, router])
-
-  const handleDeleteScene = useCallback(async (sceneId: number) => {
-    await deleteProjectScene({ data: sceneId })
-    router.invalidate()
-  }, [router])
-
-  const handleRenameScene = useCallback(async (id: number, name: string) => {
-    await renameProjectScene({ data: { id, name } })
-    router.invalidate()
-  }, [router])
-
-  const handleDuplicateScene = useCallback(async (sceneId: number) => {
-    try {
-      await duplicateProjectScene({ data: sceneId })
+  const handleAddScene = useCallback(
+    async (name: string) => {
+      await addProjectScene({ data: { projectId, name } })
       router.invalidate()
-      toast.success(t('scene.sceneDuplicated'))
-    } catch {
-      toast.error(t('scene.duplicateSceneFailed'))
-    }
-  }, [router, t])
+    },
+    [projectId, router],
+  )
+
+  const handleDeleteScene = useCallback(
+    async (sceneId: number) => {
+      await deleteProjectScene({ data: sceneId })
+      router.invalidate()
+    },
+    [router],
+  )
+
+  const handleRenameScene = useCallback(
+    async (id: number, name: string) => {
+      await renameProjectScene({ data: { id, name } })
+      router.invalidate()
+    },
+    [router],
+  )
+
+  const handleDuplicateScene = useCallback(
+    async (sceneId: number) => {
+      try {
+        await duplicateProjectScene({ data: sceneId })
+        router.invalidate()
+        toast.success(t('scene.sceneDuplicated'))
+      } catch {
+        toast.error(t('scene.duplicateSceneFailed'))
+      }
+    },
+    [router, t],
+  )
 
   const handlePlaceholdersChange = useCallback(() => {
     // Reload workspace data to reflect saved placeholders
@@ -328,8 +407,8 @@ function WorkspacePage() {
   const [countPerScene, setCountPerScene] = useState(0)
   const [sceneCounts, setSceneCounts] = useState<Record<number, number>>({})
   const [generating, setGenerating] = useState(data.activeJobs.length > 0)
-  const [generationTotal, setGenerationTotal] = useState(
-    () => data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
+  const [generationTotal, setGenerationTotal] = useState(() =>
+    data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
   )
   const [activeJobs, setActiveJobs] = useState(data.activeJobs)
   const [batchTimingData, setBatchTimingData] = useState<{
@@ -348,7 +427,9 @@ function WorkspacePage() {
     if (data.activeJobs.length > 0 || stopped) {
       setActiveJobs(data.activeJobs)
       setGenerating(true)
-      setGenerationTotal(data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0))
+      setGenerationTotal(
+        data.activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0),
+      )
       setQueueStopped(stopped)
     }
   }, [data.activeJobs, data.queueStatus])
@@ -361,15 +442,18 @@ function WorkspacePage() {
     return sceneCounts[sceneId] ?? countPerScene
   }
 
-  const handleSceneCountChange = useCallback((sceneId: number, count: number | null) => {
-    setSceneCounts((prev) => {
-      if (count === null) {
-        const { [sceneId]: _, ...rest } = prev
-        return rest
-      }
-      return { ...prev, [sceneId]: count }
-    })
-  }, [])
+  const handleSceneCountChange = useCallback(
+    (sceneId: number, count: number | null) => {
+      setSceneCounts((prev) => {
+        if (count === null) {
+          const { [sceneId]: _, ...rest } = prev
+          return rest
+        }
+        return { ...prev, [sceneId]: count }
+      })
+    },
+    [],
+  )
 
   // Poll during generation (stop polling when queue is stopped — no server-side changes in that state)
   const prevCompletedRef = useRef(0)
@@ -407,7 +491,10 @@ function WorkspacePage() {
           return
         }
 
-        const totalCompleted = jobs.reduce((sum, j) => sum + (j.completedCount ?? 0), 0)
+        const totalCompleted = jobs.reduce(
+          (sum, j) => sum + (j.completedCount ?? 0),
+          0,
+        )
         if (totalCompleted !== prevCompletedRef.current) {
           prevCompletedRef.current = totalCompleted
         }
@@ -426,7 +513,10 @@ function WorkspacePage() {
       }
     }, 2000)
 
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [generating, queueStopped, projectId, router])
 
   async function handleGenerate() {
@@ -446,7 +536,11 @@ function WorkspacePage() {
       toast.error(t('generation.apiKeyNotSet'), {
         action: {
           label: t('nav.settings'),
-          onClick: () => router.navigate({ to: '/settings', search: { imageDetail: undefined } }),
+          onClick: () =>
+            router.navigate({
+              to: '/settings',
+              search: { imageDetail: undefined },
+            }),
         },
       })
       return
@@ -470,7 +564,8 @@ function WorkspacePage() {
           projectId,
           projectSceneIds: sceneIds,
           countPerScene,
-          sceneCounts: Object.keys(sceneCounts).length > 0 ? sceneCounts : undefined,
+          sceneCounts:
+            Object.keys(sceneCounts).length > 0 ? sceneCounts : undefined,
         },
       })
       toast.success(t('generation.generationStarted', { count: batchTotal }))
@@ -523,24 +618,49 @@ function WorkspacePage() {
   const navigate = useNavigate({ from: Route.fullPath })
 
   const viewMode = searchParams.view ?? 'reserve'
-  const setViewMode = useCallback((mode: 'reserve' | 'edit') => {
-    navigate({ search: (prev) => ({ ...prev, view: mode === 'reserve' ? undefined : mode }) })
-  }, [navigate])
+  const setViewMode = useCallback(
+    (mode: 'reserve' | 'edit') => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          view: mode === 'reserve' ? undefined : mode,
+        }),
+      })
+    },
+    [navigate],
+  )
 
   const sceneSortBy = searchParams.sort ?? 'default'
-  const setSceneSortBy = useCallback((sort: string) => {
-    navigate({ search: (prev) => ({ ...prev, sort: sort === 'default' ? undefined : sort as SceneSortBy }) })
-  }, [navigate])
+  const setSceneSortBy = useCallback(
+    (sort: string) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          sort: sort === 'default' ? undefined : (sort as SceneSortBy),
+        }),
+      })
+    },
+    [navigate],
+  )
 
   const sceneSearch = searchParams.q ?? ''
-  const setSceneSearch = useCallback((q: string) => {
-    navigate({ search: (prev) => ({ ...prev, q: q || undefined }), replace: true })
-  }, [navigate])
+  const setSceneSearch = useCallback(
+    (q: string) => {
+      navigate({
+        search: (prev) => ({ ...prev, q: q || undefined }),
+        replace: true,
+      })
+    },
+    [navigate],
+  )
 
   const selectedSceneId = searchParams.scene ?? null
-  const setSelectedSceneId = useCallback((id: number | null) => {
-    navigate({ search: (prev) => ({ ...prev, scene: id ?? undefined }) })
-  }, [navigate])
+  const setSelectedSceneId = useCallback(
+    (id: number | null) => {
+      navigate({ search: (prev) => ({ ...prev, scene: id ?? undefined }) })
+    },
+    [navigate],
+  )
 
   // ── Mobile panel state ──
   const [leftOpen, setLeftOpen] = useState(false)
@@ -556,8 +676,14 @@ function WorkspacePage() {
           projectId={projectId}
           saveStatus={saveStatus}
           thumbnailPath={data.projectThumbnailPath}
-          onToggleLeft={() => { setLeftOpen(!leftOpen); setRightOpen(false) }}
-          onToggleRight={() => { setRightOpen(!rightOpen); setLeftOpen(false) }}
+          onToggleLeft={() => {
+            setLeftOpen(!leftOpen)
+            setRightOpen(false)
+          }}
+          onToggleRight={() => {
+            setRightOpen(!rightOpen)
+            setLeftOpen(false)
+          }}
         />
       }
       leftPanel={
@@ -572,9 +698,13 @@ function WorkspacePage() {
           />
           <ReferencePanel
             projectId={projectId}
-            referenceMode={(params.referenceMode as 'none' | 'vibe' | 'precise') ?? 'none'}
+            referenceMode={
+              (params.referenceMode as 'none' | 'vibe' | 'precise') ?? 'none'
+            }
             currentModel={(params.model as string) ?? 'nai-diffusion-4-5-full'}
-            onReferenceModeChange={(mode) => handleParamsChange({ ...params, referenceMode: mode })}
+            onReferenceModeChange={(mode) =>
+              handleParamsChange({ ...params, referenceMode: mode })
+            }
           />
         </>
       }
@@ -606,12 +736,7 @@ function WorkspacePage() {
           getPrompts={getPrompts}
         />
       }
-      rightPanel={
-        <HistoryPanel
-          images={liveImages}
-          projectId={projectId}
-        />
-      }
+      rightPanel={<HistoryPanel images={liveImages} projectId={projectId} />}
       bottomToolbar={
         <BottomToolbar
           countPerScene={countPerScene}
@@ -619,13 +744,10 @@ function WorkspacePage() {
           onGenerate={handleGenerate}
           generating={generating}
           totalImages={totalImages}
-
           parameterPopover={
             <ParameterPopover params={params} onChange={handleParamsChange} />
           }
-          scenePackDialog={
-            <ScenePackDialog projectId={projectId} />
-          }
+          scenePackDialog={<ScenePackDialog projectId={projectId} />}
           downloadButton={
             <DownloadDialog
               trigger={
@@ -636,8 +758,12 @@ function WorkspacePage() {
               }
               projectId={projectId}
               projectName={data.project.name}
-              availableScenes={allScenes.map((s) => ({ id: s.id, name: s.name, packName: s.packName }))}
-              filenameTemplate={(params as Record<string, unknown>).filenameTemplate as string | undefined}
+              availableScenes={allScenes.map((s) => ({
+                id: s.id,
+                name: s.name,
+                packName: s.packName,
+              }))}
+              filenameTemplate={params.filenameTemplate as string | undefined}
             />
           }
           generationProgress={
@@ -656,7 +782,10 @@ function WorkspacePage() {
       }
       leftOpen={leftOpen}
       rightOpen={rightOpen}
-      onDismiss={() => { setLeftOpen(false); setRightOpen(false) }}
+      onDismiss={() => {
+        setLeftOpen(false)
+        setRightOpen(false)
+      }}
     />
   )
 }

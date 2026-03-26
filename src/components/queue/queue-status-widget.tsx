@@ -23,13 +23,13 @@ export function QueueStatusWidget() {
   if (!summary) return null
 
   const { globalStats, queueStopped } = summary
-  const totalPendingImages = globalStats?.totalPendingImages ?? 0
+  const totalPendingImages = globalStats.totalPendingImages
 
   if (totalPendingImages === 0) return null
 
-  const totalImages = globalStats?.totalImages ?? 0
-  const completedImages = globalStats?.completedImages ?? 0
-  const etaMs = globalStats?.etaMs ?? null
+  const totalImages = globalStats.totalImages
+  const completedImages = globalStats.completedImages
+  const etaMs = globalStats.etaMs
 
   const pct = totalImages > 0 ? (completedImages / totalImages) * 100 : 0
 

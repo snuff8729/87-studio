@@ -20,21 +20,21 @@ The `\\placeholder\\` system — amber-tinted variable slots that appear in Code
 
 All values in OKLCH. Hue ~70 (warm amber territory).
 
-| Token | Value | Purpose |
-|-------|-------|---------|
-| background | `0.14 0.006 70` | Deep warm charcoal canvas |
-| foreground | `0.93 0.01 80` | Warm off-white text |
-| card | `0.18 0.006 70` | Slightly lifted surface |
-| popover | `0.20 0.008 70` | Floating surface |
-| primary | `0.72 0.14 70` | Amber accent — the signature |
-| primary-foreground | `0.16 0.01 70` | Dark on amber |
-| secondary | `0.22 0.008 70` | Warm mid surface |
-| muted-foreground | `0.55 0.02 70` | Warm gray text |
-| accent | `0.26 0.012 70` | Hover/active surface |
-| destructive | `0.62 0.17 25` | Dusty rose |
-| border | `1 0.03 70 / 8%` | Warm white at low opacity |
-| input | `1 0.03 70 / 12%` | Slightly more visible |
-| ring | `0.72 0.14 70 / 50%` | Amber focus ring |
+| Token              | Value                | Purpose                      |
+| ------------------ | -------------------- | ---------------------------- |
+| background         | `0.14 0.006 70`      | Deep warm charcoal canvas    |
+| foreground         | `0.93 0.01 80`       | Warm off-white text          |
+| card               | `0.18 0.006 70`      | Slightly lifted surface      |
+| popover            | `0.20 0.008 70`      | Floating surface             |
+| primary            | `0.72 0.14 70`       | Amber accent — the signature |
+| primary-foreground | `0.16 0.01 70`       | Dark on amber                |
+| secondary          | `0.22 0.008 70`      | Warm mid surface             |
+| muted-foreground   | `0.55 0.02 70`       | Warm gray text               |
+| accent             | `0.26 0.012 70`      | Hover/active surface         |
+| destructive        | `0.62 0.17 25`       | Dusty rose                   |
+| border             | `1 0.03 70 / 8%`     | Warm white at low opacity    |
+| input              | `1 0.03 70 / 12%`    | Slightly more visible        |
+| ring               | `0.72 0.14 70 / 50%` | Amber focus ring             |
 
 ## Depth Strategy
 
@@ -61,40 +61,52 @@ Inherited from shadcn maia — pill-shaped buttons (`rounded-4xl`), `rounded-2xl
 ## Component Patterns
 
 ### Empty States
+
 Dashed border container, centered text. Two lines: what's empty + what to do.
+
 ```
 rounded-xl border border-border border-dashed py-16 text-center
 ```
 
 ### Section Headers (Dashboard)
+
 Uppercase tracking labels, no cards — direct content beneath.
+
 ```
 text-xs font-medium text-muted-foreground uppercase tracking-wider mb-3
 ```
 
 ### Active Job Indicators
+
 Amber-tinted container with pulse dot, progress bar, count.
+
 ```
 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3
 ```
 
 ### Progress Bars
+
 Thin amber bar on warm secondary track.
+
 ```
 h-1.5 rounded-full bg-secondary (track)
 h-1.5 rounded-full bg-primary transition-all duration-500 (fill)
 ```
 
 ### Sidebar Navigation
+
 Same background as canvas. Active state: `bg-primary/10 text-primary font-medium`. Inactive: `text-muted-foreground hover:bg-accent hover:text-foreground`.
 
 ### Gallery Grid
+
 Tight gaps (`gap-1.5`), rounded corners (`rounded-lg`), `aspect-square`. Favorite overlay on hover. Rating stars in amber (`text-primary`).
 
 ### Lightbox
+
 `bg-black/90` overlay. Side panel with `bg-card`. Navigation arrows in `text-white/40 hover:text-white/80`. Rating stars in amber.
 
 ### CodeMirror Editor
+
 Background matches `card` token. Border matches `border` token. Focus ring in amber. `\\placeholder\\` highlighting uses amber at 15% opacity with 30% border.
 
 ## Anti-Patterns

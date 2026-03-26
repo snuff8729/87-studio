@@ -1,12 +1,12 @@
+import { toast } from 'sonner'
 import { useOnboarding } from '@/lib/onboarding'
 import { useTranslation } from '@/lib/i18n'
-import { toast } from 'sonner'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 
@@ -61,7 +61,11 @@ export function WelcomeDialog() {
         </div>
 
         <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <Button variant="ghost" onClick={handleSkip} className="order-2 sm:order-1">
+          <Button
+            variant="ghost"
+            onClick={handleSkip}
+            className="order-2 sm:order-1"
+          >
             {t('onboarding.skipTutorial')}
           </Button>
           <Button onClick={dismissWelcome} className="order-1 sm:order-2">

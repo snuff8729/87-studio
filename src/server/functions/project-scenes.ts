@@ -1,7 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
+import { eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { projectScenePacks, projectScenes, characterSceneOverrides, generatedImages } from '../db/schema'
-import { eq, sql, inArray } from 'drizzle-orm'
+import {
+  characterSceneOverrides,
+  generatedImages,
+  projectScenePacks,
+  projectScenes,
+} from '../db/schema'
 import { deleteImageFiles } from '../services/image'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
@@ -28,7 +33,12 @@ export const listProjectScenePacks = createServerFn({ method: 'GET' })
 
 export const updateProjectScene = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { id: number; name?: string; placeholders?: string; thumbnailImageId?: number | null }) => data,
+    (data: {
+      id: number
+      name?: string
+      placeholders?: string
+      thumbnailImageId?: number | null
+    }) => data,
   )
   .handler(async ({ data }) => {
     const { id, ...updates } = data
@@ -51,7 +61,11 @@ export const getCharacterOverrides = createServerFn({ method: 'GET' })
 
 export const upsertCharacterOverride = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { projectSceneId: number; characterId: number; placeholders: string }) => data,
+    (data: {
+      projectSceneId: number
+      characterId: number
+      placeholders: string
+    }) => data,
   )
   .handler(async ({ data }) => {
     db.insert(characterSceneOverrides)
@@ -61,7 +75,10 @@ export const upsertCharacterOverride = createServerFn({ method: 'POST' })
         placeholders: data.placeholders,
       })
       .onConflictDoUpdate({
-        target: [characterSceneOverrides.projectSceneId, characterSceneOverrides.characterId],
+        target: [
+          characterSceneOverrides.projectSceneId,
+          characterSceneOverrides.characterId,
+        ],
         set: { placeholders: data.placeholders },
       })
       .run()
@@ -120,7 +137,10 @@ export const deleteProjectScene = createServerFn({ method: 'POST' })
 
     // Collect file paths before cascade delete
     const files = db
-      .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+      .select({
+        filePath: generatedImages.filePath,
+        thumbnailPath: generatedImages.thumbnailPath,
+      })
       .from(generatedImages)
       .where(eq(generatedImages.projectSceneId, projectSceneId))
       .all()
@@ -169,7 +189,9 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
 
     // Get next sort order within same pack
     const maxSort = db
-      .select({ max: sql<number>`coalesce(max(${projectScenes.sortOrder}), -1)` })
+      .select({
+        max: sql<number>`coalesce(max(${projectScenes.sortOrder}), -1)`,
+      })
       .from(projectScenes)
       .where(eq(projectScenes.projectScenePackId, scene.projectScenePackId))
       .get()
@@ -208,7 +230,7 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
   })
 
 export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })
-  .inputValidator((sceneIds: number[]) => sceneIds)
+  .inputValidator((sceneIds: Array<number>) => sceneIds)
   .handler(async ({ data: sceneIds }) => {
     if (sceneIds.length === 0) return { success: true, deletedCount: 0 }
 
@@ -224,7 +246,10 @@ export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })
 
       // Collect file paths before cascade delete
       const files = db
-        .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+        .select({
+          filePath: generatedImages.filePath,
+          thumbnailPath: generatedImages.thumbnailPath,
+        })
         .from(generatedImages)
         .where(eq(generatedImages.projectSceneId, sceneId))
         .all()
@@ -252,7 +277,8 @@ export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })
 
 export const bulkUpdatePlaceholders = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { updates: Array<{ sceneId: number; placeholders: string }> }) => data,
+    (data: { updates: Array<{ sceneId: number; placeholders: string }> }) =>
+      data,
   )
   .handler(async ({ data }) => {
     const now = new Date().toISOString()
@@ -268,7 +294,7 @@ export const bulkUpdatePlaceholders = createServerFn({ method: 'POST' })
   })
 
 export const getAllCharacterOverrides = createServerFn({ method: 'GET' })
-  .inputValidator((projectSceneIds: number[]) => projectSceneIds)
+  .inputValidator((projectSceneIds: Array<number>) => projectSceneIds)
   .handler(async ({ data: projectSceneIds }) => {
     if (projectSceneIds.length === 0) return []
     return db

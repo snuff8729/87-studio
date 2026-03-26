@@ -1,4 +1,13 @@
-import { HeadContent, Link, Outlet, Scripts, createRootRoute, useRouterState, useSearch } from '@tanstack/react-router'
+import {
+  HeadContent,
+  Link,
+  Outlet,
+  Scripts,
+  createRootRoute,
+  useRouterState,
+  useSearch,
+} from '@tanstack/react-router'
+import appCss from '../styles.css?url'
 import { Sidebar } from '@/components/layout/sidebar'
 import { BottomNav } from '@/components/layout/bottom-nav'
 import { Toaster } from '@/components/ui/sonner'
@@ -8,9 +17,6 @@ import { OnboardingProvider } from '@/lib/onboarding'
 import { ThemeProvider } from '@/lib/theme'
 import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay'
 import { ImageDetailOverlay } from '@/components/common/image-detail-overlay'
-
-import appCss from '../styles.css?url'
-
 
 function RootErrorComponent({ error }: { error: Error }) {
   return (
@@ -26,7 +32,9 @@ function RootErrorContent({ error }: { error: Error }) {
   const { t } = useTranslation()
   return (
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-      <p className="text-lg text-destructive font-medium">{t('error.occurred')}</p>
+      <p className="text-lg text-destructive font-medium">
+        {t('error.occurred')}
+      </p>
       <p className="text-sm text-muted-foreground max-w-md text-center">
         {error.message || t('error.unknown')}
       </p>
@@ -144,7 +152,9 @@ function RootComponent() {
               <Toaster richColors position="bottom-right" />
             </TooltipProvider>
           )}
-          {imageDetail && !isGallery && <ImageDetailOverlay imageId={imageDetail} />}
+          {imageDetail && !isGallery && (
+            <ImageDetailOverlay imageId={imageDetail} />
+          )}
           <OnboardingOverlay />
         </OnboardingProvider>
       </I18nProvider>

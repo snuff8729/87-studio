@@ -1,10 +1,18 @@
-import sharp from 'sharp'
 import { randomUUID } from 'node:crypto'
-import { mkdirSync, writeFileSync, readFileSync, existsSync, unlinkSync, readdirSync, rmSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
+import sharp from 'sharp'
+import { and, asc, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { referenceImages } from '../db/schema'
-import { eq, and, asc, isNull } from 'drizzle-orm'
 import { createLogger } from './logger'
 
 const log = createLogger('reference')
@@ -30,19 +38,26 @@ export function uploadReferenceImage(
   mkdirSync(dirname(filePath), { recursive: true })
   writeFileSync(filePath, imageBuffer)
 
-  log.info('upload', 'Reference image saved', { projectId, type, filePath, sizeBytes: imageBuffer.byteLength })
+  log.info('upload', 'Reference image saved', {
+    projectId,
+    type,
+    filePath,
+    sizeBytes: imageBuffer.byteLength,
+  })
 
   // Get next sort order
-  const projectCondition = projectId != null
-    ? eq(referenceImages.projectId, projectId)
-    : isNull(referenceImages.projectId)
+  const projectCondition =
+    projectId != null
+      ? eq(referenceImages.projectId, projectId)
+      : isNull(referenceImages.projectId)
   const maxOrder = db
     .select({ sortOrder: referenceImages.sortOrder })
     .from(referenceImages)
     .where(and(projectCondition, eq(referenceImages.type, type)))
     .orderBy(referenceImages.sortOrder)
     .all()
-  const nextOrder = maxOrder.length > 0 ? Math.max(...maxOrder.map((r) => r.sortOrder)) + 1 : 0
+  const nextOrder =
+    maxOrder.length > 0 ? Math.max(...maxOrder.map((r) => r.sortOrder)) + 1 : 0
 
   const row = db
     .insert(referenceImages)
@@ -59,15 +74,28 @@ export function uploadReferenceImage(
   return row
 }
 
-export async function generateReferenceThumbnail(sourcePath: string, thumbnailPath: string): Promise<void> {
+export async function generateReferenceThumbnail(
+  sourcePath: string,
+  thumbnailPath: string,
+): Promise<void> {
   try {
     await sharp(sourcePath)
-      .resize({ width: 256, height: 256, fit: 'inside', withoutEnlargement: true })
+      .resize({
+        width: 256,
+        height: 256,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .png()
       .toFile(thumbnailPath)
     log.info('thumbnail', 'Reference thumbnail generated', { thumbnailPath })
   } catch (error) {
-    log.error('thumbnail.failed', 'Reference thumbnail generation failed', { sourcePath, thumbnailPath }, error)
+    log.error(
+      'thumbnail.failed',
+      'Reference thumbnail generation failed',
+      { sourcePath, thumbnailPath },
+      error,
+    )
     throw error
   }
 }
@@ -84,8 +112,8 @@ export async function processDirectorImage(filePath: string): Promise<string> {
   const processedPath = filePath.replace(/\.[^.]+$/, '_processed.png')
 
   const metadata = await sharp(filePath).metadata()
-  const srcW = metadata.width ?? 1024
-  const srcH = metadata.height ?? 1024
+  const srcW = metadata.width || 1024
+  const srcH = metadata.height || 1024
   const srcAspect = srcW / srcH
 
   // Find best matching dimension
@@ -107,7 +135,12 @@ export async function processDirectorImage(filePath: string): Promise<string> {
     .png()
     .toFile(processedPath)
 
-  log.info('process', 'Director image processed', { filePath, processedPath, targetW: best.w, targetH: best.h })
+  log.info('process', 'Director image processed', {
+    filePath,
+    processedPath,
+    targetW: best.w,
+    targetH: best.h,
+  })
 
   return normalizePath(processedPath)
 }
@@ -140,7 +173,10 @@ export async function encodeVibeImage(
 
   if (!response.ok) {
     const text = await response.text().catch(() => '')
-    log.error('encode.failed', 'Vibe encoding failed', { status: response.status, responseText: text.slice(0, 500) })
+    log.error('encode.failed', 'Vibe encoding failed', {
+      status: response.status,
+      responseText: text.slice(0, 500),
+    })
     throw new Error(`Vibe encoding failed: ${response.status} ${text}`)
   }
 
@@ -150,21 +186,37 @@ export async function encodeVibeImage(
   mkdirSync(dirname(encodedPath), { recursive: true })
   writeFileSync(encodedPath, encodedData)
 
-  log.info('encode', 'Vibe encoded', { filePath, encodedPath, model, sizeBytes: encodedData.byteLength })
+  log.info('encode', 'Vibe encoded', {
+    filePath,
+    encodedPath,
+    model,
+    sizeBytes: encodedData.byteLength,
+  })
 
   return normalizePath(encodedPath)
 }
 
-export function isVibeEncodingValid(ref: typeof referenceImages.$inferSelect, currentModel: string): boolean {
-  return !!(ref.encodedVibePath && ref.encodedModel === currentModel && existsSync(ref.encodedVibePath))
+export function isVibeEncodingValid(
+  ref: typeof referenceImages.$inferSelect,
+  currentModel: string,
+): boolean {
+  return !!(
+    ref.encodedVibePath &&
+    ref.encodedModel === currentModel &&
+    existsSync(ref.encodedVibePath)
+  )
 }
 
 // ─── Query ──────────────────────────────────────────────────────────────────
 
-export function getEnabledReferences(projectId: number | null, type: 'vibe' | 'precise') {
-  const projectCondition = projectId != null
-    ? eq(referenceImages.projectId, projectId)
-    : isNull(referenceImages.projectId)
+export function getEnabledReferences(
+  projectId: number | null,
+  type: 'vibe' | 'precise',
+) {
+  const projectCondition =
+    projectId != null
+      ? eq(referenceImages.projectId, projectId)
+      : isNull(referenceImages.projectId)
   return db
     .select()
     .from(referenceImages)
@@ -180,9 +232,10 @@ export function getEnabledReferences(projectId: number | null, type: 'vibe' | 'p
 }
 
 export function getProjectReferences(projectId: number | null) {
-  const projectCondition = projectId != null
-    ? eq(referenceImages.projectId, projectId)
-    : isNull(referenceImages.projectId)
+  const projectCondition =
+    projectId != null
+      ? eq(referenceImages.projectId, projectId)
+      : isNull(referenceImages.projectId)
   return db
     .select()
     .from(referenceImages)
@@ -202,7 +255,11 @@ function safeUnlink(filePath: string): void {
 }
 
 export function deleteReferenceImage(id: number): void {
-  const ref = db.select().from(referenceImages).where(eq(referenceImages.id, id)).get()
+  const ref = db
+    .select()
+    .from(referenceImages)
+    .where(eq(referenceImages.id, id))
+    .get()
   if (!ref) return
 
   safeUnlink(ref.filePath)
@@ -218,7 +275,9 @@ export function deleteReferenceImage(id: number): void {
     if (existsSync(dir) && readdirSync(dir).length === 0) {
       rmSync(dir, { recursive: true })
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 
   log.info('delete', 'Reference image deleted', { id, filePath: ref.filePath })
 }
@@ -233,18 +292,35 @@ export async function prepareVibeData(
   const refs = getEnabledReferences(projectId, 'vibe')
   if (refs.length === 0) return undefined
 
-  const vibes: Array<{ encoded: string; strength: number; infoExtracted: number }> = []
+  const vibes: Array<{
+    encoded: string
+    strength: number
+    infoExtracted: number
+  }> = []
 
   for (const ref of refs) {
     let encodedPath = ref.encodedVibePath
 
     // Re-encode if needed (no cache or model mismatch)
     if (!isVibeEncodingValid(ref, model)) {
-      log.info('encode.needed', 'Vibe encoding needed', { refId: ref.id, currentModel: model, cachedModel: ref.encodedModel })
-      encodedPath = await encodeVibeImage(apiKey, ref.filePath, model, ref.informationExtracted)
+      log.info('encode.needed', 'Vibe encoding needed', {
+        refId: ref.id,
+        currentModel: model,
+        cachedModel: ref.encodedModel,
+      })
+      encodedPath = await encodeVibeImage(
+        apiKey,
+        ref.filePath,
+        model,
+        ref.informationExtracted,
+      )
 
       db.update(referenceImages)
-        .set({ encodedVibePath: encodedPath, encodedModel: model, updatedAt: new Date().toISOString() })
+        .set({
+          encodedVibePath: encodedPath,
+          encodedModel: model,
+          updatedAt: new Date().toISOString(),
+        })
         .where(eq(referenceImages.id, ref.id))
         .run()
     }
@@ -266,7 +342,12 @@ export async function preparePreciseData(projectId: number | null) {
   const refs = getEnabledReferences(projectId, 'precise')
   if (refs.length === 0) return undefined
 
-  const precise: Array<{ imageBase64: string; strength: number; fidelity: number; mode: string }> = []
+  const precise: Array<{
+    imageBase64: string
+    strength: number
+    fidelity: number
+    mode: string
+  }> = []
 
   for (const ref of refs) {
     let processedPath = ref.processedPath

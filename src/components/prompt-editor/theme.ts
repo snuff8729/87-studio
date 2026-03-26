@@ -10,7 +10,8 @@ export const darkTheme = EditorView.theme(
       fontSize: '13px',
     },
     '.cm-content': {
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       padding: '8px 0',
       caretColor: 'oklch(0.93 0.01 80)',
     },
@@ -96,7 +97,8 @@ export const darkTheme = EditorView.theme(
       color: 'oklch(0.70 0.01 80)',
       whiteSpace: 'pre-wrap',
       wordBreak: 'break-word',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
     },
   },
   { dark: true },
@@ -112,7 +114,8 @@ export const lightTheme = EditorView.theme(
       fontSize: '13px',
     },
     '.cm-content': {
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       padding: '8px 0',
       caretColor: 'oklch(0.205 0 0)',
     },
@@ -194,7 +197,8 @@ export const lightTheme = EditorView.theme(
       color: 'oklch(0.35 0.01 80)',
       whiteSpace: 'pre-wrap',
       wordBreak: 'break-word',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
     },
   },
   { dark: false },

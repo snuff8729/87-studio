@@ -1,21 +1,24 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { parseSdStudioFile } from '../sd-studio-import'
 import type { SdStudioFile } from '../sd-studio-import'
 
 describe('parseSdStudioFile', () => {
   it('throws on invalid input (missing name)', () => {
-    expect(() => parseSdStudioFile({ scenes: {} }))
-      .toThrow('Invalid SD Studio file')
+    expect(() => parseSdStudioFile({ scenes: {} })).toThrow(
+      'Invalid SD Studio file',
+    )
   })
 
   it('throws on invalid input (missing scenes)', () => {
-    expect(() => parseSdStudioFile({ name: 'test' }))
-      .toThrow('Invalid SD Studio file')
+    expect(() => parseSdStudioFile({ name: 'test' })).toThrow(
+      'Invalid SD Studio file',
+    )
   })
 
   it('throws on invalid input (scenes is not object)', () => {
-    expect(() => parseSdStudioFile({ name: 'test', scenes: 'bad' }))
-      .toThrow('Invalid SD Studio file')
+    expect(() => parseSdStudioFile({ name: 'test', scenes: 'bad' })).toThrow(
+      'Invalid SD Studio file',
+    )
   })
 
   it('parses empty scenes', () => {
@@ -46,9 +49,7 @@ describe('parseSdStudioFile', () => {
       scenes: {
         s1: {
           name: 'Standing',
-          slots: [
-            [{ prompt: 'standing, full body' }],
-          ],
+          slots: [[{ prompt: 'standing, full body' }]],
         },
       },
     }
@@ -91,10 +92,7 @@ describe('parseSdStudioFile', () => {
         s1: {
           name: 'Test',
           slots: [
-            [
-              { prompt: 'enabled' },
-              { prompt: 'disabled', enabled: false },
-            ],
+            [{ prompt: 'enabled' }, { prompt: 'disabled', enabled: false }],
           ],
         },
       },
@@ -110,9 +108,7 @@ describe('parseSdStudioFile', () => {
       scenes: {
         s1: {
           name: 'WithLib',
-          slots: [
-            [{ prompt: '<poses.standing>' }],
-          ],
+          slots: [[{ prompt: '<poses.standing>' }]],
         },
       },
       library: {
@@ -133,9 +129,7 @@ describe('parseSdStudioFile', () => {
       scenes: {
         s1: {
           name: 'Missing',
-          slots: [
-            [{ prompt: 'text, <missing.ref>, more' }],
-          ],
+          slots: [[{ prompt: 'text, <missing.ref>, more' }]],
         },
       },
     }
@@ -150,9 +144,7 @@ describe('parseSdStudioFile', () => {
       scenes: {
         s1: {
           name: 'Clean',
-          slots: [
-            [{ prompt: '  a, , , b  ' }],
-          ],
+          slots: [[{ prompt: '  a, , , b  ' }]],
         },
       },
     }
@@ -196,7 +188,7 @@ describe('parseSdStudioFile', () => {
       },
     }
     const result = parseSdStudioFile(input)
-    expect(result.scenes.map(s => s.sortOrder)).toEqual([0, 1, 2])
+    expect(result.scenes.map((s) => s.sortOrder)).toEqual([0, 1, 2])
   })
 
   it('handles all slot groups disabled', () => {
@@ -205,9 +197,7 @@ describe('parseSdStudioFile', () => {
       scenes: {
         s1: {
           name: 'AllDisabled',
-          slots: [
-            [{ prompt: 'x', enabled: false }],
-          ],
+          slots: [[{ prompt: 'x', enabled: false }]],
         },
       },
     }
@@ -222,9 +212,7 @@ describe('parseSdStudioFile', () => {
       scenes: {
         s1: {
           name: 'Empty',
-          slots: [
-            [{ prompt: '' }, { prompt: 'valid' }],
-          ],
+          slots: [[{ prompt: '' }, { prompt: 'valid' }]],
         },
       },
     }

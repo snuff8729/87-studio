@@ -1,10 +1,10 @@
 import { memo } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { PlayIcon } from '@hugeicons/core-free-icons'
+import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { NumberStepper } from '@/components/ui/number-stepper'
 import { useTranslation } from '@/lib/i18n'
-import type { ReactNode } from 'react'
 
 interface BottomToolbarProps {
   // Generation
@@ -50,7 +50,10 @@ export const BottomToolbar = memo(function BottomToolbar({
       </div>
 
       {/* Row 2 / Desktop right — generation controls */}
-      <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1" data-onboarding="generation-controls">
+      <div
+        className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1"
+        data-onboarding="generation-controls"
+      >
         <NumberStepper
           value={countPerScene}
           onChange={(v) => onCountChange(Math.max(0, v ?? 0))}
@@ -65,7 +68,11 @@ export const BottomToolbar = memo(function BottomToolbar({
         >
           <HugeiconsIcon icon={PlayIcon} className="size-5" />
           <span className="hidden sm:inline">
-            {generating ? t('generation.generating') : totalImages > 0 ? t('generation.generateCount', { count: totalImages }) : t('generation.generate')}
+            {generating
+              ? t('generation.generating')
+              : totalImages > 0
+                ? t('generation.generateCount', { count: totalImages })
+                : t('generation.generate')}
           </span>
         </Button>
       </div>

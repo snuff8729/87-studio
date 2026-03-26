@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { settings } from '../db/schema'
-import { eq } from 'drizzle-orm'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.settings')
@@ -24,8 +24,13 @@ export const setSetting = createServerFn({ method: 'POST' })
       })
       .run()
 
-    const displayValue = data.key.includes('api_key') ? '***masked***' : data.value
-    log.info('setSetting', 'Setting updated', { key: data.key, value: displayValue })
+    const displayValue = data.key.includes('api_key')
+      ? '***masked***'
+      : data.value
+    log.info('setSetting', 'Setting updated', {
+      key: data.key,
+      value: displayValue,
+    })
 
     return { success: true }
   })
@@ -38,9 +43,12 @@ export const validateApiKey = createServerFn({ method: 'POST' })
     }
 
     try {
-      const response = await fetch('https://api.novelai.net/user/subscription', {
-        headers: { Authorization: `Bearer ${apiKey}` },
-      })
+      const response = await fetch(
+        'https://api.novelai.net/user/subscription',
+        {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        },
+      )
 
       if (response.ok) {
         return { valid: true, error: null }
@@ -56,6 +64,8 @@ export const validateApiKey = createServerFn({ method: 'POST' })
     }
   })
 
-export const getAllSettings = createServerFn({ method: 'GET' }).handler(async () => {
-  return db.select().from(settings).all()
-})
+export const getAllSettings = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    return db.select().from(settings).all()
+  },
+)

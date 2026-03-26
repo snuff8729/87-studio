@@ -1,16 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
-  projects,
-  characters,
-  projectScenePacks,
-  projectScenes,
   characterSceneOverrides,
+  characters,
   generatedImages,
   generationJobs,
+  projectScenePacks,
+  projectScenes,
+  projects,
 } from '../db/schema'
-import { eq, desc, and, sql, inArray } from 'drizzle-orm'
-import { getQueueStatus, getGlobalQueueStats } from '../services/generation'
+import { getGlobalQueueStats, getQueueStatus } from '../services/generation'
 
 export const getWorkspaceData = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -37,14 +37,15 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
 
     // Load all scenes across all packs in one query
     const packIds = packs.map((p) => p.id)
-    const allScenes = packIds.length > 0
-      ? db
-          .select()
-          .from(projectScenes)
-          .where(inArray(projectScenes.projectScenePackId, packIds))
-          .orderBy(projectScenes.sortOrder)
-          .all()
-      : []
+    const allScenes =
+      packIds.length > 0
+        ? db
+            .select()
+            .from(projectScenes)
+            .where(inArray(projectScenes.projectScenePackId, packIds))
+            .orderBy(projectScenes.sortOrder)
+            .all()
+        : []
 
     // Batch: image counts per scene (single GROUP BY)
     const countRows = db
@@ -68,7 +69,10 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
     const explicitThumbMap: Record<number, string> = {}
     if (explicitThumbIds.length > 0) {
       const rows = db
-        .select({ id: generatedImages.id, thumbnailPath: generatedImages.thumbnailPath })
+        .select({
+          id: generatedImages.id,
+          thumbnailPath: generatedImages.thumbnailPath,
+        })
         .from(generatedImages)
         .where(inArray(generatedImages.id, explicitThumbIds))
         .all()
@@ -93,7 +97,9 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
         .all()
 
       // Step 2: Batch-fetch thumbnail paths for those latest images
-      const latestImageIds = latestPerScene.map((r) => r.latestId).filter(Boolean)
+      const latestImageIds = latestPerScene
+        .map((r) => r.latestId)
+        .filter(Boolean)
       if (latestImageIds.length > 0) {
         const thumbRows = db
           .select({
@@ -185,7 +191,10 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
         errorMessage: generationJobs.errorMessage,
       })
       .from(generationJobs)
-      .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+      .leftJoin(
+        projectScenes,
+        eq(generationJobs.projectSceneId, projectScenes.id),
+      )
       .where(
         and(
           eq(generationJobs.projectId, projectId),
@@ -197,7 +206,10 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
 
     // Include the failed job when queue is error-stopped
     const activeJobs = [...activeJobsRaw]
-    if (queueStatus.stoppedJobId && !activeJobs.some((j) => j.id === queueStatus.stoppedJobId)) {
+    if (
+      queueStatus.stoppedJobId &&
+      !activeJobs.some((j) => j.id === queueStatus.stoppedJobId)
+    ) {
       const failedJob = db
         .select({
           id: generationJobs.id,
@@ -209,7 +221,10 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
           errorMessage: generationJobs.errorMessage,
         })
         .from(generationJobs)
-        .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+        .leftJoin(
+          projectScenes,
+          eq(generationJobs.projectSceneId, projectScenes.id),
+        )
         .where(eq(generationJobs.id, queueStatus.stoppedJobId))
         .get()
       if (failedJob) activeJobs.unshift(failedJob)
@@ -241,12 +256,23 @@ const SCENE_IMAGES_PAGE_SIZE = 50
 
 export const getSceneDetail = createServerFn({ method: 'GET' })
   .inputValidator(
-    (input: number | { sceneId: number; sortBy?: 'newest' | 'tournament_winrate' | 'tournament_wins' }) =>
-      typeof input === 'number' ? { sceneId: input, sortBy: 'newest' as const } : input,
+    (
+      input:
+        | number
+        | {
+            sceneId: number
+            sortBy?: 'newest' | 'tournament_winrate' | 'tournament_wins'
+          },
+    ) =>
+      typeof input === 'number'
+        ? { sceneId: input, sortBy: 'newest' as const }
+        : input,
   )
   .handler(async ({ data }) => {
     const projectSceneId = typeof data === 'number' ? data : data.sceneId
-    const sortBy = (typeof data === 'object' && 'sortBy' in data ? data.sortBy : 'newest') ?? 'newest'
+    const sortBy =
+      (typeof data === 'object' && 'sortBy' in data ? data.sortBy : 'newest') ??
+      'newest'
 
     const scene = db
       .select()
@@ -261,11 +287,12 @@ export const getSceneDetail = createServerFn({ method: 'GET' })
       .where(eq(characterSceneOverrides.projectSceneId, projectSceneId))
       .all()
 
-    const totalCount = db
-      .select({ count: sql<number>`count(*)` })
-      .from(generatedImages)
-      .where(eq(generatedImages.projectSceneId, projectSceneId))
-      .get()?.count ?? 0
+    const totalCount =
+      db
+        .select({ count: sql<number>`count(*)` })
+        .from(generatedImages)
+        .where(eq(generatedImages.projectSceneId, projectSceneId))
+        .get()?.count ?? 0
 
     const selectFields = {
       id: generatedImages.id,
@@ -306,7 +333,11 @@ export const getSceneDetail = createServerFn({ method: 'GET' })
 
 export const getSceneImages = createServerFn({ method: 'GET' })
   .inputValidator(
-    (input: { sceneId: number; offset: number; sortBy?: 'newest' | 'tournament_winrate' | 'tournament_wins' }) => input,
+    (input: {
+      sceneId: number
+      offset: number
+      sortBy?: 'newest' | 'tournament_winrate' | 'tournament_wins'
+    }) => input,
   )
   .handler(async ({ data: { sceneId, offset, sortBy } }) => {
     let orderClause
@@ -455,7 +486,10 @@ export const listProjectJobs = createServerFn({ method: 'GET' })
         errorMessage: generationJobs.errorMessage,
       })
       .from(generationJobs)
-      .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+      .leftJoin(
+        projectScenes,
+        eq(generationJobs.projectSceneId, projectScenes.id),
+      )
       .where(
         and(
           eq(generationJobs.projectId, projectId),
@@ -466,7 +500,10 @@ export const listProjectJobs = createServerFn({ method: 'GET' })
       .all()
 
     // Include the failed job when queue is error-stopped
-    if (queueStatus.stoppedJobId && !jobs.some((j) => j.id === queueStatus.stoppedJobId)) {
+    if (
+      queueStatus.stoppedJobId &&
+      !jobs.some((j) => j.id === queueStatus.stoppedJobId)
+    ) {
       const failedJob = db
         .select({
           id: generationJobs.id,
@@ -478,7 +515,10 @@ export const listProjectJobs = createServerFn({ method: 'GET' })
           errorMessage: generationJobs.errorMessage,
         })
         .from(generationJobs)
-        .leftJoin(projectScenes, eq(generationJobs.projectSceneId, projectScenes.id))
+        .leftJoin(
+          projectScenes,
+          eq(generationJobs.projectSceneId, projectScenes.id),
+        )
         .where(eq(generationJobs.id, queueStatus.stoppedJobId))
         .get()
       if (failedJob) jobs.unshift(failedJob)

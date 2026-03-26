@@ -1,6 +1,6 @@
-import { defineHandler } from 'nitro/h3'
-import { resolve, normalize } from 'node:path'
+import { normalize, resolve } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
+import { defineHandler } from 'nitro/h3'
 
 export default defineHandler((event) => {
   if (event.req.method !== 'GET' && event.req.method !== 'HEAD') return
@@ -26,7 +26,10 @@ export default defineHandler((event) => {
 
   if (!basePath || !relativePath) return
 
-  const filePath = resolve(basePath, normalize(decodeURIComponent(relativePath)))
+  const filePath = resolve(
+    basePath,
+    normalize(decodeURIComponent(relativePath)),
+  )
 
   if (!filePath.startsWith(basePath)) {
     return new Response('Forbidden', { status: 403 })

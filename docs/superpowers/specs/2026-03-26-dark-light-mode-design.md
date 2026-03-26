@@ -28,8 +28,8 @@ type ResolvedTheme = 'light' | 'dark'
 
 ```ts
 interface ThemeContextValue {
-  theme: Theme              // User's selection (light | dark | system)
-  resolvedTheme: ResolvedTheme  // Actual applied theme (light | dark)
+  theme: Theme // User's selection (light | dark | system)
+  resolvedTheme: ResolvedTheme // Actual applied theme (light | dark)
   setTheme: (theme: Theme) => void
 }
 ```
@@ -48,10 +48,12 @@ Add an inline `<script>` in `<head>` (inside `RootDocument`) that reads localSto
 
 ```js
 // Inline script (not a module — runs synchronously before paint)
-(function() {
-  var t = localStorage.getItem('87studio-theme') || 'system';
-  var dark = t === 'dark' || (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches);
-  document.documentElement.classList.toggle('dark', dark);
+;(function () {
+  var t = localStorage.getItem('87studio-theme') || 'system'
+  var dark =
+    t === 'dark' ||
+    (t === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)
+  document.documentElement.classList.toggle('dark', dark)
 })()
 ```
 
@@ -83,12 +85,12 @@ Add a "Theme" card to the settings page, positioned between Language and Storage
 
 Files with hardcoded colors and their disposition:
 
-| File | Issue | Action |
-|------|-------|--------|
-| `prompt-editor/theme.ts` | All oklch values hardcoded for dark | Add `lightTheme` with light-appropriate colors |
-| `prompt-editor/weight-highlight.ts` | oklch with alpha overlays | **No change needed** — alpha-based overlays work on both light and dark backgrounds |
-| `onboarding/spotlight-backdrop.tsx` | `bg-black/70` overlay, `hsl(var(--primary))` glow | **No change needed** — overlay is theme-agnostic, glow uses CSS variable |
-| 14 files with `bg-[...]` etc (33 occurrences) | Arbitrary Tailwind values | Review each; replace with semantic classes where appropriate, add `dark:` variants where needed |
+| File                                          | Issue                                             | Action                                                                                          |
+| --------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| `prompt-editor/theme.ts`                      | All oklch values hardcoded for dark               | Add `lightTheme` with light-appropriate colors                                                  |
+| `prompt-editor/weight-highlight.ts`           | oklch with alpha overlays                         | **No change needed** — alpha-based overlays work on both light and dark backgrounds             |
+| `onboarding/spotlight-backdrop.tsx`           | `bg-black/70` overlay, `hsl(var(--primary))` glow | **No change needed** — overlay is theme-agnostic, glow uses CSS variable                        |
+| 14 files with `bg-[...]` etc (33 occurrences) | Arbitrary Tailwind values                         | Review each; replace with semantic classes where appropriate, add `dark:` variants where needed |
 
 ### i18n Additions
 

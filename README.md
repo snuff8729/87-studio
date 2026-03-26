@@ -63,6 +63,7 @@ pnpm test -- --watch  # 워치 모드
 ```
 
 테스트 대상 모듈:
+
 - **플레이스홀더 시스템** — `\\placeholder\\` 추출/치환 (`src/lib/placeholder.ts`)
 - **프롬프트 번들** — `@{bundle}` 참조 추출/치환 (`src/lib/bundle.ts`)
 - **SD Studio 임포트** — JSON 파싱, 카테시안 곱, 라이브러리 참조 (`src/lib/sd-studio-import.ts`)

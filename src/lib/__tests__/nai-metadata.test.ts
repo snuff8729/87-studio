@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { parseNAIMetadata, getUcPresetLabel } from '../nai-metadata'
+import { describe, expect, it } from 'vitest'
+import { getUcPresetLabel, parseNAIMetadata } from '../nai-metadata'
 
 // ─── PNG Builder Helper ──────────────────────────────────────────────────────
 
@@ -43,7 +43,10 @@ function buildPngWithChunks(
   return result
 }
 
-function makeTextChunk(keyword: string, value: string): { type: string; data: Uint8Array } {
+function makeTextChunk(
+  keyword: string,
+  value: string,
+): { type: string; data: Uint8Array } {
   const encoded = new TextEncoder().encode(`${keyword}\0${value}`)
   return { type: 'tEXt', data: encoded }
 }

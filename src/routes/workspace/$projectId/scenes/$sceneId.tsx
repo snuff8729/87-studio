@@ -1,13 +1,26 @@
-import { createFileRoute, Link, useRouter, useNavigate } from '@tanstack/react-router'
-import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
-import { useTranslation } from '@/lib/i18n'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft02Icon, Menu01Icon } from '@hugeicons/core-free-icons'
+import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
-import { getScenePageContext, listProjectJobs } from '@/server/functions/workspace'
-import { cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
+import {
+  getScenePageContext,
+  listProjectJobs,
+} from '@/server/functions/workspace'
+import {
+  cancelJobs,
+  dismissGenerationError,
+  pauseGeneration,
+  resumeGeneration,
+} from '@/server/functions/generation'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
 import { extractPlaceholders } from '@/lib/placeholder'
@@ -65,7 +78,11 @@ function PendingComponent() {
   )
 }
 
-const VALID_IMAGE_SORT = ['newest', 'tournament_winrate', 'tournament_wins'] as const
+const VALID_IMAGE_SORT = [
+  'newest',
+  'tournament_winrate',
+  'tournament_wins',
+] as const
 type ImageSortBy = (typeof VALID_IMAGE_SORT)[number]
 
 type SceneDetailSearch = {
@@ -74,17 +91,26 @@ type SceneDetailSearch = {
 
 export const Route = createFileRoute('/workspace/$projectId/scenes/$sceneId')({
   validateSearch: (search: Record<string, unknown>): SceneDetailSearch => ({
-    imageSort: VALID_IMAGE_SORT.includes(search.imageSort as ImageSortBy) && search.imageSort !== 'newest'
-      ? (search.imageSort as ImageSortBy)
-      : undefined,
+    imageSort:
+      VALID_IMAGE_SORT.includes(search.imageSort as ImageSortBy) &&
+      search.imageSort !== 'newest'
+        ? (search.imageSort as ImageSortBy)
+        : undefined,
   }),
   loader: async ({ params }) => {
     const projectId = Number(params.projectId)
     const [context, jobsResult] = await Promise.all([
-      getScenePageContext({ data: { projectId, sceneId: Number(params.sceneId) } }),
+      getScenePageContext({
+        data: { projectId, sceneId: Number(params.sceneId) },
+      }),
       listProjectJobs({ data: projectId }),
     ])
-    return { ...context, activeJobs: jobsResult.jobs, batchTiming: jobsResult.batchTiming, queueStatus: jobsResult.queueStatus }
+    return {
+      ...context,
+      activeJobs: jobsResult.jobs,
+      batchTiming: jobsResult.batchTiming,
+      queueStatus: jobsResult.queueStatus,
+    }
   },
   component: SceneDetailPage,
   pendingComponent: PendingComponent,
@@ -99,8 +125,12 @@ function SceneDetailPage() {
   const sceneId = Number(params.sceneId)
 
   // ── Prompt state ──
-  const [generalPrompt, setGeneralPrompt] = useState(data.project.generalPrompt ?? '')
-  const [negativePrompt, setNegativePrompt] = useState(data.project.negativePrompt ?? '')
+  const [generalPrompt, setGeneralPrompt] = useState(
+    data.project.generalPrompt ?? '',
+  )
+  const [negativePrompt, setNegativePrompt] = useState(
+    data.project.negativePrompt ?? '',
+  )
 
   useEffect(() => {
     setGeneralPrompt(data.project.generalPrompt ?? '')
@@ -109,17 +139,28 @@ function SceneDetailPage() {
 
   // ── Stable placeholder key arrays ──
   const rawGeneralKeys = useMemo(
-    () => [...new Set([...extractPlaceholders(generalPrompt), ...extractPlaceholders(negativePrompt)])],
+    () => [
+      ...new Set([
+        ...extractPlaceholders(generalPrompt),
+        ...extractPlaceholders(negativePrompt),
+      ]),
+    ],
     [generalPrompt, negativePrompt],
   )
   const stableGeneralKeys = useStableArray(rawGeneralKeys)
 
   const characterPlaceholderKeys = useMemo(
-    () => data.characters.map((char) => ({
-      characterId: char.id,
-      characterName: char.name,
-      keys: [...new Set([...extractPlaceholders(char.charPrompt), ...extractPlaceholders(char.charNegative)])],
-    })),
+    () =>
+      data.characters.map((char) => ({
+        characterId: char.id,
+        characterName: char.name,
+        keys: [
+          ...new Set([
+            ...extractPlaceholders(char.charPrompt),
+            ...extractPlaceholders(char.charNegative),
+          ]),
+        ],
+      })),
     [data.characters],
   )
 
@@ -129,18 +170,22 @@ function SceneDetailPage() {
   const getPrompts = useCallback(() => promptsRef.current, [])
 
   // ── Scene placeholder state ──
-  const [scenePlaceholders, setScenePlaceholders] = useState<Record<string, string>>(
-    data.scenePlaceholders ? JSON.parse(data.scenePlaceholders) : {},
-  )
+  const [scenePlaceholders, setScenePlaceholders] = useState<
+    Record<string, string>
+  >(data.scenePlaceholders ? JSON.parse(data.scenePlaceholders) : {})
   const [charOverrides, setCharOverrides] = useState(data.characterOverrides)
 
   useEffect(() => {
-    setScenePlaceholders(data.scenePlaceholders ? JSON.parse(data.scenePlaceholders) : {})
+    setScenePlaceholders(
+      data.scenePlaceholders ? JSON.parse(data.scenePlaceholders) : {},
+    )
     setCharOverrides(data.characterOverrides)
   }, [data.scenePlaceholders, data.characterOverrides])
 
   // ── Auto-save ──
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveStatus, setSaveStatus] = useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle')
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const savedClearRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -227,7 +272,9 @@ function SceneDetailPage() {
       if (cancelled || pollingRef.current) return
       pollingRef.current = true
       try {
-        const { jobs, batchTiming, queueStatus } = await listProjectJobs({ data: projectId })
+        const { jobs, batchTiming, queueStatus } = await listProjectJobs({
+          data: projectId,
+        })
         if (cancelled) return
         setActiveJobs(jobs)
         setBatchTimingData(batchTiming)
@@ -257,7 +304,10 @@ function SceneDetailPage() {
       }
     }, 2000)
 
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [hasActiveJobs, queueStopped, projectId, router])
 
   async function handleCancelJobs() {
@@ -298,18 +348,30 @@ function SceneDetailPage() {
   const navigate = useNavigate({ from: Route.fullPath })
 
   const imageSortBy = searchParams.imageSort ?? 'newest'
-  const setImageSortBy = useCallback((sort: ImageSortBy) => {
-    navigate({ search: (prev) => ({ ...prev, imageSort: sort === 'newest' ? undefined : sort }) })
-  }, [navigate])
+  const setImageSortBy = useCallback(
+    (sort: ImageSortBy) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          imageSort: sort === 'newest' ? undefined : sort,
+        }),
+      })
+    },
+    [navigate],
+  )
 
   // ── Mobile panel ──
   const [leftOpen, setLeftOpen] = useState(false)
 
   // Save status indicator text
   const saveIndicator =
-    saveStatus === 'saving' ? t('common.saving') :
-    saveStatus === 'saved' ? t('common.saved') :
-    saveStatus === 'error' ? t('common.saveFailed') : null
+    saveStatus === 'saving'
+      ? t('common.saving')
+      : saveStatus === 'saved'
+        ? t('common.saved')
+        : saveStatus === 'error'
+          ? t('common.saveFailed')
+          : null
 
   return (
     <div className="h-dvh flex flex-col overflow-hidden">
@@ -339,14 +401,19 @@ function SceneDetailPage() {
           <h1 className="text-base font-semibold truncate">{data.sceneName}</h1>
         </div>
         {saveIndicator && (
-          <span className={`text-sm ${saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}>
+          <span
+            className={`text-sm ${saveStatus === 'error' ? 'text-destructive' : 'text-muted-foreground'}`}
+          >
             {saveIndicator}
           </span>
         )}
         {(activeJobs.length > 0 || queueStopped) && (
           <GenerationProgress
             jobs={activeJobs}
-            batchTotal={activeJobs.reduce((sum, j) => sum + (j.totalCount ?? 0), 0)}
+            batchTotal={activeJobs.reduce(
+              (sum, j) => sum + (j.totalCount ?? 0),
+              0,
+            )}
             batchTiming={batchTimingData}
             queueStopped={queueStopped}
             onCancel={handleCancelJobs}

@@ -1,6 +1,6 @@
 import { unzipSync } from 'fflate'
-import type { ResolvedPrompts } from './prompt'
 import { createLogger } from './logger'
+import type { ResolvedPrompts } from './prompt'
 
 const log = createLogger('nai')
 const NAI_API_URL = 'https://image.novelai.net/ai/generate-image'
@@ -28,7 +28,12 @@ interface GenerationParams {
 
 export interface ReferenceData {
   vibes?: Array<{ encoded: string; strength: number; infoExtracted: number }>
-  precise?: Array<{ imageBase64: string; strength: number; fidelity: number; mode: string }>
+  precise?: Array<{
+    imageBase64: string
+    strength: number
+    fidelity: number
+    mode: string
+  }>
 }
 
 export async function generateImage(
@@ -69,22 +74,24 @@ export async function generateImage(
       dynamic_thresholding: false,
       width: params.width ?? 832,
       height: params.height ?? 1216,
-      image_format: params.imageFormat ?? "png",
+      image_format: params.imageFormat ?? 'png',
       inpaintImg2ImgStrength: 1,
       legacy: false,
       legacy_uc: false,
       legacy_v3_extend: false,
       n_samples: 1,
       negative_prompt: prompts.negativePrompt,
-      noise_schedule: params.scheduler ?? "karras",
+      noise_schedule: params.scheduler ?? 'karras',
       normalize_reference_strength_multiple: true,
       params_version: 3,
       prefer_brownian: true,
       qualityToggle: true,
-      sampler: params.sampler ?? "k_euler_ancestral",
+      sampler: params.sampler ?? 'k_euler_ancestral',
       scale: params.scale ?? 5,
       seed: seed,
-      skip_cfg_above_sigma: getDefaultSkipCfgAboveSigma(params.model ?? 'nai-diffusion-4-5-full'),
+      skip_cfg_above_sigma: getDefaultSkipCfgAboveSigma(
+        params.model ?? 'nai-diffusion-4-5-full',
+      ),
       steps: params.steps ?? 28,
       ucPreset: params.ucPreset ?? 0,
       use_coords: false,
@@ -94,38 +101,50 @@ export async function generateImage(
           char_captions: charCaptions,
         },
         use_coords: false,
-        use_order: false
+        use_order: false,
       },
       v4_negative_prompt: {
         caption: {
           base_caption: prompts.negativePrompt,
           char_captions: negCharCaptions,
         },
-        legacy_uc: false
+        legacy_uc: false,
       },
     } as Record<string, unknown>,
   }
 
   // Inject Vibe Transfer parameters
   if (referenceData?.vibes && referenceData.vibes.length > 0) {
-    body.parameters.reference_image_multiple = referenceData.vibes.map((v) => v.encoded)
-    body.parameters.reference_strength_multiple = referenceData.vibes.map((v) => v.strength)
-    body.parameters.reference_information_extracted_multiple = referenceData.vibes.map((v) => v.infoExtracted)
+    body.parameters.reference_image_multiple = referenceData.vibes.map(
+      (v) => v.encoded,
+    )
+    body.parameters.reference_strength_multiple = referenceData.vibes.map(
+      (v) => v.strength,
+    )
+    body.parameters.reference_information_extracted_multiple =
+      referenceData.vibes.map((v) => v.infoExtracted)
   }
 
   // Inject Precise Reference parameters
   if (referenceData?.precise && referenceData.precise.length > 0) {
-    body.parameters.director_reference_images = referenceData.precise.map((r) => r.imageBase64)
-    body.parameters.director_reference_information_extracted = referenceData.precise.map(() => 1.0)
-    body.parameters.director_reference_strength_values = referenceData.precise.map((r) => r.strength)
-    body.parameters.director_reference_secondary_strength_values = referenceData.precise.map((r) => 1 - r.fidelity)
-    body.parameters.director_reference_descriptions = referenceData.precise.map((r) => ({
-      caption: {
-        base_caption: r.mode,
-        char_captions: [],
-      },
-      legacy_uc: false,
-    }))
+    body.parameters.director_reference_images = referenceData.precise.map(
+      (r) => r.imageBase64,
+    )
+    body.parameters.director_reference_information_extracted =
+      referenceData.precise.map(() => 1.0)
+    body.parameters.director_reference_strength_values =
+      referenceData.precise.map((r) => r.strength)
+    body.parameters.director_reference_secondary_strength_values =
+      referenceData.precise.map((r) => 1 - r.fidelity)
+    body.parameters.director_reference_descriptions = referenceData.precise.map(
+      (r) => ({
+        caption: {
+          base_caption: r.mode,
+          char_captions: [],
+        },
+        legacy_uc: false,
+      }),
+    )
     // VAR+ (skip_cfg_above_sigma) must be disabled when Precise Reference is active
     body.parameters.skip_cfg_above_sigma = null
   }
@@ -151,10 +170,19 @@ export async function generateImage(
     clearTimeout(timeout)
     const duration = Date.now() - fetchStart
     if (err instanceof DOMException && err.name === 'AbortError') {
-      log.error('api.timeout', 'NAI API request timed out', { durationMs: duration })
-      throw new Error(`NAI API request timed out after ${Math.round(duration / 1000)}s`)
+      log.error('api.timeout', 'NAI API request timed out', {
+        durationMs: duration,
+      })
+      throw new Error(
+        `NAI API request timed out after ${Math.round(duration / 1000)}s`,
+      )
     }
-    log.error('api.fetchError', 'NAI API fetch failed', { durationMs: duration }, err)
+    log.error(
+      'api.fetchError',
+      'NAI API fetch failed',
+      { durationMs: duration },
+      err,
+    )
     throw err
   }
   clearTimeout(timeout)
@@ -173,7 +201,9 @@ export async function generateImage(
   const zipData = new Uint8Array(await response.arrayBuffer())
 
   if (fetchDuration > 30000) {
-    log.warn('api.slowResponse', 'NAI API response was slow', { durationMs: fetchDuration })
+    log.warn('api.slowResponse', 'NAI API response was slow', {
+      durationMs: fetchDuration,
+    })
   }
 
   log.info('api.response', 'NAI API responded', {

@@ -50,7 +50,7 @@ export function ConfirmDialog({
 
   const isControlled = controlledOpen !== undefined
   const open = isControlled ? controlledOpen : internalOpen
-  const setOpen = isControlled ? controlledOnOpenChange! : setInternalOpen
+  const setOpen = isControlled ? controlledOnOpenChange : setInternalOpen
 
   async function handleConfirm() {
     setLoading(true)
@@ -71,7 +71,9 @@ export function ConfirmDialog({
           <AlertDialogDescription>{description}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={loading}>{t('common.cancel')}</AlertDialogCancel>
+          <AlertDialogCancel disabled={loading}>
+            {t('common.cancel')}
+          </AlertDialogCancel>
           <AlertDialogAction
             variant={variant}
             onClick={(e) => {
@@ -80,7 +82,9 @@ export function ConfirmDialog({
             }}
             disabled={loading}
           >
-            {loading ? t('common.processing') : (actionLabel ?? t('common.delete'))}
+            {loading
+              ? t('common.processing')
+              : (actionLabel ?? t('common.delete'))}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

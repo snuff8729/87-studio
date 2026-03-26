@@ -1,19 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
-import { useTranslation } from '@/lib/i18n'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Film02Icon,
   Add01Icon,
-  Cancel01Icon,
   ArrowDown01Icon,
+  ArrowExpand01Icon,
+  Cancel01Icon,
   Delete02Icon,
+  FileImportIcon,
+  Film02Icon,
   PencilEdit01Icon,
   Tick02Icon,
-  FileImportIcon,
-  ArrowExpand01Icon,
 } from '@hugeicons/core-free-icons'
+import { ImportDialog } from './import-dialog'
+import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -35,14 +36,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import {
-  listScenePacks,
   createScenePack,
   deleteScenePack,
   getScenePack,
+  listScenePacks,
 } from '@/server/functions/scene-packs'
-import { createScene, updateScene, deleteScene } from '@/server/functions/scenes'
+import {
+  createScene,
+  deleteScene,
+  updateScene,
+} from '@/server/functions/scenes'
 import { assignScenePack } from '@/server/functions/projects'
-import { ImportDialog } from './import-dialog'
 
 interface ScenePackDialogProps {
   projectId: number
@@ -56,7 +60,7 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const [open, setOpen] = useState(false)
-  const [packs, setPacks] = useState<PackListItem[]>([])
+  const [packs, setPacks] = useState<Array<PackListItem>>([])
   const [selectedPack, setSelectedPack] = useState<PackDetail | null>(null)
 
   // New pack form
@@ -138,7 +142,9 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
   async function handleAddScene() {
     if (!newSceneName.trim() || !selectedPack) return
     try {
-      const scene = await createScene({ data: { scenePackId: selectedPack.id, name: newSceneName.trim() } })
+      const scene = await createScene({
+        data: { scenePackId: selectedPack.id, name: newSceneName.trim() },
+      })
       setNewSceneName('')
       setAddingScene(false)
       const detail = await getScenePack({ data: selectedPack.id })
@@ -354,10 +360,22 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                 }}
               />
               <div className="flex gap-1.5">
-                <Button size="sm" onClick={handleCreatePack} disabled={!newPackName.trim()} className="flex-1">
+                <Button
+                  size="sm"
+                  onClick={handleCreatePack}
+                  disabled={!newPackName.trim()}
+                  className="flex-1"
+                >
                   {t('common.create')}
                 </Button>
-                <Button size="sm" variant="ghost" onClick={() => { setCreatingPack(false); setNewPackName('') }}>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    setCreatingPack(false)
+                    setNewPackName('')
+                  }}
+                >
                   {t('common.cancel')}
                 </Button>
               </div>
@@ -371,7 +389,9 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                 {/* Pack header */}
                 <div className="flex items-center justify-between px-5 py-3 border-b border-border shrink-0 gap-3">
                   <div className="min-w-0">
-                    <h3 className="text-base font-semibold truncate">{selectedPack.name}</h3>
+                    <h3 className="text-base font-semibold truncate">
+                      {selectedPack.name}
+                    </h3>
                     {selectedPack.description && (
                       <p className="text-sm text-muted-foreground truncate mt-0.5">
                         {selectedPack.description}
@@ -379,20 +399,39 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    <Button size="sm" onClick={() => handleAssignToProject(selectedPack.id)}>
-                      <HugeiconsIcon icon={ArrowDown01Icon} className="size-5" />
-                      <span className="hidden sm:inline">{t('templates.applyToProject')}</span>
+                    <Button
+                      size="sm"
+                      onClick={() => handleAssignToProject(selectedPack.id)}
+                    >
+                      <HugeiconsIcon
+                        icon={ArrowDown01Icon}
+                        className="size-5"
+                      />
+                      <span className="hidden sm:inline">
+                        {t('templates.applyToProject')}
+                      </span>
                       <span className="sm:hidden">{t('templates.apply')}</span>
                     </Button>
                     <ConfirmDialog
                       trigger={
-                        <Button size="sm" variant="ghost" className="text-destructive hover:text-destructive">
-                          <HugeiconsIcon icon={Delete02Icon} className="size-5" />
-                          <span className="hidden sm:inline">{t('common.delete')}</span>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <HugeiconsIcon
+                            icon={Delete02Icon}
+                            className="size-5"
+                          />
+                          <span className="hidden sm:inline">
+                            {t('common.delete')}
+                          </span>
                         </Button>
                       }
                       title={t('templates.deleteScenePack')}
-                      description={t('templates.deleteScenePackDesc', { name: selectedPack.name })}
+                      description={t('templates.deleteScenePackDesc', {
+                        name: selectedPack.name,
+                      })}
                       onConfirm={() => handleDeletePack(selectedPack.id)}
                     />
                   </div>
@@ -403,9 +442,15 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                   {/* Section header */}
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                      {t('templates.scenes', { count: selectedPack.scenes.length })}
+                      {t('templates.scenes', {
+                        count: selectedPack.scenes.length,
+                      })}
                     </span>
-                    <Button size="sm" variant="outline" onClick={() => setAddingScene(true)}>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setAddingScene(true)}
+                    >
                       <HugeiconsIcon icon={Add01Icon} className="size-4" />
                       {t('templates.addScene')}
                     </Button>
@@ -428,7 +473,11 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
                           }
                         }}
                       />
-                      <Button size="xs" onClick={handleAddScene} disabled={!newSceneName.trim()}>
+                      <Button
+                        size="xs"
+                        onClick={handleAddScene}
+                        disabled={!newSceneName.trim()}
+                      >
                         {t('common.add')}
                       </Button>
                       <Button
@@ -458,7 +507,9 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
 
                   {selectedPack.scenes.length === 0 && !addingScene && (
                     <div className="text-center py-8">
-                      <p className="text-base text-muted-foreground mb-2">{t('templates.noScenesYet')}</p>
+                      <p className="text-base text-muted-foreground mb-2">
+                        {t('templates.noScenesYet')}
+                      </p>
                       <Button
                         size="sm"
                         variant="outline"
@@ -476,7 +527,10 @@ export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
               <div className="flex-1 flex items-center justify-center">
                 <div className="text-center space-y-3">
                   <div className="rounded-xl bg-secondary/30 p-4 mx-auto w-fit">
-                    <HugeiconsIcon icon={Film02Icon} className="size-6 text-muted-foreground/25" />
+                    <HugeiconsIcon
+                      icon={Film02Icon}
+                      className="size-6 text-muted-foreground/25"
+                    />
                   </div>
                   <p className="text-base text-muted-foreground">
                     {packs.length === 0
@@ -525,7 +579,9 @@ function SceneAccordionItem({
   onUpdated: () => void
 }) {
   const { t } = useTranslation()
-  const placeholders: Record<string, string> = JSON.parse(scene.placeholders || '{}')
+  const placeholders: Record<string, string> = JSON.parse(
+    scene.placeholders || '{}',
+  )
   const keys = Object.keys(placeholders)
 
   if (!expanded) {
@@ -535,10 +591,15 @@ function SceneAccordionItem({
         onClick={onToggle}
       >
         <div className="flex items-center justify-between">
-          <div className="text-base font-medium truncate shrink-0">{scene.name}</div>
+          <div className="text-base font-medium truncate shrink-0">
+            {scene.name}
+          </div>
           <div className="flex gap-1 shrink-0 ml-2">
             {keys.length > 0 && (
-              <Badge variant="secondary" className="text-xs h-4 px-1.5 tabular-nums">
+              <Badge
+                variant="secondary"
+                className="text-xs h-4 px-1.5 tabular-nums"
+              >
                 {t('templates.keys', { count: keys.length })}
               </Badge>
             )}
@@ -573,16 +634,24 @@ function SceneAccordionItem({
         {keys.length > 0 && (
           <div className="mt-2 space-y-1">
             {keys.map((k) => (
-              <div key={k} className="flex gap-1.5 items-baseline text-xs min-w-0">
+              <div
+                key={k}
+                className="flex gap-1.5 items-baseline text-xs min-w-0"
+              >
                 <span className="font-mono text-muted-foreground shrink-0">
                   {`\\\\${k}\\\\`}
                 </span>
                 {placeholders[k] ? (
-                  <span className="text-foreground/70 truncate font-mono" title={placeholders[k]}>
+                  <span
+                    className="text-foreground/70 truncate font-mono"
+                    title={placeholders[k]}
+                  >
                     {placeholders[k]}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground/40 italic">{t('templates.empty')}</span>
+                  <span className="text-muted-foreground/40 italic">
+                    {t('templates.empty')}
+                  </span>
                 )}
               </div>
             ))}
@@ -620,9 +689,12 @@ function SceneEditPanel({
 }) {
   const { t } = useTranslation()
   const [name, setName] = useState(scene.name)
-  const [values, setValues] = useState<Record<string, string>>(initialPlaceholders)
+  const [values, setValues] =
+    useState<Record<string, string>>(initialPlaceholders)
   const [newKey, setNewKey] = useState('')
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>(
+    'idle',
+  )
   const [expandKey, setExpandKey] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -700,7 +772,9 @@ function SceneEditPanel({
         <div className="flex items-center gap-1 shrink-0">
           {/* Save status */}
           {saveStatus === 'saving' && (
-            <span className="text-xs text-muted-foreground animate-pulse">{t('templates.saving')}</span>
+            <span className="text-xs text-muted-foreground animate-pulse">
+              {t('templates.saving')}
+            </span>
           )}
           {saveStatus === 'saved' && (
             <span className="text-xs text-green-500 flex items-center gap-0.5">
@@ -768,18 +842,29 @@ function SceneEditPanel({
           className="h-7 text-sm w-36 rounded-lg"
           onKeyDown={(e) => e.key === 'Enter' && addKey()}
         />
-        <Button size="xs" variant="outline" onClick={addKey} disabled={!newKey.trim()}>
+        <Button
+          size="xs"
+          variant="outline"
+          onClick={addKey}
+          disabled={!newKey.trim()}
+        >
           {t('templates.addKey')}
         </Button>
       </div>
 
       <ExpandedTextareaDialog
         open={expandKey !== null}
-        onOpenChange={(open) => { if (!open) setExpandKey(null) }}
+        onOpenChange={(open) => {
+          if (!open) setExpandKey(null)
+        }}
         title={expandKey ? `\\\\${expandKey}\\\\` : ''}
         value={expandKey ? (values[expandKey] ?? '') : ''}
-        onChange={(val) => { if (expandKey) handleValueChange(expandKey, val) }}
-        placeholder={expandKey ? t('templates.valueForKey', { key: expandKey }) : ''}
+        onChange={(val) => {
+          if (expandKey) handleValueChange(expandKey, val)
+        }}
+        placeholder={
+          expandKey ? t('templates.valueForKey', { key: expandKey }) : ''
+        }
       />
     </div>
   )

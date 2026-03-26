@@ -1,15 +1,15 @@
+import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import {
-  projects,
+  characterSceneOverrides,
   characters,
   projectScenes,
-  characterSceneOverrides,
+  projects,
   promptBundles,
 } from '../db/schema'
-import { eq } from 'drizzle-orm'
-import { resolvePlaceholders } from '@/lib/placeholder'
-import { resolveBundles, extractBundleReferences } from '@/lib/bundle'
 import { createLogger } from './logger'
+import { resolvePlaceholders } from '@/lib/placeholder'
+import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
 
 const log = createLogger('prompt')
 
@@ -22,13 +22,17 @@ export interface ResolvedPrompts {
     prompt: string
     negative: string
   }>
-  usedBundleIds?: number[]
+  usedBundleIds?: Array<number>
 }
 
 /** Load all bundles as name→{id, content} map */
 function loadBundleMap(): Map<string, { id: number; content: string }> {
   const rows = db
-    .select({ id: promptBundles.id, name: promptBundles.name, content: promptBundles.content })
+    .select({
+      id: promptBundles.id,
+      name: promptBundles.name,
+      content: promptBundles.content,
+    })
     .from(promptBundles)
     .all()
   return new Map(rows.map((r) => [r.name, { id: r.id, content: r.content }]))
@@ -79,12 +83,20 @@ export function synthesizePrompts(
 
   // 1) Resolve @{bundles} first, then \\placeholders\\
   const generalPrompt = resolvePlaceholders(
-    resolveBundlesWithTracking(project.generalPrompt || '', bundleMap, usedBundleIds),
+    resolveBundlesWithTracking(
+      project.generalPrompt || '',
+      bundleMap,
+      usedBundleIds,
+    ),
     scenePlaceholders,
   )
 
   const negativePrompt = resolvePlaceholders(
-    resolveBundlesWithTracking(project.negativePrompt || '', bundleMap, usedBundleIds),
+    resolveBundlesWithTracking(
+      project.negativePrompt || '',
+      bundleMap,
+      usedBundleIds,
+    ),
     scenePlaceholders,
   )
 
@@ -96,14 +108,14 @@ export function synthesizePrompts(
     .orderBy(characters.slotIndex)
     .all()
 
-  const charOverrides = db
+  const charOverridesData = db
     .select()
     .from(characterSceneOverrides)
     .where(eq(characterSceneOverrides.projectSceneId, projectSceneId))
     .all()
 
   const overrideMap = new Map(
-    charOverrides.map((o) => [
+    charOverridesData.map((o) => [
       o.characterId,
       JSON.parse(o.placeholders || '{}') as Record<string, string>,
     ]),
@@ -147,12 +159,22 @@ export function synthesizePrompts(
 }
 
 /** Resolve bundles in raw prompts (for Quick Generate) */
-export function resolveBundlesInRawPrompts(prompts: ResolvedPrompts): ResolvedPrompts {
+export function resolveBundlesInRawPrompts(
+  prompts: ResolvedPrompts,
+): ResolvedPrompts {
   const bundleMap = loadBundleMap()
   const usedBundleIds = new Set<number>()
 
-  const generalPrompt = resolveBundlesWithTracking(prompts.generalPrompt, bundleMap, usedBundleIds)
-  const negativePrompt = resolveBundlesWithTracking(prompts.negativePrompt, bundleMap, usedBundleIds)
+  const generalPrompt = resolveBundlesWithTracking(
+    prompts.generalPrompt,
+    bundleMap,
+    usedBundleIds,
+  )
+  const negativePrompt = resolveBundlesWithTracking(
+    prompts.negativePrompt,
+    bundleMap,
+    usedBundleIds,
+  )
   const characterPrompts = prompts.characterPrompts.map((c) => ({
     ...c,
     prompt: resolveBundlesWithTracking(c.prompt, bundleMap, usedBundleIds),

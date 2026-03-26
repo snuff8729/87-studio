@@ -49,7 +49,8 @@ export function SpotlightBackdrop({ targetRect }: SpotlightBackdropProps) {
             width: targetRect.width + PADDING * 2,
             height: targetRect.height + PADDING * 2,
             borderRadius: BORDER_RADIUS,
-            boxShadow: '0 0 0 3px hsl(var(--primary) / 0.4), 0 0 24px 8px hsl(var(--primary) / 0.25), 0 0 48px 12px hsl(var(--primary) / 0.1)',
+            boxShadow:
+              '0 0 0 3px hsl(var(--primary) / 0.4), 0 0 24px 8px hsl(var(--primary) / 0.25), 0 0 48px 12px hsl(var(--primary) / 0.1)',
             transition:
               'left 0.3s cubic-bezier(0.4, 0, 0.2, 1), top 0.3s cubic-bezier(0.4, 0, 0.2, 1), width 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
           }}

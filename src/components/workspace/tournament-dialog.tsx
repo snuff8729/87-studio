@@ -1,13 +1,13 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import {
-  getTournamentState,
   getNextPair,
+  getTournamentState,
   recordMatch,
-  undoLastMatch,
   resetTournament,
+  undoLastMatch,
 } from '@/server/functions/tournament'
 
 type MatchResult = 'left' | 'right' | 'both_win' | 'both_lose'
@@ -25,7 +25,7 @@ interface TournamentDialogProps {
   onOpenChange: (open: boolean) => void
   projectSceneId: number
   sceneName: string
-  imageIds?: number[]
+  imageIds?: Array<number>
 }
 
 function winRate(wins: number, losses: number): string {
@@ -49,7 +49,10 @@ export function TournamentDialog({
   imageIds: filterImageIds,
 }: TournamentDialogProps) {
   const { t } = useTranslation()
-  const [pair, setPair] = useState<{ image1: PairImage; image2: PairImage } | null>(null)
+  const [pair, setPair] = useState<{
+    image1: PairImage
+    image2: PairImage
+  } | null>(null)
   const [matchCount, setMatchCount] = useState(0)
   const [totalImages, setTotalImages] = useState(0)
   const [seenImages, setSeenImages] = useState(0)
@@ -107,17 +110,41 @@ export function TournamentDialog({
         // Update local W/L for display continuity
         const newPair = { ...pair }
         if (result === 'left') {
-          newPair.image1 = { ...pair.image1, tournamentWins: (pair.image1.tournamentWins ?? 0) + 1 }
-          newPair.image2 = { ...pair.image2, tournamentLosses: (pair.image2.tournamentLosses ?? 0) + 1 }
+          newPair.image1 = {
+            ...pair.image1,
+            tournamentWins: (pair.image1.tournamentWins ?? 0) + 1,
+          }
+          newPair.image2 = {
+            ...pair.image2,
+            tournamentLosses: (pair.image2.tournamentLosses ?? 0) + 1,
+          }
         } else if (result === 'right') {
-          newPair.image1 = { ...pair.image1, tournamentLosses: (pair.image1.tournamentLosses ?? 0) + 1 }
-          newPair.image2 = { ...pair.image2, tournamentWins: (pair.image2.tournamentWins ?? 0) + 1 }
+          newPair.image1 = {
+            ...pair.image1,
+            tournamentLosses: (pair.image1.tournamentLosses ?? 0) + 1,
+          }
+          newPair.image2 = {
+            ...pair.image2,
+            tournamentWins: (pair.image2.tournamentWins ?? 0) + 1,
+          }
         } else if (result === 'both_win') {
-          newPair.image1 = { ...pair.image1, tournamentWins: (pair.image1.tournamentWins ?? 0) + 1 }
-          newPair.image2 = { ...pair.image2, tournamentWins: (pair.image2.tournamentWins ?? 0) + 1 }
+          newPair.image1 = {
+            ...pair.image1,
+            tournamentWins: (pair.image1.tournamentWins ?? 0) + 1,
+          }
+          newPair.image2 = {
+            ...pair.image2,
+            tournamentWins: (pair.image2.tournamentWins ?? 0) + 1,
+          }
         } else {
-          newPair.image1 = { ...pair.image1, tournamentLosses: (pair.image1.tournamentLosses ?? 0) + 1 }
-          newPair.image2 = { ...pair.image2, tournamentLosses: (pair.image2.tournamentLosses ?? 0) + 1 }
+          newPair.image1 = {
+            ...pair.image1,
+            tournamentLosses: (pair.image1.tournamentLosses ?? 0) + 1,
+          }
+          newPair.image2 = {
+            ...pair.image2,
+            tournamentLosses: (pair.image2.tournamentLosses ?? 0) + 1,
+          }
         }
 
         setMatchCount((c) => c + 1)
@@ -216,19 +243,36 @@ export function TournamentDialog({
     <div className="fixed inset-0 z-50 bg-background flex flex-col">
       {/* Header */}
       <header className="h-12 border-b border-border flex items-center px-3 shrink-0 gap-3">
-        <Button variant="ghost" size="sm" onClick={handleUndo} disabled={matchCount === 0 || transitioning}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleUndo}
+          disabled={matchCount === 0 || transitioning}
+        >
           {t('tournament.undo')}
         </Button>
         <div className="flex-1 text-center min-w-0">
-          <span className="text-sm font-semibold truncate">{t('tournament.title', { name: sceneName })}</span>
+          <span className="text-sm font-semibold truncate">
+            {t('tournament.title', { name: sceneName })}
+          </span>
         </div>
         <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {t('tournament.seen', { seen: seenImages, total: totalImages })} &middot; {t('tournament.matches', { count: matchCount })}
+          {t('tournament.seen', { seen: seenImages, total: totalImages })}{' '}
+          &middot; {t('tournament.matches', { count: matchCount })}
         </span>
-        <Button variant="ghost" size="sm" onClick={handleReset} disabled={matchCount === 0 || transitioning}>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleReset}
+          disabled={matchCount === 0 || transitioning}
+        >
           {t('tournament.reset')}
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onOpenChange(false)}
+        >
           &times;
         </Button>
       </header>
@@ -262,16 +306,23 @@ export function TournamentDialog({
                 </div>
                 <div className="text-sm text-muted-foreground text-center py-1 shrink-0">
                   <span className="font-medium text-foreground">
-                    {pair.image1.tournamentWins ?? 0}W - {pair.image1.tournamentLosses ?? 0}L
-                  </span>
-                  {' '}
-                  ({winRate(pair.image1.tournamentWins ?? 0, pair.image1.tournamentLosses ?? 0)})
+                    {pair.image1.tournamentWins ?? 0}W -{' '}
+                    {pair.image1.tournamentLosses ?? 0}L
+                  </span>{' '}
+                  (
+                  {winRate(
+                    pair.image1.tournamentWins ?? 0,
+                    pair.image1.tournamentLosses ?? 0,
+                  )}
+                  )
                 </div>
               </div>
 
               {/* VS divider */}
               <div className="flex items-center justify-center shrink-0">
-                <span className="text-lg font-bold text-muted-foreground select-none">VS</span>
+                <span className="text-lg font-bold text-muted-foreground select-none">
+                  VS
+                </span>
               </div>
 
               {/* Image 2 (Right) */}
@@ -289,10 +340,15 @@ export function TournamentDialog({
                 </div>
                 <div className="text-sm text-muted-foreground text-center py-1 shrink-0">
                   <span className="font-medium text-foreground">
-                    {pair.image2.tournamentWins ?? 0}W - {pair.image2.tournamentLosses ?? 0}L
-                  </span>
-                  {' '}
-                  ({winRate(pair.image2.tournamentWins ?? 0, pair.image2.tournamentLosses ?? 0)})
+                    {pair.image2.tournamentWins ?? 0}W -{' '}
+                    {pair.image2.tournamentLosses ?? 0}L
+                  </span>{' '}
+                  (
+                  {winRate(
+                    pair.image2.tournamentWins ?? 0,
+                    pair.image2.tournamentLosses ?? 0,
+                  )}
+                  )
                 </div>
               </div>
             </div>

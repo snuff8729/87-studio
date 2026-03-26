@@ -1,14 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
-  Delete02Icon,
   Copy01Icon,
-  Search01Icon,
+  Delete02Icon,
   Image02Icon,
+  Search01Icon,
 } from '@hugeicons/core-free-icons'
+import { useQueryClient } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -20,15 +21,14 @@ import { PageHeader } from '@/components/common/page-header'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
 import {
-  listBundles,
-  getBundle,
   createBundle,
-  updateBundle,
   deleteBundle,
-  setBundleThumbnail,
+  getBundle,
   listBundleImages,
+  listBundles,
+  setBundleThumbnail,
+  updateBundle,
 } from '@/server/functions/bundles'
-import { useQueryClient } from '@tanstack/react-query'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -96,14 +96,16 @@ function BundlesPage() {
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Images for selected bundle
-  const [bundleImages, setBundleImages] = useState<Array<{
-    id: number
-    thumbnailPath: string | null
-    filePath: string
-    seed: number | null
-    isFavorite: number | null
-    rating: number | null
-  }>>([])
+  const [bundleImages, setBundleImages] = useState<
+    Array<{
+      id: number
+      thumbnailPath: string | null
+      filePath: string
+      seed: number | null
+      isFavorite: number | null
+      rating: number | null
+    }>
+  >([])
 
   // Create dialog state
   const [creating, setCreating] = useState(false)
@@ -122,7 +124,9 @@ function BundlesPage() {
       setEditDescription(d.description ?? '')
       setEditContent(d.content)
     })
-    listBundleImages({ data: { bundleId: selectedId, limit: 40 } }).then(setBundleImages)
+    listBundleImages({ data: { bundleId: selectedId, limit: 40 } }).then(
+      setBundleImages,
+    )
   }, [selectedId])
 
   const refreshList = useCallback(async () => {
@@ -137,7 +141,9 @@ function BundlesPage() {
     saveTimerRef.current = setTimeout(async () => {
       if (!selectedId) return
       try {
-        await updateBundle({ data: { id: selectedId, name, description, content } })
+        await updateBundle({
+          data: { id: selectedId, name, description, content },
+        })
         refreshList()
       } catch {
         toast.error(t('bundles.updateFailed'))
@@ -230,7 +236,10 @@ function BundlesPage() {
           {/* Search + create */}
           <div className="p-3 space-y-2 border-b border-border">
             <div className="relative">
-              <HugeiconsIcon icon={Search01Icon} className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Search01Icon}
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+              />
               <Input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -248,18 +257,37 @@ function BundlesPage() {
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleCreate()
-                    if (e.key === 'Escape') { setCreating(false); setNewName('') }
+                    if (e.key === 'Escape') {
+                      setCreating(false)
+                      setNewName('')
+                    }
                   }}
                 />
-                <Button size="xs" onClick={handleCreate} disabled={!newName.trim()}>
+                <Button
+                  size="xs"
+                  onClick={handleCreate}
+                  disabled={!newName.trim()}
+                >
                   {t('common.create')}
                 </Button>
-                <Button size="xs" variant="ghost" onClick={() => { setCreating(false); setNewName('') }}>
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  onClick={() => {
+                    setCreating(false)
+                    setNewName('')
+                  }}
+                >
                   {t('common.cancel')}
                 </Button>
               </div>
             ) : (
-              <Button size="sm" variant="outline" className="w-full" onClick={() => setCreating(true)}>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full"
+                onClick={() => setCreating(true)}
+              >
                 <HugeiconsIcon icon={Add01Icon} className="size-4" />
                 {t('bundles.createBundle')}
               </Button>
@@ -271,7 +299,9 @@ function BundlesPage() {
             {filtered.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center px-4">
                 <p className="text-sm text-muted-foreground">
-                  {bundles.length === 0 ? t('bundles.noBundlesYet') : t('bundles.noBundlesDesc')}
+                  {bundles.length === 0
+                    ? t('bundles.noBundlesYet')
+                    : t('bundles.noBundlesDesc')}
                 </p>
               </div>
             ) : (
@@ -303,16 +333,24 @@ function BundlesPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <HugeiconsIcon icon={Image02Icon} className="size-8 text-muted-foreground/20" />
+                            <HugeiconsIcon
+                              icon={Image02Icon}
+                              className="size-8 text-muted-foreground/20"
+                            />
                           </div>
                         )}
                       </div>
                       {/* Info overlay at bottom */}
                       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-2 pb-1.5 pt-5">
                         <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-medium truncate text-white">{bundle.name}</span>
+                          <span className="text-xs font-medium truncate text-white">
+                            {bundle.name}
+                          </span>
                           {bundle.imageCount > 0 && (
-                            <Badge variant="secondary" className="text-[10px] h-4 px-1.5 shrink-0 bg-white/20 text-white border-0">
+                            <Badge
+                              variant="secondary"
+                              className="text-[10px] h-4 px-1.5 shrink-0 bg-white/20 text-white border-0"
+                            >
                               {bundle.imageCount}
                             </Badge>
                           )}
@@ -336,7 +374,9 @@ function BundlesPage() {
             <div className="p-4 lg:p-6 space-y-5 max-w-3xl">
               {/* Name */}
               <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">{t('bundles.bundleName')}</Label>
+                <Label className="text-sm text-muted-foreground">
+                  {t('bundles.bundleName')}
+                </Label>
                 <Input
                   value={editName}
                   onChange={(e) => handleNameChange(e.target.value)}
@@ -346,7 +386,9 @@ function BundlesPage() {
 
               {/* Description */}
               <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">{t('bundles.descriptionPlaceholder')}</Label>
+                <Label className="text-sm text-muted-foreground">
+                  {t('bundles.descriptionPlaceholder')}
+                </Label>
                 <Input
                   value={editDescription}
                   onChange={(e) => handleDescriptionChange(e.target.value)}
@@ -407,7 +449,9 @@ function BundlesPage() {
                         key={img.id}
                         onClick={() => handleSetThumbnail(img.id)}
                         className={`relative aspect-square rounded-md overflow-hidden bg-secondary group ${
-                          detail.thumbnailImageId === img.id ? 'ring-2 ring-primary' : ''
+                          detail.thumbnailImageId === img.id
+                            ? 'ring-2 ring-primary'
+                            : ''
                         }`}
                         title={t('bundles.setThumbnail')}
                       >
@@ -420,7 +464,10 @@ function BundlesPage() {
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center">
-                            <HugeiconsIcon icon={Image02Icon} className="size-4 text-muted-foreground/30" />
+                            <HugeiconsIcon
+                              icon={Image02Icon}
+                              className="size-4 text-muted-foreground/30"
+                            />
                           </div>
                         )}
                       </button>
@@ -441,7 +488,9 @@ function BundlesPage() {
                     </Button>
                   }
                   title={t('bundles.deleteBundle')}
-                  description={t('bundles.deleteBundleDesc', { name: detail.name })}
+                  description={t('bundles.deleteBundleDesc', {
+                    name: detail.name,
+                  })}
                   onConfirm={() => handleDelete(detail.id)}
                 />
               </div>

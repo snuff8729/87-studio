@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useRef, useState } from 'react'
 import { cn } from '@/lib/utils'
 
 interface NumberStepperProps {
@@ -29,13 +29,13 @@ export function NumberStepper({
   const inputRef = useRef<HTMLInputElement>(null)
 
   function decrement() {
-    const current = value ?? Number(placeholder) ?? min
+    const current = value !== null ? value : Number(placeholder || min)
     const next = Math.max(min, current - step)
     onChange(next)
   }
 
   function increment() {
-    const current = value ?? Number(placeholder) ?? min
+    const current = value !== null ? value : Number(placeholder || min)
     const next = Math.min(max, current + step)
     onChange(next)
   }
@@ -69,7 +69,9 @@ export function NumberStepper({
         onClick={decrement}
         className={cn(
           'flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors',
-          h, btnW, textSize,
+          h,
+          btnW,
+          textSize,
         )}
       >
         &minus;
@@ -111,7 +113,9 @@ export function NumberStepper({
         onClick={increment}
         className={cn(
           'flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors',
-          h, btnW, textSize,
+          h,
+          btnW,
+          textSize,
         )}
       >
         +

@@ -1,27 +1,47 @@
 import { Link, useRouterState } from '@tanstack/react-router'
-import { cn } from '@/lib/utils'
 import {
-  Home03Icon,
-  MagicWand01Icon,
-  Image02Icon,
-  Settings02Icon,
   FileSearchIcon,
+  Home03Icon,
+  Image02Icon,
+  MagicWand01Icon,
   Package01Icon,
+  Settings02Icon,
   TimeQuarter02Icon,
 } from '@hugeicons/core-free-icons'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { useTranslation } from '@/lib/i18n'
 import type { TranslationKeys } from '@/lib/i18n'
+import { useTranslation } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 import { QueueStatusWidget } from '@/components/queue/queue-status-widget'
 
 const navItems = [
   { to: '/', key: 'nav.projects' as TranslationKeys, icon: Home03Icon },
-  { to: '/generate', key: 'nav.generate' as TranslationKeys, icon: MagicWand01Icon },
-  { to: '/queue', key: 'nav.queue' as TranslationKeys, icon: TimeQuarter02Icon },
+  {
+    to: '/generate',
+    key: 'nav.generate' as TranslationKeys,
+    icon: MagicWand01Icon,
+  },
+  {
+    to: '/queue',
+    key: 'nav.queue' as TranslationKeys,
+    icon: TimeQuarter02Icon,
+  },
   { to: '/gallery', key: 'nav.gallery' as TranslationKeys, icon: Image02Icon },
-  { to: '/metadata', key: 'nav.metadata' as TranslationKeys, icon: FileSearchIcon },
-  { to: '/bundles', key: 'nav.bundles' as TranslationKeys, icon: Package01Icon },
-  { to: '/settings', key: 'nav.settings' as TranslationKeys, icon: Settings02Icon },
+  {
+    to: '/metadata',
+    key: 'nav.metadata' as TranslationKeys,
+    icon: FileSearchIcon,
+  },
+  {
+    to: '/bundles',
+    key: 'nav.bundles' as TranslationKeys,
+    icon: Package01Icon,
+  },
+  {
+    to: '/settings',
+    key: 'nav.settings' as TranslationKeys,
+    icon: Settings02Icon,
+  },
 ] as const
 
 export function Sidebar() {
@@ -35,13 +55,21 @@ export function Sidebar() {
         <div className="size-7 rounded-lg bg-primary flex items-center justify-center">
           <span className="text-xs font-bold text-primary-foreground">87</span>
         </div>
-        <span className="font-semibold text-foreground tracking-tight">Studio</span>
+        <span className="font-semibold text-foreground tracking-tight">
+          Studio
+        </span>
       </div>
 
-      <nav className="flex-1 space-y-0.5 px-3 pt-2" role="navigation" aria-label="Main navigation">
+      <nav
+        className="flex-1 space-y-0.5 px-3 pt-2"
+        role="navigation"
+        aria-label="Main navigation"
+      >
         {navItems.map((item) => {
           const isActive =
-            item.to === '/' ? currentPath === '/' : currentPath.startsWith(item.to)
+            item.to === '/'
+              ? currentPath === '/'
+              : currentPath.startsWith(item.to)
           return (
             <Link
               key={item.to}

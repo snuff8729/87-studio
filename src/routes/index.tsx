@@ -1,6 +1,19 @@
-import { createFileRoute, Link, useRouter } from '@tanstack/react-router'
-import { useState, useEffect, useRef } from 'react'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { HugeiconsIcon } from '@hugeicons/react'
+import {
+  Add01Icon,
+  ArrowExpand01Icon,
+  Copy01Icon,
+  Delete02Icon,
+  FolderOpenIcon,
+  Image02Icon,
+  MoreHorizontalIcon,
+  PencilEdit01Icon,
+  Settings02Icon,
+} from '@hugeicons/core-free-icons'
+import type { TranslationKeys } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,27 +34,24 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { listProjects, createProject, deleteProject, duplicateProject, updateProject } from '@/server/functions/projects'
+import {
+  createProject,
+  deleteProject,
+  duplicateProject,
+  listProjects,
+  updateProject,
+} from '@/server/functions/projects'
 import { listJobs } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import { Skeleton } from '@/components/ui/skeleton'
-import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  FolderOpenIcon,
-  Add01Icon,
-  Delete02Icon,
-  Settings02Icon,
-  Copy01Icon,
-  MoreHorizontalIcon,
-  Image02Icon,
-  PencilEdit01Icon,
-  ArrowExpand01Icon,
-} from '@hugeicons/core-free-icons'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
-import { useTranslation, type TranslationKeys } from '@/lib/i18n'
+import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 
-type TFn = (key: TranslationKeys, params?: Record<string, string | number>) => string
+type TFn = (
+  key: TranslationKeys,
+  params?: Record<string, string | number>,
+) => string
 
 function formatRelativeDate(dateStr: string, t: TFn): string {
   const date = new Date(dateStr + 'Z')
@@ -74,7 +84,10 @@ function PendingComponent() {
       {/* Project list */}
       <div className="space-y-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="flex items-center gap-3 rounded-xl border border-border p-3">
+          <div
+            key={i}
+            className="flex items-center gap-3 rounded-xl border border-border p-3"
+          >
             <Skeleton className="size-12 rounded-lg shrink-0" />
             <div className="flex-1 min-w-0 space-y-2">
               <Skeleton className="h-4 w-32" />
@@ -120,8 +133,14 @@ function ProjectSelectorPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [descExpanded, setDescExpanded] = useState(false)
-  const [deleteTarget, setDeleteTarget] = useState<{ id: number; name: string } | null>(null)
-  const [renameTarget, setRenameTarget] = useState<{ id: number; name: string } | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<{
+    id: number
+    name: string
+  } | null>(null)
+  const [renameTarget, setRenameTarget] = useState<{
+    id: number
+    name: string
+  } | null>(null)
   const [renameName, setRenameName] = useState('')
   const { t } = useTranslation()
   const onboarding = useOnboardingMaybe()
@@ -157,7 +176,10 @@ function ProjectSelectorPage() {
       }
     }, 2000)
 
-    return () => { cancelled = true; clearInterval(interval) }
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [liveJobs.length > 0, router])
 
   async function handleCreate() {
@@ -166,18 +188,31 @@ function ProjectSelectorPage() {
       return
     }
     try {
-      const project = await createProject({ data: { name: name.trim(), description: description.trim() || undefined } })
+      const project = await createProject({
+        data: {
+          name: name.trim(),
+          description: description.trim() || undefined,
+        },
+      })
       setName('')
       setDescription('')
       setDialogOpen(false)
       toast.success(t('dashboard.projectCreated'))
-      window.dispatchEvent(new CustomEvent('onboarding:project-created', { detail: { projectId: project.id } }))
+      window.dispatchEvent(
+        new CustomEvent('onboarding:project-created', {
+          detail: { projectId: project.id },
+        }),
+      )
       // During onboarding step 2, don't auto-navigate - let step 3 highlight the card
       if (onboarding?.state.active && onboarding.state.step === 2) {
         router.invalidate()
         return
       }
-      router.navigate({ to: '/workspace/$projectId', params: { projectId: String(project.id) }, search: { imageDetail: undefined } })
+      router.navigate({
+        to: '/workspace/$projectId',
+        params: { projectId: String(project.id) },
+        search: { imageDetail: undefined },
+      })
     } catch {
       toast.error(t('dashboard.createFailed'))
     }
@@ -186,7 +221,9 @@ function ProjectSelectorPage() {
   async function handleRename() {
     if (!renameTarget || !renameName.trim()) return
     try {
-      await updateProject({ data: { id: renameTarget.id, name: renameName.trim() } })
+      await updateProject({
+        data: { id: renameTarget.id, name: renameName.trim() },
+      })
       toast.success(t('dashboard.projectRenamed'))
       setRenameTarget(null)
       router.invalidate()
@@ -221,7 +258,9 @@ function ProjectSelectorPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-base font-bold text-primary-foreground">87</span>
+            <span className="text-base font-bold text-primary-foreground">
+              87
+            </span>
           </div>
           <h1 className="text-lg font-semibold tracking-tight">Studio</h1>
         </div>
@@ -241,54 +280,61 @@ function ProjectSelectorPage() {
       </div>
 
       {/* Active jobs notice */}
-      {liveJobs.length > 0 && (() => {
-        const runningJobs = liveJobs.filter((j) => j.status === 'running')
-        const pendingJobs = liveJobs.filter((j) => j.status === 'pending')
-        const MAX_PENDING = 3
-        const visiblePending = pendingJobs.slice(0, MAX_PENDING)
-        const hiddenPendingCount = pendingJobs.length - visiblePending.length
-        const visibleJobs = [...runningJobs, ...visiblePending]
+      {liveJobs.length > 0 &&
+        (() => {
+          const runningJobs = liveJobs.filter((j) => j.status === 'running')
+          const pendingJobs = liveJobs.filter((j) => j.status === 'pending')
+          const MAX_PENDING = 3
+          const visiblePending = pendingJobs.slice(0, MAX_PENDING)
+          const hiddenPendingCount = pendingJobs.length - visiblePending.length
+          const visibleJobs = [...runningJobs, ...visiblePending]
 
-        return (
-          <div className="mb-4 space-y-1.5">
-            {visibleJobs.map((j) => (
-              <Link
-                key={j.id}
-                to="/workspace/$projectId"
-                params={{ projectId: String(j.projectId) }}
-                search={{ imageDetail: undefined }}
-                className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 transition-colors hover:bg-primary/8"
-              >
-                <div className={`size-2 rounded-full shrink-0 ${j.status === 'running' ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'}`} />
-                <span className="text-base font-medium truncate">
-                  {j.projectName && j.projectSceneName
-                    ? `${j.projectName} / ${j.projectSceneName}`
-                    : `Job #${j.id}`}
-                </span>
-                <Badge variant="secondary" className="text-sm shrink-0">{j.status}</Badge>
-                <div className="flex-1 min-w-16">
-                  <div className="h-1 rounded-full bg-secondary overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-primary transition-all duration-500"
-                      style={{
-                        width: `${((j.completedCount ?? 0) / (j.totalCount ?? 1)) * 100}%`,
-                      }}
-                    />
+          return (
+            <div className="mb-4 space-y-1.5">
+              {visibleJobs.map((j) => (
+                <Link
+                  key={j.id}
+                  to="/workspace/$projectId"
+                  params={{ projectId: String(j.projectId) }}
+                  search={{ imageDetail: undefined }}
+                  className="flex items-center gap-3 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2 transition-colors hover:bg-primary/8"
+                >
+                  <div
+                    className={`size-2 rounded-full shrink-0 ${j.status === 'running' ? 'bg-primary animate-pulse' : 'bg-muted-foreground/40'}`}
+                  />
+                  <span className="text-base font-medium truncate">
+                    {j.projectName && j.projectSceneName
+                      ? `${j.projectName} / ${j.projectSceneName}`
+                      : `Job #${j.id}`}
+                  </span>
+                  <Badge variant="secondary" className="text-sm shrink-0">
+                    {j.status}
+                  </Badge>
+                  <div className="flex-1 min-w-16">
+                    <div className="h-1 rounded-full bg-secondary overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-primary transition-all duration-500"
+                        style={{
+                          width: `${((j.completedCount ?? 0) / (j.totalCount ?? 1)) * 100}%`,
+                        }}
+                      />
+                    </div>
                   </div>
+                  <span className="text-sm text-muted-foreground tabular-nums shrink-0">
+                    {j.completedCount}/{j.totalCount}
+                  </span>
+                </Link>
+              ))}
+              {hiddenPendingCount > 0 && (
+                <div className="text-sm text-muted-foreground text-center py-1">
+                  {t('dashboard.morePendingJobs', {
+                    count: hiddenPendingCount,
+                  })}
                 </div>
-                <span className="text-sm text-muted-foreground tabular-nums shrink-0">
-                  {j.completedCount}/{j.totalCount}
-                </span>
-              </Link>
-            ))}
-            {hiddenPendingCount > 0 && (
-              <div className="text-sm text-muted-foreground text-center py-1">
-                {t('dashboard.morePendingJobs', { count: hiddenPendingCount })}
-              </div>
-            )}
-          </div>
-        )
-      })()}
+              )}
+            </div>
+          )
+        })()}
 
       {/* Project list */}
       <div className="space-y-2">
@@ -314,7 +360,10 @@ function ProjectSelectorPage() {
                     loading="lazy"
                   />
                 ) : (
-                  <HugeiconsIcon icon={FolderOpenIcon} className="size-5 text-muted-foreground/20" />
+                  <HugeiconsIcon
+                    icon={FolderOpenIcon}
+                    className="size-5 text-muted-foreground/20"
+                  />
                 )}
               </div>
 
@@ -353,11 +402,19 @@ function ProjectSelectorPage() {
                     size="icon-sm"
                     className="sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 text-muted-foreground"
                   >
-                    <HugeiconsIcon icon={MoreHorizontalIcon} className="size-5" />
+                    <HugeiconsIcon
+                      icon={MoreHorizontalIcon}
+                      className="size-5"
+                    />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
-                  <DropdownMenuItem onClick={() => { setRenameTarget({ id: p.id, name: p.name }); setRenameName(p.name) }}>
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setRenameTarget({ id: p.id, name: p.name })
+                      setRenameName(p.name)
+                    }}
+                  >
                     <HugeiconsIcon icon={PencilEdit01Icon} className="size-4" />
                     {t('dashboard.renameProject')}
                   </DropdownMenuItem>
@@ -382,9 +439,16 @@ function ProjectSelectorPage() {
 
       {projects.length === 0 && (
         <div className="rounded-xl border border-border border-dashed py-12 text-center">
-          <HugeiconsIcon icon={FolderOpenIcon} className="size-10 text-muted-foreground/30 mx-auto mb-3" />
-          <p className="text-base text-muted-foreground mb-1">{t('dashboard.noProjectsYet')}</p>
-          <p className="text-sm text-muted-foreground mb-4">{t('dashboard.noProjectsDesc')}</p>
+          <HugeiconsIcon
+            icon={FolderOpenIcon}
+            className="size-10 text-muted-foreground/30 mx-auto mb-3"
+          />
+          <p className="text-base text-muted-foreground mb-1">
+            {t('dashboard.noProjectsYet')}
+          </p>
+          <p className="text-sm text-muted-foreground mb-4">
+            {t('dashboard.noProjectsDesc')}
+          </p>
         </div>
       )}
 
@@ -392,7 +456,11 @@ function ProjectSelectorPage() {
       <div className="mt-4">
         <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
           <DialogTrigger asChild>
-            <Button variant="outline" className="w-full" data-onboarding="new-project-btn">
+            <Button
+              variant="outline"
+              className="w-full"
+              data-onboarding="new-project-btn"
+            >
               <HugeiconsIcon icon={Add01Icon} className="size-5" />
               {t('dashboard.newProject')}
             </Button>
@@ -421,7 +489,10 @@ function ProjectSelectorPage() {
                     className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                     title={t('workspace.expandEditor')}
                   >
-                    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                    <HugeiconsIcon
+                      icon={ArrowExpand01Icon}
+                      className="size-3.5"
+                    />
                   </button>
                 </div>
                 <Textarea
@@ -439,7 +510,11 @@ function ProjectSelectorPage() {
                   placeholder={t('dashboard.briefDescription')}
                 />
               </div>
-              <Button onClick={handleCreate} disabled={!name.trim()} className="w-full">
+              <Button
+                onClick={handleCreate}
+                disabled={!name.trim()}
+                className="w-full"
+              >
                 {t('common.create')}
               </Button>
             </div>
@@ -448,7 +523,10 @@ function ProjectSelectorPage() {
       </div>
 
       {/* Rename dialog */}
-      <Dialog open={!!renameTarget} onOpenChange={(open) => !open && setRenameTarget(null)}>
+      <Dialog
+        open={!!renameTarget}
+        onOpenChange={(open) => !open && setRenameTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>{t('dashboard.renameProject')}</DialogTitle>
@@ -461,7 +539,11 @@ function ProjectSelectorPage() {
               onKeyDown={(e) => e.key === 'Enter' && handleRename()}
               autoFocus
             />
-            <Button onClick={handleRename} disabled={!renameName.trim()} className="w-full">
+            <Button
+              onClick={handleRename}
+              disabled={!renameName.trim()}
+              className="w-full"
+            >
               {t('common.save')}
             </Button>
           </div>
@@ -473,7 +555,9 @@ function ProjectSelectorPage() {
         open={!!deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(null)}
         title={t('dashboard.deleteProject')}
-        description={t('dashboard.deleteProjectDesc', { name: deleteTarget?.name ?? '' })}
+        description={t('dashboard.deleteProjectDesc', {
+          name: deleteTarget?.name ?? '',
+        })}
         onConfirm={() => {
           if (deleteTarget) handleDelete(deleteTarget.id)
           setDeleteTarget(null)

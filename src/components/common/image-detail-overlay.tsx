@@ -1,8 +1,14 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useRouter, Link } from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
+import { Link, useNavigate, useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft02Icon, Cancel01Icon, Delete02Icon, ArrowExpand01Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowExpand01Icon,
+  ArrowLeft02Icon,
+  Cancel01Icon,
+  Delete02Icon,
+} from '@hugeicons/core-free-icons'
+import type { NAIMetadata } from '@/lib/nai-metadata'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,16 +17,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
-  getImageDetailPage,
-  updateImage,
   addTag,
-  removeTag,
   bulkUpdateImages,
+  getImageDetailPage,
+  removeTag,
+  updateImage,
 } from '@/server/functions/gallery'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
 import { parseNAIMetadata } from '@/lib/nai-metadata'
-import type { NAIMetadata } from '@/lib/nai-metadata'
 import { useTranslation } from '@/lib/i18n'
 
 type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
@@ -40,13 +45,19 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [])
 
   // Keyboard: Escape to close
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return
       if (e.key === 'Escape') goBack()
     }
     window.addEventListener('keydown', handleKeyDown)
@@ -101,13 +112,20 @@ function ImageDetailContent({
 
   // Navigate between images (replace imageDetail param)
   function goToImage(id: number) {
-    navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: id }), replace: true } as any)
+    navigate({
+      search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: id }),
+      replace: true,
+    } as any)
   }
 
   // Keyboard navigation
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      )
+        return
       if (e.key === 'ArrowLeft' && detail.prevId) goToImage(detail.prevId)
       if (e.key === 'ArrowRight' && detail.nextId) goToImage(detail.nextId)
     }
@@ -148,8 +166,13 @@ function ImageDetailContent({
   async function handleAddTag() {
     if (!newTag.trim()) return
     try {
-      const tag = await addTag({ data: { imageId: detail.id, tagName: newTag.trim() } })
-      setDetail({ ...detail, tags: [...detail.tags, { tagId: tag.id, tagName: tag.name }] })
+      const tag = await addTag({
+        data: { imageId: detail.id, tagName: newTag.trim() },
+      })
+      setDetail({
+        ...detail,
+        tags: [...detail.tags, { tagId: tag.id, tagName: tag.name }],
+      })
       setNewTag('')
     } catch {
       toast.error(t('imageDetail.tagFailed'))
@@ -158,13 +181,18 @@ function ImageDetailContent({
 
   async function handleRemoveTag(tagId: number) {
     await removeTag({ data: { imageId: detail.id, tagId } })
-    setDetail({ ...detail, tags: detail.tags.filter((t) => t.tagId !== tagId) })
+    setDetail({
+      ...detail,
+      tags: detail.tags.filter((tag) => tag.tagId !== tagId),
+    })
   }
 
   async function handleSetSceneThumbnail() {
     if (!detail.projectSceneId) return
     try {
-      await updateProjectScene({ data: { id: detail.projectSceneId, thumbnailImageId: detail.id } })
+      await updateProjectScene({
+        data: { id: detail.projectSceneId, thumbnailImageId: detail.id },
+      })
       toast.success(t('imageDetail.setSceneThumbSuccess'))
     } catch {
       toast.error(t('imageDetail.setSceneThumbFailed'))
@@ -174,7 +202,9 @@ function ImageDetailContent({
   async function handleSetProjectThumbnail() {
     if (!detail.projectId) return
     try {
-      await updateProject({ data: { id: detail.projectId, thumbnailImageId: detail.id } })
+      await updateProject({
+        data: { id: detail.projectId, thumbnailImageId: detail.id },
+      })
       toast.success(t('imageDetail.setProjectThumbSuccess'))
     } catch {
       toast.error(t('imageDetail.setProjectThumbFailed'))
@@ -191,13 +221,27 @@ function ImageDetailContent({
         const buffer = await resp.arrayBuffer()
         const result = await parseNAIMetadata(buffer)
         setNaiMeta(result)
-      } catch { /* silently fail */ }
-      finally { setNaiLoading(false); setNaiLoaded(true) }
+      } catch {
+        /* silently fail */
+      } finally {
+        setNaiLoading(false)
+        setNaiLoaded(true)
+      }
     }
   }
 
-  const imageSrc = detail.filePath ? `/api/images/${detail.filePath.replace('data/images/', '')}` : ''
-  const meta = detail.metadata ? (() => { try { return JSON.parse(detail.metadata) } catch { return null } })() : null
+  const imageSrc = detail.filePath
+    ? `/api/images/${detail.filePath.replace('data/images/', '')}`
+    : ''
+  const meta = detail.metadata
+    ? (() => {
+        try {
+          return JSON.parse(detail.metadata)
+        } catch {
+          return null
+        }
+      })()
+    : null
 
   return (
     <div className="h-dvh flex flex-col lg:flex-row bg-background">
@@ -220,7 +264,11 @@ function ImageDetailContent({
           </button>
         )}
 
-        <img src={imageSrc} alt="" className="max-h-full max-w-full object-contain p-12" />
+        <img
+          src={imageSrc}
+          alt=""
+          className="max-h-full max-w-full object-contain p-12"
+        />
 
         {detail.nextId && (
           <button
@@ -236,7 +284,10 @@ function ImageDetailContent({
       <div className="h-[40vh] lg:h-auto lg:w-80 bg-card border-t lg:border-t-0 lg:border-l border-border p-4 overflow-y-auto shrink-0">
         <div className="flex items-center justify-between mb-5">
           <h3 className="text-base font-medium">{t('imageDetail.details')}</h3>
-          <button onClick={goBack} className="text-muted-foreground hover:text-foreground transition-colors">
+          <button
+            onClick={goBack}
+            className="text-muted-foreground hover:text-foreground transition-colors"
+          >
             <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
           </button>
         </div>
@@ -245,25 +296,46 @@ function ImageDetailContent({
         {(detail.projectName || detail.projectSceneName) && (
           <>
             <div className="mb-4">
-              <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.context')}</label>
+              <label className="text-sm text-muted-foreground mb-1.5 block">
+                {t('imageDetail.context')}
+              </label>
               <div className="space-y-1">
                 {detail.projectName && detail.projectId && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">{t('imageDetail.project')}</span>
-                    <Link to="/workspace/$projectId" params={{ projectId: String(detail.projectId) }} search={{ imageDetail: undefined }} className="text-sm text-primary hover:underline">
+                    <span className="text-sm text-muted-foreground">
+                      {t('imageDetail.project')}
+                    </span>
+                    <Link
+                      to="/workspace/$projectId"
+                      params={{ projectId: String(detail.projectId) }}
+                      search={{ imageDetail: undefined }}
+                      className="text-sm text-primary hover:underline"
+                    >
                       {detail.projectName}
                     </Link>
                   </div>
                 )}
                 {detail.projectSceneName && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">{t('imageDetail.scene')}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {t('imageDetail.scene')}
+                    </span>
                     {detail.projectId && detail.projectSceneId ? (
-                      <Link to="/workspace/$projectId/scenes/$sceneId" params={{ projectId: String(detail.projectId), sceneId: String(detail.projectSceneId) }} search={{ imageDetail: undefined }} className="text-sm text-primary hover:underline">
+                      <Link
+                        to="/workspace/$projectId/scenes/$sceneId"
+                        params={{
+                          projectId: String(detail.projectId),
+                          sceneId: String(detail.projectSceneId),
+                        }}
+                        search={{ imageDetail: undefined }}
+                        className="text-sm text-primary hover:underline"
+                      >
                         {detail.projectSceneName}
                       </Link>
                     ) : (
-                      <span className="text-sm text-foreground/80">{detail.projectSceneName}</span>
+                      <span className="text-sm text-foreground/80">
+                        {detail.projectSceneName}
+                      </span>
                     )}
                   </div>
                 )}
@@ -278,10 +350,24 @@ function ImageDetailContent({
           <>
             <div className="mb-4 flex gap-2">
               {detail.projectSceneId && (
-                <Button size="sm" variant="outline" onClick={handleSetSceneThumbnail} className="flex-1">{t('imageDetail.sceneThumb')}</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSetSceneThumbnail}
+                  className="flex-1"
+                >
+                  {t('imageDetail.sceneThumb')}
+                </Button>
               )}
               {detail.projectId && (
-                <Button size="sm" variant="outline" onClick={handleSetProjectThumbnail} className="flex-1">{t('imageDetail.projectThumb')}</Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSetProjectThumbnail}
+                  className="flex-1"
+                >
+                  {t('imageDetail.projectThumb')}
+                </Button>
               )}
             </div>
             <Separator className="mb-4" />
@@ -290,17 +376,30 @@ function ImageDetailContent({
 
         {/* Favorite */}
         <div className="mb-4">
-          <Button size="sm" variant={detail.isFavorite ? 'default' : 'outline'} onClick={handleFavorite} className="w-full">
-            {detail.isFavorite ? '\u2764 ' + t('imageDetail.favorited') : '\u2661 ' + t('imageDetail.favorite')}
+          <Button
+            size="sm"
+            variant={detail.isFavorite ? 'default' : 'outline'}
+            onClick={handleFavorite}
+            className="w-full"
+          >
+            {detail.isFavorite
+              ? '\u2764 ' + t('imageDetail.favorited')
+              : '\u2661 ' + t('imageDetail.favorite')}
           </Button>
         </div>
 
         {/* Rating */}
         <div className="mb-4">
-          <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.rating')}</label>
+          <label className="text-sm text-muted-foreground mb-1.5 block">
+            {t('imageDetail.rating')}
+          </label>
           <div className="flex gap-1">
             {[1, 2, 3, 4, 5].map((r) => (
-              <button key={r} onClick={() => handleRating(r)} className={`text-lg transition-colors ${detail.rating && r <= detail.rating ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}>
+              <button
+                key={r}
+                onClick={() => handleRating(r)}
+                className={`text-lg transition-colors ${detail.rating && r <= detail.rating ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'}`}
+              >
                 {'\u2605'}
               </button>
             ))}
@@ -311,7 +410,9 @@ function ImageDetailContent({
         {/* Memo */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm text-muted-foreground">{t('imageDetail.memo')}</label>
+            <label className="text-sm text-muted-foreground">
+              {t('imageDetail.memo')}
+            </label>
             <button
               type="button"
               onClick={() => setMemoExpanded(true)}
@@ -321,7 +422,13 @@ function ImageDetailContent({
               <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
             </button>
           </div>
-          <Textarea value={memo} onChange={(e) => setMemo(e.target.value)} onBlur={handleSaveMemo} placeholder={t('imageDetail.addNote')} className="text-base min-h-20" />
+          <Textarea
+            value={memo}
+            onChange={(e) => setMemo(e.target.value)}
+            onBlur={handleSaveMemo}
+            placeholder={t('imageDetail.addNote')}
+            className="text-base min-h-20"
+          />
           <ExpandedTextareaDialog
             open={memoExpanded}
             onOpenChange={setMemoExpanded}
@@ -335,60 +442,110 @@ function ImageDetailContent({
 
         {/* Tags */}
         <div className="mb-4">
-          <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.tags')}</label>
+          <label className="text-sm text-muted-foreground mb-1.5 block">
+            {t('imageDetail.tags')}
+          </label>
           <div className="flex flex-wrap gap-1 mb-2">
-            {detail.tags.map((t) => (
-              <Badge key={t.tagId} variant="secondary" className="gap-1">
-                {t.tagName}
-                <button onClick={() => handleRemoveTag(t.tagId)} className="ml-0.5 opacity-60 hover:opacity-100">
+            {detail.tags.map((tag) => (
+              <Badge key={tag.tagId} variant="secondary" className="gap-1">
+                {tag.tagName}
+                <button
+                  onClick={() => handleRemoveTag(tag.tagId)}
+                  className="ml-0.5 opacity-60 hover:opacity-100"
+                >
                   <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
                 </button>
               </Badge>
             ))}
           </div>
           <div className="flex gap-1">
-            <Input value={newTag} onChange={(e) => setNewTag(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && handleAddTag()} placeholder={t('imageDetail.addTag')} className="h-7 text-sm" />
-            <Button size="xs" variant="outline" onClick={handleAddTag}>{t('common.add')}</Button>
+            <Input
+              value={newTag}
+              onChange={(e) => setNewTag(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleAddTag()}
+              placeholder={t('imageDetail.addTag')}
+              className="h-7 text-sm"
+            />
+            <Button size="xs" variant="outline" onClick={handleAddTag}>
+              {t('common.add')}
+            </Button>
           </div>
         </div>
         <Separator className="mb-4" />
 
         {/* Reference (collapsible) */}
         <div className="mb-4">
-          <button onClick={() => setRefExpanded(!refExpanded)} className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors">
+          <button
+            onClick={() => setRefExpanded(!refExpanded)}
+            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
+          >
             <span>{t('imageDetail.reference')}</span>
             <span className="text-xs">{refExpanded ? '\u25B2' : '\u25BC'}</span>
           </button>
           {refExpanded && (
             <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-1 duration-150">
               <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.metadata')}</label>
+                <label className="text-sm text-muted-foreground mb-1.5 block">
+                  {t('imageDetail.metadata')}
+                </label>
                 <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>{t('imageDetail.seed')}: {detail.seed ?? 'N/A'}</p>
-                  <p>{t('imageDetail.created')}: {new Date(detail.createdAt!).toLocaleString()}</p>
+                  <p>
+                    {t('imageDetail.seed')}: {detail.seed ?? 'N/A'}
+                  </p>
+                  <p>
+                    {t('imageDetail.created')}:{' '}
+                    {new Date(detail.createdAt!).toLocaleString()}
+                  </p>
                 </div>
               </div>
               {meta?.parameters && (
                 <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.parameters')}</label>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
+                    {t('imageDetail.parameters')}
+                  </label>
                   <div className="text-sm space-y-0.5 text-muted-foreground">
-                    {meta.parameters.width && <p>{t('imageDetail.size')}: {meta.parameters.width}x{meta.parameters.height}</p>}
-                    {meta.parameters.steps && <p>{t('imageDetail.steps')}: {meta.parameters.steps}</p>}
-                    {meta.parameters.cfg_scale && <p>{t('imageDetail.cfg')}: {meta.parameters.cfg_scale}</p>}
-                    {meta.parameters.sampler && <p>{t('imageDetail.sampler')}: {meta.parameters.sampler}</p>}
+                    {meta.parameters.width && (
+                      <p>
+                        {t('imageDetail.size')}: {meta.parameters.width}x
+                        {meta.parameters.height}
+                      </p>
+                    )}
+                    {meta.parameters.steps && (
+                      <p>
+                        {t('imageDetail.steps')}: {meta.parameters.steps}
+                      </p>
+                    )}
+                    {meta.parameters.cfg_scale && (
+                      <p>
+                        {t('imageDetail.cfg')}: {meta.parameters.cfg_scale}
+                      </p>
+                    )}
+                    {meta.parameters.sampler && (
+                      <p>
+                        {t('imageDetail.sampler')}: {meta.parameters.sampler}
+                      </p>
+                    )}
                   </div>
                 </div>
               )}
               {meta?.prompts?.generalPrompt && (
                 <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.generalPrompt')}</label>
-                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">{meta.prompts.generalPrompt}</p>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
+                    {t('imageDetail.generalPrompt')}
+                  </label>
+                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">
+                    {meta.prompts.generalPrompt}
+                  </p>
                 </div>
               )}
               {meta?.prompts?.negativePrompt && (
                 <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.negativePrompt')}</label>
-                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">{meta.prompts.negativePrompt}</p>
+                  <label className="text-sm text-muted-foreground mb-1.5 block">
+                    {t('imageDetail.negativePrompt')}
+                  </label>
+                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">
+                    {meta.prompts.negativePrompt}
+                  </p>
                 </div>
               )}
             </div>
@@ -398,7 +555,10 @@ function ImageDetailContent({
 
         {/* NAI Metadata (collapsible) */}
         <div className="mb-4">
-          <button onClick={handleToggleNai} className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors">
+          <button
+            onClick={handleToggleNai}
+            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
+          >
             <span>{t('imageDetail.naiMetadata')}</span>
             <span className="text-xs">{naiExpanded ? '\u25B2' : '\u25BC'}</span>
           </button>
@@ -407,10 +567,16 @@ function ImageDetailContent({
               {naiLoading && (
                 <div className="flex items-center gap-2 py-3">
                   <div className="size-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-xs text-muted-foreground">{t('imageDetail.parsing')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('imageDetail.parsing')}
+                  </span>
                 </div>
               )}
-              {naiLoaded && !naiMeta && <p className="text-xs text-muted-foreground py-2">{t('imageDetail.noNaiMetadata')}</p>}
+              {naiLoaded && !naiMeta && (
+                <p className="text-xs text-muted-foreground py-2">
+                  {t('imageDetail.noNaiMetadata')}
+                </p>
+              )}
               {naiMeta && <NaiMetadataView metadata={naiMeta} />}
             </div>
           )}
@@ -419,10 +585,16 @@ function ImageDetailContent({
         {/* Download + Delete */}
         <div className="flex gap-2">
           <a href={imageSrc} download className="flex-1">
-            <Button variant="outline" size="sm" className="w-full">{t('imageDetail.download')}</Button>
+            <Button variant="outline" size="sm" className="w-full">
+              {t('imageDetail.download')}
+            </Button>
           </a>
           <ConfirmDialog
-            trigger={<Button variant="destructive" size="sm"><HugeiconsIcon icon={Delete02Icon} className="size-4" /></Button>}
+            trigger={
+              <Button variant="destructive" size="sm">
+                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+              </Button>
+            }
             title={t('imageDetail.deleteTitle')}
             description={t('imageDetail.deleteDesc')}
             onConfirm={handleDelete}
@@ -445,30 +617,57 @@ function NaiMetadataView({ metadata }: { metadata: NAIMetadata }) {
       )}
       {metadata.model && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">Model</label>
-          <p className="text-sm font-mono text-foreground/80">{metadata.model}</p>
+          <label className="text-xs text-muted-foreground block mb-0.5">
+            Model
+          </label>
+          <p className="text-sm font-mono text-foreground/80">
+            {metadata.model}
+          </p>
         </div>
       )}
       {metadata.prompt && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">Positive</label>
-          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-28 overflow-y-auto">{metadata.prompt}</p>
+          <label className="text-xs text-muted-foreground block mb-0.5">
+            Positive
+          </label>
+          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-28 overflow-y-auto">
+            {metadata.prompt}
+          </p>
         </div>
       )}
       {metadata.negativePrompt && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">Negative</label>
-          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">{metadata.negativePrompt}</p>
+          <label className="text-xs text-muted-foreground block mb-0.5">
+            Negative
+          </label>
+          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
+            {metadata.negativePrompt}
+          </p>
         </div>
       )}
       <div>
-        <label className="text-xs text-muted-foreground block mb-1">Parameters</label>
+        <label className="text-xs text-muted-foreground block mb-1">
+          Parameters
+        </label>
         <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-          {metadata.width != null && metadata.height != null && <NaiRow label="Size" value={`${metadata.width}x${metadata.height}`} />}
-          {metadata.steps != null && <NaiRow label="Steps" value={metadata.steps} />}
-          {metadata.cfgScale != null && <NaiRow label="CFG" value={metadata.cfgScale} />}
-          {metadata.seed != null && <NaiRow label="Seed" value={metadata.seed} />}
-          {metadata.sampler && <NaiRow label="Sampler" value={metadata.sampler} />}
+          {metadata.width != null && metadata.height != null && (
+            <NaiRow
+              label="Size"
+              value={`${metadata.width}x${metadata.height}`}
+            />
+          )}
+          {metadata.steps != null && (
+            <NaiRow label="Steps" value={metadata.steps} />
+          )}
+          {metadata.cfgScale != null && (
+            <NaiRow label="CFG" value={metadata.cfgScale} />
+          )}
+          {metadata.seed != null && (
+            <NaiRow label="Seed" value={metadata.seed} />
+          )}
+          {metadata.sampler && (
+            <NaiRow label="Sampler" value={metadata.sampler} />
+          )}
         </div>
       </div>
     </div>

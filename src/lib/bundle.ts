@@ -1,6 +1,6 @@
 const BUNDLE_RE = /@\{([^}]+)\}/g
 
-export function extractBundleReferences(template: string): string[] {
+export function extractBundleReferences(template: string): Array<string> {
   const names = new Set<string>()
   for (const match of template.matchAll(BUNDLE_RE)) {
     names.add(match[1])

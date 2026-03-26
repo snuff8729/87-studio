@@ -1,12 +1,12 @@
-import { useState, useCallback, useRef, useEffect, useMemo, memo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  TextIcon,
-  ArrowDown01Icon,
   Add01Icon,
-  Cancel01Icon,
+  ArrowDown01Icon,
   ArrowExpand01Icon,
+  Cancel01Icon,
+  TextIcon,
 } from '@hugeicons/core-free-icons'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -17,16 +17,30 @@ import { resolveBundles } from '@/lib/bundle'
 import { useBundleMap } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
 
-function StatusDot({ filled, template }: { filled: boolean; template?: boolean }) {
-  if (!filled) return <span className="inline-block size-1.5 rounded-full shrink-0 bg-muted-foreground/25 ring-1 ring-muted-foreground/20" />
-  if (template) return <span className="inline-block size-1.5 rounded-full shrink-0 bg-amber-500" />
-  return <span className="inline-block size-1.5 rounded-full shrink-0 bg-emerald-500" />
+function StatusDot({
+  filled,
+  template,
+}: {
+  filled: boolean
+  template?: boolean
+}) {
+  if (!filled)
+    return (
+      <span className="inline-block size-1.5 rounded-full shrink-0 bg-muted-foreground/25 ring-1 ring-muted-foreground/20" />
+    )
+  if (template)
+    return (
+      <span className="inline-block size-1.5 rounded-full shrink-0 bg-amber-500" />
+    )
+  return (
+    <span className="inline-block size-1.5 rounded-full shrink-0 bg-emerald-500" />
+  )
 }
 
 interface CharacterPlaceholderKeyEntry {
   characterId: number
   characterName: string
-  keys: string[]
+  keys: Array<string>
 }
 
 export interface PlaceholderEditorProps {
@@ -36,9 +50,14 @@ export interface PlaceholderEditorProps {
   /** Parsed character overrides: charId → { key: value } */
   characterOverrides: Record<number, Record<string, string>>
   /** Keys extracted from prompt templates */
-  generalPlaceholderKeys: string[]
-  characterPlaceholderKeys: CharacterPlaceholderKeyEntry[]
-  characters: Array<{ id: number; name: string; charPrompt?: string; charNegative?: string }>
+  generalPlaceholderKeys: Array<string>
+  characterPlaceholderKeys: Array<CharacterPlaceholderKeyEntry>
+  characters: Array<{
+    id: number
+    name: string
+    charPrompt?: string
+    charNegative?: string
+  }>
   /** Save merged general placeholders (full JSON string) */
   onSaveGeneral: (mergedJson: string) => Promise<void>
   /** Save merged character override (full JSON string) */
@@ -64,12 +83,17 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   const bundleMap = useBundleMap()
 
   // ── Collapsed state ──
-  const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set())
+  const [collapsedSections, setCollapsedSections] = useState<Set<number>>(
+    new Set(),
+  )
   const [filledCollapsed, setFilledCollapsed] = useState(false)
   const [unusedCollapsed, setUnusedCollapsed] = useState(true)
 
   // ── Pin focused field to prevent section jump on save ──
-  const pinnedCellRef = useRef<{ key: string; section: 'unfilled' | 'filled' } | null>(null)
+  const pinnedCellRef = useRef<{
+    key: string
+    section: 'unfilled' | 'filled'
+  } | null>(null)
   const [blurTick, setBlurTick] = useState(0)
 
   // ── Scene Data management ──
@@ -95,7 +119,12 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     pinnedCellRef.current = null
   }, [sceneId])
 
-  useEffect(() => () => { if (saveTimerRef.current) clearTimeout(saveTimerRef.current) }, [])
+  useEffect(
+    () => () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    },
+    [],
+  )
 
   // Clear local overlays once server props reflect the saved values
   useEffect(() => {
@@ -110,6 +139,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         } else {
           const charId = Number(parts[1])
           const placeholder = parts[2]
+          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
           serverValue = characterOverrides[charId]?.[placeholder] ?? ''
         }
         if (serverValue !== v) {
@@ -121,7 +151,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   }, [scenePlaceholders, characterOverrides])
 
   function cellKey(context: 'general' | number, placeholder: string) {
-    return context === 'general' ? `g:${placeholder}` : `c:${context}:${placeholder}`
+    return context === 'general'
+      ? `g:${placeholder}`
+      : `c:${context}:${placeholder}`
   }
 
   function getCellValue(key: string, context: 'general' | number): string {
@@ -141,7 +173,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     return getCellValue(key, charId) || getGeneralValue(key)
   }
 
-  function handleCellChange(context: 'general' | number, key: string, value: string) {
+  function handleCellChange(
+    context: 'general' | number,
+    key: string,
+    value: string,
+  ) {
     setLocalValues((prev) => ({ ...prev, [cellKey(context, key)]: value }))
     scheduleSave()
   }
@@ -197,7 +233,13 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
       return currentLocal // keep overlay until props catch up
     })
-  }, [scenePlaceholders, characterOverrides, onSaveGeneral, onSaveCharOverride, onPlaceholdersChange])
+  }, [
+    scenePlaceholders,
+    characterOverrides,
+    onSaveGeneral,
+    onSaveCharOverride,
+    onPlaceholdersChange,
+  ])
 
   // ── Scene Data key management ──
   async function handleAddSceneDataKey() {
@@ -246,13 +288,27 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       return !!scenePlaceholders[key]
     })
 
-    const unfilledChars: Array<{ charId: number; charName: string; keys: string[] }> = []
-    const filledChars: Array<{ charId: number; charName: string; keys: Array<{ key: string; isTemplate: boolean; generalValue: string }> }> = []
+    const unfilledChars: Array<{
+      charId: number
+      charName: string
+      keys: Array<string>
+    }> = []
+    const filledChars: Array<{
+      charId: number
+      charName: string
+      keys: Array<{ key: string; isTemplate: boolean; generalValue: string }>
+    }> = []
 
     for (const char of characters) {
-      const keys = characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ?? []
-      const unfilled: string[] = []
-      const filled: Array<{ key: string; isTemplate: boolean; generalValue: string }> = []
+      const keys =
+        characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ??
+        []
+      const unfilled: Array<string> = []
+      const filled: Array<{
+        key: string
+        isTemplate: boolean
+        generalValue: string
+      }> = []
 
       for (const key of keys) {
         const ownValue = characterOverrides[char.id]?.[key] ?? ''
@@ -263,24 +319,55 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           if (pinned.section === 'unfilled') {
             unfilled.push(key)
           } else {
-            filled.push({ key, isTemplate: !ownValue && !!generalValue, generalValue })
+            filled.push({
+              key,
+              isTemplate: !ownValue && !!generalValue,
+              generalValue,
+            })
           }
         } else if (!ownValue && !generalValue) {
           unfilled.push(key)
         } else {
-          filled.push({ key, isTemplate: !ownValue && !!generalValue, generalValue })
+          filled.push({
+            key,
+            isTemplate: !ownValue && !!generalValue,
+            generalValue,
+          })
         }
       }
 
-      if (unfilled.length > 0) unfilledChars.push({ charId: char.id, charName: char.name, keys: unfilled })
-      if (filled.length > 0) filledChars.push({ charId: char.id, charName: char.name, keys: filled })
+      if (unfilled.length > 0)
+        unfilledChars.push({
+          charId: char.id,
+          charName: char.name,
+          keys: unfilled,
+        })
+      if (filled.length > 0)
+        filledChars.push({ charId: char.id, charName: char.name, keys: filled })
     }
 
-    const totalUnfilled = unfilledGeneral.length + unfilledChars.reduce((s, e) => s + e.keys.length, 0)
-    const totalFilled = filledGeneral.length + filledChars.reduce((s, e) => s + e.keys.length, 0)
+    const totalUnfilled =
+      unfilledGeneral.length +
+      unfilledChars.reduce((s, e) => s + e.keys.length, 0)
+    const totalFilled =
+      filledGeneral.length + filledChars.reduce((s, e) => s + e.keys.length, 0)
 
-    return { unfilledGeneral, filledGeneral, unfilledChars, filledChars, totalUnfilled, totalFilled }
-  }, [scenePlaceholders, characterOverrides, generalPlaceholderKeys, characterPlaceholderKeys, characters, blurTick])
+    return {
+      unfilledGeneral,
+      filledGeneral,
+      unfilledChars,
+      filledChars,
+      totalUnfilled,
+      totalFilled,
+    }
+  }, [
+    scenePlaceholders,
+    characterOverrides,
+    generalPlaceholderKeys,
+    characterPlaceholderKeys,
+    characters,
+    blurTick,
+  ])
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const filledCounts = useMemo(() => {
@@ -291,18 +378,30 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       if (getCellValue(key, 'general')) filled++
     }
     for (const char of characters) {
-      const keys = characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ?? []
+      const keys =
+        characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ??
+        []
       for (const key of keys) {
         total++
         if (getEffectiveCharValue(key, char.id)) filled++
       }
     }
     return { filled, total }
-  }, [generalPlaceholderKeys, characters, characterPlaceholderKeys, localValues, scenePlaceholders, characterOverrides])
+  }, [
+    generalPlaceholderKeys,
+    characters,
+    characterPlaceholderKeys,
+    localValues,
+    scenePlaceholders,
+    characterOverrides,
+  ])
 
   // Extra keys from scene data not in prompt template
   const extraGeneralKeys = useMemo(
-    () => Object.keys(scenePlaceholders).filter((k) => !generalPlaceholderKeys.includes(k)),
+    () =>
+      Object.keys(scenePlaceholders).filter(
+        (k) => !generalPlaceholderKeys.includes(k),
+      ),
     [scenePlaceholders, generalPlaceholderKeys],
   )
 
@@ -310,16 +409,27 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     return characters
       .map((char) => {
         const parsed = characterOverrides[char.id] ?? {}
-        const promptKeys = characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ?? []
-        return { characterId: char.id, characterName: char.name, keys: Object.keys(parsed).filter((k) => !promptKeys.includes(k)) }
+        const promptKeys =
+          characterPlaceholderKeys.find((c) => c.characterId === char.id)
+            ?.keys ?? []
+        return {
+          characterId: char.id,
+          characterName: char.name,
+          keys: Object.keys(parsed).filter((k) => !promptKeys.includes(k)),
+        }
       })
       .filter((c) => c.keys.length > 0)
   }, [characters, characterOverrides, characterPlaceholderKeys])
 
-  const unusedCount = extraGeneralKeys.length + extraCharacterKeys.reduce((s, c) => s + c.keys.length, 0)
+  const unusedCount =
+    extraGeneralKeys.length +
+    extraCharacterKeys.reduce((s, c) => s + c.keys.length, 0)
 
   // ── Expanded textarea dialog ──
-  const [expandTarget, setExpandTarget] = useState<{ key: string; owner: 'general' | number } | null>(null)
+  const [expandTarget, setExpandTarget] = useState<{
+    key: string
+    owner: 'general' | number
+  } | null>(null)
 
   // ── Prompt Preview (throttled) ──
   const [previewOpen, setPreviewOpen] = useState(false)
@@ -331,12 +441,26 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
   // Pack latest computation inputs into a ref so the interval always reads fresh data
   const previewInputsRef = useRef({
-    getCellValue, getPrompts, characters, generalPlaceholderKeys, characterPlaceholderKeys,
-    scenePlaceholders, characterOverrides, localValues, bundleMap,
+    getCellValue,
+    getPrompts,
+    characters,
+    generalPlaceholderKeys,
+    characterPlaceholderKeys,
+    scenePlaceholders,
+    characterOverrides,
+    localValues,
+    bundleMap,
   })
   previewInputsRef.current = {
-    getCellValue, getPrompts, characters, generalPlaceholderKeys, characterPlaceholderKeys,
-    scenePlaceholders, characterOverrides, localValues, bundleMap,
+    getCellValue,
+    getPrompts,
+    characters,
+    generalPlaceholderKeys,
+    characterPlaceholderKeys,
+    scenePlaceholders,
+    characterOverrides,
+    localValues,
+    bundleMap,
   }
 
   useEffect(() => {
@@ -348,33 +472,58 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       const { generalPrompt, negativePrompt } = ref.getPrompts()
 
       // Build general values
-      const allGeneralKeys = new Set([...ref.generalPlaceholderKeys, ...Object.keys(ref.scenePlaceholders)])
+      const allGeneralKeys = new Set([
+        ...ref.generalPlaceholderKeys,
+        ...Object.keys(ref.scenePlaceholders),
+      ])
       const generalValues: Record<string, string> = {}
       for (const key of allGeneralKeys) {
         const ck = `g:${key}`
-        generalValues[key] = (ck in ref.localValues ? ref.localValues[ck] : ref.scenePlaceholders[key]) ?? ''
+        generalValues[key] =
+          (ck in ref.localValues
+            ? ref.localValues[ck]
+            : ref.scenePlaceholders[key]) ?? ''
       }
 
       const resolvedChars = ref.characters
         .filter((c) => c.charPrompt || c.charNegative)
         .map((char) => {
-          const charKeys = ref.characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ?? []
+          const charKeys =
+            ref.characterPlaceholderKeys.find((c) => c.characterId === char.id)
+              ?.keys ?? []
           const charValues: Record<string, string> = {}
           for (const key of charKeys) {
             const ck = `c:${char.id}:${key}`
-            const ownValue = (ck in ref.localValues ? ref.localValues[ck] : ref.characterOverrides[char.id]?.[key]) ?? ''
+            const ownValue =
+              (ck in ref.localValues
+                ? ref.localValues[ck]
+                : ref.characterOverrides[char.id]?.[key]) ?? ''
             charValues[key] = ownValue || generalValues[key] || ''
           }
           return {
             name: char.name,
-            prompt: resolvePlaceholders(resolveBundles(char.charPrompt || '', ref.bundleMap), charValues),
-            negative: resolvePlaceholders(resolveBundles(char.charNegative || '', ref.bundleMap), charValues),
+            prompt: resolvePlaceholders(
+              resolveBundles(char.charPrompt || '', ref.bundleMap),
+              charValues,
+            ),
+            negative: resolvePlaceholders(
+              resolveBundles(char.charNegative || '', ref.bundleMap),
+              charValues,
+            ),
           }
         })
 
       setResolvedPrompts({
-        general: resolvePlaceholders(resolveBundles(generalPrompt, ref.bundleMap), generalValues),
-        negative: negativePrompt ? resolvePlaceholders(resolveBundles(negativePrompt, ref.bundleMap), generalValues) : '',
+        general: resolvePlaceholders(
+          resolveBundles(generalPrompt, ref.bundleMap),
+          generalValues,
+        ),
+        negative: negativePrompt
+          ? resolvePlaceholders(
+              resolveBundles(negativePrompt, ref.bundleMap),
+              generalValues,
+            )
+          : '',
         characters: resolvedChars,
       })
     }
@@ -384,7 +533,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     return () => clearInterval(interval)
   }, [previewOpen, getPrompts])
 
-  const hasPromptKeys = generalPlaceholderKeys.length > 0 ||
+  const hasPromptKeys =
+    generalPlaceholderKeys.length > 0 ||
     characterPlaceholderKeys.some((c) => c.keys.length > 0)
 
   function scrollToSlot(type: 'g' | 'c', key: string, charId?: number) {
@@ -402,7 +552,10 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
         <div className="rounded-xl bg-secondary/30 p-4 mb-3">
-          <HugeiconsIcon icon={TextIcon} className="size-6 text-muted-foreground/25" />
+          <HugeiconsIcon
+            icon={TextIcon}
+            className="size-6 text-muted-foreground/25"
+          />
         </div>
         <p className="text-sm text-muted-foreground max-w-48">
           {t('placeholder.addPlaceholders')}
@@ -415,10 +568,17 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   if (!hasPromptKeys) {
     return (
       <div className="space-y-2.5">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('placeholder.sceneData', { count: extraGeneralKeys.length })}</span>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          {t('placeholder.sceneData', { count: extraGeneralKeys.length })}
+        </span>
         {extraGeneralKeys.map((key) => (
           <div key={key} className="flex items-center gap-2">
-            <span className="text-xs font-mono text-muted-foreground/70 shrink-0 min-w-0 truncate max-w-[8rem]" title={key}>{key}</span>
+            <span
+              className="text-xs font-mono text-muted-foreground/70 shrink-0 min-w-0 truncate max-w-[8rem]"
+              title={key}
+            >
+              {key}
+            </span>
             <input
               type="text"
               value={getCellValue(key, 'general')}
@@ -447,12 +607,27 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       {/* ── Keys Section ── */}
       <div>
         <div className="flex items-center justify-between mb-2.5">
-          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{t('placeholder.keys')}</span>
+          <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            {t('placeholder.keys')}
+          </span>
           <span className="text-xs text-muted-foreground tabular-nums">
-            {filledCounts.total - filledCounts.filled > 0
-              ? <><span className="text-amber-500">{t('placeholder.unfilledCount', { unfilled: filledCounts.total - filledCounts.filled, total: filledCounts.total })}</span></>
-              : <>{t('placeholder.filledCount', { filled: filledCounts.total, total: filledCounts.total })}</>
-            }
+            {filledCounts.total - filledCounts.filled > 0 ? (
+              <>
+                <span className="text-amber-500">
+                  {t('placeholder.unfilledCount', {
+                    unfilled: filledCounts.total - filledCounts.filled,
+                    total: filledCounts.total,
+                  })}
+                </span>
+              </>
+            ) : (
+              <>
+                {t('placeholder.filledCount', {
+                  filled: filledCounts.total,
+                  total: filledCounts.total,
+                })}
+              </>
+            )}
           </span>
         </div>
 
@@ -460,7 +635,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         {generalPlaceholderKeys.length > 0 && (
           <div className="mb-2.5">
             {characters.length > 0 && (
-              <div className="text-[11px] text-muted-foreground/60 mb-1">{t('workspace.general')}</div>
+              <div className="text-[11px] text-muted-foreground/60 mb-1">
+                {t('workspace.general')}
+              </div>
             )}
             <div className="flex flex-wrap gap-1">
               {generalPlaceholderKeys.map((key) => (
@@ -480,11 +657,15 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
         {/* Character keys */}
         {characters.map((char) => {
-          const keys = characterPlaceholderKeys.find((c) => c.characterId === char.id)?.keys ?? []
+          const keys =
+            characterPlaceholderKeys.find((c) => c.characterId === char.id)
+              ?.keys ?? []
           if (keys.length === 0) return null
           return (
             <div key={char.id} className="mb-2.5">
-              <div className="text-[11px] text-muted-foreground/60 mb-1">{char.name}</div>
+              <div className="text-[11px] text-muted-foreground/60 mb-1">
+                {char.name}
+              </div>
               <div className="flex flex-wrap gap-1">
                 {keys.map((key) => {
                   const ownValue = getCellValue(key, char.id)
@@ -498,7 +679,10 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       className="cursor-pointer text-xs gap-1 h-5 px-1.5"
                       onClick={() => scrollToSlot('c', key, char.id)}
                     >
-                      <StatusDot filled={isFilled || isTemplate} template={isTemplate} />
+                      <StatusDot
+                        filled={isFilled || isTemplate}
+                        template={isTemplate}
+                      />
                       {key}
                     </Badge>
                   )
@@ -522,7 +706,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           {classifiedKeys.unfilledGeneral.length > 0 && (
             <div className="space-y-2.5">
               {characters.length > 0 && (
-                <div className="text-xs text-muted-foreground/60">{t('workspace.general')}</div>
+                <div className="text-xs text-muted-foreground/60">
+                  {t('workspace.general')}
+                </div>
               )}
               {classifiedKeys.unfilledGeneral.map((key) => (
                 <div key={key} id={`slot-g-${key}`}>
@@ -539,13 +725,23 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                       title={t('workspace.expandEditor')}
                     >
-                      <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                      <HugeiconsIcon
+                        icon={ArrowExpand01Icon}
+                        className="size-3.5"
+                      />
                     </button>
                   </div>
                   <textarea
                     value={getCellValue(key, 'general')}
-                    onChange={(e) => handleCellChange('general', key, e.target.value)}
-                    onFocus={() => { pinnedCellRef.current = { key: `g:${key}`, section: 'unfilled' } }}
+                    onChange={(e) =>
+                      handleCellChange('general', key, e.target.value)
+                    }
+                    onFocus={() => {
+                      pinnedCellRef.current = {
+                        key: `g:${key}`,
+                        section: 'unfilled',
+                      }
+                    }}
                     onBlur={() => handleSectionBlur(`g:${key}`)}
                     rows={2}
                     className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
@@ -574,13 +770,23 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                       title={t('workspace.expandEditor')}
                     >
-                      <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                      <HugeiconsIcon
+                        icon={ArrowExpand01Icon}
+                        className="size-3.5"
+                      />
                     </button>
                   </div>
                   <textarea
                     value={getCellValue(key, charId)}
-                    onChange={(e) => handleCellChange(charId, key, e.target.value)}
-                    onFocus={() => { pinnedCellRef.current = { key: `c:${charId}:${key}`, section: 'unfilled' } }}
+                    onChange={(e) =>
+                      handleCellChange(charId, key, e.target.value)
+                    }
+                    onFocus={() => {
+                      pinnedCellRef.current = {
+                        key: `c:${charId}:${key}`,
+                        section: 'unfilled',
+                      }
+                    }}
                     onBlur={() => handleSectionBlur(`c:${charId}:${key}`)}
                     rows={2}
                     className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
@@ -615,7 +821,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               {classifiedKeys.filledGeneral.length > 0 && (
                 <div className="space-y-2.5">
                   {characters.length > 0 && (
-                    <div className="text-xs text-muted-foreground/60">{t('workspace.general')}</div>
+                    <div className="text-xs text-muted-foreground/60">
+                      {t('workspace.general')}
+                    </div>
                   )}
                   {classifiedKeys.filledGeneral.map((key) => (
                     <div key={key} id={`slot-g-${key}`}>
@@ -628,17 +836,29 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         </label>
                         <button
                           type="button"
-                          onClick={() => setExpandTarget({ key, owner: 'general' })}
+                          onClick={() =>
+                            setExpandTarget({ key, owner: 'general' })
+                          }
                           className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                           title={t('workspace.expandEditor')}
                         >
-                          <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                          <HugeiconsIcon
+                            icon={ArrowExpand01Icon}
+                            className="size-3.5"
+                          />
                         </button>
                       </div>
                       <textarea
                         value={getCellValue(key, 'general')}
-                        onChange={(e) => handleCellChange('general', key, e.target.value)}
-                        onFocus={() => { pinnedCellRef.current = { key: `g:${key}`, section: 'filled' } }}
+                        onChange={(e) =>
+                          handleCellChange('general', key, e.target.value)
+                        }
+                        onFocus={() => {
+                          pinnedCellRef.current = {
+                            key: `g:${key}`,
+                            section: 'filled',
+                          }
+                        }}
                         onBlur={() => handleSectionBlur(`g:${key}`)}
                         rows={2}
                         className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
@@ -653,14 +873,19 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               {classifiedKeys.filledChars.map(({ charId, charName, keys }) => {
                 const isCollapsed = collapsedSections.has(charId)
                 return (
-                  <div key={charId} className="rounded-lg bg-secondary/15 border-l-2 border-primary/30">
+                  <div
+                    key={charId}
+                    className="rounded-lg bg-secondary/15 border-l-2 border-primary/30"
+                  >
                     <button
                       onClick={() => toggleSection(charId)}
                       className="w-full flex items-center justify-between px-4 py-2.5 text-left hover:bg-secondary/25 transition-colors rounded-t-lg"
                     >
                       <span className="text-base font-medium">{charName}</span>
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs text-muted-foreground tabular-nums">{keys.length}</span>
+                        <span className="text-xs text-muted-foreground tabular-nums">
+                          {keys.length}
+                        </span>
                         <HugeiconsIcon
                           icon={ArrowDown01Icon}
                           className={`size-5 text-muted-foreground transition-transform duration-200 ${isCollapsed ? '-rotate-90' : ''}`}
@@ -674,28 +899,47 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                           <div key={key} id={`slot-c-${charId}-${key}`}>
                             <div className="flex items-center justify-between mb-1.5">
                               <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-                                <StatusDot filled={true} template={isTemplate} />
+                                <StatusDot
+                                  filled={true}
+                                  template={isTemplate}
+                                />
                                 <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
                                   {`\\\\${key}\\\\`}
                                 </span>
                                 {isTemplate && (
-                                  <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">{t('placeholder.defaultValue')}</span>
+                                  <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">
+                                    {t('placeholder.defaultValue')}
+                                  </span>
                                 )}
                               </label>
                               <button
                                 type="button"
-                                onClick={() => setExpandTarget({ key, owner: charId })}
+                                onClick={() =>
+                                  setExpandTarget({ key, owner: charId })
+                                }
                                 className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                                 title={t('workspace.expandEditor')}
                               >
-                                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                                <HugeiconsIcon
+                                  icon={ArrowExpand01Icon}
+                                  className="size-3.5"
+                                />
                               </button>
                             </div>
                             <textarea
                               value={getEffectiveCharValue(key, charId)}
-                              onChange={(e) => handleCellChange(charId, key, e.target.value)}
-                              onFocus={() => { pinnedCellRef.current = { key: `c:${charId}:${key}`, section: 'filled' } }}
-                              onBlur={() => handleSectionBlur(`c:${charId}:${key}`)}
+                              onChange={(e) =>
+                                handleCellChange(charId, key, e.target.value)
+                              }
+                              onFocus={() => {
+                                pinnedCellRef.current = {
+                                  key: `c:${charId}:${key}`,
+                                  section: 'filled',
+                                }
+                              }}
+                              onBlur={() =>
+                                handleSectionBlur(`c:${charId}:${key}`)
+                              }
                               rows={2}
                               className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
                               placeholder={`${charName}: ${key}`}
@@ -734,11 +978,18 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
               <div className="space-y-2.5">
                 {extraGeneralKeys.map((key) => (
                   <div key={key} className="flex items-center gap-2">
-                    <span className="text-xs font-mono text-muted-foreground/70 shrink-0 min-w-0 truncate max-w-[8rem]" title={key}>{key}</span>
+                    <span
+                      className="text-xs font-mono text-muted-foreground/70 shrink-0 min-w-0 truncate max-w-[8rem]"
+                      title={key}
+                    >
+                      {key}
+                    </span>
                     <input
                       type="text"
                       value={getCellValue(key, 'general')}
-                      onChange={(e) => handleCellChange('general', key, e.target.value)}
+                      onChange={(e) =>
+                        handleCellChange('general', key, e.target.value)
+                      }
                       className="flex-1 h-8 rounded-lg border border-dashed border-border bg-input/20 px-2.5 text-sm font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none transition-all min-w-0"
                       placeholder={t('scene.valueFor', { key })}
                     />
@@ -762,11 +1013,29 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       autoFocus
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') handleAddSceneDataKey()
-                        if (e.key === 'Escape') { setAddingSceneData(false); setNewSceneDataKey('') }
+                        if (e.key === 'Escape') {
+                          setAddingSceneData(false)
+                          setNewSceneDataKey('')
+                        }
                       }}
                     />
-                    <Button size="xs" onClick={handleAddSceneDataKey} disabled={!newSceneDataKey.trim()}>{t('common.add')}</Button>
-                    <Button size="xs" variant="ghost" onClick={() => { setAddingSceneData(false); setNewSceneDataKey('') }}>{t('common.cancel')}</Button>
+                    <Button
+                      size="xs"
+                      onClick={handleAddSceneDataKey}
+                      disabled={!newSceneDataKey.trim()}
+                    >
+                      {t('common.add')}
+                    </Button>
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      onClick={() => {
+                        setAddingSceneData(false)
+                        setNewSceneDataKey('')
+                      }}
+                    >
+                      {t('common.cancel')}
+                    </Button>
                   </div>
                 ) : (
                   <button
@@ -804,15 +1073,23 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
             {previewOpen && resolvedPrompts && (
               <div className="mt-2 space-y-3">
                 <div>
-                  <div className="text-[11px] text-muted-foreground/60 mb-1">{t('placeholder.generalPrompt')}</div>
+                  <div className="text-[11px] text-muted-foreground/60 mb-1">
+                    {t('placeholder.generalPrompt')}
+                  </div>
                   <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
-                    {resolvedPrompts.general || <span className="text-muted-foreground/40 italic">{t('placeholder.empty')}</span>}
+                    {resolvedPrompts.general || (
+                      <span className="text-muted-foreground/40 italic">
+                        {t('placeholder.empty')}
+                      </span>
+                    )}
                   </pre>
                 </div>
 
                 {resolvedPrompts.negative && (
                   <div>
-                    <div className="text-[11px] text-muted-foreground/60 mb-1">{t('placeholder.negativePrompt')}</div>
+                    <div className="text-[11px] text-muted-foreground/60 mb-1">
+                      {t('placeholder.negativePrompt')}
+                    </div>
                     <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
                       {resolvedPrompts.negative}
                     </pre>
@@ -821,13 +1098,21 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
                 {resolvedPrompts.characters.map((char) => (
                   <div key={char.name}>
-                    <div className="text-[11px] text-muted-foreground/60 mb-1">{char.name}</div>
+                    <div className="text-[11px] text-muted-foreground/60 mb-1">
+                      {char.name}
+                    </div>
                     <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
-                      {char.prompt || <span className="text-muted-foreground/40 italic">{t('placeholder.empty')}</span>}
+                      {char.prompt || (
+                        <span className="text-muted-foreground/40 italic">
+                          {t('placeholder.empty')}
+                        </span>
+                      )}
                     </pre>
                     {char.negative && (
                       <>
-                        <div className="text-[11px] text-muted-foreground/60 mt-2 mb-1">{char.name} {t('placeholder.negativePrompt')}</div>
+                        <div className="text-[11px] text-muted-foreground/60 mt-2 mb-1">
+                          {char.name} {t('placeholder.negativePrompt')}
+                        </div>
                         <pre className="text-xs font-mono bg-secondary/30 rounded-lg p-3 whitespace-pre-wrap break-words text-foreground/80 max-h-48 overflow-y-auto">
                           {char.negative}
                         </pre>
@@ -842,17 +1127,24 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       )}
       <ExpandedTextareaDialog
         open={expandTarget !== null}
-        onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
-        title={expandTarget ? `\\\\${expandTarget.key}\\\\` : ''}
-        value={expandTarget ? (
-          typeof expandTarget.owner === 'number'
-            ? getEffectiveCharValue(expandTarget.key, expandTarget.owner)
-            : getCellValue(expandTarget.key, 'general')
-        ) : ''}
-        onChange={(val) => {
-          if (expandTarget) handleCellChange(expandTarget.owner, expandTarget.key, val)
+        onOpenChange={(open) => {
+          if (!open) setExpandTarget(null)
         }}
-        placeholder={expandTarget ? t('scene.valueFor', { key: expandTarget.key }) : ''}
+        title={expandTarget ? `\\\\${expandTarget.key}\\\\` : ''}
+        value={
+          expandTarget
+            ? typeof expandTarget.owner === 'number'
+              ? getEffectiveCharValue(expandTarget.key, expandTarget.owner)
+              : getCellValue(expandTarget.key, 'general')
+            : ''
+        }
+        onChange={(val) => {
+          if (expandTarget)
+            handleCellChange(expandTarget.owner, expandTarget.key, val)
+        }}
+        placeholder={
+          expandTarget ? t('scene.valueFor', { key: expandTarget.key }) : ''
+        }
       />
     </div>
   )

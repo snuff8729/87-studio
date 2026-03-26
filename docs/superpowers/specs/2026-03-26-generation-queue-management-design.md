@@ -27,26 +27,28 @@
 
 한 번의 Generate 액션으로 생성된 Job 묶음.
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | integer (PK, autoincrement) | |
-| `project_id` | integer (FK → projects, SET NULL) | null = Quick Generate |
-| `label` | text (NOT NULL) | UI 표시명. 예: "프로젝트A — 웃음, 슬픔, 화남" |
-| `queue_order` | integer (NOT NULL) | 배치 간 순서 (낮을수록 먼저 실행) |
-| `status` | text (DEFAULT 'pending') | pending, running, completed, failed, cancelled |
-| `created_at` | text (DEFAULT datetime('now')) | |
+| Column        | Type                              | Description                                    |
+| ------------- | --------------------------------- | ---------------------------------------------- |
+| `id`          | integer (PK, autoincrement)       |                                                |
+| `project_id`  | integer (FK → projects, SET NULL) | null = Quick Generate                          |
+| `label`       | text (NOT NULL)                   | UI 표시명. 예: "프로젝트A — 웃음, 슬픔, 화남"  |
+| `queue_order` | integer (NOT NULL)                | 배치 간 순서 (낮을수록 먼저 실행)              |
+| `status`      | text (DEFAULT 'pending')          | pending, running, completed, failed, cancelled |
+| `created_at`  | text (DEFAULT datetime('now'))    |                                                |
 
 **Indexes:**
+
 - `(status, queue_order)` — 활성 배치 순서 조회
 
 ### 1.2 Alter Table: `generation_jobs`
 
-| Change | Type | Description |
-|--------|------|-------------|
-| + `batch_id` | integer (FK → generation_batches, CASCADE) | null for legacy jobs |
-| + `queue_order` | integer (DEFAULT 0) | 배치 내 Job 순서 (낮을수록 먼저) |
+| Change          | Type                                       | Description                      |
+| --------------- | ------------------------------------------ | -------------------------------- |
+| + `batch_id`    | integer (FK → generation_batches, CASCADE) | null for legacy jobs             |
+| + `queue_order` | integer (DEFAULT 0)                        | 배치 내 Job 순서 (낮을수록 먼저) |
 
 **Indexes:**
+
 - `(batch_id, queue_order)` — 배치 내 Job 순서 조회
 
 ### 1.3 Migration Strategy
@@ -61,11 +63,13 @@
 ### 2.1 In-Memory Array Removal
 
 **Before:**
+
 ```ts
 const queue: number[] = [] // job IDs in memory
 ```
 
 **After:**
+
 ```ts
 // queue 배열 제거
 // DB에서 다음 작업을 조회하는 함수로 대체
@@ -112,6 +116,7 @@ processQueue():
 ### 2.4 `processJob()` Changes
 
 기존 로직 대부분 유지. 변경점:
+
 - 매 이미지 생성 완료 후 `queueStopped` 체크는 그대로
 - Job이 cancelled로 변경됐는지 DB 체크도 그대로
 - **추가**: 현재 job의 batch가 cancelled 됐는지도 체크
@@ -161,8 +166,8 @@ export function cancelBatch(batchId: number) {
 ```ts
 // 글로벌 타이밍 (전체 큐)
 export function getGlobalQueueStats(): {
-  totalPendingImages: number    // 모든 pending+running job의 남은 이미지 수
-  completedImages: number       // 현재 세션에서 완료된 이미지 수
+  totalPendingImages: number // 모든 pending+running job의 남은 이미지 수
+  completedImages: number // 현재 세션에서 완료된 이미지 수
   avgImageDurationMs: number | null
   etaMs: number | null
 }
@@ -189,10 +194,12 @@ export function recoverJobs() {
 ### 3.1 `generation.ts` Changes
 
 **Modified:**
+
 - `createGenerationJob` → batch 생성 후 job들을 batch에 연결
 - `fetchQueueStatus` → 글로벌 큐 요약 정보 포함 (배치 수, 전체 남은 이미지 수, ETA)
 
 **New:**
+
 - `listQueueBatches()` — 활성 큐 배치 목록 (pending/running, queue_order 순)
 - `listRecentBatches()` — 최근 완료/실패/취소 배치 (최근 20개)
 - `getBatchDetail(batchId)` — 배치 내 Job 목록
@@ -241,28 +248,28 @@ export function recoverJobs() {
 
 ### 4.3 Components
 
-| Component | Description |
-|-----------|-------------|
-| `QueuePage` | 메인 페이지. 상단 요약 + 활성 큐 + 완료 이력 |
-| `QueueHeader` | 글로벌 통계 (배치 수, 남은 이미지, ETA) + 일시정지/재개 버튼 |
-| `BatchList` | 드래그 앤 드롭 가능한 배치 리스트 (`@dnd-kit/sortable`) |
-| `BatchItem` | 단일 배치 행. 펼침/접기 토글, 진행률, 취소 버튼 |
-| `JobList` | 배치 내 Job 리스트 (펼쳤을 때). 드래그 앤 드롭 가능 |
-| `JobItem` | 단일 Job 행. 진행률, 취소 버튼 |
-| `CompletedBatchList` | 최근 완료/실패/취소 배치 목록 |
+| Component            | Description                                                  |
+| -------------------- | ------------------------------------------------------------ |
+| `QueuePage`          | 메인 페이지. 상단 요약 + 활성 큐 + 완료 이력                 |
+| `QueueHeader`        | 글로벌 통계 (배치 수, 남은 이미지, ETA) + 일시정지/재개 버튼 |
+| `BatchList`          | 드래그 앤 드롭 가능한 배치 리스트 (`@dnd-kit/sortable`)      |
+| `BatchItem`          | 단일 배치 행. 펼침/접기 토글, 진행률, 취소 버튼              |
+| `JobList`            | 배치 내 Job 리스트 (펼쳤을 때). 드래그 앤 드롭 가능          |
+| `JobItem`            | 단일 Job 행. 진행률, 취소 버튼                               |
+| `CompletedBatchList` | 최근 완료/실패/취소 배치 목록                                |
 
 ### 4.4 Interactions
 
-| Action | Mechanism |
-|--------|-----------|
-| 배치 순서 변경 | ≡ 핸들 드래그 앤 드롭. drop 시 `reorderQueueBatches` 호출 |
-| 배치 내 Job 순서 변경 | 배치 펼친 상태에서 Job 드래그 앤 드롭. drop 시 `reorderBatchJobs` 호출 |
-| 배치 취소 | 배치 행의 취소 버튼 → confirm dialog → `cancelBatch` 호출 |
-| 개별 Job 취소 | Job 행의 취소 버튼 → `cancelJobs` 호출 |
+| Action                  | Mechanism                                                                                    |
+| ----------------------- | -------------------------------------------------------------------------------------------- |
+| 배치 순서 변경          | ≡ 핸들 드래그 앤 드롭. drop 시 `reorderQueueBatches` 호출                                    |
+| 배치 내 Job 순서 변경   | 배치 펼친 상태에서 Job 드래그 앤 드롭. drop 시 `reorderBatchJobs` 호출                       |
+| 배치 취소               | 배치 행의 취소 버튼 → confirm dialog → `cancelBatch` 호출                                    |
+| 개별 Job 취소           | Job 행의 취소 버튼 → `cancelJobs` 호출                                                       |
 | 진행 중 Job 뒤로 보내기 | running job에 "뒤로 보내기" 버튼 → job을 pending으로 변경, queue_order를 batch 내 마지막으로 |
-| 전체 일시정지/재개 | 상단 버튼 → 기존 `pauseGeneration`/`resumeGeneration` 호출 |
-| 실패 배치 재시도 | 완료 이력의 재시도 버튼 → `retryBatch` 호출 |
-| 갤러리 이동 | 완료된 배치 클릭 → 갤러리 해당 프로젝트 필터로 이동 |
+| 전체 일시정지/재개      | 상단 버튼 → 기존 `pauseGeneration`/`resumeGeneration` 호출                                   |
+| 실패 배치 재시도        | 완료 이력의 재시도 버튼 → `retryBatch` 호출                                                  |
+| 갤러리 이동             | 완료된 배치 클릭 → 갤러리 해당 프로젝트 필터로 이동                                          |
 
 ### 4.5 Empty State
 
@@ -349,17 +356,18 @@ After:
 
 ## 7. Dependencies
 
-| Package | Purpose |
-|---------|---------|
-| `@dnd-kit/core` | 드래그 앤 드롭 코어 |
-| `@dnd-kit/sortable` | 정렬 가능한 리스트 |
-| `@dnd-kit/utilities` | CSS 유틸리티 |
+| Package              | Purpose             |
+| -------------------- | ------------------- |
+| `@dnd-kit/core`      | 드래그 앤 드롭 코어 |
+| `@dnd-kit/sortable`  | 정렬 가능한 리스트  |
+| `@dnd-kit/utilities` | CSS 유틸리티        |
 
 ---
 
 ## 8. i18n Keys
 
 `queue.*` 네임스페이스 추가 (en.ts, ko.ts):
+
 - `queue.title`, `queue.empty`, `queue.batchesCount`, `queue.imagesRemaining`
 - `queue.cancel`, `queue.cancelBatch`, `queue.retry`, `queue.retryBatch`
 - `queue.pause`, `queue.resume`, `queue.paused`, `queue.error`

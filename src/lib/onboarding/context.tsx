@@ -1,14 +1,22 @@
-import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react'
 import { useRouter, useRouterState } from '@tanstack/react-router'
-import { getSetting, setSetting } from '@/server/functions/settings'
 import { ONBOARDING_STEPS, TOTAL_STEPS } from './steps'
 import type { OnboardingContextValue, OnboardingState } from './types'
+import { getSetting, setSetting } from '@/server/functions/settings'
 
 const OnboardingContext = createContext<OnboardingContextValue | null>(null)
 
 export function useOnboarding() {
   const ctx = useContext(OnboardingContext)
-  if (!ctx) throw new Error('useOnboarding must be used within OnboardingProvider')
+  if (!ctx)
+    throw new Error('useOnboarding must be used within OnboardingProvider')
   return ctx
 }
 
@@ -16,7 +24,11 @@ export function useOnboardingMaybe() {
   return useContext(OnboardingContext)
 }
 
-export function OnboardingProvider({ children }: { children: React.ReactNode }) {
+export function OnboardingProvider({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   const router = useRouter()
   const routerState = useRouterState()
   const { pathname } = routerState.location
@@ -69,20 +81,26 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       }
     }
     load()
-    return () => { cancelled = true }
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Persist step
   useEffect(() => {
     if (state.active && !state.loading) {
-      setSetting({ data: { key: 'onboarding_step', value: String(state.step) } })
+      setSetting({
+        data: { key: 'onboarding_step', value: String(state.step) },
+      })
     }
   }, [state.step, state.active, state.loading])
 
   // Persist projectId
   useEffect(() => {
     if (state.projectId != null && state.active) {
-      setSetting({ data: { key: 'onboarding_project_id', value: String(state.projectId) } })
+      setSetting({
+        data: { key: 'onboarding_project_id', value: String(state.projectId) },
+      })
     }
   }, [state.projectId, state.active])
 
@@ -100,10 +118,18 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       targetPath = `/workspace/${state.projectId}`
     }
     if (!targetPath) return
-    if (targetPath === '/' ? pathname === '/' : pathname.startsWith(targetPath)) return
+    if (targetPath === '/' ? pathname === '/' : pathname.startsWith(targetPath))
+      return
 
     router.navigate({ to: targetPath })
-  }, [state.step, state.active, state.loading, state.projectId, pathname, router])
+  }, [
+    state.step,
+    state.active,
+    state.loading,
+    state.projectId,
+    pathname,
+    router,
+  ])
 
   // Listen for custom events (auto-advance steps)
   useEffect(() => {
@@ -132,7 +158,8 @@ export function OnboardingProvider({ children }: { children: React.ReactNode }) 
       'onboarding:generation-started',
     ]
     events.forEach((name) => window.addEventListener(name, handleEvent))
-    return () => events.forEach((name) => window.removeEventListener(name, handleEvent))
+    return () =>
+      events.forEach((name) => window.removeEventListener(name, handleEvent))
   }, [state.active]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Route-based completion

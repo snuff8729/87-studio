@@ -1,7 +1,15 @@
-import { createFileRoute, Outlet, useRouterState } from '@tanstack/react-router'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+  Link,
+  Outlet,
+  createFileRoute,
+  useRouterState,
+} from '@tanstack/react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Download04Icon, Image02Icon } from '@hugeicons/core-free-icons'
+import type { GridSize } from '@/lib/use-image-grid-size'
 import { PageHeader } from '@/components/common/page-header'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { Button } from '@/components/ui/button'
@@ -14,21 +22,18 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import {
+  bulkUpdateImages,
   listImages,
-  updateImage,
-  listTags,
   listProjectsForFilter,
   listScenesForFilter,
-  bulkUpdateImages,
+  listTags,
+  updateImage,
 } from '@/server/functions/gallery'
 import { Skeleton } from '@/components/ui/skeleton'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Image02Icon, Download04Icon } from '@hugeicons/core-free-icons'
 import { useTranslation } from '@/lib/i18n'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { GridSizeToggle } from '@/components/common/grid-size-toggle'
-import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
-import { Link } from '@tanstack/react-router'
+import { useImageGridSize } from '@/lib/use-image-grid-size'
 
 function PendingComponent() {
   return (
@@ -74,9 +79,12 @@ type SearchParams = {
 export const Route = createFileRoute('/gallery')({
   validateSearch: (search: Record<string, unknown>): SearchParams => ({
     project: search.project ? Number(search.project) : undefined,
-    projectSceneId: search.projectSceneId ? Number(search.projectSceneId) : undefined,
+    projectSceneId: search.projectSceneId
+      ? Number(search.projectSceneId)
+      : undefined,
     tag: search.tag ? Number(search.tag) : undefined,
-    favorite: search.favorite === true || search.favorite === 'true' ? true : undefined,
+    favorite:
+      search.favorite === true || search.favorite === 'true' ? true : undefined,
     minRating: search.minRating ? Number(search.minRating) : undefined,
     sortBy: (search.sortBy as SearchParams['sortBy']) || undefined,
     quick: search.quick === true || search.quick === 'true' ? true : undefined,
@@ -153,7 +161,9 @@ function GalleryLayout() {
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Scene filter options (loaded when project is selected)
-  const [projectScenes, setProjectScenes] = useState<{ id: number; name: string }[]>([])
+  const [projectScenes, setProjectScenes] = useState<
+    Array<{ id: number; name: string }>
+  >([])
 
   // ── Grid size ──
   const { gridSize, setGridSize } = useImageGridSize('gallery')
@@ -174,14 +184,18 @@ function GalleryLayout() {
   useEffect(() => {
     if (isDetailOpen) {
       document.body.style.overflow = 'hidden'
-      return () => { document.body.style.overflow = '' }
+      return () => {
+        document.body.style.overflow = ''
+      }
     }
   }, [isDetailOpen])
 
   // Load scenes when project changes
   useEffect(() => {
     if (search.project) {
-      listScenesForFilter({ data: { projectId: search.project } }).then(setProjectScenes)
+      listScenesForFilter({ data: { projectId: search.project } }).then(
+        setProjectScenes,
+      )
     } else {
       setProjectScenes([])
     }
@@ -201,7 +215,8 @@ function GalleryLayout() {
     return () => ro.disconnect()
   }, [])
 
-  const cellSize = gridWidth > 0 ? Math.floor((gridWidth - GAP * (cols - 1)) / cols) : 150
+  const cellSize =
+    gridWidth > 0 ? Math.floor((gridWidth - GAP * (cols - 1)) / cols) : 150
   const rowHeight = cellSize + GAP
   const rowCount = Math.ceil(images.length / cols)
 
@@ -254,7 +269,9 @@ function GalleryLayout() {
     const newVal = current ? 0 : 1
     await updateImage({ data: { id: imageId, isFavorite: newVal } })
     setImages((prev) =>
-      prev.map((img) => (img.id === imageId ? { ...img, isFavorite: newVal } : img)),
+      prev.map((img) =>
+        img.id === imageId ? { ...img, isFavorite: newVal } : img,
+      ),
     )
   }
 
@@ -269,11 +286,17 @@ function GalleryLayout() {
 
   async function handleBulkFavorite() {
     try {
-      await bulkUpdateImages({ data: { imageIds: [...selectedIds], isFavorite: 1 } })
+      await bulkUpdateImages({
+        data: { imageIds: [...selectedIds], isFavorite: 1 },
+      })
       setImages((prev) =>
-        prev.map((img) => (selectedIds.has(img.id) ? { ...img, isFavorite: 1 } : img)),
+        prev.map((img) =>
+          selectedIds.has(img.id) ? { ...img, isFavorite: 1 } : img,
+        ),
       )
-      toast.success(t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }))
+      toast.success(
+        t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }),
+      )
       setSelectedIds(new Set())
       setSelectMode(false)
     } catch {
@@ -283,7 +306,9 @@ function GalleryLayout() {
 
   async function handleBulkDelete() {
     try {
-      await bulkUpdateImages({ data: { imageIds: [...selectedIds], delete: true } })
+      await bulkUpdateImages({
+        data: { imageIds: [...selectedIds], delete: true },
+      })
       setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)))
       toast.success(t('gallery.bulkDeleteSuccess', { count: selectedIds.size }))
       setSelectedIds(new Set())
@@ -293,7 +318,14 @@ function GalleryLayout() {
     }
   }
 
-  const hasFilters = search.project || search.favorite || search.minRating || search.projectSceneId || search.tag || search.sortBy || search.quick
+  const hasFilters =
+    search.project ||
+    search.favorite ||
+    search.minRating ||
+    search.projectSceneId ||
+    search.tag ||
+    search.sortBy ||
+    search.quick
 
   return (
     <>
@@ -311,7 +343,9 @@ function GalleryLayout() {
                   </Button>
                 }
                 projectId={search.project}
-                projectName={allProjects.find((p) => p.id === search.project)?.name}
+                projectName={
+                  allProjects.find((p) => p.id === search.project)?.name
+                }
                 availableScenes={projectScenes}
               />
               <Button
@@ -331,13 +365,22 @@ function GalleryLayout() {
         {/* Filter Bar */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
           <Select
-            value={search.quick ? 'quick' : search.project ? String(search.project) : 'all'}
+            value={
+              search.quick
+                ? 'quick'
+                : search.project
+                  ? String(search.project)
+                  : 'all'
+            }
             onValueChange={(v) =>
               navigate({
                 search: (prev) => ({
                   ...prev,
                   project: v === 'all' || v === 'quick' ? undefined : Number(v),
-                  projectSceneId: v === 'all' || v === 'quick' ? undefined : prev.projectSceneId,
+                  projectSceneId:
+                    v === 'all' || v === 'quick'
+                      ? undefined
+                      : prev.projectSceneId,
                   quick: v === 'quick' ? true : undefined,
                 }),
               })
@@ -348,7 +391,9 @@ function GalleryLayout() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('gallery.allProjects')}</SelectItem>
-              <SelectItem value="quick">{t('gallery.quickGenerate')}</SelectItem>
+              <SelectItem value="quick">
+                {t('gallery.quickGenerate')}
+              </SelectItem>
               {allProjects.map((p) => (
                 <SelectItem key={p.id} value={String(p.id)}>
                   {p.name}
@@ -359,7 +404,9 @@ function GalleryLayout() {
 
           {search.project && projectScenes.length > 0 && (
             <Select
-              value={search.projectSceneId ? String(search.projectSceneId) : 'all'}
+              value={
+                search.projectSceneId ? String(search.projectSceneId) : 'all'
+              }
               onValueChange={(v) =>
                 navigate({
                   search: (prev) => ({
@@ -386,14 +433,28 @@ function GalleryLayout() {
           <Button
             size="sm"
             variant={search.favorite ? 'default' : 'outline'}
-            onClick={() => navigate({ search: (prev) => ({ ...prev, favorite: prev.favorite ? undefined : true }) })}
+            onClick={() =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  favorite: prev.favorite ? undefined : true,
+                }),
+              })
+            }
           >
             {t('gallery.favorites')}
           </Button>
 
           <Select
             value={search.minRating ? String(search.minRating) : 'all'}
-            onValueChange={(v) => navigate({ search: (prev) => ({ ...prev, minRating: v === 'all' ? undefined : Number(v) }) })}
+            onValueChange={(v) =>
+              navigate({
+                search: (prev) => ({
+                  ...prev,
+                  minRating: v === 'all' ? undefined : Number(v),
+                }),
+              })
+            }
           >
             <SelectTrigger className="w-32">
               <SelectValue placeholder={t('gallery.anyRating')} />
@@ -440,7 +501,8 @@ function GalleryLayout() {
               navigate({
                 search: (prev) => ({
                   ...prev,
-                  sortBy: v === 'newest' ? undefined : (v as SearchParams['sortBy']),
+                  sortBy:
+                    v === 'newest' ? undefined : (v as SearchParams['sortBy']),
                 }),
               })
             }
@@ -451,13 +513,21 @@ function GalleryLayout() {
             <SelectContent>
               <SelectItem value="newest">{t('gallery.newestFirst')}</SelectItem>
               <SelectItem value="oldest">{t('gallery.oldestFirst')}</SelectItem>
-              <SelectItem value="rating">{t('gallery.highestRated')}</SelectItem>
-              <SelectItem value="favorites">{t('gallery.favoritesFirst')}</SelectItem>
+              <SelectItem value="rating">
+                {t('gallery.highestRated')}
+              </SelectItem>
+              <SelectItem value="favorites">
+                {t('gallery.favoritesFirst')}
+              </SelectItem>
             </SelectContent>
           </Select>
 
           {hasFilters && (
-            <Button size="sm" variant="ghost" onClick={() => navigate({ search: { imageDetail: undefined } })}>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => navigate({ search: { imageDetail: undefined } })}
+            >
               {t('common.clear')}
             </Button>
           )}
@@ -471,13 +541,20 @@ function GalleryLayout() {
         <div ref={gridRef}>
           {images.length === 0 ? (
             <div className="rounded-xl border border-border border-dashed py-16 text-center">
-              <HugeiconsIcon icon={Image02Icon} className="size-10 text-muted-foreground/40 mx-auto mb-3" />
-              <p className="text-base text-muted-foreground mb-1">{t('gallery.noImagesFound')}</p>
+              <HugeiconsIcon
+                icon={Image02Icon}
+                className="size-10 text-muted-foreground/40 mx-auto mb-3"
+              />
+              <p className="text-base text-muted-foreground mb-1">
+                {t('gallery.noImagesFound')}
+              </p>
               <p className="text-sm text-muted-foreground mb-4">
                 {t('gallery.noImagesDesc')}
               </p>
               <Button variant="outline" size="sm" asChild>
-                <Link to="/" search={{ imageDetail: undefined }}>{t('gallery.goToProjects')}</Link>
+                <Link to="/" search={{ imageDetail: undefined }}>
+                  {t('gallery.goToProjects')}
+                </Link>
               </Button>
             </div>
           ) : (
@@ -507,7 +584,10 @@ function GalleryLayout() {
                         {rowImages.map((img) => (
                           <div
                             key={img.id}
-                            style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                            style={{
+                              width: `${cellSize}px`,
+                              height: `${cellSize}px`,
+                            }}
                             className="shrink-0"
                           >
                             <GalleryImage
@@ -516,7 +596,9 @@ function GalleryLayout() {
                               selectMode={selectMode}
                               selected={selectedIds.has(img.id)}
                               onToggleSelect={() => toggleSelect(img.id)}
-                              onToggleFavorite={() => handleToggleFavorite(img.id, img.isFavorite)}
+                              onToggleFavorite={() =>
+                                handleToggleFavorite(img.id, img.isFavorite)
+                              }
                             />
                           </div>
                         ))}
@@ -527,7 +609,9 @@ function GalleryLayout() {
               </div>
 
               {loading && (
-                <div className="text-center py-4 text-muted-foreground text-base">{t('common.loading')}</div>
+                <div className="text-center py-4 text-muted-foreground text-base">
+                  {t('common.loading')}
+                </div>
               )}
             </>
           )}
@@ -536,7 +620,9 @@ function GalleryLayout() {
         {/* Bulk action bar */}
         {selectMode && selectedIds.size > 0 && (
           <div className="fixed bottom-16 lg:bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
-            <span className="text-base font-medium">{t('gallery.selectedCount', { count: selectedIds.size })}</span>
+            <span className="text-base font-medium">
+              {t('gallery.selectedCount', { count: selectedIds.size })}
+            </span>
             <DownloadDialog
               trigger={
                 <Button size="sm" variant="outline">
@@ -546,15 +632,32 @@ function GalleryLayout() {
               }
               selectedImageIds={[...selectedIds]}
             />
-            <Button size="sm" variant="outline" onClick={handleBulkFavorite}>{t('gallery.addToFavorites')}</Button>
+            <Button size="sm" variant="outline" onClick={handleBulkFavorite}>
+              {t('gallery.addToFavorites')}
+            </Button>
             <ConfirmDialog
-              trigger={<Button size="sm" variant="destructive">{t('common.delete')}</Button>}
+              trigger={
+                <Button size="sm" variant="destructive">
+                  {t('common.delete')}
+                </Button>
+              }
               title={t('gallery.deleteImages')}
-              description={t('gallery.deleteImagesDesc', { count: selectedIds.size })}
+              description={t('gallery.deleteImagesDesc', {
+                count: selectedIds.size,
+              })}
               variant="destructive"
               onConfirm={handleBulkDelete}
             />
-            <Button size="sm" variant="ghost" onClick={() => { setSelectMode(false); setSelectedIds(new Set()) }}>{t('common.cancel')}</Button>
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setSelectMode(false)
+                setSelectedIds(new Set())
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
           </div>
         )}
       </div>
@@ -575,7 +678,12 @@ function GalleryImage({
   onToggleSelect,
   onToggleFavorite,
 }: {
-  img: { id: number; thumbnailPath: string | null; isFavorite: number | null; rating: number | null }
+  img: {
+    id: number
+    thumbnailPath: string | null
+    isFavorite: number | null
+    rating: number | null
+  }
   search: SearchParams
   selectMode: boolean
   selected: boolean
@@ -597,7 +705,12 @@ function GalleryImage({
         className="relative group w-full h-full rounded-lg overflow-hidden bg-secondary cursor-pointer"
         onClick={onToggleSelect}
       >
-        <ImageContent imgRef={imgRef} img={img} loaded={loaded} onLoad={() => setLoaded(true)} />
+        <ImageContent
+          imgRef={imgRef}
+          img={img}
+          loaded={loaded}
+          onLoad={() => setLoaded(true)}
+        />
         <div className="absolute top-1.5 left-1.5 z-10">
           <Checkbox
             checked={selected}
@@ -624,7 +737,12 @@ function GalleryImage({
       search={search}
       className="relative group w-full h-full rounded-lg overflow-hidden bg-secondary block"
     >
-      <ImageContent imgRef={imgRef} img={img} loaded={loaded} onLoad={() => setLoaded(true)} />
+      <ImageContent
+        imgRef={imgRef}
+        img={img}
+        loaded={loaded}
+        onLoad={() => setLoaded(true)}
+      />
 
       {/* Favorite overlay */}
       <button

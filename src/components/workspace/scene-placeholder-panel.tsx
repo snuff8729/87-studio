@@ -1,9 +1,9 @@
-import { useMemo, memo } from 'react'
+import { memo, useMemo } from 'react'
+import { PlaceholderEditor } from './placeholder-editor'
 import {
   updateProjectScene,
   upsertCharacterOverride,
 } from '@/server/functions/project-scenes'
-import { PlaceholderEditor } from './placeholder-editor'
 
 interface CharacterOverrideData {
   characterId: number
@@ -13,16 +13,21 @@ interface CharacterOverrideData {
 interface CharacterPlaceholderKeyEntry {
   characterId: number
   characterName: string
-  keys: string[]
+  keys: Array<string>
 }
 
 interface ScenePlaceholderPanelProps {
   sceneId: number
   scenePlaceholders: Record<string, string>
-  characterOverrides: CharacterOverrideData[]
-  generalPlaceholderKeys: string[]
-  characterPlaceholderKeys: CharacterPlaceholderKeyEntry[]
-  characters: Array<{ id: number; name: string; charPrompt: string; charNegative: string }>
+  characterOverrides: Array<CharacterOverrideData>
+  generalPlaceholderKeys: Array<string>
+  characterPlaceholderKeys: Array<CharacterPlaceholderKeyEntry>
+  characters: Array<{
+    id: number
+    name: string
+    charPrompt: string
+    charNegative: string
+  }>
   onPlaceholdersChange?: () => void
   getPrompts?: () => { generalPrompt: string; negativePrompt: string }
 }
@@ -56,11 +61,17 @@ export const ScenePlaceholderPanel = memo(function ScenePlaceholderPanel({
         characterPlaceholderKeys={characterPlaceholderKeys}
         characters={characters}
         onSaveGeneral={async (mergedJson) => {
-          await updateProjectScene({ data: { id: sceneId, placeholders: mergedJson } })
+          await updateProjectScene({
+            data: { id: sceneId, placeholders: mergedJson },
+          })
         }}
         onSaveCharOverride={async (charId, mergedJson) => {
           await upsertCharacterOverride({
-            data: { projectSceneId: sceneId, characterId: charId, placeholders: mergedJson },
+            data: {
+              projectSceneId: sceneId,
+              characterId: charId,
+              placeholders: mergedJson,
+            },
           })
         }}
         onPlaceholdersChange={onPlaceholdersChange}

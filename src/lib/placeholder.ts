@@ -1,6 +1,6 @@
 const PLACEHOLDER_RE = /\\\\(\w+)\\\\/g
 
-export function extractPlaceholders(template: string): string[] {
+export function extractPlaceholders(template: string): Array<string> {
   const keys = new Set<string>()
   for (const match of template.matchAll(PLACEHOLDER_RE)) {
     keys.add(match[1])

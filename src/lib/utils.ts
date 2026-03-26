@@ -1,12 +1,13 @@
-import { useRef } from "react"
-import { clsx, type ClassValue } from "clsx"
-import { twMerge } from "tailwind-merge"
+import { useRef } from 'react'
+import { clsx } from 'clsx'
+import { twMerge } from 'tailwind-merge'
+import type { ClassValue } from 'clsx'
 
-export function cn(...inputs: ClassValue[]) {
+export function cn(...inputs: Array<ClassValue>) {
   return twMerge(clsx(inputs))
 }
 
-export function useStableArray<T>(arr: T[]): T[] {
+export function useStableArray<T>(arr: Array<T>): Array<T> {
   const ref = useRef(arr)
   if (
     arr.length !== ref.current.length ||

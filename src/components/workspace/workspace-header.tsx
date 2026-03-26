@@ -1,8 +1,13 @@
-import { useState, useRef, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft02Icon, Image02Icon, Menu01Icon, TimeQuarter02Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowLeft02Icon,
+  Image02Icon,
+  Menu01Icon,
+  TimeQuarter02Icon,
+} from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/i18n'
 import { updateProject } from '@/server/functions/projects'
@@ -16,7 +21,14 @@ interface WorkspaceHeaderProps {
   onToggleRight?: () => void
 }
 
-export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailPath, onToggleLeft, onToggleRight }: WorkspaceHeaderProps) {
+export function WorkspaceHeader({
+  projectName,
+  projectId,
+  saveStatus,
+  thumbnailPath,
+  onToggleLeft,
+  onToggleRight,
+}: WorkspaceHeaderProps) {
   const { t } = useTranslation()
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -79,7 +91,10 @@ export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailP
             onBlur={handleSave}
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleSave()
-              if (e.key === 'Escape') { setEditing(false); setEditName(projectName) }
+              if (e.key === 'Escape') {
+                setEditing(false)
+                setEditName(projectName)
+              }
             }}
             className="text-base font-semibold bg-transparent border-b border-primary outline-none min-w-0 max-w-48"
           />
@@ -93,29 +108,48 @@ export function WorkspaceHeader({ projectName, projectId, saveStatus, thumbnailP
           </h1>
         )}
         {saveStatus === 'saving' && (
-          <span className="text-sm text-muted-foreground animate-pulse shrink-0">{t('common.saving')}</span>
+          <span className="text-sm text-muted-foreground animate-pulse shrink-0">
+            {t('common.saving')}
+          </span>
         )}
         {saveStatus === 'saved' && (
-          <span className="text-sm text-muted-foreground shrink-0">{t('common.saved')}</span>
+          <span className="text-sm text-muted-foreground shrink-0">
+            {t('common.saved')}
+          </span>
         )}
         {saveStatus === 'error' && (
-          <span className="text-sm text-destructive shrink-0">{t('common.saveFailed')}</span>
+          <span className="text-sm text-destructive shrink-0">
+            {t('common.saveFailed')}
+          </span>
         )}
       </div>
       <div className="flex items-center gap-1">
         {onToggleLeft && (
-          <Button variant="ghost" size="sm" onClick={onToggleLeft} className="lg:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleLeft}
+            className="lg:hidden"
+          >
             <HugeiconsIcon icon={Menu01Icon} className="size-5" />
           </Button>
         )}
         <Button variant="ghost" size="sm" asChild>
-          <Link to="/gallery" search={{ project: projectId, imageDetail: undefined }}>
+          <Link
+            to="/gallery"
+            search={{ project: projectId, imageDetail: undefined }}
+          >
             <HugeiconsIcon icon={Image02Icon} className="size-5" />
             <span className="hidden sm:inline">{t('nav.gallery')}</span>
           </Link>
         </Button>
         {onToggleRight && (
-          <Button variant="ghost" size="sm" onClick={onToggleRight} className="lg:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggleRight}
+            className="lg:hidden"
+          >
             <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5" />
           </Button>
         )}

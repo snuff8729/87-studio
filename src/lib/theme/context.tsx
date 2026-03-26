@@ -1,5 +1,12 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
-import type { Theme, ResolvedTheme } from './types'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
+import type { ResolvedTheme, Theme } from './types'
 
 const STORAGE_KEY = '87studio-theme'
 const DEFAULT_THEME: Theme = 'system'
@@ -13,7 +20,8 @@ function getSystemTheme(): ResolvedTheme {
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return DEFAULT_THEME
   const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
+  if (stored === 'light' || stored === 'dark' || stored === 'system')
+    return stored
   return DEFAULT_THEME
 }
 
@@ -32,7 +40,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme)
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(getInitialTheme()))
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    resolveTheme(getInitialTheme()),
+  )
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)

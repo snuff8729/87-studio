@@ -1,14 +1,22 @@
-import { lazy, Suspense, useState, useRef, useEffect, useMemo } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, Delete02Icon, ArrowExpand01Icon } from '@hugeicons/core-free-icons'
+import {
+  Add01Icon,
+  ArrowExpand01Icon,
+  Delete02Icon,
+} from '@hugeicons/core-free-icons'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import {
   Select,
   SelectContent,
@@ -21,7 +29,11 @@ import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
-import { updateCharacter, createCharacter, deleteCharacter } from '@/server/functions/characters'
+import {
+  createCharacter,
+  deleteCharacter,
+  updateCharacter,
+} from '@/server/functions/characters'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -80,7 +92,9 @@ export function PromptPanel({
   const { t } = useTranslation()
   const bundleNames = useBundleNames()
   // 'general' = General tab, 'character' = Character tab (no chars), number = specific character
-  const [activeContext, setActiveContext] = useState<'general' | 'character' | number>('general')
+  const [activeContext, setActiveContext] = useState<
+    'general' | 'character' | number
+  >('general')
   const isCharacterTab = activeContext !== 'general'
 
   // Character-local editing state
@@ -89,7 +103,9 @@ export function PromptPanel({
   const charSaveRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Expanded editor dialog
-  const [expandTarget, setExpandTarget] = useState<'prompt' | 'negative' | null>(null)
+  const [expandTarget, setExpandTarget] = useState<
+    'prompt' | 'negative' | null
+  >(null)
 
   // Add character popover
   const [addOpen, setAddOpen] = useState(false)
@@ -101,7 +117,11 @@ export function PromptPanel({
 
   // When selected character is deleted, select first remaining or show empty state
   useEffect(() => {
-    if (isCharacterTab && typeof activeContext === 'number' && !characters.find((c) => c.id === activeContext)) {
+    if (
+      isCharacterTab &&
+      typeof activeContext === 'number' &&
+      !characters.find((c) => c.id === activeContext)
+    ) {
       // Skip reset if this is a just-added character waiting for data refresh
       if (pendingCharIdRef.current === activeContext) return
       if (characters.length > 0) {
@@ -111,7 +131,10 @@ export function PromptPanel({
       }
     }
     // Clear pending flag once the character appears in the array
-    if (pendingCharIdRef.current && characters.find((c) => c.id === pendingCharIdRef.current)) {
+    if (
+      pendingCharIdRef.current &&
+      characters.find((c) => c.id === pendingCharIdRef.current)
+    ) {
       pendingCharIdRef.current = null
     }
   }, [characters, activeContext]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -127,12 +150,17 @@ export function PromptPanel({
     }
   }, [characters]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const activeChar = typeof activeContext === 'number' ? characters.find((c) => c.id === activeContext) ?? null : null
+  const activeChar =
+    typeof activeContext === 'number'
+      ? (characters.find((c) => c.id === activeContext) ?? null)
+      : null
 
   // ── Character save (debounced) ──
   async function saveChar(charId: number, prompt: string, negative: string) {
     try {
-      await updateCharacter({ data: { id: charId, charPrompt: prompt, charNegative: negative } })
+      await updateCharacter({
+        data: { id: charId, charPrompt: prompt, charNegative: negative },
+      })
       router.invalidate()
     } catch {
       toast.error(t('workspace.characterSaveFailed'))
@@ -141,7 +169,10 @@ export function PromptPanel({
 
   function debouncedCharSave(charId: number, prompt: string, negative: string) {
     if (charSaveRef.current) clearTimeout(charSaveRef.current)
-    charSaveRef.current = setTimeout(() => saveChar(charId, prompt, negative), 1000)
+    charSaveRef.current = setTimeout(
+      () => saveChar(charId, prompt, negative),
+      1000,
+    )
   }
 
   function flushCharSave() {
@@ -183,10 +214,17 @@ export function PromptPanel({
 
   // ── Display values ──
   const displayPrompt = activeContext === 'general' ? generalPrompt : charPrompt
-  const displayNegative = activeContext === 'general' ? negativePrompt : charNegative
+  const displayNegative =
+    activeContext === 'general' ? negativePrompt : charNegative
 
-  const promptPlaceholders = useMemo(() => extractPlaceholders(displayPrompt), [displayPrompt])
-  const negativePlaceholders = useMemo(() => extractPlaceholders(displayNegative), [displayNegative])
+  const promptPlaceholders = useMemo(
+    () => extractPlaceholders(displayPrompt),
+    [displayPrompt],
+  )
+  const negativePlaceholders = useMemo(
+    () => extractPlaceholders(displayNegative),
+    [displayNegative],
+  )
 
   function handlePromptChange(value: string) {
     if (activeContext === 'general') {
@@ -262,7 +300,8 @@ export function PromptPanel({
               : 'text-muted-foreground hover:text-foreground'
           }`}
         >
-          {t('workspace.character')}{characters.length > 0 ? ` (${characters.length})` : ''}
+          {t('workspace.character')}
+          {characters.length > 0 ? ` (${characters.length})` : ''}
         </button>
       </div>
 
@@ -270,7 +309,9 @@ export function PromptPanel({
       {isCharacterTab && characters.length > 0 && (
         <div className="flex items-center gap-1.5">
           {characters.length === 1 ? (
-            <span className="flex-1 text-sm font-medium truncate">{activeChar?.name}</span>
+            <span className="flex-1 text-sm font-medium truncate">
+              {activeChar?.name}
+            </span>
           ) : (
             <Select
               value={String(activeContext)}
@@ -304,12 +345,19 @@ export function PromptPanel({
                     placeholder={t('workspace.characterName')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAddCharacter()
-                      if (e.key === 'Escape') { setAddOpen(false); setNewCharName('') }
+                      if (e.key === 'Escape') {
+                        setAddOpen(false)
+                        setNewCharName('')
+                      }
                     }}
                     className="h-7 text-sm"
                     autoFocus
                   />
-                  <Button size="xs" onClick={handleAddCharacter} disabled={!newCharName.trim()}>
+                  <Button
+                    size="xs"
+                    onClick={handleAddCharacter}
+                    disabled={!newCharName.trim()}
+                  >
                     {t('common.add')}
                   </Button>
                 </div>
@@ -319,13 +367,22 @@ export function PromptPanel({
           {activeChar && (
             <ConfirmDialog
               trigger={
-                <Button variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-destructive" title="Delete character">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground hover:text-destructive"
+                  title="Delete character"
+                >
                   <HugeiconsIcon icon={Delete02Icon} className="size-5" />
                 </Button>
               }
               title={t('workspace.deleteCharacter')}
-              description={t('workspace.deleteCharacterDesc', { name: activeChar.name })}
-              onConfirm={() => handleDeleteCharacter(activeChar.id, activeChar.name)}
+              description={t('workspace.deleteCharacterDesc', {
+                name: activeChar.name,
+              })}
+              onConfirm={() =>
+                handleDeleteCharacter(activeChar.id, activeChar.name)
+              }
             />
           )}
         </div>
@@ -354,12 +411,19 @@ export function PromptPanel({
                     placeholder={t('workspace.characterName')}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') handleAddCharacter()
-                      if (e.key === 'Escape') { setAddOpen(false); setNewCharName('') }
+                      if (e.key === 'Escape') {
+                        setAddOpen(false)
+                        setNewCharName('')
+                      }
                     }}
                     className="h-7 text-sm"
                     autoFocus
                   />
-                  <Button size="xs" onClick={handleAddCharacter} disabled={!newCharName.trim()}>
+                  <Button
+                    size="xs"
+                    onClick={handleAddCharacter}
+                    disabled={!newCharName.trim()}
+                  >
                     {t('common.add')}
                   </Button>
                 </div>
@@ -375,7 +439,9 @@ export function PromptPanel({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
+                {isCharacterTab
+                  ? t('workspace.characterPrompt')
+                  : t('workspace.prompt')}
               </Label>
               <Button
                 variant="ghost"
@@ -393,7 +459,9 @@ export function PromptPanel({
                 onChange={handlePromptChange}
                 placeholder={
                   isCharacterTab
-                    ? t('workspace.charPromptPlaceholder', { name: activeChar?.name ?? '' })
+                    ? t('workspace.charPromptPlaceholder', {
+                        name: activeChar?.name ?? '',
+                      })
                     : t('workspace.promptPlaceholder')
                 }
                 minHeight="200px"
@@ -418,7 +486,9 @@ export function PromptPanel({
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
+                {isCharacterTab
+                  ? t('workspace.charNegative')
+                  : t('workspace.negativePrompt')}
               </Label>
               <Button
                 variant="ghost"
@@ -435,7 +505,9 @@ export function PromptPanel({
               onChange={handleNegativeChange}
               placeholder={
                 isCharacterTab
-                  ? t('workspace.charNegativePlaceholder', { name: activeChar?.name ?? '' })
+                  ? t('workspace.charNegativePlaceholder', {
+                      name: activeChar?.name ?? '',
+                    })
                   : t('workspace.negativePromptPlaceholder')
               }
               minHeight="120px"
@@ -460,14 +532,22 @@ export function PromptPanel({
 
       <ExpandedEditorDialog
         open={expandTarget !== null}
-        onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
+        onOpenChange={(open) => {
+          if (!open) setExpandTarget(null)
+        }}
         title={
           expandTarget === 'prompt'
-            ? (isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt'))
-            : (isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt'))
+            ? isCharacterTab
+              ? t('workspace.characterPrompt')
+              : t('workspace.prompt')
+            : isCharacterTab
+              ? t('workspace.charNegative')
+              : t('workspace.negativePrompt')
         }
         value={expandTarget === 'prompt' ? displayPrompt : displayNegative}
-        onChange={expandTarget === 'prompt' ? handlePromptChange : handleNegativeChange}
+        onChange={
+          expandTarget === 'prompt' ? handlePromptChange : handleNegativeChange
+        }
         bundleNames={bundleNames}
       />
     </div>

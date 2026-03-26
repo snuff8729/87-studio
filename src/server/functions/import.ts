@@ -15,11 +15,7 @@ export const importScenePack = createServerFn({ method: 'POST' })
   .handler(async ({ data }) => {
     let pack!: { id: number; name: string }
     db.transaction((tx) => {
-      pack = tx
-        .insert(scenePacks)
-        .values({ name: data.name })
-        .returning()
-        .get()
+      pack = tx.insert(scenePacks).values({ name: data.name }).returning().get()
 
       for (const scene of data.scenes) {
         tx.insert(scenes)

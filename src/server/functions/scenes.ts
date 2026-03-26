@@ -1,12 +1,16 @@
 import { createServerFn } from '@tanstack/react-start'
+import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { scenes } from '../db/schema'
-import { eq, max } from 'drizzle-orm'
 
 export const createScene = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { scenePackId: number; name: string; description?: string; placeholders?: string }) =>
-      data,
+    (data: {
+      scenePackId: number
+      name: string
+      description?: string
+      placeholders?: string
+    }) => data,
   )
   .handler(async ({ data }) => {
     const maxOrder = db
@@ -32,7 +36,12 @@ export const createScene = createServerFn({ method: 'POST' })
 
 export const updateScene = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { id: number; name?: string; description?: string; placeholders?: string }) => data,
+    (data: {
+      id: number
+      name?: string
+      description?: string
+      placeholders?: string
+    }) => data,
   )
   .handler(async ({ data }) => {
     const { id, ...updates } = data
@@ -51,7 +60,9 @@ export const deleteScene = createServerFn({ method: 'POST' })
   })
 
 export const reorderScenes = createServerFn({ method: 'POST' })
-  .inputValidator((data: { scenePackId: number; orderedIds: number[] }) => data)
+  .inputValidator(
+    (data: { scenePackId: number; orderedIds: Array<number> }) => data,
+  )
   .handler(async ({ data }) => {
     for (let i = 0; i < data.orderedIds.length; i++) {
       db.update(scenes)

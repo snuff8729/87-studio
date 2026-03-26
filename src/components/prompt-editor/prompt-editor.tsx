@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react'
-import { EditorState, Compartment } from '@codemirror/state'
-import { EditorView, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view'
+import { Compartment, EditorState } from '@codemirror/state'
+import { EditorView, ViewPlugin, keymap } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
-import { autocompletion, acceptCompletion } from '@codemirror/autocomplete'
+import { acceptCompletion, autocompletion } from '@codemirror/autocomplete'
 import { darkTheme, lightTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
@@ -10,18 +10,21 @@ import { weightHighlight } from './weight-highlight'
 import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
 import { bundleCompletion, setBundleNames } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
+import type { ViewUpdate } from '@codemirror/view'
 import { useTheme } from '@/lib/theme'
 
 // CM6 bug workaround: When lineWrapping is on and cursor is at a wrap boundary,
 // enforceCursorAssoc() modifies the DOM selection without checking hasFocus,
 // stealing focus back from the newly-focused editor.
-const fixLineWrapFocusSteal = ViewPlugin.fromClass(class {
-  update(update: ViewUpdate) {
-    if (update.focusChanged && !update.view.hasFocus) {
-      ;(update.view as any).viewState.mustEnforceCursorAssoc = false
+const fixLineWrapFocusSteal = ViewPlugin.fromClass(
+  class {
+    update(update: ViewUpdate) {
+      if (update.focusChanged && !update.view.hasFocus) {
+        ;(update.view as any).viewState.mustEnforceCursorAssoc = false
+      }
     }
-  }
-})
+  },
+)
 
 interface PromptEditorProps {
   value: string

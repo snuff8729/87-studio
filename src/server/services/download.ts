@@ -1,6 +1,8 @@
-export const DEFAULT_FILENAME_TEMPLATE = '{{project_name}}_{{scene_name}}_{{seed}}'
+export const DEFAULT_FILENAME_TEMPLATE =
+  '{{project_name}}_{{scene_name}}_{{seed}}'
 
-const FORBIDDEN_CHARS = /[<>:"/\\|?*\x00-\x1f]/g
+// eslint-disable-next-line no-control-regex
+const FORBIDDEN_CHARS = /[<>:"/\\|?*\u0000-\u001f]/gu
 
 export interface FilenameVars {
   project_name?: string

@@ -1,6 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { ComputerIcon, Moon02Icon, Sun02Icon } from '@hugeicons/core-free-icons'
+import type { Locale } from '@/lib/i18n'
+import type { Theme } from '@/lib/theme'
 import { PageHeader } from '@/components/common/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -8,15 +12,15 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
-import { getSetting, setSetting, validateApiKey } from '@/server/functions/settings'
-import { getStorageStats, cleanupOrphanFiles } from '@/server/functions/storage'
+import {
+  getSetting,
+  setSetting,
+  validateApiKey,
+} from '@/server/functions/settings'
+import { cleanupOrphanFiles, getStorageStats } from '@/server/functions/storage'
 import { useTranslation } from '@/lib/i18n'
-import type { Locale } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Sun02Icon, Moon02Icon, ComputerIcon } from '@hugeicons/core-free-icons'
 import { useTheme } from '@/lib/theme'
-import type { Theme } from '@/lib/theme'
 
 function PendingComponent() {
   return (
@@ -107,7 +111,9 @@ function SettingsPage() {
   }
 
   // Storage management state
-  const [storageStats, setStorageStats] = useState<Awaited<ReturnType<typeof getStorageStats>> | null>(null)
+  const [storageStats, setStorageStats] = useState<Awaited<
+    ReturnType<typeof getStorageStats>
+  > | null>(null)
   const [scanning, setScanning] = useState(false)
   const [cleaningUp, setCleaningUp] = useState(false)
 
@@ -118,27 +124,35 @@ function SettingsPage() {
     lastSavedDelay.current = Number(initialDelay)
   }, [initialApiKey, initialDelay])
 
-  const saveApiKey = useCallback(async (value: string) => {
-    if (value === lastSavedApiKey.current) return
-    lastSavedApiKey.current = value
-    try {
-      await setSetting({ data: { key: 'nai_api_key', value } })
-      toast.success(t('settings.saved'))
-    } catch {
-      toast.error(t('settings.saveFailed'))
-    }
-  }, [t])
+  const saveApiKey = useCallback(
+    async (value: string) => {
+      if (value === lastSavedApiKey.current) return
+      lastSavedApiKey.current = value
+      try {
+        await setSetting({ data: { key: 'nai_api_key', value } })
+        toast.success(t('settings.saved'))
+      } catch {
+        toast.error(t('settings.saveFailed'))
+      }
+    },
+    [t],
+  )
 
-  const saveDelay = useCallback(async (value: number) => {
-    if (value === lastSavedDelay.current) return
-    lastSavedDelay.current = value
-    try {
-      await setSetting({ data: { key: 'generation_delay', value: String(value) } })
-      toast.success(t('settings.saved'))
-    } catch {
-      toast.error(t('settings.saveFailed'))
-    }
-  }, [t])
+  const saveDelay = useCallback(
+    async (value: number) => {
+      if (value === lastSavedDelay.current) return
+      lastSavedDelay.current = value
+      try {
+        await setSetting({
+          data: { key: 'generation_delay', value: String(value) },
+        })
+        toast.success(t('settings.saved'))
+      } catch {
+        toast.error(t('settings.saveFailed'))
+      }
+    },
+    [t],
+  )
 
   async function handleScan() {
     setScanning(true)
@@ -155,7 +169,9 @@ function SettingsPage() {
     setCleaningUp(true)
     try {
       const result = await cleanupOrphanFiles()
-      toast.success(t('settings.cleanupSuccess', { count: String(result.deleted) }))
+      toast.success(
+        t('settings.cleanupSuccess', { count: String(result.deleted) }),
+      )
       // Re-scan after cleanup
       const stats = await getStorageStats()
       setStorageStats(stats)
@@ -196,7 +212,10 @@ function SettingsPage() {
 
   return (
     <div>
-      <PageHeader title={t('settings.title')} description={t('settings.description')} />
+      <PageHeader
+        title={t('settings.title')}
+        description={t('settings.description')}
+      />
 
       <div className="max-w-2xl space-y-6">
         <Card data-onboarding="api-key-section">
@@ -219,8 +238,14 @@ function SettingsPage() {
                 <Button variant="outline" onClick={() => setShowKey(!showKey)}>
                   {showKey ? t('common.hide') : t('common.show')}
                 </Button>
-                <Button variant="outline" onClick={handleValidate} disabled={validating}>
-                  {validating ? t('settings.validating') : t('settings.validate')}
+                <Button
+                  variant="outline"
+                  onClick={handleValidate}
+                  disabled={validating}
+                >
+                  {validating
+                    ? t('settings.validating')
+                    : t('settings.validate')}
                 </Button>
               </div>
             </div>
@@ -234,7 +259,8 @@ function SettingsPage() {
           <CardContent className="space-y-3">
             <div className="space-y-3">
               <Label>
-                {t('settings.delayLabel')} <span className="font-mono text-primary">{delay}ms</span>
+                {t('settings.delayLabel')}{' '}
+                <span className="font-mono text-primary">{delay}ms</span>
               </Label>
               <Slider
                 value={[delay]}
@@ -258,9 +284,16 @@ function SettingsPage() {
             <CardTitle>{t('settings.language')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('settings.languageDesc')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('settings.languageDesc')}
+            </p>
             <div className="flex gap-2">
-              {([['en', 'English'], ['ko', '한국어']] as const).map(([code, label]) => (
+              {(
+                [
+                  ['en', 'English'],
+                  ['ko', '한국어'],
+                ] as const
+              ).map(([code, label]) => (
                 <Button
                   key={code}
                   variant={locale === code ? 'default' : 'outline'}
@@ -279,13 +312,17 @@ function SettingsPage() {
             <CardTitle>{t('settings.theme')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('settings.themeDesc')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('settings.themeDesc')}
+            </p>
             <div className="flex gap-2">
-              {([
-                ['system', t('settings.themeSystem'), ComputerIcon],
-                ['light', t('settings.themeLight'), Sun02Icon],
-                ['dark', t('settings.themeDark'), Moon02Icon],
-              ] as const).map(([value, label, icon]) => (
+              {(
+                [
+                  ['system', t('settings.themeSystem'), ComputerIcon],
+                  ['light', t('settings.themeLight'), Sun02Icon],
+                  ['dark', t('settings.themeDark'), Moon02Icon],
+                ] as const
+              ).map(([value, label, icon]) => (
                 <Button
                   key={value}
                   variant={theme === value ? 'default' : 'outline'}
@@ -306,7 +343,9 @@ function SettingsPage() {
             <CardTitle>{t('settings.uiScale')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('settings.uiScaleDesc')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('settings.uiScaleDesc')}
+            </p>
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <Slider
@@ -320,7 +359,9 @@ function SettingsPage() {
                   step={5}
                   className="flex-1"
                 />
-                <span className="text-sm font-mono text-primary w-12 text-right">{uiScale}%</span>
+                <span className="text-sm font-mono text-primary w-12 text-right">
+                  {uiScale}%
+                </span>
                 {uiScale !== DEFAULT_UI_SCALE && (
                   <Button
                     variant="outline"
@@ -354,54 +395,96 @@ function SettingsPage() {
             <CardTitle>{t('settings.storage')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">{t('settings.storageDesc')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('settings.storageDesc')}
+            </p>
 
             {storageStats ? (
               <div className="space-y-3">
                 <div className="grid grid-cols-2 gap-3 text-sm">
                   <div className="flex justify-between rounded-md bg-muted/50 px-3 py-2">
-                    <span className="text-muted-foreground">{t('settings.totalFiles')}</span>
+                    <span className="text-muted-foreground">
+                      {t('settings.totalFiles')}
+                    </span>
                     <span className="font-mono">{storageStats.totalFiles}</span>
                   </div>
                   <div className="flex justify-between rounded-md bg-muted/50 px-3 py-2">
-                    <span className="text-muted-foreground">{t('settings.totalSize')}</span>
-                    <span className="font-mono">{formatBytes(storageStats.totalSize)}</span>
+                    <span className="text-muted-foreground">
+                      {t('settings.totalSize')}
+                    </span>
+                    <span className="font-mono">
+                      {formatBytes(storageStats.totalSize)}
+                    </span>
                   </div>
                   <div className="flex justify-between rounded-md bg-muted/50 px-3 py-2">
-                    <span className="text-muted-foreground">{t('settings.images')}</span>
+                    <span className="text-muted-foreground">
+                      {t('settings.images')}
+                    </span>
                     <span className="font-mono">{storageStats.imageFiles}</span>
                   </div>
                   <div className="flex justify-between rounded-md bg-muted/50 px-3 py-2">
-                    <span className="text-muted-foreground">{t('settings.thumbnails')}</span>
-                    <span className="font-mono">{storageStats.thumbnailFiles}</span>
+                    <span className="text-muted-foreground">
+                      {t('settings.thumbnails')}
+                    </span>
+                    <span className="font-mono">
+                      {storageStats.thumbnailFiles}
+                    </span>
                   </div>
                   <div className="flex justify-between rounded-md bg-muted/50 px-3 py-2">
-                    <span className="text-muted-foreground">{t('settings.dbRecords')}</span>
+                    <span className="text-muted-foreground">
+                      {t('settings.dbRecords')}
+                    </span>
                     <span className="font-mono">{storageStats.dbRecords}</span>
                   </div>
-                  <div className={`flex justify-between rounded-md px-3 py-2 ${storageStats.orphanFiles > 0 ? 'bg-destructive/10' : 'bg-muted/50'}`}>
-                    <span className="text-muted-foreground">{t('settings.orphanFiles')}</span>
-                    <span className={`font-mono ${storageStats.orphanFiles > 0 ? 'text-destructive' : ''}`}>
-                      {storageStats.orphanFiles} ({formatBytes(storageStats.orphanSize)})
+                  <div
+                    className={`flex justify-between rounded-md px-3 py-2 ${storageStats.orphanFiles > 0 ? 'bg-destructive/10' : 'bg-muted/50'}`}
+                  >
+                    <span className="text-muted-foreground">
+                      {t('settings.orphanFiles')}
+                    </span>
+                    <span
+                      className={`font-mono ${storageStats.orphanFiles > 0 ? 'text-destructive' : ''}`}
+                    >
+                      {storageStats.orphanFiles} (
+                      {formatBytes(storageStats.orphanSize)})
                     </span>
                   </div>
                 </div>
 
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" onClick={handleScan} disabled={scanning}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleScan}
+                    disabled={scanning}
+                  >
                     {scanning ? t('settings.scanning') : t('settings.scan')}
                   </Button>
                   {storageStats.orphanFiles > 0 && (
-                    <Button variant="destructive" size="sm" onClick={handleCleanup} disabled={cleaningUp}>
-                      {cleaningUp ? t('settings.cleaningUp') : `${t('settings.cleanup')} (${storageStats.orphanFiles})`}
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleCleanup}
+                      disabled={cleaningUp}
+                    >
+                      {cleaningUp
+                        ? t('settings.cleaningUp')
+                        : `${t('settings.cleanup')} (${storageStats.orphanFiles})`}
                     </Button>
                   )}
                 </div>
               </div>
             ) : (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">{t('settings.scanFirst')}</p>
-                <Button variant="outline" size="sm" onClick={handleScan} disabled={scanning}>
+                <p className="text-sm text-muted-foreground">
+                  {t('settings.scanFirst')}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleScan}
+                  disabled={scanning}
+                >
                   {scanning ? t('settings.scanning') : t('settings.scan')}
                 </Button>
               </div>
@@ -414,13 +497,14 @@ function SettingsPage() {
             <CardTitle>{t('onboarding.restartTutorial')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('onboarding.restartDesc')}</p>
+            <p className="text-sm text-muted-foreground">
+              {t('onboarding.restartDesc')}
+            </p>
             <Button variant="outline" size="sm" onClick={handleRestartTutorial}>
               {t('onboarding.restart')}
             </Button>
           </CardContent>
         </Card>
-
       </div>
     </div>
   )

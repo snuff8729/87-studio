@@ -1,11 +1,12 @@
-import { memo, useRef, useState, useEffect } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
+import type { GridSize } from '@/lib/use-image-grid-size'
 import { useTranslation } from '@/lib/i18n'
 import { GridSizeToggle } from '@/components/common/grid-size-toggle'
-import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
+import { useImageGridSize } from '@/lib/use-image-grid-size'
 
 interface HistoryPanelProps {
   images: Array<{
@@ -22,7 +23,10 @@ interface HistoryPanelProps {
 const historyColsMap: Record<GridSize, number> = { sm: 3, md: 2, lg: 1 }
 const GAP = 4 // gap-1 = 4px
 
-export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: HistoryPanelProps) {
+export const HistoryPanel = memo(function HistoryPanel({
+  images,
+  projectId,
+}: HistoryPanelProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { gridSize, setGridSize } = useImageGridSize('history')
@@ -41,7 +45,10 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
     return () => ro.disconnect()
   }, [])
 
-  const cellSize = containerWidth > 0 ? Math.floor((containerWidth - 8 - GAP * (cols - 1)) / cols) : 80 // -8 for px-1 padding (4px each side)
+  const cellSize =
+    containerWidth > 0
+      ? Math.floor((containerWidth - 8 - GAP * (cols - 1)) / cols)
+      : 80 // -8 for px-1 padding (4px each side)
   const rowHeight = cellSize + GAP
   const rowCount = Math.ceil(images.length / cols)
 
@@ -70,11 +77,19 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
 
       {images.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center">{t('history.noImagesYet')}</p>
+          <p className="text-sm text-muted-foreground text-center">
+            {t('history.noImagesYet')}
+          </p>
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto -mx-1 px-1">
-          <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: 'relative',
+              width: '100%',
+            }}
+          >
             {virtualizer.getVirtualItems().map((vRow) => {
               const startIdx = vRow.index * cols
               const rowImages = images.slice(startIdx, startIdx + cols)
@@ -94,9 +109,19 @@ export const HistoryPanel = memo(function HistoryPanel({ images, projectId }: Hi
                     {rowImages.map((img) => (
                       <button
                         key={img.id}
-                        onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) } as any)}
+                        onClick={() =>
+                          navigate({
+                            search: (prev: Record<string, unknown>) => ({
+                              ...prev,
+                              imageDetail: img.id,
+                            }),
+                          } as any)
+                        }
                         className="relative rounded-md overflow-hidden bg-secondary group block shrink-0 cursor-pointer"
-                        style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                        style={{
+                          width: `${cellSize}px`,
+                          height: `${cellSize}px`,
+                        }}
                       >
                         {img.thumbnailPath ? (
                           <img

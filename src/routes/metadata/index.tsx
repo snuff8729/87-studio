@@ -1,8 +1,16 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useState, useCallback, useRef, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Upload01Icon, Cancel01Icon, ArrowRight01Icon, Copy01Icon, MagicWand01Icon, AlertCircleIcon } from '@hugeicons/core-free-icons'
+import {
+  AlertCircleIcon,
+  ArrowRight01Icon,
+  Cancel01Icon,
+  Copy01Icon,
+  MagicWand01Icon,
+  Upload01Icon,
+} from '@hugeicons/core-free-icons'
+import type { NAIMetadata } from '@/lib/nai-metadata'
 import { PageHeader } from '@/components/common/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,12 +21,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
-import { parseMetadataFromFile, getUcPresetLabel } from '@/lib/nai-metadata'
-import type { NAIMetadata } from '@/lib/nai-metadata'
+import { getUcPresetLabel, parseMetadataFromFile } from '@/lib/nai-metadata'
 import { createProjectFromMetadata } from '@/server/functions/inspect'
 import { useTranslation } from '@/lib/i18n'
 
@@ -38,33 +45,36 @@ function InspectPage() {
   const dragCounterRef = useRef(0)
   const { t } = useTranslation()
 
-  const handleFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      toast.error(t('metadata.selectImage'))
-      return
-    }
-
-    setParsing(true)
-    setMetadata(null)
-    setFileName(file.name)
-
-    // Create preview URL
-    if (imageUrl) URL.revokeObjectURL(imageUrl)
-    const url = URL.createObjectURL(file)
-    setImageUrl(url)
-
-    try {
-      const result = await parseMetadataFromFile(file)
-      setMetadata(result)
-      if (!result) {
-        toast.error(t('metadata.noMetadata'))
+  const handleFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) {
+        toast.error(t('metadata.selectImage'))
+        return
       }
-    } catch {
-      toast.error(t('metadata.failedToParse'))
-    } finally {
-      setParsing(false)
-    }
-  }, [imageUrl])
+
+      setParsing(true)
+      setMetadata(null)
+      setFileName(file.name)
+
+      // Create preview URL
+      if (imageUrl) URL.revokeObjectURL(imageUrl)
+      const url = URL.createObjectURL(file)
+      setImageUrl(url)
+
+      try {
+        const result = await parseMetadataFromFile(file)
+        setMetadata(result)
+        if (!result) {
+          toast.error(t('metadata.noMetadata'))
+        }
+      } catch {
+        toast.error(t('metadata.failedToParse'))
+      } finally {
+        setParsing(false)
+      }
+    },
+    [imageUrl],
+  )
 
   // Use document-level listeners so drag works anywhere on the page
   const handleFileRef = useRef(handleFile)
@@ -121,10 +131,15 @@ function InspectPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary pointer-events-none">
           <div className="flex flex-col items-center gap-3">
             <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <HugeiconsIcon icon={Upload01Icon} className="size-7 text-primary" />
+              <HugeiconsIcon
+                icon={Upload01Icon}
+                className="size-7 text-primary"
+              />
             </div>
             <p className="text-base font-medium">
-              {imageUrl ? t('metadata.dropToReplace') : t('metadata.dropToInspect')}
+              {imageUrl
+                ? t('metadata.dropToReplace')
+                : t('metadata.dropToInspect')}
             </p>
           </div>
         </div>
@@ -149,7 +164,10 @@ function InspectPage() {
             className="flex flex-col items-center justify-center gap-4 p-16 w-full max-w-lg border-2 border-dashed rounded-xl cursor-pointer transition-colors border-border hover:border-muted-foreground/50 hover:bg-accent/30"
           >
             <div className="size-14 rounded-2xl bg-muted flex items-center justify-center">
-              <HugeiconsIcon icon={Upload01Icon} className="size-7 text-muted-foreground" />
+              <HugeiconsIcon
+                icon={Upload01Icon}
+                className="size-7 text-muted-foreground"
+              />
             </div>
             <div className="text-center">
               <p className="text-base font-medium">
@@ -173,11 +191,11 @@ function InspectPage() {
               <div className="flex items-center gap-2">
                 {metadata && (
                   <>
-                    <Button
-                      size="sm"
-                      onClick={() => setShowCreateDialog(true)}
-                    >
-                      <HugeiconsIcon icon={ArrowRight01Icon} className="size-4 mr-1.5" />
+                    <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+                      <HugeiconsIcon
+                        icon={ArrowRight01Icon}
+                        className="size-4 mr-1.5"
+                      />
                       {t('metadata.createProject')}
                     </Button>
                     <Button
@@ -185,17 +203,30 @@ function InspectPage() {
                       variant="outline"
                       onClick={() => setShowQuickDialog(true)}
                     >
-                      <HugeiconsIcon icon={MagicWand01Icon} className="size-4 mr-1.5" />
+                      <HugeiconsIcon
+                        icon={MagicWand01Icon}
+                        className="size-4 mr-1.5"
+                      />
                       {t('metadata.quickGenerate')}
                     </Button>
                   </>
                 )}
-                <Button size="sm" variant="outline" onClick={() => fileInputRef.current?.click()}>
-                  <HugeiconsIcon icon={Upload01Icon} className="size-4 mr-1.5" />
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <HugeiconsIcon
+                    icon={Upload01Icon}
+                    className="size-4 mr-1.5"
+                  />
                   {t('common.replace')}
                 </Button>
                 <Button size="sm" variant="outline" onClick={handleClear}>
-                  <HugeiconsIcon icon={Cancel01Icon} className="size-4 mr-1.5" />
+                  <HugeiconsIcon
+                    icon={Cancel01Icon}
+                    className="size-4 mr-1.5"
+                  />
                   {t('common.clear')}
                 </Button>
               </div>
@@ -209,7 +240,9 @@ function InspectPage() {
             </span>
             {metadata?.source && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-                {metadata.source === 'text_chunk' ? 'tEXt Chunk' : 'Stealth Alpha'}
+                {metadata.source === 'text_chunk'
+                  ? 'tEXt Chunk'
+                  : 'Stealth Alpha'}
               </span>
             )}
           </div>
@@ -230,7 +263,9 @@ function InspectPage() {
               {parsing && (
                 <div className="flex items-center gap-3 p-6">
                   <div className="size-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-sm text-muted-foreground">{t('metadata.parsingMetadata')}</span>
+                  <span className="text-sm text-muted-foreground">
+                    {t('metadata.parsingMetadata')}
+                  </span>
                 </div>
               )}
 
@@ -270,7 +305,15 @@ function InspectPage() {
 
 // ─── Metadata Viewer ──────────────────────────────────────────────────────
 
-function PromptBlock({ label, text, maxHeight = 'max-h-40' }: { label: string; text: string; maxHeight?: string }) {
+function PromptBlock({
+  label,
+  text,
+  maxHeight = 'max-h-40',
+}: {
+  label: string
+  text: string
+  maxHeight?: string
+}) {
   const { t } = useTranslation()
 
   function handleCopy() {
@@ -290,7 +333,9 @@ function PromptBlock({ label, text, maxHeight = 'max-h-40' }: { label: string; t
           <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
         </button>
       </div>
-      <p className={`text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md ${maxHeight} overflow-y-auto`}>
+      <p
+        className={`text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md ${maxHeight} overflow-y-auto`}
+      >
         {text}
       </p>
     </div>
@@ -298,7 +343,8 @@ function PromptBlock({ label, text, maxHeight = 'max-h-40' }: { label: string; t
 }
 
 function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
-  const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
+  const hasV4Chars =
+    metadata.v4_prompt?.caption?.char_captions &&
     metadata.v4_prompt.caption.char_captions.length > 0
 
   return (
@@ -310,7 +356,9 @@ function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
             <CardTitle className="text-sm">Model</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm font-mono text-foreground/80">{metadata.model}</p>
+            <p className="text-sm font-mono text-foreground/80">
+              {metadata.model}
+            </p>
           </CardContent>
         </Card>
       )}
@@ -325,7 +373,11 @@ function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
             <PromptBlock label="Positive" text={metadata.prompt} />
           )}
           {metadata.negativePrompt && (
-            <PromptBlock label="Negative" text={metadata.negativePrompt} maxHeight="max-h-32" />
+            <PromptBlock
+              label="Negative"
+              text={metadata.negativePrompt}
+              maxHeight="max-h-32"
+            />
           )}
         </CardContent>
       </Card>
@@ -338,7 +390,8 @@ function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
           </CardHeader>
           <CardContent className="space-y-3">
             {metadata.v4_prompt!.caption!.char_captions!.map((char, i) => {
-              const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+              const negChar =
+                metadata.v4_negative_prompt?.caption?.char_captions?.[i]
               return (
                 <div key={i} className="space-y-2">
                   <PromptBlock
@@ -368,30 +421,55 @@ function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
         <CardContent>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
             {metadata.width != null && metadata.height != null && (
-              <ParamRow label="Resolution" value={`${metadata.width} x ${metadata.height}`} />
+              <ParamRow
+                label="Resolution"
+                value={`${metadata.width} x ${metadata.height}`}
+              />
             )}
-            {metadata.steps != null && <ParamRow label="Steps" value={metadata.steps} />}
-            {metadata.cfgScale != null && <ParamRow label="CFG Scale" value={metadata.cfgScale} />}
+            {metadata.steps != null && (
+              <ParamRow label="Steps" value={metadata.steps} />
+            )}
+            {metadata.cfgScale != null && (
+              <ParamRow label="CFG Scale" value={metadata.cfgScale} />
+            )}
             {metadata.cfgRescale != null && metadata.cfgRescale > 0 && (
               <ParamRow label="CFG Rescale" value={metadata.cfgRescale} />
             )}
-            {metadata.seed != null && <ParamRow label="Seed" value={metadata.seed} />}
-            {metadata.sampler && <ParamRow label="Sampler" value={metadata.sampler} />}
-            {metadata.scheduler && <ParamRow label="Scheduler" value={metadata.scheduler} />}
+            {metadata.seed != null && (
+              <ParamRow label="Seed" value={metadata.seed} />
+            )}
+            {metadata.sampler && (
+              <ParamRow label="Sampler" value={metadata.sampler} />
+            )}
+            {metadata.scheduler && (
+              <ParamRow label="Scheduler" value={metadata.scheduler} />
+            )}
             {metadata.smea != null && (
               <ParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />
             )}
             {metadata.smeaDyn != null && (
-              <ParamRow label="SMEA DYN" value={metadata.smeaDyn ? 'On' : 'Off'} />
+              <ParamRow
+                label="SMEA DYN"
+                value={metadata.smeaDyn ? 'On' : 'Off'}
+              />
             )}
             {metadata.variety != null && (
-              <ParamRow label="Variety+" value={metadata.variety ? 'On' : 'Off'} />
+              <ParamRow
+                label="Variety+"
+                value={metadata.variety ? 'On' : 'Off'}
+              />
             )}
             {metadata.qualityToggle != null && (
-              <ParamRow label="Quality Tags" value={metadata.qualityToggle ? 'On' : 'Off'} />
+              <ParamRow
+                label="Quality Tags"
+                value={metadata.qualityToggle ? 'On' : 'Off'}
+              />
             )}
             {metadata.ucPreset != null && (
-              <ParamRow label="UC Preset" value={getUcPresetLabel(metadata.ucPreset)} />
+              <ParamRow
+                label="UC Preset"
+                value={getUcPresetLabel(metadata.ucPreset)}
+              />
             )}
           </div>
         </CardContent>
@@ -406,28 +484,35 @@ function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
           <CardContent className="space-y-2">
             {metadata.hasVibeTransfer && metadata.vibeTransferInfo && (
               <div>
-                <Label className="text-xs text-muted-foreground">Vibe Transfer</Label>
+                <Label className="text-xs text-muted-foreground">
+                  Vibe Transfer
+                </Label>
                 <div className="space-y-1 mt-1">
                   {metadata.vibeTransferInfo.map((vt, i) => (
                     <div key={i} className="text-sm text-foreground/80">
-                      Image {i + 1}: Strength {vt.strength.toFixed(2)}, Info Extracted {vt.informationExtracted.toFixed(2)}
+                      Image {i + 1}: Strength {vt.strength.toFixed(2)}, Info
+                      Extracted {vt.informationExtracted.toFixed(2)}
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            {metadata.hasCharacterReference && metadata.characterReferenceInfo && (
-              <div>
-                <Label className="text-xs text-muted-foreground">Character Reference</Label>
-                <div className="space-y-1 mt-1">
-                  {metadata.characterReferenceInfo.map((cr, i) => (
-                    <div key={i} className="text-sm text-foreground/80">
-                      Ref {i + 1}: Strength {cr.strength.toFixed(2)}, Info Extracted {cr.informationExtracted.toFixed(2)}
-                    </div>
-                  ))}
+            {metadata.hasCharacterReference &&
+              metadata.characterReferenceInfo && (
+                <div>
+                  <Label className="text-xs text-muted-foreground">
+                    Character Reference
+                  </Label>
+                  <div className="space-y-1 mt-1">
+                    {metadata.characterReferenceInfo.map((cr, i) => (
+                      <div key={i} className="text-sm text-foreground/80">
+                        Ref {i + 1}: Strength {cr.strength.toFixed(2)}, Info
+                        Extracted {cr.informationExtracted.toFixed(2)}
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
           </CardContent>
         </Card>
       )}
@@ -476,7 +561,8 @@ function CreateProjectDialog({
   })
   const [creating, setCreating] = useState(false)
 
-  const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
+  const hasV4Chars =
+    metadata.v4_prompt?.caption?.char_captions &&
     metadata.v4_prompt.caption.char_captions.length > 0
 
   function toggleField(field: ImportField) {
@@ -508,10 +594,15 @@ function CreateProjectDialog({
       }
 
       // Characters from V4 char_captions
-      const chars: Array<{ name: string; charPrompt: string; charNegative?: string }> = []
+      const chars: Array<{
+        name: string
+        charPrompt: string
+        charNegative?: string
+      }> = []
       if (fields.characters && hasV4Chars) {
         metadata.v4_prompt!.caption!.char_captions!.forEach((cc, i) => {
-          const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+          const negChar =
+            metadata.v4_negative_prompt?.caption?.char_captions?.[i]
           chars.push({
             name: `Character ${i + 1}`,
             charPrompt: cc.char_caption,
@@ -586,16 +677,18 @@ function CreateProjectDialog({
           <Separator />
 
           <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">{t('metadata.importFields')}</Label>
+            <Label className="text-sm text-muted-foreground">
+              {t('metadata.importFields')}
+            </Label>
             <div className="space-y-2.5 pt-1">
               <FieldCheckbox
                 checked={fields.generalPrompt}
                 onCheckedChange={() => toggleField('generalPrompt')}
                 label={t('metadata.generalPrompt')}
                 preview={
-                  metadata.v4_prompt?.caption?.base_caption
-                    || metadata.prompt
-                    || undefined
+                  metadata.v4_prompt?.caption?.base_caption ||
+                  metadata.prompt ||
+                  undefined
                 }
               />
               <FieldCheckbox
@@ -608,21 +701,29 @@ function CreateProjectDialog({
                 <FieldCheckbox
                   checked={fields.characters}
                   onCheckedChange={() => toggleField('characters')}
-                  label={t('metadata.characterPrompts', { count: metadata.v4_prompt!.caption!.char_captions!.length })}
-                  preview={metadata.v4_prompt!.caption!.char_captions!.map(
-                    (c) => c.char_caption,
-                  ).join(' | ')}
+                  label={t('metadata.characterPrompts', {
+                    count: metadata.v4_prompt!.caption!.char_captions!.length,
+                  })}
+                  preview={metadata
+                    .v4_prompt!.caption!.char_captions!.map(
+                      (c) => c.char_caption,
+                    )
+                    .join(' | ')}
                 />
               )}
               <FieldCheckbox
                 checked={fields.parameters}
                 onCheckedChange={() => toggleField('parameters')}
                 label={t('metadata.generationParameters')}
-                preview={[
-                  metadata.steps && `Steps: ${metadata.steps}`,
-                  metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
-                  metadata.sampler && `Sampler: ${metadata.sampler}`,
-                ].filter(Boolean).join(', ') || undefined}
+                preview={
+                  [
+                    metadata.steps && `Steps: ${metadata.steps}`,
+                    metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
+                    metadata.sampler && `Sampler: ${metadata.sampler}`,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || undefined
+                }
               />
               <FieldCheckbox
                 checked={fields.resolution}
@@ -685,7 +786,12 @@ function FieldCheckbox({
 
 // ─── Quick Generate Dialog ──────────────────────────────────────────────────
 
-type QuickImportField = 'generalPrompt' | 'negativePrompt' | 'characters' | 'parameters' | 'resolution'
+type QuickImportField =
+  | 'generalPrompt'
+  | 'negativePrompt'
+  | 'characters'
+  | 'parameters'
+  | 'resolution'
 
 function QuickGenerateDialog({
   metadata,
@@ -706,7 +812,8 @@ function QuickGenerateDialog({
     resolution: true,
   })
 
-  const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
+  const hasV4Chars =
+    metadata.v4_prompt?.caption?.char_captions &&
     metadata.v4_prompt.caption.char_captions.length > 0
 
   function toggleField(field: QuickImportField) {
@@ -716,7 +823,8 @@ function QuickGenerateDialog({
   function handleApply() {
     let generalPrompt: string | undefined
     if (fields.generalPrompt) {
-      generalPrompt = metadata.v4_prompt?.caption?.base_caption ?? metadata.prompt ?? ''
+      generalPrompt =
+        metadata.v4_prompt?.caption?.base_caption ?? metadata.prompt ?? ''
     }
 
     let negativePrompt: string | undefined
@@ -724,23 +832,29 @@ function QuickGenerateDialog({
       negativePrompt = metadata.negativePrompt ?? ''
     }
 
-    let characterPrompts: Array<{ name: string; prompt: string; negative: string }> | undefined
+    let characterPrompts:
+      | Array<{ name: string; prompt: string; negative: string }>
+      | undefined
     if (fields.characters && hasV4Chars) {
-      characterPrompts = metadata.v4_prompt!.caption!.char_captions!.map((cc, i) => {
-        const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-        return {
-          name: `Character ${i + 1}`,
-          prompt: cc.char_caption,
-          negative: negChar?.char_caption ?? '',
-        }
-      })
+      characterPrompts = metadata.v4_prompt!.caption!.char_captions!.map(
+        (cc, i) => {
+          const negChar =
+            metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+          return {
+            name: `Character ${i + 1}`,
+            prompt: cc.char_caption,
+            negative: negChar?.char_caption ?? '',
+          }
+        },
+      )
     }
 
     const parameters: Record<string, unknown> = {}
     if (fields.parameters) {
       if (metadata.steps != null) parameters.steps = metadata.steps
       if (metadata.cfgScale != null) parameters.scale = metadata.cfgScale
-      if (metadata.cfgRescale != null) parameters.cfgRescale = metadata.cfgRescale
+      if (metadata.cfgRescale != null)
+        parameters.cfgRescale = metadata.cfgRescale
       if (metadata.sampler) parameters.sampler = metadata.sampler
       if (metadata.scheduler) parameters.scheduler = metadata.scheduler
       if (metadata.ucPreset != null) parameters.ucPreset = metadata.ucPreset
@@ -772,16 +886,18 @@ function QuickGenerateDialog({
 
         <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
           <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">{t('metadata.importFields')}</Label>
+            <Label className="text-sm text-muted-foreground">
+              {t('metadata.importFields')}
+            </Label>
             <div className="space-y-2.5 pt-1">
               <FieldCheckbox
                 checked={fields.generalPrompt}
                 onCheckedChange={() => toggleField('generalPrompt')}
                 label={t('metadata.generalPrompt')}
                 preview={
-                  metadata.v4_prompt?.caption?.base_caption
-                    || metadata.prompt
-                    || undefined
+                  metadata.v4_prompt?.caption?.base_caption ||
+                  metadata.prompt ||
+                  undefined
                 }
               />
               <FieldCheckbox
@@ -794,21 +910,29 @@ function QuickGenerateDialog({
                 <FieldCheckbox
                   checked={fields.characters}
                   onCheckedChange={() => toggleField('characters')}
-                  label={t('metadata.characterPrompts', { count: metadata.v4_prompt!.caption!.char_captions!.length })}
-                  preview={metadata.v4_prompt!.caption!.char_captions!.map(
-                    (c) => c.char_caption,
-                  ).join(' | ')}
+                  label={t('metadata.characterPrompts', {
+                    count: metadata.v4_prompt!.caption!.char_captions!.length,
+                  })}
+                  preview={metadata
+                    .v4_prompt!.caption!.char_captions!.map(
+                      (c) => c.char_caption,
+                    )
+                    .join(' | ')}
                 />
               )}
               <FieldCheckbox
                 checked={fields.parameters}
                 onCheckedChange={() => toggleField('parameters')}
                 label={t('metadata.generationParameters')}
-                preview={[
-                  metadata.steps && `Steps: ${metadata.steps}`,
-                  metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
-                  metadata.sampler && `Sampler: ${metadata.sampler}`,
-                ].filter(Boolean).join(', ') || undefined}
+                preview={
+                  [
+                    metadata.steps && `Steps: ${metadata.steps}`,
+                    metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
+                    metadata.sampler && `Sampler: ${metadata.sampler}`,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || undefined
+                }
               />
               <FieldCheckbox
                 checked={fields.resolution}
@@ -830,9 +954,7 @@ function QuickGenerateDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleApply}>
-            {t('metadata.quickGenerate')}
-          </Button>
+          <Button onClick={handleApply}>{t('metadata.quickGenerate')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -843,8 +965,14 @@ function QuickGenerateDialog({
 
 function ReferenceWarningBanner({ metadata }: { metadata: NAIMetadata }) {
   const { t } = useTranslation()
-  const hasVibe = metadata.hasVibeTransfer && metadata.vibeTransferInfo && metadata.vibeTransferInfo.length > 0
-  const hasPrecise = metadata.hasCharacterReference && metadata.characterReferenceInfo && metadata.characterReferenceInfo.length > 0
+  const hasVibe =
+    metadata.hasVibeTransfer &&
+    metadata.vibeTransferInfo &&
+    metadata.vibeTransferInfo.length > 0
+  const hasPrecise =
+    metadata.hasCharacterReference &&
+    metadata.characterReferenceInfo &&
+    metadata.characterReferenceInfo.length > 0
 
   if (!hasVibe && !hasPrecise) return null
 
@@ -855,16 +983,25 @@ function ReferenceWarningBanner({ metadata }: { metadata: NAIMetadata }) {
       preciseCount: String(metadata.characterReferenceInfo!.length),
     })
   } else if (hasVibe) {
-    message = t('reference.importWarningVibe', { count: String(metadata.vibeTransferInfo!.length) })
+    message = t('reference.importWarningVibe', {
+      count: String(metadata.vibeTransferInfo!.length),
+    })
   } else {
-    message = t('reference.importWarningPrecise', { count: String(metadata.characterReferenceInfo!.length) })
+    message = t('reference.importWarningPrecise', {
+      count: String(metadata.characterReferenceInfo!.length),
+    })
   }
 
   return (
     <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-      <HugeiconsIcon icon={AlertCircleIcon} className="size-4 text-amber-500 shrink-0 mt-0.5" />
+      <HugeiconsIcon
+        icon={AlertCircleIcon}
+        className="size-4 text-amber-500 shrink-0 mt-0.5"
+      />
       <div className="min-w-0">
-        <p className="text-sm font-medium text-amber-500">{t('reference.importWarningTitle')}</p>
+        <p className="text-sm font-medium text-amber-500">
+          {t('reference.importWarningTitle')}
+        </p>
         <p className="text-xs text-amber-500/80 mt-0.5">{message}</p>
       </div>
     </div>

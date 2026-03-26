@@ -1,8 +1,19 @@
-import { createFileRoute, Link, useNavigate, useRouter } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowLeft02Icon, Cancel01Icon, Delete02Icon, ArrowExpand01Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowExpand01Icon,
+  ArrowLeft02Icon,
+  Cancel01Icon,
+  Delete02Icon,
+} from '@hugeicons/core-free-icons'
+import type { NAIMetadata } from '@/lib/nai-metadata'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,16 +22,15 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
-  getImageDetailPage,
-  updateImage,
   addTag,
-  removeTag,
   bulkUpdateImages,
+  getImageDetailPage,
+  removeTag,
+  updateImage,
 } from '@/server/functions/gallery'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
-import { parseNAIMetadata, getUcPresetLabel } from '@/lib/nai-metadata'
-import type { NAIMetadata } from '@/lib/nai-metadata'
+import { getUcPresetLabel, parseNAIMetadata } from '@/lib/nai-metadata'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
 
@@ -80,7 +90,9 @@ function PendingComponent() {
 export const Route = createFileRoute('/gallery/$imageId')({
   loaderDeps: ({ search }) => ({
     project: (search as Record<string, unknown>).project as number | undefined,
-    projectSceneId: (search as Record<string, unknown>).projectSceneId as number | undefined,
+    projectSceneId: (search as Record<string, unknown>).projectSceneId as
+      | number
+      | undefined,
   }),
   loader: async ({ params, deps }) => {
     const imageId = Number(params.imageId)
@@ -129,9 +141,19 @@ function ImageDetailPage() {
       toast.success(t('imageDetail.deleted'))
       // Navigate to next/prev image or back to gallery
       if (detail.nextId) {
-        navigate({ to: '/gallery/$imageId', params: { imageId: String(detail.nextId) }, search, replace: true })
+        navigate({
+          to: '/gallery/$imageId',
+          params: { imageId: String(detail.nextId) },
+          search,
+          replace: true,
+        })
       } else if (detail.prevId) {
-        navigate({ to: '/gallery/$imageId', params: { imageId: String(detail.prevId) }, search, replace: true })
+        navigate({
+          to: '/gallery/$imageId',
+          params: { imageId: String(detail.prevId) },
+          search,
+          replace: true,
+        })
       } else {
         navigate({ to: '/gallery', search, replace: true })
       }
@@ -212,7 +234,9 @@ function ImageDetailPage() {
   async function handleAddTag() {
     if (!newTag.trim()) return
     try {
-      const tag = await addTag({ data: { imageId: detail.id, tagName: newTag.trim() } })
+      const tag = await addTag({
+        data: { imageId: detail.id, tagName: newTag.trim() },
+      })
       setDetail({
         ...detail,
         tags: [...detail.tags, { tagId: tag.id, tagName: tag.name }],
@@ -234,7 +258,9 @@ function ImageDetailPage() {
   async function handleSetSceneThumbnail() {
     if (!detail.projectSceneId) return
     try {
-      await updateProjectScene({ data: { id: detail.projectSceneId, thumbnailImageId: detail.id } })
+      await updateProjectScene({
+        data: { id: detail.projectSceneId, thumbnailImageId: detail.id },
+      })
       toast.success(t('imageDetail.setSceneThumbSuccess'))
     } catch {
       toast.error(t('imageDetail.setSceneThumbFailed'))
@@ -244,7 +270,9 @@ function ImageDetailPage() {
   async function handleSetProjectThumbnail() {
     if (!detail.projectId) return
     try {
-      await updateProject({ data: { id: detail.projectId, thumbnailImageId: detail.id } })
+      await updateProject({
+        data: { id: detail.projectId, thumbnailImageId: detail.id },
+      })
       toast.success(t('imageDetail.setProjectThumbSuccess'))
     } catch {
       toast.error(t('imageDetail.setProjectThumbFailed'))
@@ -354,7 +382,9 @@ function ImageDetailPage() {
               <div className="space-y-1">
                 {detail.projectName && detail.projectId && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">{t('imageDetail.project')}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {t('imageDetail.project')}
+                    </span>
                     <Link
                       to="/workspace/$projectId"
                       params={{ projectId: String(detail.projectId) }}
@@ -367,7 +397,9 @@ function ImageDetailPage() {
                 )}
                 {detail.projectSceneName && (
                   <div className="flex items-center gap-1.5">
-                    <span className="text-sm text-muted-foreground">{t('imageDetail.scene')}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {t('imageDetail.scene')}
+                    </span>
                     {detail.projectId && detail.projectSceneId ? (
                       <Link
                         to="/workspace/$projectId/scenes/$sceneId"
@@ -398,12 +430,22 @@ function ImageDetailPage() {
           <>
             <div className="mb-4 flex gap-2">
               {detail.projectSceneId && (
-                <Button size="sm" variant="outline" onClick={handleSetSceneThumbnail} className="flex-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSetSceneThumbnail}
+                  className="flex-1"
+                >
                   {t('imageDetail.sceneThumb')}
                 </Button>
               )}
               {detail.projectId && (
-                <Button size="sm" variant="outline" onClick={handleSetProjectThumbnail} className="flex-1">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleSetProjectThumbnail}
+                  className="flex-1"
+                >
                   {t('imageDetail.projectThumb')}
                 </Button>
               )}
@@ -420,7 +462,9 @@ function ImageDetailPage() {
             onClick={handleFavorite}
             className="w-full"
           >
-            {detail.isFavorite ? '\u2764 ' + t('imageDetail.favorited') : '\u2661 ' + t('imageDetail.favorite')}
+            {detail.isFavorite
+              ? '\u2764 ' + t('imageDetail.favorited')
+              : '\u2661 ' + t('imageDetail.favorite')}
           </Button>
         </div>
 
@@ -451,7 +495,9 @@ function ImageDetailPage() {
         {/* Memo */}
         <div className="mb-4">
           <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm text-muted-foreground">{t('imageDetail.memo')}</label>
+            <label className="text-sm text-muted-foreground">
+              {t('imageDetail.memo')}
+            </label>
             <button
               type="button"
               onClick={() => setMemoExpanded(true)}
@@ -487,11 +533,17 @@ function ImageDetailPage() {
                 {t('nav.bundles')}
               </label>
               <div className="flex flex-wrap gap-1">
-                {detail.bundles.map((b: { bundleId: number; bundleName: string }) => (
-                  <Badge key={b.bundleId} variant="outline" className="text-xs gap-1">
-                    @{'{' + b.bundleName + '}'}
-                  </Badge>
-                ))}
+                {detail.bundles.map(
+                  (b: { bundleId: number; bundleName: string }) => (
+                    <Badge
+                      key={b.bundleId}
+                      variant="outline"
+                      className="text-xs gap-1"
+                    >
+                      @{'{' + b.bundleName + '}'}
+                    </Badge>
+                  ),
+                )}
               </div>
             </div>
             <Separator className="mb-4" />
@@ -549,9 +601,12 @@ function ImageDetailPage() {
                   {t('imageDetail.metadata')}
                 </label>
                 <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>{t('imageDetail.seed')}: {detail.seed ?? 'N/A'}</p>
                   <p>
-                    {t('imageDetail.created')}: {new Date(detail.createdAt!).toLocaleString()}
+                    {t('imageDetail.seed')}: {detail.seed ?? 'N/A'}
+                  </p>
+                  <p>
+                    {t('imageDetail.created')}:{' '}
+                    {new Date(detail.createdAt!).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -564,15 +619,24 @@ function ImageDetailPage() {
                   <div className="text-sm space-y-0.5 text-muted-foreground">
                     {meta.parameters.width && (
                       <p>
-                        {t('imageDetail.size')}: {meta.parameters.width}x{meta.parameters.height}
+                        {t('imageDetail.size')}: {meta.parameters.width}x
+                        {meta.parameters.height}
                       </p>
                     )}
-                    {meta.parameters.steps && <p>{t('imageDetail.steps')}: {meta.parameters.steps}</p>}
+                    {meta.parameters.steps && (
+                      <p>
+                        {t('imageDetail.steps')}: {meta.parameters.steps}
+                      </p>
+                    )}
                     {meta.parameters.cfg_scale && (
-                      <p>{t('imageDetail.cfg')}: {meta.parameters.cfg_scale}</p>
+                      <p>
+                        {t('imageDetail.cfg')}: {meta.parameters.cfg_scale}
+                      </p>
                     )}
                     {meta.parameters.sampler && (
-                      <p>{t('imageDetail.sampler')}: {meta.parameters.sampler}</p>
+                      <p>
+                        {t('imageDetail.sampler')}: {meta.parameters.sampler}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -601,36 +665,86 @@ function ImageDetailPage() {
               )}
 
               {/* Reference info from stored metadata */}
-              {meta?.referenceMode && meta.referenceMode !== 'none' && meta?.references && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.references')}
-                  </label>
-                  <div className="text-sm space-y-1 bg-secondary/50 p-2 rounded-md">
-                    <p className="text-xs text-muted-foreground mb-1.5">
-                      {meta.referenceMode === 'vibe' ? t('reference.vibeTransfer') : t('reference.preciseReference')}
-                    </p>
-                    {meta.referenceMode === 'vibe' && meta.references.vibes?.map((v: { strength: number; informationExtracted: number }, i: number) => (
-                      <div key={i} className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-                        <span className="text-muted-foreground">Vibe {i + 1} {t('reference.strength')}</span>
-                        <span className="text-foreground/80 font-mono">{v.strength.toFixed(2)}</span>
-                        <span className="text-muted-foreground">Vibe {i + 1} {t('reference.informationExtracted')}</span>
-                        <span className="text-foreground/80 font-mono">{v.informationExtracted.toFixed(2)}</span>
-                      </div>
-                    ))}
-                    {meta.referenceMode === 'precise' && meta.references.precise?.map((r: { strength: number; fidelity: number; mode: string }, i: number) => (
-                      <div key={i} className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-                        <span className="text-muted-foreground">Ref {i + 1} {t('reference.strength')}</span>
-                        <span className="text-foreground/80 font-mono">{r.strength.toFixed(2)}</span>
-                        <span className="text-muted-foreground">Ref {i + 1} {t('reference.fidelity')}</span>
-                        <span className="text-foreground/80 font-mono">{r.fidelity.toFixed(2)}</span>
-                        <span className="text-muted-foreground">Ref {i + 1} {t('reference.mode')}</span>
-                        <span className="text-foreground/80 font-mono">{r.mode}</span>
-                      </div>
-                    ))}
+              {meta?.referenceMode &&
+                meta.referenceMode !== 'none' &&
+                meta?.references && (
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-1.5 block">
+                      {t('imageDetail.references')}
+                    </label>
+                    <div className="text-sm space-y-1 bg-secondary/50 p-2 rounded-md">
+                      <p className="text-xs text-muted-foreground mb-1.5">
+                        {meta.referenceMode === 'vibe'
+                          ? t('reference.vibeTransfer')
+                          : t('reference.preciseReference')}
+                      </p>
+                      {meta.referenceMode === 'vibe' &&
+                        meta.references.vibes?.map(
+                          (
+                            v: {
+                              strength: number
+                              informationExtracted: number
+                            },
+                            i: number,
+                          ) => (
+                            <div
+                              key={i}
+                              className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs"
+                            >
+                              <span className="text-muted-foreground">
+                                Vibe {i + 1} {t('reference.strength')}
+                              </span>
+                              <span className="text-foreground/80 font-mono">
+                                {v.strength.toFixed(2)}
+                              </span>
+                              <span className="text-muted-foreground">
+                                Vibe {i + 1}{' '}
+                                {t('reference.informationExtracted')}
+                              </span>
+                              <span className="text-foreground/80 font-mono">
+                                {v.informationExtracted.toFixed(2)}
+                              </span>
+                            </div>
+                          ),
+                        )}
+                      {meta.referenceMode === 'precise' &&
+                        meta.references.precise?.map(
+                          (
+                            r: {
+                              strength: number
+                              fidelity: number
+                              mode: string
+                            },
+                            i: number,
+                          ) => (
+                            <div
+                              key={i}
+                              className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs"
+                            >
+                              <span className="text-muted-foreground">
+                                Ref {i + 1} {t('reference.strength')}
+                              </span>
+                              <span className="text-foreground/80 font-mono">
+                                {r.strength.toFixed(2)}
+                              </span>
+                              <span className="text-muted-foreground">
+                                Ref {i + 1} {t('reference.fidelity')}
+                              </span>
+                              <span className="text-foreground/80 font-mono">
+                                {r.fidelity.toFixed(2)}
+                              </span>
+                              <span className="text-muted-foreground">
+                                Ref {i + 1} {t('reference.mode')}
+                              </span>
+                              <span className="text-foreground/80 font-mono">
+                                {r.mode}
+                              </span>
+                            </div>
+                          ),
+                        )}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           )}
         </div>
@@ -652,7 +766,9 @@ function ImageDetailPage() {
               {naiLoading && (
                 <div className="flex items-center gap-2 py-3">
                   <div className="size-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-xs text-muted-foreground">{t('imageDetail.parsing')}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('imageDetail.parsing')}
+                  </span>
                 </div>
               )}
 
@@ -705,14 +821,20 @@ function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
 
       {metadata.model && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">Model</label>
-          <p className="text-sm font-mono text-foreground/80">{metadata.model}</p>
+          <label className="text-xs text-muted-foreground block mb-0.5">
+            Model
+          </label>
+          <p className="text-sm font-mono text-foreground/80">
+            {metadata.model}
+          </p>
         </div>
       )}
 
       {metadata.prompt && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">Positive</label>
+          <label className="text-xs text-muted-foreground block mb-0.5">
+            Positive
+          </label>
           <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-28 overflow-y-auto">
             {metadata.prompt}
           </p>
@@ -721,7 +843,9 @@ function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
 
       {metadata.negativePrompt && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">Negative</label>
+          <label className="text-xs text-muted-foreground block mb-0.5">
+            Negative
+          </label>
           <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
             {metadata.negativePrompt}
           </p>
@@ -757,27 +881,57 @@ function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
 
       {/* Parameters grid */}
       <div>
-        <label className="text-xs text-muted-foreground block mb-1">Parameters</label>
+        <label className="text-xs text-muted-foreground block mb-1">
+          Parameters
+        </label>
         <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
           {metadata.width != null && metadata.height != null && (
-            <NaiParamRow label="Size" value={`${metadata.width}x${metadata.height}`} />
+            <NaiParamRow
+              label="Size"
+              value={`${metadata.width}x${metadata.height}`}
+            />
           )}
-          {metadata.steps != null && <NaiParamRow label="Steps" value={metadata.steps} />}
-          {metadata.cfgScale != null && <NaiParamRow label="CFG" value={metadata.cfgScale} />}
+          {metadata.steps != null && (
+            <NaiParamRow label="Steps" value={metadata.steps} />
+          )}
+          {metadata.cfgScale != null && (
+            <NaiParamRow label="CFG" value={metadata.cfgScale} />
+          )}
           {metadata.cfgRescale != null && metadata.cfgRescale > 0 && (
             <NaiParamRow label="Rescale" value={metadata.cfgRescale} />
           )}
-          {metadata.seed != null && <NaiParamRow label="Seed" value={metadata.seed} />}
-          {metadata.sampler && <NaiParamRow label="Sampler" value={metadata.sampler} />}
-          {metadata.scheduler && <NaiParamRow label="Scheduler" value={metadata.scheduler} />}
-          {metadata.smea != null && <NaiParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />}
-          {metadata.smeaDyn != null && <NaiParamRow label="DYN" value={metadata.smeaDyn ? 'On' : 'Off'} />}
-          {metadata.variety != null && <NaiParamRow label="Variety+" value={metadata.variety ? 'On' : 'Off'} />}
+          {metadata.seed != null && (
+            <NaiParamRow label="Seed" value={metadata.seed} />
+          )}
+          {metadata.sampler && (
+            <NaiParamRow label="Sampler" value={metadata.sampler} />
+          )}
+          {metadata.scheduler && (
+            <NaiParamRow label="Scheduler" value={metadata.scheduler} />
+          )}
+          {metadata.smea != null && (
+            <NaiParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />
+          )}
+          {metadata.smeaDyn != null && (
+            <NaiParamRow label="DYN" value={metadata.smeaDyn ? 'On' : 'Off'} />
+          )}
+          {metadata.variety != null && (
+            <NaiParamRow
+              label="Variety+"
+              value={metadata.variety ? 'On' : 'Off'}
+            />
+          )}
           {metadata.qualityToggle != null && (
-            <NaiParamRow label="Quality" value={metadata.qualityToggle ? 'On' : 'Off'} />
+            <NaiParamRow
+              label="Quality"
+              value={metadata.qualityToggle ? 'On' : 'Off'}
+            />
           )}
           {metadata.ucPreset != null && (
-            <NaiParamRow label="UC" value={getUcPresetLabel(metadata.ucPreset)} />
+            <NaiParamRow
+              label="UC"
+              value={getUcPresetLabel(metadata.ucPreset)}
+            />
           )}
         </div>
       </div>
@@ -785,18 +939,24 @@ function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
       {/* Reference info */}
       {(metadata.hasVibeTransfer || metadata.hasCharacterReference) && (
         <div>
-          <label className="text-xs text-muted-foreground block mb-1">References</label>
+          <label className="text-xs text-muted-foreground block mb-1">
+            References
+          </label>
           <div className="text-xs space-y-0.5 text-foreground/80">
-            {metadata.hasVibeTransfer && metadata.vibeTransferInfo?.map((vt, i) => (
-              <p key={`vt-${i}`}>
-                Vibe {i + 1}: str {vt.strength.toFixed(2)}, info {vt.informationExtracted.toFixed(2)}
-              </p>
-            ))}
-            {metadata.hasCharacterReference && metadata.characterReferenceInfo?.map((cr, i) => (
-              <p key={`cr-${i}`}>
-                CharRef {i + 1}: str {cr.strength.toFixed(2)}, info {cr.informationExtracted.toFixed(2)}
-              </p>
-            ))}
+            {metadata.hasVibeTransfer &&
+              metadata.vibeTransferInfo?.map((vt, i) => (
+                <p key={`vt-${i}`}>
+                  Vibe {i + 1}: str {vt.strength.toFixed(2)}, info{' '}
+                  {vt.informationExtracted.toFixed(2)}
+                </p>
+              ))}
+            {metadata.hasCharacterReference &&
+              metadata.characterReferenceInfo?.map((cr, i) => (
+                <p key={`cr-${i}`}>
+                  CharRef {i + 1}: str {cr.strength.toFixed(2)}, info{' '}
+                  {cr.informationExtracted.toFixed(2)}
+                </p>
+              ))}
           </div>
         </div>
       )}
@@ -804,7 +964,13 @@ function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
   )
 }
 
-function NaiParamRow({ label, value }: { label: string; value: string | number }) {
+function NaiParamRow({
+  label,
+  value,
+}: {
+  label: string
+  value: string | number
+}) {
   return (
     <>
       <span className="text-muted-foreground">{label}</span>

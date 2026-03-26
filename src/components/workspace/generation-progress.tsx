@@ -1,9 +1,18 @@
-import { useState, useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Button } from '@/components/ui/button'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Cancel01Icon, PauseIcon, PlayIcon, NextIcon } from '@hugeicons/core-free-icons'
+import {
+  Cancel01Icon,
+  NextIcon,
+  PauseIcon,
+  PlayIcon,
+} from '@hugeicons/core-free-icons'
+import { Button } from '@/components/ui/button'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { useTranslation } from '@/lib/i18n'
 
 interface GenerationProgressProps {
@@ -48,7 +57,16 @@ function formatRate(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
-export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped, onCancel, onPause, onResume, onDismissError }: GenerationProgressProps) {
+export function GenerationProgress({
+  jobs,
+  batchTotal,
+  batchTiming,
+  queueStopped,
+  onCancel,
+  onPause,
+  onResume,
+  onDismissError,
+}: GenerationProgressProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [elapsed, setElapsed] = useState(0)
@@ -73,7 +91,7 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
     }
     // Don't tick when stopped
     if (isStopped) {
-      setElapsed(Date.now() - startRef.current!)
+      setElapsed(Date.now() - startRef.current)
       return
     }
     const tick = () => setElapsed(Date.now() - startRef.current!)
@@ -86,8 +104,16 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
 
   // Prefer server-side batch data (survives page refresh), fall back to client-side calculation
   const total = batchTiming?.totalImages ?? batchTotal
-  const completed = batchTiming?.completedImages
-    ?? Math.max(0, batchTotal - jobs.reduce((sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)), 0))
+  const completed =
+    batchTiming?.completedImages ??
+    Math.max(
+      0,
+      batchTotal -
+        jobs.reduce(
+          (sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)),
+          0,
+        ),
+    )
   const remaining = total - completed
   const pct = total > 0 ? (completed / total) * 100 : 0
 
@@ -102,10 +128,17 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
       : 'bg-primary'
 
   // Status label for compact bar
-  const statusLabel = isError ? t('generation.error') : isPaused ? t('generation.paused') : null
+  const statusLabel = isError
+    ? t('generation.error')
+    : isPaused
+      ? t('generation.paused')
+      : null
 
   // Action handler that also closes popover
-  const withClose = (fn: () => void) => () => { setOpen(false); fn() }
+  const withClose = (fn: () => void) => () => {
+    setOpen(false)
+    fn()
+  }
 
   return (
     <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
@@ -126,19 +159,32 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
             <span className="text-xs text-muted-foreground tabular-nums shrink-0 flex items-center gap-1">
               {statusLabel && (
                 <>
-                  <span className={isError ? 'text-destructive font-medium' : 'text-amber-500 font-medium'}>
+                  <span
+                    className={
+                      isError
+                        ? 'text-destructive font-medium'
+                        : 'text-amber-500 font-medium'
+                    }
+                  >
                     {statusLabel}
                   </span>
-                  <span className="text-muted-foreground/50 hidden sm:inline">&middot;</span>
+                  <span className="text-muted-foreground/50 hidden sm:inline">
+                    &middot;
+                  </span>
                 </>
               )}
-              <span className={statusLabel ? 'hidden sm:inline' : ''}>{completed}/{total}</span>
+              <span className={statusLabel ? 'hidden sm:inline' : ''}>
+                {completed}/{total}
+              </span>
               {!isStopped && (
                 <span className="hidden sm:contents">
                   <span className="text-muted-foreground/50">&middot;</span>
                   {etaMs != null ? (
                     <>
-                      <span>{formatRate(avgMs!)}{t('generation.perImg')}</span>
+                      <span>
+                        {formatRate(avgMs!)}
+                        {t('generation.perImg')}
+                      </span>
                       <span className="text-muted-foreground/50">&middot;</span>
                       <span>~{formatDuration(etaMs)}</span>
                     </>
@@ -182,17 +228,24 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
 
             {/* Timing row */}
             <div className="flex items-center gap-2 text-xs text-muted-foreground tabular-nums">
-              <span>{t('generation.elapsed')} {formatElapsed(elapsed)}</span>
+              <span>
+                {t('generation.elapsed')} {formatElapsed(elapsed)}
+              </span>
               {avgMs != null && (
                 <>
                   <span className="text-muted-foreground/30">&middot;</span>
-                  <span>{formatRate(avgMs)}{t('generation.perImg')}</span>
+                  <span>
+                    {formatRate(avgMs)}
+                    {t('generation.perImg')}
+                  </span>
                 </>
               )}
               {etaMs != null && !isStopped && (
                 <>
                   <span className="text-muted-foreground/30">&middot;</span>
-                  <span>~{formatDuration(etaMs)} {t('generation.left')}</span>
+                  <span>
+                    ~{formatDuration(etaMs)} {t('generation.left')}
+                  </span>
                 </>
               )}
             </div>
@@ -201,37 +254,72 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
             <div className="flex items-center gap-1.5 pt-1">
               {!isStopped ? (
                 <>
-                  <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onPause)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={withClose(onPause)}
+                  >
                     <HugeiconsIcon icon={PauseIcon} className="size-4" />
                     {t('generation.pause')}
                   </Button>
-                  <Button variant="secondary" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={withClose(onCancel)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-destructive hover:text-destructive"
+                    onClick={withClose(onCancel)}
+                  >
                     <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
                     {t('generation.cancel')}
                   </Button>
                 </>
               ) : isError ? (
                 <>
-                  <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onResume)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={withClose(onResume)}
+                  >
                     <HugeiconsIcon icon={PlayIcon} className="size-4" />
                     {t('generation.retry')}
                   </Button>
-                  <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onDismissError)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={withClose(onDismissError)}
+                  >
                     <HugeiconsIcon icon={NextIcon} className="size-4" />
                     {t('generation.skip')}
                   </Button>
-                  <Button variant="secondary" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={withClose(onCancel)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-destructive hover:text-destructive"
+                    onClick={withClose(onCancel)}
+                  >
                     <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
                     {t('generation.cancel')}
                   </Button>
                 </>
               ) : (
                 <>
-                  <Button variant="secondary" size="sm" className="flex-1" onClick={withClose(onResume)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1"
+                    onClick={withClose(onResume)}
+                  >
                     <HugeiconsIcon icon={PlayIcon} className="size-4" />
                     {t('generation.resume')}
                   </Button>
-                  <Button variant="secondary" size="sm" className="flex-1 text-destructive hover:text-destructive" onClick={withClose(onCancel)}>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    className="flex-1 text-destructive hover:text-destructive"
+                    onClick={withClose(onCancel)}
+                  >
                     <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
                     {t('generation.cancel')}
                   </Button>
@@ -265,7 +353,11 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
                 <div key={job.id} className="px-3 py-1.5">
                   <div
                     className={`flex items-center gap-2 ${
-                      isRunning ? 'bg-primary/5' : isFailed ? 'bg-destructive/5' : ''
+                      isRunning
+                        ? 'bg-primary/5'
+                        : isFailed
+                          ? 'bg-destructive/5'
+                          : ''
                     }`}
                   >
                     {isFailed ? (
@@ -275,9 +367,15 @@ export function GenerationProgress({ jobs, batchTotal, batchTiming, queueStopped
                     ) : (
                       <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0" />
                     )}
-                    <span className={`text-xs truncate flex-1 min-w-0 ${
-                      isFailed ? 'text-destructive' : isRunning ? 'text-foreground' : 'text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`text-xs truncate flex-1 min-w-0 ${
+                        isFailed
+                          ? 'text-destructive'
+                          : isRunning
+                            ? 'text-foreground'
+                            : 'text-muted-foreground'
+                      }`}
+                    >
                       {job.sceneName ?? 'Scene'}
                     </span>
                     <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">

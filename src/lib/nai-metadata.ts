@@ -18,7 +18,7 @@ export interface NAICharacterCaption {
 export interface NAIV4Prompt {
   caption?: {
     base_caption?: string
-    char_captions?: NAICharacterCaption[]
+    char_captions?: Array<NAICharacterCaption>
   }
 }
 
@@ -53,8 +53,8 @@ export interface NAIMetadata {
 
   hasVibeTransfer?: boolean
   hasCharacterReference?: boolean
-  vibeTransferInfo?: NAIVibeTransferInfo[]
-  characterReferenceInfo?: NAIVibeTransferInfo[]
+  vibeTransferInfo?: Array<NAIVibeTransferInfo>
+  characterReferenceInfo?: Array<NAIVibeTransferInfo>
 
   source?: 'text_chunk' | 'stealth_alpha'
   raw?: Record<string, unknown>
@@ -67,11 +67,17 @@ async function decompressGzip(data: Uint8Array): Promise<string> {
     if (typeof DecompressionStream !== 'undefined') {
       const stream = new DecompressionStream('gzip')
       const writer = stream.writable.getWriter()
-      writer.write(new Uint8Array(data.buffer as ArrayBuffer, data.byteOffset, data.byteLength))
+      writer.write(
+        new Uint8Array(
+          data.buffer as ArrayBuffer,
+          data.byteOffset,
+          data.byteLength,
+        ),
+      )
       writer.close()
 
       const reader = stream.readable.getReader()
-      const chunks: Uint8Array[] = []
+      const chunks: Array<Uint8Array> = []
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
@@ -97,7 +103,7 @@ async function decompressGzip(data: Uint8Array): Promise<string> {
 // ─── Binary helpers ─────────────────────────────────────────────────────────
 
 function binaryToString(binStr: string): string {
-  const bytes: number[] = []
+  const bytes: Array<number> = []
   for (let i = 0; i < binStr.length; i += 8) {
     const byte = binStr.slice(i, i + 8)
     if (byte.length === 8) bytes.push(parseInt(byte, 2))
@@ -106,7 +112,7 @@ function binaryToString(binStr: string): string {
 }
 
 function binaryToBytes(binStr: string): Uint8Array {
-  const bytes: number[] = []
+  const bytes: Array<number> = []
   for (let i = 0; i < binStr.length; i += 8) {
     const byte = binStr.slice(i, i + 8)
     if (byte.length === 8) bytes.push(parseInt(byte, 2))
@@ -117,12 +123,23 @@ function binaryToBytes(binStr: string): Uint8Array {
 // ─── Image type detection ───────────────────────────────────────────────────
 
 function detectImageType(bytes: Uint8Array): string {
-  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+  if (
+    bytes[0] === 0x89 &&
+    bytes[1] === 0x50 &&
+    bytes[2] === 0x4e &&
+    bytes[3] === 0x47
+  ) {
     return 'image/png'
   }
   if (
-    bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-    bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+    bytes[0] === 0x52 &&
+    bytes[1] === 0x49 &&
+    bytes[2] === 0x46 &&
+    bytes[3] === 0x46 &&
+    bytes[8] === 0x57 &&
+    bytes[9] === 0x45 &&
+    bytes[10] === 0x42 &&
+    bytes[11] === 0x50
   ) {
     return 'image/webp'
   }
@@ -138,7 +155,13 @@ async function getImageData(imageBytes: Uint8Array): Promise<ImageData | null> {
   return new Promise((resolve) => {
     const mimeType = detectImageType(imageBytes)
     const blob = new Blob(
-      [new Uint8Array(imageBytes.buffer as ArrayBuffer, imageBytes.byteOffset, imageBytes.byteLength)],
+      [
+        new Uint8Array(
+          imageBytes.buffer as ArrayBuffer,
+          imageBytes.byteOffset,
+          imageBytes.byteLength,
+        ),
+      ],
       { type: mimeType },
     )
     const url = URL.createObjectURL(blob)
@@ -184,7 +207,9 @@ async function getImageData(imageBytes: Uint8Array): Promise<ImageData | null> {
 
 // ─── Stealth alpha channel extraction ───────────────────────────────────────
 
-async function extractStealthMetadata(imageData: ImageData): Promise<NAIMetadata | null> {
+async function extractStealthMetadata(
+  imageData: ImageData,
+): Promise<NAIMetadata | null> {
   try {
     const { data, width, height } = imageData
 
@@ -265,11 +290,13 @@ async function extractStealthMetadata(imageData: ImageData): Promise<NAIMetadata
       jsonString = new TextDecoder('utf-8').decode(byteData)
     }
 
-    let jsonData = JSON.parse(jsonString)
+    const jsonData = JSON.parse(jsonString)
     if (jsonData.Comment && typeof jsonData.Comment === 'string') {
       try {
         jsonData.Comment = JSON.parse(jsonData.Comment)
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
 
     const sourceData = jsonData.Comment || jsonData
@@ -284,19 +311,26 @@ async function extractStealthMetadata(imageData: ImageData): Promise<NAIMetadata
 
 // ─── PNG tEXt chunk extraction ──────────────────────────────────────────────
 
-async function extractTextChunkMetadata(bytes: Uint8Array): Promise<NAIMetadata | null> {
+async function extractTextChunkMetadata(
+  bytes: Uint8Array,
+): Promise<NAIMetadata | null> {
   let offset = 8
   let metadata: NAIMetadata | null = null
   let modelSource: string | null = null
 
   while (offset < bytes.length) {
     const length =
-      (bytes[offset] << 24) | (bytes[offset + 1] << 16) |
-      (bytes[offset + 2] << 8) | bytes[offset + 3]
+      (bytes[offset] << 24) |
+      (bytes[offset + 1] << 16) |
+      (bytes[offset + 2] << 8) |
+      bytes[offset + 3]
     offset += 4
 
     const type = String.fromCharCode(
-      bytes[offset], bytes[offset + 1], bytes[offset + 2], bytes[offset + 3],
+      bytes[offset],
+      bytes[offset + 1],
+      bytes[offset + 2],
+      bytes[offset + 3],
     )
     offset += 4
 
@@ -368,28 +402,34 @@ function convertNAIFormat(data: Record<string, unknown>): NAIMetadata {
 
   if (typeof data.sm === 'boolean') metadata.smea = data.sm
   if (typeof data.sm_dyn === 'boolean') metadata.smeaDyn = data.sm_dyn
-  if (data.skip_cfg_above_sigma !== undefined && data.skip_cfg_above_sigma !== null) {
+  if (
+    data.skip_cfg_above_sigma !== undefined &&
+    data.skip_cfg_above_sigma !== null
+  ) {
     metadata.variety = true
   }
 
-  if (typeof data.qualityToggle === 'boolean') metadata.qualityToggle = data.qualityToggle
+  if (typeof data.qualityToggle === 'boolean')
+    metadata.qualityToggle = data.qualityToggle
   if (typeof data.ucPreset === 'number') metadata.ucPreset = data.ucPreset
 
   if (data.width) metadata.width = Number(data.width)
   if (data.height) metadata.height = Number(data.height)
 
   if (data.v4_prompt) metadata.v4_prompt = data.v4_prompt as NAIV4Prompt
-  if (data.v4_negative_prompt) metadata.v4_negative_prompt = data.v4_negative_prompt as NAIV4Prompt
+  if (data.v4_negative_prompt)
+    metadata.v4_negative_prompt = data.v4_negative_prompt as NAIV4Prompt
 
   // Vibe Transfer
   if (
     data.reference_strength_multiple &&
     Array.isArray(data.reference_strength_multiple) &&
-    (data.reference_strength_multiple as number[]).length > 0
+    (data.reference_strength_multiple as Array<number>).length > 0
   ) {
     metadata.hasVibeTransfer = true
-    const strengths = data.reference_strength_multiple as number[]
-    const infoExtracted = (data.reference_information_extracted_multiple as number[]) || []
+    const strengths = data.reference_strength_multiple as Array<number>
+    const infoExtracted =
+      (data.reference_information_extracted_multiple as Array<number>) || []
     metadata.vibeTransferInfo = strengths.map((strength, i) => ({
       strength,
       informationExtracted: infoExtracted[i] ?? 1.0,
@@ -400,11 +440,12 @@ function convertNAIFormat(data: Record<string, unknown>): NAIMetadata {
   if (
     data.director_reference_strengths &&
     Array.isArray(data.director_reference_strengths) &&
-    (data.director_reference_strengths as unknown[]).length > 0
+    (data.director_reference_strengths as Array<unknown>).length > 0
   ) {
     metadata.hasCharacterReference = true
-    const strengths = data.director_reference_strengths as number[]
-    const secondary = (data.director_reference_secondary_strengths as number[]) || []
+    const strengths = data.director_reference_strengths as Array<number>
+    const secondary =
+      (data.director_reference_secondary_strengths as Array<number>) || []
     metadata.characterReferenceInfo = strengths.map((strength, i) => ({
       strength,
       informationExtracted: secondary[i] ?? 1.0,
@@ -450,10 +491,18 @@ function parseA1111Format(text: string): NAIMetadata | null {
       const [key, value] = param.split(': ')
       if (!key || !value) continue
       switch (key.trim()) {
-        case 'Steps': metadata.steps = parseInt(value); break
-        case 'Sampler': metadata.sampler = value; break
-        case 'CFG scale': metadata.cfgScale = parseFloat(value); break
-        case 'Seed': metadata.seed = parseInt(value); break
+        case 'Steps':
+          metadata.steps = parseInt(value)
+          break
+        case 'Sampler':
+          metadata.sampler = value
+          break
+        case 'CFG scale':
+          metadata.cfgScale = parseFloat(value)
+          break
+        case 'Seed':
+          metadata.seed = parseInt(value)
+          break
         case 'Size': {
           const [w, h] = value.split('x')
           metadata.width = parseInt(w)
@@ -473,7 +522,8 @@ export async function parseNAIMetadata(
   imageData: ArrayBuffer | Uint8Array,
 ): Promise<NAIMetadata | null> {
   try {
-    const bytes = imageData instanceof ArrayBuffer ? new Uint8Array(imageData) : imageData
+    const bytes =
+      imageData instanceof ArrayBuffer ? new Uint8Array(imageData) : imageData
     const imageType = detectImageType(bytes)
 
     let metadata: NAIMetadata | null = null
@@ -483,7 +533,10 @@ export async function parseNAIMetadata(
       const pngSig = [137, 80, 78, 71, 13, 10, 26, 10]
       let isPng = true
       for (let i = 0; i < 8; i++) {
-        if (bytes[i] !== pngSig[i]) { isPng = false; break }
+        if (bytes[i] !== pngSig[i]) {
+          isPng = false
+          break
+        }
       }
       if (isPng) metadata = await extractTextChunkMetadata(bytes)
     }
@@ -501,7 +554,9 @@ export async function parseNAIMetadata(
   }
 }
 
-export async function parseMetadataFromFile(file: File): Promise<NAIMetadata | null> {
+export async function parseMetadataFromFile(
+  file: File,
+): Promise<NAIMetadata | null> {
   const buffer = await file.arrayBuffer()
   return parseNAIMetadata(buffer)
 }

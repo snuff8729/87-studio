@@ -12,24 +12,25 @@
 
 ## File Structure
 
-| Action | File | Responsibility |
-|--------|------|----------------|
-| Create | `src/components/prompt-editor/expanded-editor-dialog.tsx` | Fullscreen Dialog wrapping PromptEditor |
-| Create | `src/components/common/expanded-textarea-dialog.tsx` | Fullscreen Dialog wrapping Textarea |
-| Modify | `src/components/workspace/prompt-panel.tsx` | Add expand buttons to CodeMirror editors |
-| Modify | `src/components/workspace/placeholder-editor.tsx` | Add expand buttons to placeholder textareas |
-| Modify | `src/components/workspace/scene-pack-dialog.tsx` | Add expand button to scene placeholder textareas |
-| Modify | `src/components/common/image-detail-overlay.tsx` | Add expand button to memo textarea |
-| Modify | `src/routes/gallery/$imageId.tsx` | Add expand button to memo textarea |
-| Modify | `src/routes/index.tsx` | Add expand button to project description textarea |
-| Modify | `src/lib/i18n/en.ts` | Add i18n key |
-| Modify | `src/lib/i18n/ko.ts` | Add i18n key |
+| Action | File                                                      | Responsibility                                    |
+| ------ | --------------------------------------------------------- | ------------------------------------------------- |
+| Create | `src/components/prompt-editor/expanded-editor-dialog.tsx` | Fullscreen Dialog wrapping PromptEditor           |
+| Create | `src/components/common/expanded-textarea-dialog.tsx`      | Fullscreen Dialog wrapping Textarea               |
+| Modify | `src/components/workspace/prompt-panel.tsx`               | Add expand buttons to CodeMirror editors          |
+| Modify | `src/components/workspace/placeholder-editor.tsx`         | Add expand buttons to placeholder textareas       |
+| Modify | `src/components/workspace/scene-pack-dialog.tsx`          | Add expand button to scene placeholder textareas  |
+| Modify | `src/components/common/image-detail-overlay.tsx`          | Add expand button to memo textarea                |
+| Modify | `src/routes/gallery/$imageId.tsx`                         | Add expand button to memo textarea                |
+| Modify | `src/routes/index.tsx`                                    | Add expand button to project description textarea |
+| Modify | `src/lib/i18n/en.ts`                                      | Add i18n key                                      |
+| Modify | `src/lib/i18n/ko.ts`                                      | Add i18n key                                      |
 
 ---
 
 ### Task 1: Add i18n keys
 
 **Files:**
+
 - Modify: `src/lib/i18n/en.ts:258` (end of workspace section)
 - Modify: `src/lib/i18n/ko.ts` (matching location in workspace section)
 
@@ -70,6 +71,7 @@ git commit -m "feat: add i18n keys for expanded editor button"
 ### Task 2: Create ExpandedEditorDialog component
 
 **Files:**
+
 - Create: `src/components/prompt-editor/expanded-editor-dialog.tsx`
 
 - [ ] **Step 1: Create the component file**
@@ -111,9 +113,7 @@ export function ExpandedEditorDialog({
 }: ExpandedEditorDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="flex flex-col max-w-[calc(100%-2rem)] w-[90vw] h-[85vh] sm:max-w-[90vw] max-sm:inset-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:top-0 max-sm:left-0 max-sm:w-full max-sm:h-full max-sm:max-w-full max-sm:rounded-none"
-      >
+      <DialogContent className="flex flex-col max-w-[calc(100%-2rem)] w-[90vw] h-[85vh] sm:max-w-[90vw] max-sm:inset-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:top-0 max-sm:left-0 max-sm:w-full max-sm:h-full max-sm:max-w-full max-sm:rounded-none">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -142,6 +142,7 @@ export function ExpandedEditorDialog({
 ```
 
 Key design decisions:
+
 - Dialog uses `flex flex-col` so the editor fills remaining space after the header
 - `min-h-0 overflow-hidden` on the editor wrapper prevents flex children from overflowing
 - CSS overrides `[&_.cm-editor]:!h-full` ensure CodeMirror fills the container height
@@ -166,6 +167,7 @@ git commit -m "feat: create ExpandedEditorDialog component"
 ### Task 3: Add expand buttons to PromptPanel
 
 **Files:**
+
 - Modify: `src/components/workspace/prompt-panel.tsx`
 
 - [ ] **Step 1: Add imports**
@@ -187,8 +189,10 @@ import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor
 Inside the `PromptPanel` component function, after the existing state declarations (around line 92), add:
 
 ```typescript
-  // Expanded editor dialog
-  const [expandTarget, setExpandTarget] = useState<'prompt' | 'negative' | null>(null)
+// Expanded editor dialog
+const [expandTarget, setExpandTarget] = useState<'prompt' | 'negative' | null>(
+  null,
+)
 ```
 
 - [ ] **Step 3: Add expand buttons to label rows**
@@ -196,53 +200,55 @@ Inside the `PromptPanel` component function, after the existing state declaratio
 Replace the prompt editor label (around lines 371-374):
 
 ```tsx
-            <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
-            </Label>
+<Label className="text-sm text-muted-foreground uppercase tracking-wider">
+  {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
+</Label>
 ```
 
 With:
 
 ```tsx
-            <div className="flex items-center justify-between">
-              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
-              </Label>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setExpandTarget('prompt')}
-                title={t('workspace.expandEditor')}
-              >
-                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-              </Button>
-            </div>
+<div className="flex items-center justify-between">
+  <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+    {isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt')}
+  </Label>
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    onClick={() => setExpandTarget('prompt')}
+    title={t('workspace.expandEditor')}
+  >
+    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+  </Button>
+</div>
 ```
 
 Replace the negative prompt label (around lines 404-406):
 
 ```tsx
-            <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
-            </Label>
+<Label className="text-sm text-muted-foreground uppercase tracking-wider">
+  {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
+</Label>
 ```
 
 With:
 
 ```tsx
-            <div className="flex items-center justify-between">
-              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                {isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt')}
-              </Label>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setExpandTarget('negative')}
-                title={t('workspace.expandEditor')}
-              >
-                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-              </Button>
-            </div>
+<div className="flex items-center justify-between">
+  <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+    {isCharacterTab
+      ? t('workspace.charNegative')
+      : t('workspace.negativePrompt')}
+  </Label>
+  <Button
+    variant="ghost"
+    size="icon-sm"
+    onClick={() => setExpandTarget('negative')}
+    title={t('workspace.expandEditor')}
+  >
+    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+  </Button>
+</div>
 ```
 
 - [ ] **Step 4: Add ExpandedEditorDialog at the end of the component**
@@ -250,18 +256,26 @@ With:
 Just before the closing `</div>` of the component's return (line 436), add:
 
 ```tsx
-      <ExpandedEditorDialog
-        open={expandTarget !== null}
-        onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
-        title={
-          expandTarget === 'prompt'
-            ? (isCharacterTab ? t('workspace.characterPrompt') : t('workspace.prompt'))
-            : (isCharacterTab ? t('workspace.charNegative') : t('workspace.negativePrompt'))
-        }
-        value={expandTarget === 'prompt' ? displayPrompt : displayNegative}
-        onChange={expandTarget === 'prompt' ? handlePromptChange : handleNegativeChange}
-        bundleNames={bundleNames}
-      />
+<ExpandedEditorDialog
+  open={expandTarget !== null}
+  onOpenChange={(open) => {
+    if (!open) setExpandTarget(null)
+  }}
+  title={
+    expandTarget === 'prompt'
+      ? isCharacterTab
+        ? t('workspace.characterPrompt')
+        : t('workspace.prompt')
+      : isCharacterTab
+        ? t('workspace.charNegative')
+        : t('workspace.negativePrompt')
+  }
+  value={expandTarget === 'prompt' ? displayPrompt : displayNegative}
+  onChange={
+    expandTarget === 'prompt' ? handlePromptChange : handleNegativeChange
+  }
+  bundleNames={bundleNames}
+/>
 ```
 
 This reuses the existing `displayPrompt`/`displayNegative` values and `handlePromptChange`/`handleNegativeChange` handlers — the same ones the inline editors use. Real-time sync happens automatically.
@@ -276,6 +290,7 @@ Expected: No errors
 Run: `cd /Users/user/project/snuff/87-studio && pnpm dev`
 
 Test checklist:
+
 1. Open a project workspace
 2. Verify expand button visible next to "Prompt" and "Negative Prompt" labels
 3. Click expand button → Dialog opens with near-fullscreen editor
@@ -297,6 +312,7 @@ git commit -m "feat: add expand buttons to prompt editors in workspace"
 ### Task 4: Create ExpandedTextareaDialog component
 
 **Files:**
+
 - Create: `src/components/common/expanded-textarea-dialog.tsx`
 
 - [ ] **Step 1: Create the component file**
@@ -332,13 +348,14 @@ export function ExpandedTextareaDialog({
   onBlur,
 }: ExpandedTextareaDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={(nextOpen) => {
-      if (!nextOpen && onBlur) onBlur()
-      onOpenChange(nextOpen)
-    }}>
-      <DialogContent
-        className="flex flex-col max-w-[calc(100%-2rem)] w-[90vw] h-[85vh] sm:max-w-[90vw] max-sm:inset-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:top-0 max-sm:left-0 max-sm:w-full max-sm:h-full max-sm:max-w-full max-sm:rounded-none"
-      >
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen && onBlur) onBlur()
+        onOpenChange(nextOpen)
+      }}
+    >
+      <DialogContent className="flex flex-col max-w-[calc(100%-2rem)] w-[90vw] h-[85vh] sm:max-w-[90vw] max-sm:inset-0 max-sm:translate-x-0 max-sm:translate-y-0 max-sm:top-0 max-sm:left-0 max-sm:w-full max-sm:h-full max-sm:max-w-full max-sm:rounded-none">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
         </DialogHeader>
@@ -356,6 +373,7 @@ export function ExpandedTextareaDialog({
 ```
 
 Key design decisions:
+
 - Same Dialog sizing as ExpandedEditorDialog (90vw × 85vh, mobile fullscreen)
 - `onBlur` callback fires when dialog closes — useful for memo fields that save on blur
 - `flex-1 min-h-0 resize-none` makes Textarea fill the dialog body
@@ -378,6 +396,7 @@ git commit -m "feat: create ExpandedTextareaDialog component"
 ### Task 5: Add expand buttons to PlaceholderEditor
 
 **Files:**
+
 - Modify: `src/components/workspace/placeholder-editor.tsx`
 
 - [ ] **Step 1: Add imports**
@@ -395,8 +414,11 @@ import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-di
 Inside the PlaceholderEditor component, after existing state declarations, add:
 
 ```typescript
-  // Expanded textarea dialog
-  const [expandTarget, setExpandTarget] = useState<{ key: string; owner: 'general' | number } | null>(null)
+// Expanded textarea dialog
+const [expandTarget, setExpandTarget] = useState<{
+  key: string
+  owner: 'general' | number
+} | null>(null)
 ```
 
 - [ ] **Step 3: Add expand button to each textarea**
@@ -406,36 +428,39 @@ For every `<textarea>` in the component (there are 4 groups: unfilled general, u
 For each `<label>` that precedes a `<textarea>`, wrap the label content and add an expand button. Example for the unfilled general section (around line 524):
 
 Replace:
+
 ```tsx
-                  <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mb-1.5">
-                    <StatusDot filled={!!getCellValue(key, 'general')} />
-                    <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                      {`\\\\${key}\\\\`}
-                    </span>
-                  </label>
+<label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground mb-1.5">
+  <StatusDot filled={!!getCellValue(key, 'general')} />
+  <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
+    {`\\\\${key}\\\\`}
+  </span>
+</label>
 ```
 
 With:
+
 ```tsx
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
-                      <StatusDot filled={!!getCellValue(key, 'general')} />
-                      <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                        {`\\\\${key}\\\\`}
-                      </span>
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setExpandTarget({ key, owner: 'general' })}
-                      className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                      title={t('workspace.expandEditor')}
-                    >
-                      <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
-                    </button>
-                  </div>
+<div className="flex items-center justify-between mb-1.5">
+  <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
+    <StatusDot filled={!!getCellValue(key, 'general')} />
+    <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
+      {`\\\\${key}\\\\`}
+    </span>
+  </label>
+  <button
+    type="button"
+    onClick={() => setExpandTarget({ key, owner: 'general' })}
+    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+    title={t('workspace.expandEditor')}
+  >
+    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+  </button>
+</div>
 ```
 
 Apply this same pattern to all 4 textarea groups:
+
 1. Unfilled general (line ~524) — `owner: 'general'`
 2. Unfilled character (line ~549) — `owner: charId`
 3. Filled general (line ~598) — `owner: 'general'`
@@ -448,20 +473,27 @@ Note: Remove `mb-1.5` from the `<label>` and put it on the wrapper `<div>` inste
 At the end of the component's return JSX (before the final closing tags), add:
 
 ```tsx
-      <ExpandedTextareaDialog
-        open={expandTarget !== null}
-        onOpenChange={(open) => { if (!open) setExpandTarget(null) }}
-        title={expandTarget ? `\\\\${expandTarget.key}\\\\` : ''}
-        value={expandTarget ? (
-          typeof expandTarget.owner === 'number'
-            ? getEffectiveCharValue(expandTarget.key, expandTarget.owner)
-            : getCellValue(expandTarget.key, 'general')
-        ) : ''}
-        onChange={(val) => {
-          if (expandTarget) handleCellChange(expandTarget.owner, expandTarget.key, val)
-        }}
-        placeholder={expandTarget ? t('scene.valueFor', { key: expandTarget.key }) : ''}
-      />
+<ExpandedTextareaDialog
+  open={expandTarget !== null}
+  onOpenChange={(open) => {
+    if (!open) setExpandTarget(null)
+  }}
+  title={expandTarget ? `\\\\${expandTarget.key}\\\\` : ''}
+  value={
+    expandTarget
+      ? typeof expandTarget.owner === 'number'
+        ? getEffectiveCharValue(expandTarget.key, expandTarget.owner)
+        : getCellValue(expandTarget.key, 'general')
+      : ''
+  }
+  onChange={(val) => {
+    if (expandTarget)
+      handleCellChange(expandTarget.owner, expandTarget.key, val)
+  }}
+  placeholder={
+    expandTarget ? t('scene.valueFor', { key: expandTarget.key }) : ''
+  }
+/>
 ```
 
 Note: `getCellValue` handles general; `getEffectiveCharValue` handles character values. The `handleCellChange` handler already works for both general and character owners.
@@ -483,6 +515,7 @@ git commit -m "feat: add expand buttons to placeholder editor textareas"
 ### Task 6: Add expand buttons to remaining textarea fields
 
 **Files:**
+
 - Modify: `src/components/workspace/scene-pack-dialog.tsx`
 - Modify: `src/components/common/image-detail-overlay.tsx`
 - Modify: `src/routes/gallery/$imageId.tsx`
@@ -528,27 +561,31 @@ Actually, a simpler approach: add an expand button after each Textarea:
 After the `<Textarea ... />` for each key (line ~737), add:
 
 ```tsx
-              <button
-                type="button"
-                onClick={() => setExpandKey(key)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors mt-2 shrink-0"
-                title={t('workspace.expandEditor')}
-              >
-                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
-              </button>
+<button
+  type="button"
+  onClick={() => setExpandKey(key)}
+  className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors mt-2 shrink-0"
+  title={t('workspace.expandEditor')}
+>
+  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+</button>
 ```
 
 And add the dialog at the end of SceneEditPanel's return:
 
 ```tsx
-          <ExpandedTextareaDialog
-            open={expandKey !== null}
-            onOpenChange={(open) => { if (!open) setExpandKey(null) }}
-            title={expandKey ? `\\\\${expandKey}\\\\` : ''}
-            value={expandKey ? (values[expandKey] ?? '') : ''}
-            onChange={(val) => { if (expandKey) handleValueChange(expandKey, val) }}
-            placeholder={expandKey ? t('templates.valueForKey', { key: expandKey }) : ''}
-          />
+<ExpandedTextareaDialog
+  open={expandKey !== null}
+  onOpenChange={(open) => {
+    if (!open) setExpandKey(null)
+  }}
+  title={expandKey ? `\\\\${expandKey}\\\\` : ''}
+  value={expandKey ? (values[expandKey] ?? '') : ''}
+  onChange={(val) => {
+    if (expandKey) handleValueChange(expandKey, val)
+  }}
+  placeholder={expandKey ? t('templates.valueForKey', { key: expandKey }) : ''}
+/>
 ```
 
 - [ ] **Step 2: image-detail-overlay.tsx — add expand button to memo**
@@ -569,37 +606,41 @@ const [memoExpanded, setMemoExpanded] = useState(false)
 Replace the memo label (line ~313):
 
 ```tsx
-          <label className="text-sm text-muted-foreground mb-1.5 block">{t('imageDetail.memo')}</label>
+<label className="text-sm text-muted-foreground mb-1.5 block">
+  {t('imageDetail.memo')}
+</label>
 ```
 
 With:
 
 ```tsx
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm text-muted-foreground">{t('imageDetail.memo')}</label>
-            <button
-              type="button"
-              onClick={() => setMemoExpanded(true)}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-              title={t('workspace.expandEditor')}
-            >
-              <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
-            </button>
-          </div>
+<div className="flex items-center justify-between mb-1.5">
+  <label className="text-sm text-muted-foreground">
+    {t('imageDetail.memo')}
+  </label>
+  <button
+    type="button"
+    onClick={() => setMemoExpanded(true)}
+    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+    title={t('workspace.expandEditor')}
+  >
+    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+  </button>
+</div>
 ```
 
 And add the dialog after the memo section:
 
 ```tsx
-          <ExpandedTextareaDialog
-            open={memoExpanded}
-            onOpenChange={setMemoExpanded}
-            title={t('imageDetail.memo')}
-            value={memo}
-            onChange={setMemo}
-            onBlur={handleSaveMemo}
-            placeholder={t('imageDetail.addNote')}
-          />
+<ExpandedTextareaDialog
+  open={memoExpanded}
+  onOpenChange={setMemoExpanded}
+  title={t('imageDetail.memo')}
+  value={memo}
+  onChange={setMemo}
+  onBlur={handleSaveMemo}
+  placeholder={t('imageDetail.addNote')}
+/>
 ```
 
 - [ ] **Step 3: gallery/$imageId.tsx — add expand button to memo**
@@ -622,39 +663,41 @@ const [memoExpanded, setMemoExpanded] = useState(false)
 Replace the memo label (line ~449-451):
 
 ```tsx
-          <label className="text-sm text-muted-foreground mb-1.5 block">
-            {t('imageDetail.memo')}
-          </label>
+<label className="text-sm text-muted-foreground mb-1.5 block">
+  {t('imageDetail.memo')}
+</label>
 ```
 
 With:
 
 ```tsx
-          <div className="flex items-center justify-between mb-1.5">
-            <label className="text-sm text-muted-foreground">{t('imageDetail.memo')}</label>
-            <button
-              type="button"
-              onClick={() => setMemoExpanded(true)}
-              className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-              title={t('workspace.expandEditor')}
-            >
-              <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
-            </button>
-          </div>
+<div className="flex items-center justify-between mb-1.5">
+  <label className="text-sm text-muted-foreground">
+    {t('imageDetail.memo')}
+  </label>
+  <button
+    type="button"
+    onClick={() => setMemoExpanded(true)}
+    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+    title={t('workspace.expandEditor')}
+  >
+    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+  </button>
+</div>
 ```
 
 Add dialog after memo section:
 
 ```tsx
-          <ExpandedTextareaDialog
-            open={memoExpanded}
-            onOpenChange={setMemoExpanded}
-            title={t('imageDetail.memo')}
-            value={memo}
-            onChange={setMemo}
-            onBlur={handleSaveMemo}
-            placeholder={t('imageDetail.addNote')}
-          />
+<ExpandedTextareaDialog
+  open={memoExpanded}
+  onOpenChange={setMemoExpanded}
+  title={t('imageDetail.memo')}
+  value={memo}
+  onChange={setMemo}
+  onBlur={handleSaveMemo}
+  placeholder={t('imageDetail.addNote')}
+/>
 ```
 
 - [ ] **Step 4: routes/index.tsx — add expand button to project description**
@@ -676,36 +719,36 @@ const [descExpanded, setDescExpanded] = useState(false)
 Replace the description label (line ~411):
 
 ```tsx
-                <Label>{t('dashboard.descriptionOptional')}</Label>
+<Label>{t('dashboard.descriptionOptional')}</Label>
 ```
 
 With:
 
 ```tsx
-                <div className="flex items-center justify-between">
-                  <Label>{t('dashboard.descriptionOptional')}</Label>
-                  <button
-                    type="button"
-                    onClick={() => setDescExpanded(true)}
-                    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                    title={t('workspace.expandEditor')}
-                  >
-                    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
-                  </button>
-                </div>
+<div className="flex items-center justify-between">
+  <Label>{t('dashboard.descriptionOptional')}</Label>
+  <button
+    type="button"
+    onClick={() => setDescExpanded(true)}
+    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+    title={t('workspace.expandEditor')}
+  >
+    <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+  </button>
+</div>
 ```
 
 Add dialog after the Textarea:
 
 ```tsx
-                <ExpandedTextareaDialog
-                  open={descExpanded}
-                  onOpenChange={setDescExpanded}
-                  title={t('dashboard.descriptionOptional')}
-                  value={description}
-                  onChange={setDescription}
-                  placeholder={t('dashboard.briefDescription')}
-                />
+<ExpandedTextareaDialog
+  open={descExpanded}
+  onOpenChange={setDescExpanded}
+  title={t('dashboard.descriptionOptional')}
+  value={description}
+  onChange={setDescription}
+  placeholder={t('dashboard.briefDescription')}
+/>
 ```
 
 - [ ] **Step 5: Verify TypeScript compilation**
@@ -718,6 +761,7 @@ Expected: No errors
 Run: `cd /Users/user/project/snuff/87-studio && pnpm dev`
 
 Test checklist:
+
 1. PlaceholderEditor: expand buttons visible next to each placeholder label, dialog opens/syncs
 2. ScenePackDialog: expand button next to scene placeholder values
 3. Image detail overlay: expand button next to memo label

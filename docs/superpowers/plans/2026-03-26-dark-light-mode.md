@@ -13,11 +13,13 @@
 ## File Structure
 
 **Create:**
+
 - `src/lib/theme/types.ts` — Theme and ResolvedTheme type definitions
 - `src/lib/theme/context.tsx` — ThemeProvider, useTheme hook, FOUC script helper
 - `src/lib/theme/index.ts` — Public re-exports
 
 **Modify:**
+
 - `src/lib/i18n/en.ts` — Add theme translation keys
 - `src/lib/i18n/ko.ts` — Add theme translation keys
 - `src/routes/__root.tsx` — Remove hardcoded `dark`, wrap with ThemeProvider, add FOUC script
@@ -30,6 +32,7 @@
 ### Task 1: Theme Type Definitions
 
 **Files:**
+
 - Create: `src/lib/theme/types.ts`
 
 - [ ] **Step 1: Create type definitions**
@@ -52,13 +55,21 @@ git commit -m "feat(theme): add theme type definitions"
 ### Task 2: Theme Context and Provider
 
 **Files:**
+
 - Create: `src/lib/theme/context.tsx`
 
 - [ ] **Step 1: Create ThemeProvider and useTheme hook**
 
 ```tsx
 // src/lib/theme/context.tsx
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+} from 'react'
 import type { Theme, ResolvedTheme } from './types'
 
 const STORAGE_KEY = '87studio-theme'
@@ -73,7 +84,8 @@ function getSystemTheme(): ResolvedTheme {
 function getInitialTheme(): Theme {
   if (typeof window === 'undefined') return DEFAULT_THEME
   const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'light' || stored === 'dark' || stored === 'system') return stored
+  if (stored === 'light' || stored === 'dark' || stored === 'system')
+    return stored
   return DEFAULT_THEME
 }
 
@@ -92,7 +104,9 @@ const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(getInitialTheme)
-  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() => resolveTheme(getInitialTheme()))
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme>(() =>
+    resolveTheme(getInitialTheme()),
+  )
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
@@ -147,6 +161,7 @@ git commit -m "feat(theme): add ThemeProvider context and useTheme hook"
 ### Task 3: Theme Public API
 
 **Files:**
+
 - Create: `src/lib/theme/index.ts`
 
 - [ ] **Step 1: Create public exports**
@@ -169,6 +184,7 @@ git commit -m "feat(theme): add public API exports"
 ### Task 4: i18n Translation Keys
 
 **Files:**
+
 - Modify: `src/lib/i18n/en.ts`
 - Modify: `src/lib/i18n/ko.ts`
 
@@ -213,6 +229,7 @@ git commit -m "feat(theme): add i18n translation keys for theme settings"
 ### Task 5: Root Layout Integration
 
 **Files:**
+
 - Modify: `src/routes/__root.tsx`
 
 - [ ] **Step 1: Add FOUC-prevention script and ThemeProvider**
@@ -220,6 +237,7 @@ git commit -m "feat(theme): add i18n translation keys for theme settings"
 In `src/routes/__root.tsx`:
 
 1. Add import at top:
+
 ```ts
 import { ThemeProvider } from '@/lib/theme'
 ```
@@ -305,6 +323,7 @@ git commit -m "feat(theme): integrate ThemeProvider in root layout with FOUC pre
 ### Task 6: Settings Page Theme Selector
 
 **Files:**
+
 - Modify: `src/routes/settings/index.tsx`
 
 - [ ] **Step 1: Add theme selector card**
@@ -312,6 +331,7 @@ git commit -m "feat(theme): integrate ThemeProvider in root layout with FOUC pre
 In `src/routes/settings/index.tsx`:
 
 1. Add imports at top:
+
 ```ts
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Sun02Icon, Moon02Icon, ComputerIcon } from '@hugeicons/core-free-icons'
@@ -320,6 +340,7 @@ import type { Theme } from '@/lib/theme'
 ```
 
 2. Inside `SettingsPage` function, add after the `const onboarding = ...` line:
+
 ```ts
 const { theme, setTheme } = useTheme()
 ```
@@ -327,32 +348,34 @@ const { theme, setTheme } = useTheme()
 3. Add theme card between the Language card and the Storage card (after the closing `</Card>` of the Language section, before the Storage `<Card>`):
 
 ```tsx
-        <Card>
-          <CardHeader>
-            <CardTitle>{t('settings.theme')}</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">{t('settings.themeDesc')}</p>
-            <div className="flex gap-2">
-              {([
-                ['system', t('settings.themeSystem'), ComputerIcon],
-                ['light', t('settings.themeLight'), Sun02Icon],
-                ['dark', t('settings.themeDark'), Moon02Icon],
-              ] as const).map(([value, label, icon]) => (
-                <Button
-                  key={value}
-                  variant={theme === value ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setTheme(value as Theme)}
-                  className="gap-1.5"
-                >
-                  <HugeiconsIcon icon={icon} size={16} />
-                  {label}
-                </Button>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+<Card>
+  <CardHeader>
+    <CardTitle>{t('settings.theme')}</CardTitle>
+  </CardHeader>
+  <CardContent className="space-y-3">
+    <p className="text-sm text-muted-foreground">{t('settings.themeDesc')}</p>
+    <div className="flex gap-2">
+      {(
+        [
+          ['system', t('settings.themeSystem'), ComputerIcon],
+          ['light', t('settings.themeLight'), Sun02Icon],
+          ['dark', t('settings.themeDark'), Moon02Icon],
+        ] as const
+      ).map(([value, label, icon]) => (
+        <Button
+          key={value}
+          variant={theme === value ? 'default' : 'outline'}
+          size="sm"
+          onClick={() => setTheme(value as Theme)}
+          className="gap-1.5"
+        >
+          <HugeiconsIcon icon={icon} size={16} />
+          {label}
+        </Button>
+      ))}
+    </div>
+  </CardContent>
+</Card>
 ```
 
 - [ ] **Step 2: Verify TypeScript compilation**
@@ -372,6 +395,7 @@ git commit -m "feat(theme): add theme selector to settings page"
 ### Task 7: CodeMirror Light Theme
 
 **Files:**
+
 - Modify: `src/components/prompt-editor/theme.ts`
 
 - [ ] **Step 1: Add lightTheme export**
@@ -389,7 +413,8 @@ export const lightTheme = EditorView.theme(
       fontSize: '13px',
     },
     '.cm-content': {
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       padding: '8px 0',
       caretColor: 'oklch(0.205 0 0)',
     },
@@ -475,7 +500,8 @@ export const lightTheme = EditorView.theme(
       color: 'oklch(0.35 0.01 80)',
       whiteSpace: 'pre-wrap',
       wordBreak: 'break-word',
-      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+      fontFamily:
+        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
     },
   },
   { dark: false },
@@ -494,6 +520,7 @@ git commit -m "feat(theme): add CodeMirror light theme"
 ### Task 8: CodeMirror Dynamic Theme Switching
 
 **Files:**
+
 - Modify: `src/components/prompt-editor/prompt-editor.tsx`
 
 - [ ] **Step 1: Add Compartment-based dynamic theme switching**
@@ -501,51 +528,72 @@ git commit -m "feat(theme): add CodeMirror light theme"
 In `src/components/prompt-editor/prompt-editor.tsx`:
 
 1. Update imports — add `Compartment`:
+
 ```ts
-import { EditorView, keymap, ViewPlugin, type ViewUpdate } from '@codemirror/view'
+import {
+  EditorView,
+  keymap,
+  ViewPlugin,
+  type ViewUpdate,
+} from '@codemirror/view'
 ```
+
 becomes:
+
 ```ts
-import { EditorView, keymap, ViewPlugin, type ViewUpdate, Compartment } from '@codemirror/view'
+import {
+  EditorView,
+  keymap,
+  ViewPlugin,
+  type ViewUpdate,
+  Compartment,
+} from '@codemirror/view'
 ```
 
 2. Import both themes and useTheme:
+
 ```ts
 import { darkTheme } from './theme'
 ```
+
 becomes:
+
 ```ts
 import { darkTheme, lightTheme } from './theme'
 import { useTheme } from '@/lib/theme'
 ```
 
 3. Inside the `PromptEditor` component, before the `containerRef`:
+
 ```ts
-  const { resolvedTheme } = useTheme()
+const { resolvedTheme } = useTheme()
 ```
 
 4. Add a ref for the compartment after `onChangeRef`:
+
 ```ts
-  const themeCompartmentRef = useRef(new Compartment())
+const themeCompartmentRef = useRef(new Compartment())
 ```
 
 5. In the `EditorState.create` extensions array, replace the static `darkTheme` (line 69) with:
+
 ```ts
         themeCompartmentRef.current.of(resolvedTheme === 'dark' ? darkTheme : lightTheme),
 ```
 
 6. Add a new `useEffect` after the value sync effect (after line 122) to handle theme changes:
+
 ```ts
-  // Sync theme changes at runtime
-  useEffect(() => {
-    const view = viewRef.current
-    if (!view) return
-    view.dispatch({
-      effects: themeCompartmentRef.current.reconfigure(
-        resolvedTheme === 'dark' ? darkTheme : lightTheme,
-      ),
-    })
-  }, [resolvedTheme])
+// Sync theme changes at runtime
+useEffect(() => {
+  const view = viewRef.current
+  if (!view) return
+  view.dispatch({
+    effects: themeCompartmentRef.current.reconfigure(
+      resolvedTheme === 'dark' ? darkTheme : lightTheme,
+    ),
+  })
+}, [resolvedTheme])
 ```
 
 - [ ] **Step 2: Verify TypeScript compilation**
@@ -584,6 +632,7 @@ Expected: All existing tests pass
 Run: `cd /Users/user/project/snuff/87-studio && pnpm dev`
 
 Verify in browser:
+
 1. Default theme follows OS setting (system mode)
 2. Settings page shows Theme card with System/Light/Dark buttons
 3. Clicking Light applies light theme immediately (no flash)

@@ -1,6 +1,14 @@
-import sharp from 'sharp'
-import { mkdirSync, writeFileSync, unlinkSync, existsSync, readdirSync, rmSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { dirname, join } from 'node:path'
+import sharp from 'sharp'
 import { createLogger } from './logger'
 
 /** Normalize path separators to forward slashes (for consistent DB storage across OS) */
@@ -32,7 +40,10 @@ export function saveImage(
 
   log.info('save', 'Image saved', { filePath, sizeBytes: imageData.byteLength })
 
-  return { filePath: normalizePath(filePath), thumbnailPath: normalizePath(thumbnailPath) }
+  return {
+    filePath: normalizePath(filePath),
+    thumbnailPath: normalizePath(thumbnailPath),
+  }
 }
 
 export async function generateThumbnail(
@@ -41,12 +52,22 @@ export async function generateThumbnail(
 ): Promise<void> {
   try {
     await sharp(sourcePath)
-      .resize({ width: 300, height: 300, fit: 'inside', withoutEnlargement: true })
+      .resize({
+        width: 300,
+        height: 300,
+        fit: 'inside',
+        withoutEnlargement: true,
+      })
       .png()
       .toFile(thumbnailPath)
     log.info('thumbnail', 'Thumbnail generated', { thumbnailPath })
   } catch (error) {
-    log.error('thumbnail.failed', 'Thumbnail generation failed', { sourcePath, thumbnailPath }, error)
+    log.error(
+      'thumbnail.failed',
+      'Thumbnail generation failed',
+      { sourcePath, thumbnailPath },
+      error,
+    )
     throw error
   }
 }
@@ -81,7 +102,11 @@ export function deleteImageFiles(
   }
 
   if (images.length > 0) {
-    log.info('deleteFiles', 'Image files deleted', { total: images.length, deleted, failed })
+    log.info('deleteFiles', 'Image files deleted', {
+      total: images.length,
+      deleted,
+      failed,
+    })
   }
 
   // Clean up empty project directories
@@ -95,18 +120,26 @@ export function deleteImageFiles(
       if (existsSync(dir) && readdirSync(dir).length === 0) {
         rmSync(dir, { recursive: true })
       }
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
   }
 
   return { deleted, failed }
 }
 
 /** Get all image/thumbnail file paths from the data directories */
-export function getAllStoredFiles(): { images: string[]; thumbnails: string[] } {
-  const images: string[] = []
-  const thumbnails: string[] = []
+export function getAllStoredFiles(): {
+  images: Array<string>
+  thumbnails: Array<string>
+} {
+  const images: Array<string> = []
+  const thumbnails: Array<string> = []
 
-  for (const [baseDir, list] of [[IMAGES_DIR, images], [THUMBNAILS_DIR, thumbnails]] as const) {
+  for (const [baseDir, list] of [
+    [IMAGES_DIR, images],
+    [THUMBNAILS_DIR, thumbnails],
+  ] as const) {
     if (!existsSync(baseDir)) continue
     for (const projectDir of readdirSync(baseDir)) {
       const projectPath = join(baseDir, projectDir)
@@ -115,7 +148,9 @@ export function getAllStoredFiles(): { images: string[]; thumbnails: string[] } 
         for (const file of readdirSync(projectPath)) {
           list.push(normalizePath(join(baseDir, projectDir, file)))
         }
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
     }
   }
 

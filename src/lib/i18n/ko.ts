@@ -52,7 +52,8 @@ const ko: DeepStringify<typeof en> = {
     deleteFailed: '삭제에 실패했습니다',
     apiKeyNotSet: 'API 키 미설정',
     deleteProject: '프로젝트 삭제',
-    deleteProjectDesc: '"{{name}}"을(를) 삭제하시겠습니까? 생성된 이미지 파일은 보존됩니다.',
+    deleteProjectDesc:
+      '"{{name}}"을(를) 삭제하시겠습니까? 생성된 이미지 파일은 보존됩니다.',
     noProjectsYet: '프로젝트가 없습니다',
     noProjectsDesc: '첫 번째 프로젝트를 만들어 시작하세요.',
     newProject: '새 프로젝트',
@@ -116,7 +117,8 @@ const ko: DeepStringify<typeof en> = {
     apiKeyNetworkError: 'NAI 서버에 연결할 수 없습니다',
     apiKeyUnknownError: '검증에 실패했습니다',
     uiScale: 'UI 크기',
-    uiScaleDesc: '인터페이스의 전체 크기를 조절합니다. 고해상도 디스플레이에서 유용합니다.',
+    uiScaleDesc:
+      '인터페이스의 전체 크기를 조절합니다. 고해상도 디스플레이에서 유용합니다.',
     uiScaleReset: '초기화',
   },
   gallery: {
@@ -140,7 +142,8 @@ const ko: DeepStringify<typeof en> = {
     selectedCount: '{{count}}개 선택',
     addToFavorites: '즐겨찾기',
     deleteImages: '이미지 삭제',
-    deleteImagesDesc: '{{count}}개의 이미지를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    deleteImagesDesc:
+      '{{count}}개의 이미지를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     bulkFavoriteSuccess: '{{count}}개 이미지를 즐겨찾기에 추가했습니다',
     bulkFailed: '일괄 처리에 실패했습니다',
     bulkDeleteSuccess: '{{count}}개 이미지가 삭제되었습니다',
@@ -203,7 +206,8 @@ const ko: DeepStringify<typeof en> = {
     dropToReplace: '이미지를 교체하려면 드롭하세요',
     dropToInspect: '검사할 이미지를 드롭하세요',
     dropOrClick: '이미지를 드롭하거나 클릭하여 선택하세요',
-    supportsNai: 'NAI 메타데이터가 포함된 PNG를 지원합니다 (tEXt 청크 또는 스텔스 알파)',
+    supportsNai:
+      'NAI 메타데이터가 포함된 PNG를 지원합니다 (tEXt 청크 또는 스텔스 알파)',
     selectImage: '이미지 파일을 선택하세요',
     noMetadata: '이 이미지에서 NAI 메타데이터를 찾을 수 없습니다',
     failedToParse: '이미지 메타데이터 파싱에 실패했습니다',
@@ -248,16 +252,21 @@ const ko: DeepStringify<typeof en> = {
     characterAdded: '캐릭터가 추가되었습니다',
     addCharacterFailed: '캐릭터 추가에 실패했습니다',
     deleteCharacter: '캐릭터 삭제',
-    deleteCharacterDesc: '"{{name}}"을(를) 삭제하시겠습니까? 이 캐릭터의 모든 씬 오버라이드도 함께 삭제됩니다.',
+    deleteCharacterDesc:
+      '"{{name}}"을(를) 삭제하시겠습니까? 이 캐릭터의 모든 씬 오버라이드도 함께 삭제됩니다.',
     characterDeleted: '{{name}}이(가) 삭제되었습니다',
     deleteCharacterFailed: '캐릭터 삭제에 실패했습니다',
     characterSaveFailed: '캐릭터 저장에 실패했습니다',
-    noCharactersYet: '아직 캐릭터가 없습니다. 캐릭터별 프롬프트를 정의하려면 추가하세요.',
+    noCharactersYet:
+      '아직 캐릭터가 없습니다. 캐릭터별 프롬프트를 정의하려면 추가하세요.',
     characters: '캐릭터',
-    noCharactersEmpty: '캐릭터가 없습니다. 다중 캐릭터 이미지를 위해 추가하세요.',
+    noCharactersEmpty:
+      '캐릭터가 없습니다. 다중 캐릭터 이미지를 위해 추가하세요.',
     characterName: '캐릭터 이름',
-    promptPlaceholder: '\\\\placeholders\\\\를 포함한 일반 프롬프트를 입력하세요...',
-    charPromptPlaceholder: '{{name}} 프롬프트 (\\\\placeholders\\\\ 사용 가능)...',
+    promptPlaceholder:
+      '\\\\placeholders\\\\를 포함한 일반 프롬프트를 입력하세요...',
+    charPromptPlaceholder:
+      '{{name}} 프롬프트 (\\\\placeholders\\\\ 사용 가능)...',
     negativePromptPlaceholder: '네거티브 프롬프트를 입력하세요...',
     charNegativePlaceholder: '{{name}} 네거티브...',
     expandEditor: '에디터 확대',
@@ -270,7 +279,8 @@ const ko: DeepStringify<typeof en> = {
     noScenesDesc: '각 변형의 플레이스홀더 값을 정의하려면 씬을 추가하세요.',
     addSceneFailed: '씬 추가에 실패했습니다',
     deleteScene: '씬 삭제',
-    deleteSceneDesc: '"{{name}}"과(와) 관련된 모든 이미지 데이터를 삭제하시겠습니까?',
+    deleteSceneDesc:
+      '"{{name}}"과(와) 관련된 모든 이미지 데이터를 삭제하시겠습니까?',
     scenes: '씬',
     selectScene: '플레이스홀더를 편집할 씬을 선택하세요.',
     selectSceneLeft: '왼쪽에서 씬을 선택하여 플레이스홀더를 편집하세요.',
@@ -319,7 +329,8 @@ const ko: DeepStringify<typeof en> = {
     selectAll: '전체 선택',
     deselectAll: '전체 해제',
     bulkDelete: '씬 삭제',
-    bulkDeleteDesc: '{{count}}개의 씬과 관련 이미지 데이터를 모두 삭제하시겠습니까?',
+    bulkDeleteDesc:
+      '{{count}}개의 씬과 관련 이미지 데이터를 모두 삭제하시겠습니까?',
     bulkDeleteSuccess: '{{count}}개 씬이 삭제되었습니다',
     bulkDeleteFailed: '씬 삭제에 실패했습니다',
     convertToTemplate: '템플릿으로 저장',
@@ -349,7 +360,8 @@ const ko: DeepStringify<typeof en> = {
     sceneDeleted: '씬이 삭제되었습니다',
     deleteSceneFailed: '씬 삭제에 실패했습니다',
     deleteScenePack: '씬 팩 삭제',
-    deleteScenePackDesc: '"{{name}}"과(와) 모든 씬을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    deleteScenePackDesc:
+      '"{{name}}"과(와) 모든 씬을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     deleteSceneTitle: '씬 삭제',
     deleteSceneDesc: '"{{name}}"을(를) 삭제하시겠습니까?',
     noScenesYet: '아직 씬이 없습니다',
@@ -402,7 +414,8 @@ const ko: DeepStringify<typeof en> = {
   queue: {
     title: '대기열',
     empty: '대기 중인 작업이 없습니다',
-    emptyDescription: '워크스페이스나 Quick Generate에서 이미지를 생성해보세요.',
+    emptyDescription:
+      '워크스페이스나 Quick Generate에서 이미지를 생성해보세요.',
     batchesCount: '{{count}}개 배치',
     imagesRemaining: '{{count}}장 남음',
     eta: '~{{time}}',
@@ -461,7 +474,8 @@ const ko: DeepStringify<typeof en> = {
     promptPreview: '프롬프트 미리보기',
     generalPrompt: '일반 프롬프트',
     negativePrompt: '네거티브 프롬프트',
-    addPlaceholders: '프롬프트에 \\\\placeholders\\\\를 추가하여 키 슬롯을 만드세요.',
+    addPlaceholders:
+      '프롬프트에 \\\\placeholders\\\\를 추가하여 키 슬롯을 만드세요.',
     empty: '비어있음',
     keyAlreadyExists: '이미 존재하는 키입니다',
     failedToAddKey: '키 추가에 실패했습니다',
@@ -542,7 +556,8 @@ const ko: DeepStringify<typeof en> = {
     failed: '내보내기에 실패했습니다',
     noImages: '현재 필터에 해당하는 이미지가 없습니다.',
     filenameTemplate: '파일명 템플릿',
-    templateHelp: '사용 가능: {{project_name}}, {{scene_name}}, {{seed}}, {{index}}, {{date}}, {{rating}}, {{id}}, {{wins}}, {{win_rate}}',
+    templateHelp:
+      '사용 가능: {{project_name}}, {{scene_name}}, {{seed}}, {{index}}, {{date}}, {{rating}}, {{id}}, {{wins}}, {{win_rate}}',
     templatePreview: '미리보기',
     favoritesOnly: '즐겨찾기만',
     minRating: '최소 평점',
@@ -560,7 +575,8 @@ const ko: DeepStringify<typeof en> = {
   },
   bundles: {
     title: '프롬프트 번들',
-    description: '재사용 가능한 프롬프트 텍스트 조각입니다. 모든 프롬프트 에디터에서 @{번들 이름}으로 사용하세요.',
+    description:
+      '재사용 가능한 프롬프트 텍스트 조각입니다. 모든 프롬프트 에디터에서 @{번들 이름}으로 사용하세요.',
     noBundlesYet: '아직 번들이 없습니다',
     noBundlesDesc: '첫 번째 프롬프트 번들을 만들어 시작하세요.',
     createBundle: '새 번들',
@@ -573,7 +589,8 @@ const ko: DeepStringify<typeof en> = {
     bundleDeleted: '번들이 삭제되었습니다',
     deleteFailed: '번들 삭제에 실패했습니다',
     deleteBundle: '번들 삭제',
-    deleteBundleDesc: '"{{name}}"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
+    deleteBundleDesc:
+      '"{{name}}"을(를) 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.',
     imageCount: '{{count}}개 이미지',
     noImages: '이 번들에 연결된 이미지가 아직 없습니다.',
     setThumbnail: '썸네일 설정',
@@ -588,15 +605,18 @@ const ko: DeepStringify<typeof en> = {
   onboarding: {
     welcome: {
       title: '87 Studio에 오신 것을 환영합니다',
-      description: '이 튜토리얼은 핵심 워크플로우를 안내합니다: API 키 설정, 프로젝트 생성, 프롬프트 작성, 씬 관리, 이미지 생성.',
+      description:
+        '이 튜토리얼은 핵심 워크플로우를 안내합니다: API 키 설정, 프로젝트 생성, 프롬프트 작성, 씬 관리, 이미지 생성.',
     },
     step1: {
       title: 'API 키 설정',
-      description: 'NovelAI API 키를 입력하여 이미지 생성을 활성화하세요. 이 단계는 건너뛰고 나중에 설정할 수 있습니다.',
+      description:
+        'NovelAI API 키를 입력하여 이미지 생성을 활성화하세요. 이 단계는 건너뛰고 나중에 설정할 수 있습니다.',
     },
     step2: {
       title: '프로젝트 생성',
-      description: '아래 버튼을 클릭하여 첫 번째 프로젝트를 만드세요. 이름을 지정하여 시작합니다.',
+      description:
+        '아래 버튼을 클릭하여 첫 번째 프로젝트를 만드세요. 이름을 지정하여 시작합니다.',
     },
     step3: {
       title: '프로젝트 열기',
@@ -604,27 +624,33 @@ const ko: DeepStringify<typeof en> = {
     },
     step4: {
       title: '프롬프트 작성',
-      description: '이미지 생성 프롬프트를 작성하세요. \\\\placeholder\\\\ 구문을 사용하여 씬마다 변경되는 변수 슬롯을 만들 수 있습니다. 예: "1girl, \\\\expression\\\\, \\\\background\\\\"',
+      description:
+        '이미지 생성 프롬프트를 작성하세요. \\\\placeholder\\\\ 구문을 사용하여 씬마다 변경되는 변수 슬롯을 만들 수 있습니다. 예: "1girl, \\\\expression\\\\, \\\\background\\\\"',
     },
     step5: {
       title: '씬 추가',
-      description: '+ 버튼을 클릭하여 씬을 추가하세요. 이름을 입력하고 (예: "행복", "슬픔") 저장합니다.',
+      description:
+        '+ 버튼을 클릭하여 씬을 추가하세요. 이름을 입력하고 (예: "행복", "슬픔") 저장합니다.',
     },
     step6: {
       title: '씬 편집',
-      description: 'Edit 모드로 전환하고 씬을 선택하여 플레이스홀더 값을 편집하세요.',
+      description:
+        'Edit 모드로 전환하고 씬을 선택하여 플레이스홀더 값을 편집하세요.',
     },
     step7: {
       title: '플레이스홀더 입력',
-      description: '씬의 플레이스홀더 값을 입력하세요. 이 값들이 프롬프트의 \\\\placeholders\\\\를 대체합니다.',
+      description:
+        '씬의 플레이스홀더 값을 입력하세요. 이 값들이 프롬프트의 \\\\placeholders\\\\를 대체합니다.',
     },
     step8: {
       title: '이미지 생성',
-      description: '생성할 이미지 수를 설정하고 생성 버튼을 클릭하세요. 이미지가 백그라운드에서 생성됩니다.',
+      description:
+        '생성할 이미지 수를 설정하고 생성 버튼을 클릭하세요. 이미지가 백그라운드에서 생성됩니다.',
     },
     completion: {
       title: '튜토리얼 완료!',
-      description: '준비 완료! 갤러리에서 생성된 이미지를 확인하고, 토너먼트로 순위를 매기고, 마음에 드는 이미지를 다운로드하세요.',
+      description:
+        '준비 완료! 갤러리에서 생성된 이미지를 확인하고, 토너먼트로 순위를 매기고, 마음에 드는 이미지를 다운로드하세요.',
     },
     startTutorial: '튜토리얼 시작',
     skipTutorial: '건너뛰기',
@@ -663,9 +689,12 @@ const ko: DeepStringify<typeof en> = {
     updateFailed: '참조 이미지 업데이트 실패',
     maxVibes: '최대 16장의 바이브 이미지',
     importWarningTitle: '참조 이미지 감지됨',
-    importWarningVibe: '이 이미지는 바이브 트랜스퍼({{count}}장)를 사용하여 생성되었습니다. 동일한 참조 이미지 없이는 결과가 달라질 수 있습니다.',
-    importWarningPrecise: '이 이미지는 정밀 참조({{count}}장)를 사용하여 생성되었습니다. 동일한 참조 이미지 없이는 결과가 달라질 수 있습니다.',
-    importWarningBoth: '이 이미지는 바이브 트랜스퍼({{vibeCount}}장)와 정밀 참조({{preciseCount}}장)를 사용하여 생성되었습니다. 동일한 참조 이미지 없이는 결과가 달라질 수 있습니다.',
+    importWarningVibe:
+      '이 이미지는 바이브 트랜스퍼({{count}}장)를 사용하여 생성되었습니다. 동일한 참조 이미지 없이는 결과가 달라질 수 있습니다.',
+    importWarningPrecise:
+      '이 이미지는 정밀 참조({{count}}장)를 사용하여 생성되었습니다. 동일한 참조 이미지 없이는 결과가 달라질 수 있습니다.',
+    importWarningBoth:
+      '이 이미지는 바이브 트랜스퍼({{vibeCount}}장)와 정밀 참조({{preciseCount}}장)를 사용하여 생성되었습니다. 동일한 참조 이미지 없이는 결과가 달라질 수 있습니다.',
   },
 }
 

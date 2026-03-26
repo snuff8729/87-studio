@@ -1,63 +1,78 @@
 import { createServerFn } from '@tanstack/react-start'
+import { count, desc, eq, inArray, max } from 'drizzle-orm'
 import { db } from '../db'
-import { projects, projectScenePacks, projectScenes, scenes, scenePacks, generatedImages, characters, characterSceneOverrides } from '../db/schema'
-import { eq, desc, inArray, count, max } from 'drizzle-orm'
+import {
+  characterSceneOverrides,
+  characters,
+  generatedImages,
+  projectScenePacks,
+  projectScenes,
+  projects,
+  scenePacks,
+  scenes,
+} from '../db/schema'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
 
 const log = createLogger('fn.projects')
 
-export const listProjects = createServerFn({ method: 'GET' }).handler(async () => {
-  const rows = db.select().from(projects).orderBy(desc(projects.createdAt)).all()
+export const listProjects = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    const rows = db
+      .select()
+      .from(projects)
+      .orderBy(desc(projects.createdAt))
+      .all()
 
-  // Batch: image count + last activity per project
-  const stats = db
-    .select({
-      projectId: generatedImages.projectId,
-      imageCount: count(generatedImages.id),
-      lastActivityAt: max(generatedImages.createdAt),
+    // Batch: image count + last activity per project
+    const stats = db
+      .select({
+        projectId: generatedImages.projectId,
+        imageCount: count(generatedImages.id),
+        lastActivityAt: max(generatedImages.createdAt),
+      })
+      .from(generatedImages)
+      .groupBy(generatedImages.projectId)
+      .all()
+
+    const statsMap = new Map(stats.map((s) => [s.projectId, s]))
+
+    return rows.map((project) => {
+      let thumbnailPath: string | null = null
+
+      // Explicit thumbnail pick
+      if (project.thumbnailImageId) {
+        const picked = db
+          .select({ thumbnailPath: generatedImages.thumbnailPath })
+          .from(generatedImages)
+          .where(eq(generatedImages.id, project.thumbnailImageId))
+          .get()
+        thumbnailPath = picked?.thumbnailPath ?? null
+      }
+
+      // Fallback: most recent image in project
+      if (!thumbnailPath) {
+        const latest = db
+          .select({ thumbnailPath: generatedImages.thumbnailPath })
+          .from(generatedImages)
+          .where(eq(generatedImages.projectId, project.id))
+          .orderBy(desc(generatedImages.createdAt))
+          .limit(1)
+          .get()
+        thumbnailPath = latest?.thumbnailPath ?? null
+      }
+
+      const s = statsMap.get(project.id)
+
+      return {
+        ...project,
+        thumbnailPath,
+        imageCount: s?.imageCount ?? 0,
+        lastActivityAt: s?.lastActivityAt ?? null,
+      }
     })
-    .from(generatedImages)
-    .groupBy(generatedImages.projectId)
-    .all()
-
-  const statsMap = new Map(stats.map((s) => [s.projectId, s]))
-
-  return rows.map((project) => {
-    let thumbnailPath: string | null = null
-
-    // Explicit thumbnail pick
-    if (project.thumbnailImageId) {
-      const picked = db
-        .select({ thumbnailPath: generatedImages.thumbnailPath })
-        .from(generatedImages)
-        .where(eq(generatedImages.id, project.thumbnailImageId))
-        .get()
-      thumbnailPath = picked?.thumbnailPath ?? null
-    }
-
-    // Fallback: most recent image in project
-    if (!thumbnailPath) {
-      const latest = db
-        .select({ thumbnailPath: generatedImages.thumbnailPath })
-        .from(generatedImages)
-        .where(eq(generatedImages.projectId, project.id))
-        .orderBy(desc(generatedImages.createdAt))
-        .limit(1)
-        .get()
-      thumbnailPath = latest?.thumbnailPath ?? null
-    }
-
-    const s = statsMap.get(project.id)
-
-    return {
-      ...project,
-      thumbnailPath,
-      imageCount: s?.imageCount ?? 0,
-      lastActivityAt: s?.lastActivityAt ?? null,
-    }
-  })
-})
+  },
+)
 
 export const getProject = createServerFn({ method: 'GET' })
   .inputValidator((id: number) => id)
@@ -75,7 +90,10 @@ export const createProject = createServerFn({ method: 'POST' })
       .values({ name: data.name, description: data.description })
       .returning()
       .get()
-    log.info('create', 'Project created', { projectId: result.id, name: data.name })
+    log.info('create', 'Project created', {
+      projectId: result.id,
+      name: data.name,
+    })
     return result
   })
 
@@ -105,11 +123,17 @@ export const deleteProject = createServerFn({ method: 'POST' })
   .handler(async ({ data: id }) => {
     // Collect file paths before cascade delete
     const files = db
-      .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+      .select({
+        filePath: generatedImages.filePath,
+        thumbnailPath: generatedImages.thumbnailPath,
+      })
       .from(generatedImages)
       .where(eq(generatedImages.projectId, id))
       .all()
-    log.info('delete', 'Project deleted', { projectId: id, imageFiles: files.length })
+    log.info('delete', 'Project deleted', {
+      projectId: id,
+      imageFiles: files.length,
+    })
     db.delete(projects).where(eq(projects.id, id)).run()
     deleteImageFiles(files)
     return { success: true }
@@ -292,12 +316,18 @@ export const removeProjectScenePack = createServerFn({ method: 'POST' })
     let files: Array<{ filePath: string; thumbnailPath: string | null }> = []
     if (sceneIds.length > 0) {
       files = db
-        .select({ filePath: generatedImages.filePath, thumbnailPath: generatedImages.thumbnailPath })
+        .select({
+          filePath: generatedImages.filePath,
+          thumbnailPath: generatedImages.thumbnailPath,
+        })
         .from(generatedImages)
         .where(inArray(generatedImages.projectSceneId, sceneIds))
         .all()
     }
-    log.info('removeScenePack', 'Project scene pack removed', { projectScenePackId: id, imageFiles: files.length })
+    log.info('removeScenePack', 'Project scene pack removed', {
+      projectScenePackId: id,
+      imageFiles: files.length,
+    })
     db.delete(projectScenePacks).where(eq(projectScenePacks.id, id)).run()
     deleteImageFiles(files)
     return { success: true }

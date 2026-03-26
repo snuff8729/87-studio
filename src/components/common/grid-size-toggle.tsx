@@ -1,7 +1,7 @@
-import { useTranslation } from '@/lib/i18n'
 import type { GridSize } from '@/lib/use-image-grid-size'
+import { useTranslation } from '@/lib/i18n'
 
-const sizes: GridSize[] = ['sm', 'md', 'lg']
+const sizes: Array<GridSize> = ['sm', 'md', 'lg']
 
 interface GridSizeToggleProps {
   value: GridSize

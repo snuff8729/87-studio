@@ -1,3 +1,5 @@
+import { normalize, resolve } from 'node:path'
+import { existsSync, readFileSync } from 'node:fs'
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -5,8 +7,6 @@ import viteReact from '@vitejs/plugin-react'
 import viteTsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
-import { resolve, normalize } from 'node:path'
-import { existsSync, readFileSync } from 'node:fs'
 import type { Plugin } from 'vite'
 
 function serveDataFiles(): Plugin {
@@ -38,7 +38,10 @@ function serveDataFiles(): Plugin {
 
         if (!basePath || !relativePath) return next()
 
-        const filePath = resolve(basePath, normalize(decodeURIComponent(relativePath)))
+        const filePath = resolve(
+          basePath,
+          normalize(decodeURIComponent(relativePath)),
+        )
 
         if (!filePath.startsWith(basePath)) {
           res.statusCode = 403
@@ -57,7 +60,10 @@ function serveDataFiles(): Plugin {
         res.setHeader('Content-Type', isZip ? 'application/zip' : 'image/png')
         if (isZip) {
           const filename = relativePath.split('/').pop() ?? 'download.zip'
-          res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+          res.setHeader(
+            'Content-Disposition',
+            `attachment; filename="${filename}"`,
+          )
         } else {
           res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
         }

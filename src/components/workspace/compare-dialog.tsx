@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 
@@ -16,7 +16,7 @@ interface CompareImage {
 interface CompareDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  images: CompareImage[]
+  images: Array<CompareImage>
 }
 
 const PAGE_SIZE = 4
@@ -27,7 +27,11 @@ function winRate(wins: number, losses: number): string {
   return `${Math.round((wins / total) * 100)}%`
 }
 
-export function CompareDialog({ open, onOpenChange, images }: CompareDialogProps) {
+export function CompareDialog({
+  open,
+  onOpenChange,
+  images,
+}: CompareDialogProps) {
   const { t } = useTranslation()
   const [page, setPage] = useState(0)
 
@@ -104,7 +108,11 @@ export function CompareDialog({ open, onOpenChange, images }: CompareDialogProps
             </Button>
           )}
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={() => onOpenChange(false)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => onOpenChange(false)}
+        >
           &times;
         </Button>
       </header>
@@ -114,7 +122,10 @@ export function CompareDialog({ open, onOpenChange, images }: CompareDialogProps
         {/* Desktop: horizontal layout */}
         <div className="hidden md:flex flex-1 items-stretch gap-2 p-3 min-h-0 overflow-hidden">
           {pageImages.map((img) => (
-            <div key={img.id} className="flex-1 flex flex-col items-center min-h-0 min-w-0">
+            <div
+              key={img.id}
+              className="flex-1 flex flex-col items-center min-h-0 min-w-0"
+            >
               <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
                 <img
                   src={`/api/images/${img.filePath.replace('data/images/', '')}`}
@@ -132,7 +143,10 @@ export function CompareDialog({ open, onOpenChange, images }: CompareDialogProps
           {pageImages.length <= 2 ? (
             <div className="flex flex-col flex-1 items-stretch gap-2 p-3 min-h-0 overflow-hidden">
               {pageImages.map((img) => (
-                <div key={img.id} className="flex-1 flex flex-col items-center min-h-0 min-w-0">
+                <div
+                  key={img.id}
+                  className="flex-1 flex flex-col items-center min-h-0 min-w-0"
+                >
                   <div className="flex-1 min-h-0 w-full flex items-center justify-center overflow-hidden">
                     <img
                       src={`/api/images/${img.filePath.replace('data/images/', '')}`}

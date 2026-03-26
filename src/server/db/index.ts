@@ -1,9 +1,9 @@
-import Database from 'better-sqlite3'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
-import * as schema from './schema'
 import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
-import { initLogDirectory, createLogger } from '../services/logger'
+import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { createLogger, initLogDirectory } from '../services/logger'
+import * as schema from './schema'
 
 const log = createLogger('db')
 

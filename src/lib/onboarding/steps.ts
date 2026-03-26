@@ -1,6 +1,6 @@
 import type { OnboardingStepDef } from './types'
 
-export const ONBOARDING_STEPS: OnboardingStepDef[] = [
+export const ONBOARDING_STEPS: Array<OnboardingStepDef> = [
   {
     id: 0,
     target: 'welcome',

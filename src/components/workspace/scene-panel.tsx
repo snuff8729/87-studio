@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useCallback, useEffect, memo } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
@@ -6,18 +6,21 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   ArrowRight01Icon,
+  Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
-  Image02Icon,
+  Download04Icon,
+  FileExportIcon,
   GridIcon,
+  Image02Icon,
   PencilEdit02Icon,
   Search01Icon,
   SortingDownIcon,
-  Cancel01Icon,
   Tick02Icon,
-  Download04Icon,
-  FileExportIcon,
 } from '@hugeicons/core-free-icons'
+import { ConvertToTemplateDialog } from './convert-to-template-dialog'
+import { SceneMatrix } from './scene-matrix'
+import type { GridSize } from '@/lib/use-image-grid-size'
 import { Button } from '@/components/ui/button'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 import { Input } from '@/components/ui/input'
@@ -32,14 +35,19 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DownloadDialog } from '@/components/common/download-dialog'
-import { ConvertToTemplateDialog } from './convert-to-template-dialog'
-import { SceneMatrix } from './scene-matrix'
 import { useTranslation } from '@/lib/i18n'
 import { bulkDeleteProjectScenes } from '@/server/functions/project-scenes'
 import { GridSizeToggle } from '@/components/common/grid-size-toggle'
-import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
+import { useImageGridSize } from '@/lib/use-image-grid-size'
 
-export type SceneSortBy = 'default' | 'name_asc' | 'name_desc' | 'images_desc' | 'images_asc' | 'created_asc' | 'created_desc'
+export type SceneSortBy =
+  | 'default'
+  | 'name_asc'
+  | 'name_desc'
+  | 'images_desc'
+  | 'images_asc'
+  | 'created_asc'
+  | 'created_desc'
 
 interface CharacterOverride {
   projectSceneId: number
@@ -50,7 +58,7 @@ interface CharacterOverride {
 interface CharacterPlaceholderKeyEntry {
   characterId: number
   characterName: string
-  keys: string[]
+  keys: Array<string>
 }
 
 interface ScenePanelProps {
@@ -69,15 +77,15 @@ interface ScenePanelProps {
   }>
   projectId: number
   projectName?: string
-  generalPlaceholderKeys: string[]
-  characterPlaceholderKeys: CharacterPlaceholderKeyEntry[]
+  generalPlaceholderKeys: Array<string>
+  characterPlaceholderKeys: Array<CharacterPlaceholderKeyEntry>
   characters: Array<{
     id: number
     name: string
     charPrompt: string
     charNegative: string
   }>
-  characterOverrides: Record<number, CharacterOverride[]>
+  characterOverrides: Record<number, Array<CharacterOverride>>
   sceneCounts: Record<number, number>
   defaultCount: number
   onSceneCountChange: (sceneId: number, count: number | null) => void
@@ -130,7 +138,9 @@ export const ScenePanel = memo(function ScenePanel({
 
   // ── Selection mode ──
   const [selectMode, setSelectMode] = useState(false)
-  const [selectedSceneIds, setSelectedSceneIds] = useState<Set<number>>(new Set())
+  const [selectedSceneIds, setSelectedSceneIds] = useState<Set<number>>(
+    new Set(),
+  )
   const [convertDialogOpen, setConvertDialogOpen] = useState(false)
 
   const exitSelectMode = useCallback(() => {
@@ -150,15 +160,25 @@ export const ScenePanel = memo(function ScenePanel({
   const sortedScenePacks = useMemo(() => {
     if (sortBy === 'default') return scenePacks
 
-    const sortFn = (a: (typeof scenePacks)[0]['scenes'][0], b: (typeof scenePacks)[0]['scenes'][0]) => {
+    const sortFn = (
+      a: (typeof scenePacks)[0]['scenes'][0],
+      b: (typeof scenePacks)[0]['scenes'][0],
+    ) => {
       switch (sortBy) {
-        case 'name_asc': return a.name.localeCompare(b.name)
-        case 'name_desc': return b.name.localeCompare(a.name)
-        case 'images_desc': return b.recentImageCount - a.recentImageCount
-        case 'images_asc': return a.recentImageCount - b.recentImageCount
-        case 'created_asc': return a.id - b.id
-        case 'created_desc': return b.id - a.id
-        default: return 0
+        case 'name_asc':
+          return a.name.localeCompare(b.name)
+        case 'name_desc':
+          return b.name.localeCompare(a.name)
+        case 'images_desc':
+          return b.recentImageCount - a.recentImageCount
+        case 'images_asc':
+          return a.recentImageCount - b.recentImageCount
+        case 'created_asc':
+          return a.id - b.id
+        case 'created_desc':
+          return b.id - a.id
+        default:
+          return 0
       }
     }
 
@@ -180,8 +200,14 @@ export const ScenePanel = memo(function ScenePanel({
   }, [sortedScenePacks, searchQuery])
 
   const allScenes = filteredScenePacks.flatMap((pack) => pack.scenes)
-  const allSceneIds = useMemo(() => new Set(allScenes.map((s) => s.id)), [allScenes])
-  const allScenesSelected = selectedSceneIds.size > 0 && selectedSceneIds.size === allSceneIds.size && [...selectedSceneIds].every((id) => allSceneIds.has(id))
+  const allSceneIds = useMemo(
+    () => new Set(allScenes.map((s) => s.id)),
+    [allScenes],
+  )
+  const allScenesSelected =
+    selectedSceneIds.size > 0 &&
+    selectedSceneIds.size === allSceneIds.size &&
+    [...selectedSceneIds].every((id) => allSceneIds.has(id))
 
   const toggleSelectAll = useCallback(() => {
     if (allScenesSelected) {
@@ -225,7 +251,10 @@ export const ScenePanel = memo(function ScenePanel({
     }
   }
 
-  const totalSceneCount = scenePacks.reduce((sum, p) => sum + p.scenes.length, 0)
+  const totalSceneCount = scenePacks.reduce(
+    (sum, p) => sum + p.scenes.length,
+    0,
+  )
   const onboarding = useOnboardingMaybe()
   const onboardingActive = onboarding?.state.active ?? false
 
@@ -235,9 +264,14 @@ export const ScenePanel = memo(function ScenePanel({
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
         <div className="rounded-2xl bg-secondary/30 p-6 mb-4">
-          <HugeiconsIcon icon={GridIcon} className="size-10 text-muted-foreground/30" />
+          <HugeiconsIcon
+            icon={GridIcon}
+            className="size-10 text-muted-foreground/30"
+          />
         </div>
-        <p className="text-base font-medium text-foreground/80 mb-1">{t('scene.noScenesYet')}</p>
+        <p className="text-base font-medium text-foreground/80 mb-1">
+          {t('scene.noScenesYet')}
+        </p>
         <p className="text-sm text-muted-foreground mb-4 max-w-52">
           {t('scene.noScenesDesc')}
         </p>
@@ -269,7 +303,9 @@ export const ScenePanel = memo(function ScenePanel({
               onClick={toggleSelectAll}
               className="text-xs text-primary hover:underline ml-2"
             >
-              {allScenesSelected ? t('scene.deselectAll') : t('scene.selectAll')}
+              {allScenesSelected
+                ? t('scene.deselectAll')
+                : t('scene.selectAll')}
             </button>
             <div className="flex-1" />
             <Button size="xs" variant="ghost" onClick={exitSelectMode}>
@@ -313,18 +349,35 @@ export const ScenePanel = memo(function ScenePanel({
 
             {/* Sort dropdown */}
             <Select value={sortBy} onValueChange={onSortByChange}>
-              <SelectTrigger size="sm" className="h-7 w-auto gap-1.5 text-xs text-muted-foreground border-none bg-transparent hover:bg-secondary/80 px-2">
+              <SelectTrigger
+                size="sm"
+                className="h-7 w-auto gap-1.5 text-xs text-muted-foreground border-none bg-transparent hover:bg-secondary/80 px-2"
+              >
                 <HugeiconsIcon icon={SortingDownIcon} className="size-4" />
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="default">{t('scene.sortDefault')}</SelectItem>
-                <SelectItem value="name_asc">{t('scene.sortNameAsc')}</SelectItem>
-                <SelectItem value="name_desc">{t('scene.sortNameDesc')}</SelectItem>
-                <SelectItem value="images_desc">{t('scene.sortImagesDesc')}</SelectItem>
-                <SelectItem value="images_asc">{t('scene.sortImagesAsc')}</SelectItem>
-                <SelectItem value="created_asc">{t('scene.sortCreatedAsc')}</SelectItem>
-                <SelectItem value="created_desc">{t('scene.sortCreatedDesc')}</SelectItem>
+                <SelectItem value="default">
+                  {t('scene.sortDefault')}
+                </SelectItem>
+                <SelectItem value="name_asc">
+                  {t('scene.sortNameAsc')}
+                </SelectItem>
+                <SelectItem value="name_desc">
+                  {t('scene.sortNameDesc')}
+                </SelectItem>
+                <SelectItem value="images_desc">
+                  {t('scene.sortImagesDesc')}
+                </SelectItem>
+                <SelectItem value="images_asc">
+                  {t('scene.sortImagesAsc')}
+                </SelectItem>
+                <SelectItem value="created_asc">
+                  {t('scene.sortCreatedAsc')}
+                </SelectItem>
+                <SelectItem value="created_desc">
+                  {t('scene.sortCreatedDesc')}
+                </SelectItem>
               </SelectContent>
             </Select>
 
@@ -372,13 +425,19 @@ export const ScenePanel = memo(function ScenePanel({
       {/* ── Search bar ── */}
       {searchVisible && (
         <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border shrink-0">
-          <HugeiconsIcon icon={Search01Icon} className="size-4 text-muted-foreground shrink-0" />
+          <HugeiconsIcon
+            icon={Search01Icon}
+            className="size-4 text-muted-foreground shrink-0"
+          />
           <Input
             ref={searchInputRef}
             value={searchQuery}
             onChange={(e) => onSearchQueryChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Escape') { setSearchVisible(false); onSearchQueryChange('') }
+              if (e.key === 'Escape') {
+                setSearchVisible(false)
+                onSearchQueryChange('')
+              }
             }}
             placeholder={t('scene.searchPlaceholder')}
             className="h-7 text-sm border-none bg-transparent shadow-none focus-visible:ring-0 px-0"
@@ -399,7 +458,10 @@ export const ScenePanel = memo(function ScenePanel({
       <div className="flex-1 min-h-0">
         {allScenes.length === 0 && searchQuery ? (
           <div className="flex flex-col items-center justify-center h-full text-center px-8 py-12">
-            <HugeiconsIcon icon={Search01Icon} className="size-8 text-muted-foreground/20 mb-3" />
+            <HugeiconsIcon
+              icon={Search01Icon}
+              className="size-8 text-muted-foreground/20 mb-3"
+            />
             <p className="text-sm text-muted-foreground">
               {t('scene.noSearchResults', { query: searchQuery })}
             </p>
@@ -418,7 +480,10 @@ export const ScenePanel = memo(function ScenePanel({
             newSceneInputRef={newSceneInputRef}
             onNewSceneNameChange={setNewSceneName}
             onAddScene={handleAddScene}
-            onCancelAdd={() => { setAddingScene(false); setNewSceneName('') }}
+            onCancelAdd={() => {
+              setAddingScene(false)
+              setNewSceneName('')
+            }}
             selectMode={selectMode}
             selectedSceneIds={selectedSceneIds}
             onToggleSelect={toggleSelectScene}
@@ -444,7 +509,10 @@ export const ScenePanel = memo(function ScenePanel({
             newSceneInputRef={newSceneInputRef}
             onNewSceneNameChange={setNewSceneName}
             onSubmitAddScene={handleAddScene}
-            onCancelAdd={() => { setAddingScene(false); setNewSceneName('') }}
+            onCancelAdd={() => {
+              setAddingScene(false)
+              setNewSceneName('')
+            }}
           />
         )}
       </div>
@@ -452,7 +520,9 @@ export const ScenePanel = memo(function ScenePanel({
       {/* ── Selection action bar ── */}
       {selectMode && selectedSceneIds.size > 0 && (
         <div className="fixed bottom-16 lg:bottom-12 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
-          <span className="text-sm font-medium">{t('scene.selectedCount', { count: selectedSceneIds.size })}</span>
+          <span className="text-sm font-medium">
+            {t('scene.selectedCount', { count: selectedSceneIds.size })}
+          </span>
           <DownloadDialog
             trigger={
               <Button size="sm" variant="outline">
@@ -464,18 +534,30 @@ export const ScenePanel = memo(function ScenePanel({
             projectName={projectName}
             projectSceneIds={[...selectedSceneIds]}
           />
-          <Button size="sm" variant="outline" onClick={() => setConvertDialogOpen(true)}>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setConvertDialogOpen(true)}
+          >
             <HugeiconsIcon icon={FileExportIcon} className="size-4" />
             {t('scene.convertToTemplate')}
           </Button>
           <ConfirmDialog
-            trigger={<Button size="sm" variant="destructive">{t('common.delete')}</Button>}
+            trigger={
+              <Button size="sm" variant="destructive">
+                {t('common.delete')}
+              </Button>
+            }
             title={t('scene.bulkDelete')}
-            description={t('scene.bulkDeleteDesc', { count: selectedSceneIds.size })}
+            description={t('scene.bulkDeleteDesc', {
+              count: selectedSceneIds.size,
+            })}
             variant="destructive"
             onConfirm={handleBulkDelete}
           />
-          <Button size="sm" variant="ghost" onClick={exitSelectMode}>{t('common.cancel')}</Button>
+          <Button size="sm" variant="ghost" onClick={exitSelectMode}>
+            {t('common.cancel')}
+          </Button>
         </div>
       )}
 
@@ -522,7 +604,7 @@ interface ReserveGridProps {
 const GRID_GAP = 12 // gap-3 = 12px
 
 const sceneGridCols: Record<GridSize, [number, number]> = {
-  sm: [3, 4],  // [<768px, >=768px]
+  sm: [3, 4], // [<768px, >=768px]
   md: [2, 3],
   lg: [1, 2],
 }
@@ -570,7 +652,8 @@ function ReserveGrid({
     if (!el) return
     const measure = () => {
       const style = getComputedStyle(el)
-      const padding = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
+      const padding =
+        parseFloat(style.paddingLeft) + parseFloat(style.paddingRight)
       setContainerWidth(el.clientWidth - padding)
     }
     measure()
@@ -579,11 +662,14 @@ function ReserveGrid({
     return () => ro.disconnect()
   }, [])
 
-  const cardWidth = containerWidth > 0 ? Math.floor((containerWidth - GRID_GAP * (cols - 1)) / cols) : 150
+  const cardWidth =
+    containerWidth > 0
+      ? Math.floor((containerWidth - GRID_GAP * (cols - 1)) / cols)
+      : 150
   const rowCount = Math.ceil(scenes.length / cols)
 
   // Estimate: thumbnail (aspect 3:4) + info area (~72px) + gap
-  const estimatedRowHeight = Math.floor(cardWidth * 4 / 3) + 72 + GRID_GAP
+  const estimatedRowHeight = Math.floor((cardWidth * 4) / 3) + 72 + GRID_GAP
 
   const virtualizer = useVirtualizer({
     count: rowCount,
@@ -601,7 +687,11 @@ function ReserveGrid({
     <div ref={parentRef} className="h-full overflow-y-auto p-3">
       {/* Add scene form (outside virtualized area) */}
       {addingScene && (
-        <div data-onboarding="add-scene-form" className="mb-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 flex flex-col justify-center" style={{ maxWidth: `${cardWidth}px` }}>
+        <div
+          data-onboarding="add-scene-form"
+          className="mb-3 rounded-lg border border-dashed border-primary/30 bg-primary/5 p-3 flex flex-col justify-center"
+          style={{ maxWidth: `${cardWidth}px` }}
+        >
           <Input
             ref={newSceneInputRef}
             value={newSceneName}
@@ -615,10 +705,20 @@ function ReserveGrid({
             autoFocus
           />
           <div className="flex gap-1">
-            <Button size="xs" onClick={onAddScene} disabled={!newSceneName.trim()} className="flex-1">
+            <Button
+              size="xs"
+              onClick={onAddScene}
+              disabled={!newSceneName.trim()}
+              className="flex-1"
+            >
               {t('common.add')}
             </Button>
-            <Button size="xs" variant="ghost" onClick={onCancelAdd} className="flex-1">
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={onCancelAdd}
+              className="flex-1"
+            >
               {t('common.cancel')}
             </Button>
           </div>
@@ -626,7 +726,13 @@ function ReserveGrid({
       )}
 
       {/* Virtualized grid */}
-      <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative',
+          width: '100%',
+        }}
+      >
         {virtualizer.getVirtualItems().map((vRow) => {
           const startIdx = vRow.index * cols
           const rowScenes = scenes.slice(startIdx, startIdx + cols)
@@ -730,7 +836,10 @@ const SceneCard = memo(function SceneCard({
           </div>
         ) : (
           <div className="aspect-[3/4] rounded-t-lg bg-secondary/40 flex items-center justify-center">
-            <HugeiconsIcon icon={Image02Icon} className="size-6 text-muted-foreground/15" />
+            <HugeiconsIcon
+              icon={Image02Icon}
+              className="size-6 text-muted-foreground/15"
+            />
           </div>
         )}
 
@@ -763,7 +872,10 @@ const SceneCard = memo(function SceneCard({
           {!selectMode && (
             <Link
               to="/workspace/$projectId/scenes/$sceneId"
-              params={{ projectId: String(projectId), sceneId: String(scene.id) }}
+              params={{
+                projectId: String(projectId),
+                sceneId: String(scene.id),
+              }}
               search={{ imageDetail: undefined }}
               className="shrink-0 rounded-md p-1 text-muted-foreground hover:text-primary hover:bg-secondary/80 transition-colors"
               title="View gallery"

@@ -1,19 +1,27 @@
-import { createFileRoute, Link, useRouter, useNavigate } from '@tanstack/react-router'
-import { lazy, Suspense, useState, useEffect, useRef, useCallback } from 'react'
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  Add01Icon,
+  AlertCircleIcon,
   ArrowLeft02Icon,
   ArrowRight01Icon,
-  Add01Icon,
   Delete02Icon,
   Image02Icon,
   Menu01Icon,
-  TimeQuarter02Icon,
   PlayIcon,
+  TimeQuarter02Icon,
   Upload01Icon,
-  AlertCircleIcon,
 } from '@hugeicons/core-free-icons'
+import { useVirtualizer } from '@tanstack/react-virtual'
+import type { NAIMetadata } from '@/lib/nai-metadata'
+import type { GridSize } from '@/lib/use-image-grid-size'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -23,23 +31,30 @@ import { NumberStepper } from '@/components/ui/number-stepper'
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from '@/components/ui/dialog'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
 import { ReferencePanel } from '@/components/workspace/reference-panel'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import { GridSizeToggle } from '@/components/common/grid-size-toggle'
-import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
-import { useVirtualizer } from '@tanstack/react-virtual'
+import { useImageGridSize } from '@/lib/use-image-grid-size'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
-import type { NAIMetadata } from '@/lib/nai-metadata'
-import { createQuickGenerationJob, listQuickImages, listQuickJobs } from '@/server/functions/quick-generation'
-import { cancelJobs, pauseGeneration, resumeGeneration, dismissGenerationError } from '@/server/functions/generation'
+import {
+  createQuickGenerationJob,
+  listQuickImages,
+  listQuickJobs,
+} from '@/server/functions/quick-generation'
+import {
+  cancelJobs,
+  dismissGenerationError,
+  pauseGeneration,
+  resumeGeneration,
+} from '@/server/functions/generation'
 import { updateImage } from '@/server/functions/gallery'
 
 const PromptEditor = lazy(() =>
@@ -88,7 +103,7 @@ interface CharacterEntry {
 interface QuickGenerateState {
   generalPrompt: string
   negativePrompt: string
-  characters: CharacterEntry[]
+  characters: Array<CharacterEntry>
   parameters: Record<string, unknown>
   count: number
 }
@@ -97,7 +112,9 @@ function loadState(): QuickGenerateState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) return JSON.parse(stored)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return {
     generalPrompt: '',
     negativePrompt: '',
@@ -110,7 +127,9 @@ function loadState(): QuickGenerateState {
 function saveState(state: QuickGenerateState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 function QuickGeneratePage() {
@@ -124,53 +143,64 @@ function QuickGeneratePage() {
   const [generating, setGenerating] = useState(false)
 
   // Image history
-  const [images, setImages] = useState<Array<{
-    id: number
-    thumbnailPath: string | null
-    filePath: string
-    seed: number | null
-    isFavorite: number | null
-    rating: number | null
-    metadata: string | null
-    createdAt: string | null
-  }>>([])
+  const [images, setImages] = useState<
+    Array<{
+      id: number
+      thumbnailPath: string | null
+      filePath: string
+      seed: number | null
+      isFavorite: number | null
+      rating: number | null
+      metadata: string | null
+      createdAt: string | null
+    }>
+  >([])
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
 
   // Generation progress
-  const [activeJobs, setActiveJobs] = useState<Array<{
-    id: number
-    status: string | null
-    totalCount: number | null
-    completedCount: number | null
-    errorMessage?: string | null
-    sceneName: string | null
-  }>>([])
+  const [activeJobs, setActiveJobs] = useState<
+    Array<{
+      id: number
+      status: string | null
+      totalCount: number | null
+      completedCount: number | null
+      errorMessage?: string | null
+      sceneName: string | null
+    }>
+  >([])
   const [batchTiming, setBatchTiming] = useState<{
     startedAt: number
     totalImages: number
     completedImages: number
     avgImageDurationMs: number | null
   } | null>(null)
-  const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(null)
+  const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
+    null,
+  )
 
   // DnD import
   const [dragging, setDragging] = useState(false)
-  const [pendingMetadata, setPendingMetadata] = useState<NAIMetadata | null>(null)
+  const [pendingMetadata, setPendingMetadata] = useState<NAIMetadata | null>(
+    null,
+  )
   const dragCounterRef = useRef(0)
 
-  const handleDropFile = useCallback(async (file: File) => {
-    if (!file.type.startsWith('image/')) return
-    try {
-      const result = await parseMetadataFromFile(file)
-      if (result) {
-        setPendingMetadata(result)
-      } else {
+  const handleDropFile = useCallback(
+    async (file: File) => {
+      if (!file.type.startsWith('image/')) return
+      try {
+        const result = await parseMetadataFromFile(file)
+        if (result) {
+          setPendingMetadata(result)
+        } else {
+          toast.error(t('quickGenerate.noMetadata'))
+        }
+      } catch {
         toast.error(t('quickGenerate.noMetadata'))
       }
-    } catch {
-      toast.error(t('quickGenerate.noMetadata'))
-    }
-  }, [t])
+    },
+    [t],
+  )
 
   const handleDropFileRef = useRef(handleDropFile)
   handleDropFileRef.current = handleDropFile
@@ -181,7 +211,9 @@ function QuickGeneratePage() {
       dragCounterRef.current++
       if (dragCounterRef.current === 1) setDragging(true)
     }
-    const onDragOver = (e: DragEvent) => { e.preventDefault() }
+    const onDragOver = (e: DragEvent) => {
+      e.preventDefault()
+    }
     const onDragLeave = (e: DragEvent) => {
       e.preventDefault()
       dragCounterRef.current--
@@ -212,18 +244,26 @@ function QuickGeneratePage() {
   // ── Router state (from metadata page) ──
   useEffect(() => {
     const routerState = (router.state.location.state as any) ?? {}
-    if (routerState.generalPrompt != null || routerState.negativePrompt != null || routerState.characterPrompts != null) {
+    if (
+      routerState.generalPrompt != null ||
+      routerState.negativePrompt != null ||
+      routerState.characterPrompts != null
+    ) {
       setState((prev) => {
         const next = { ...prev }
-        if (routerState.generalPrompt != null) next.generalPrompt = routerState.generalPrompt
-        if (routerState.negativePrompt != null) next.negativePrompt = routerState.negativePrompt
+        if (routerState.generalPrompt != null)
+          next.generalPrompt = routerState.generalPrompt
+        if (routerState.negativePrompt != null)
+          next.negativePrompt = routerState.negativePrompt
         if (routerState.characterPrompts) {
-          next.characters = routerState.characterPrompts.map((c: any, i: number) => ({
-            id: `imported-${i}`,
-            name: c.name || `Character ${i + 1}`,
-            prompt: c.prompt || c.charPrompt || '',
-            negative: c.negative || c.charNegative || '',
-          }))
+          next.characters = routerState.characterPrompts.map(
+            (c: any, i: number) => ({
+              id: `imported-${i}`,
+              name: c.name || `Character ${i + 1}`,
+              prompt: c.prompt || c.charPrompt || '',
+              negative: c.negative || c.charNegative || '',
+            }),
+          )
         }
         if (routerState.parameters) {
           next.parameters = { ...prev.parameters, ...routerState.parameters }
@@ -262,7 +302,10 @@ function QuickGeneratePage() {
         ])
 
         setImages((prev) => {
-          if (newImages.length > prev.length || (newImages.length > 0 && newImages[0].id !== prev[0]?.id)) {
+          if (
+            newImages.length > prev.length ||
+            (newImages.length > 0 && newImages[0].id !== prev[0]?.id)
+          ) {
             // Auto-select newest image (polling only runs during generation)
             if (newImages[0]) {
               setSelectedImageId(newImages[0].id)
@@ -285,7 +328,9 @@ function QuickGeneratePage() {
           stopPolling()
           setGenerating(false)
         }
-      } catch { /* ignore polling errors */ }
+      } catch {
+        /* ignore polling errors */
+      }
     }, 1000)
   }, [])
 
@@ -393,10 +438,16 @@ function QuickGeneratePage() {
     }))
   }
 
-  function updateCharacterField(id: string, field: keyof CharacterEntry, value: string) {
+  function updateCharacterField(
+    id: string,
+    field: keyof CharacterEntry,
+    value: string,
+  ) {
     setState((prev) => ({
       ...prev,
-      characters: prev.characters.map((c) => (c.id === id ? { ...c, [field]: value } : c)),
+      characters: prev.characters.map((c) =>
+        c.id === id ? { ...c, [field]: value } : c,
+      ),
     }))
   }
 
@@ -408,7 +459,9 @@ function QuickGeneratePage() {
     const newVal = selectedImage.isFavorite ? 0 : 1
     await updateImage({ data: { id: selectedImage.id, isFavorite: newVal } })
     setImages((prev) =>
-      prev.map((img) => (img.id === selectedImage.id ? { ...img, isFavorite: newVal } : img)),
+      prev.map((img) =>
+        img.id === selectedImage.id ? { ...img, isFavorite: newVal } : img,
+      ),
     )
   }
 
@@ -418,19 +471,28 @@ function QuickGeneratePage() {
     const newRating = selectedImage.rating === rating ? null : rating
     await updateImage({ data: { id: selectedImage.id, rating: newRating } })
     setImages((prev) =>
-      prev.map((img) => (img.id === selectedImage.id ? { ...img, rating: newRating } : img)),
+      prev.map((img) =>
+        img.id === selectedImage.id ? { ...img, rating: newRating } : img,
+      ),
     )
   }
 
   // Parse image metadata for display
-  const imageParams = selectedImage?.metadata ? (() => {
-    try {
-      const meta = JSON.parse(selectedImage.metadata!)
-      return meta.parameters ?? null
-    } catch { return null }
-  })() : null
+  const imageParams = selectedImage?.metadata
+    ? (() => {
+        try {
+          const meta = JSON.parse(selectedImage.metadata)
+          return meta.parameters ?? null
+        } catch {
+          return null
+        }
+      })()
+    : null
 
-  const batchTotal = activeJobs.reduce((sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)), 0)
+  const batchTotal = activeJobs.reduce(
+    (sum, j) => sum + ((j.totalCount ?? 0) - (j.completedCount ?? 0)),
+    0,
+  )
 
   return (
     <>
@@ -439,9 +501,14 @@ function QuickGeneratePage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm border-2 border-dashed border-primary pointer-events-none">
           <div className="flex flex-col items-center gap-3">
             <div className="size-14 rounded-2xl bg-primary/10 flex items-center justify-center">
-              <HugeiconsIcon icon={Upload01Icon} className="size-7 text-primary" />
+              <HugeiconsIcon
+                icon={Upload01Icon}
+                className="size-7 text-primary"
+              />
             </div>
-            <p className="text-base font-medium">{t('quickGenerate.dropToImport')}</p>
+            <p className="text-base font-medium">
+              {t('quickGenerate.dropToImport')}
+            </p>
           </div>
         </div>
       )}
@@ -451,14 +518,19 @@ function QuickGeneratePage() {
         <ImportMetadataDialog
           metadata={pendingMetadata}
           open={!!pendingMetadata}
-          onOpenChange={(open) => { if (!open) setPendingMetadata(null) }}
+          onOpenChange={(open) => {
+            if (!open) setPendingMetadata(null)
+          }}
           onApply={(applied) => {
             setState((prev) => {
               const next = { ...prev }
-              if (applied.generalPrompt != null) next.generalPrompt = applied.generalPrompt
-              if (applied.negativePrompt != null) next.negativePrompt = applied.negativePrompt
+              if (applied.generalPrompt != null)
+                next.generalPrompt = applied.generalPrompt
+              if (applied.negativePrompt != null)
+                next.negativePrompt = applied.negativePrompt
               if (applied.characters) next.characters = applied.characters
-              if (applied.parameters) next.parameters = { ...prev.parameters, ...applied.parameters }
+              if (applied.parameters)
+                next.parameters = { ...prev.parameters, ...applied.parameters }
               saveState(next)
               return next
             })
@@ -471,7 +543,10 @@ function QuickGeneratePage() {
       <WorkspaceLayout
         leftOpen={leftOpen}
         rightOpen={rightOpen}
-        onDismiss={() => { setLeftOpen(false); setRightOpen(false) }}
+        onDismiss={() => {
+          setLeftOpen(false)
+          setRightOpen(false)
+        }}
         header={
           <QuickGenerateHeader
             onToggleLeft={() => setLeftOpen(!leftOpen)}
@@ -489,8 +564,15 @@ function QuickGeneratePage() {
             />
             <ReferencePanel
               projectId={null}
-              referenceMode={(state.parameters.referenceMode as 'none' | 'vibe' | 'precise') ?? 'none'}
-              currentModel={(state.parameters.model as string) ?? 'nai-diffusion-4-5-full'}
+              referenceMode={
+                (state.parameters.referenceMode as
+                  | 'none'
+                  | 'vibe'
+                  | 'precise') ?? 'none'
+              }
+              currentModel={
+                (state.parameters.model as string) ?? 'nai-diffusion-4-5-full'
+              }
               onReferenceModeChange={(mode) => {
                 setState((prev) => ({
                   ...prev,
@@ -520,7 +602,9 @@ function QuickGeneratePage() {
             <div className="flex items-center gap-1">
               <ParameterPopover
                 params={state.parameters}
-                onChange={(p) => setState((prev) => ({ ...prev, parameters: p }))}
+                onChange={(p) =>
+                  setState((prev) => ({ ...prev, parameters: p }))
+                }
               />
             </div>
             <div className="flex items-center justify-end lg:justify-center min-w-0 overflow-hidden">
@@ -538,7 +622,9 @@ function QuickGeneratePage() {
             <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
               <NumberStepper
                 value={state.count}
-                onChange={(v) => setState((prev) => ({ ...prev, count: Math.max(1, v ?? 1) }))}
+                onChange={(v) =>
+                  setState((prev) => ({ ...prev, count: Math.max(1, v ?? 1) }))
+                }
                 min={1}
                 max={100}
                 size="md"
@@ -550,7 +636,9 @@ function QuickGeneratePage() {
               >
                 <HugeiconsIcon icon={PlayIcon} className="size-5" />
                 <span className="hidden sm:inline">
-                  {generating ? t('generation.generating') : t('generation.generateCount', { count: state.count })}
+                  {generating
+                    ? t('generation.generating')
+                    : t('generation.generateCount', { count: state.count })}
                 </span>
               </Button>
             </div>
@@ -582,10 +670,17 @@ function QuickGenerateHeader({
           </Link>
         </Button>
         <div className="h-4 w-px bg-border" />
-        <h1 className="text-base font-semibold truncate">{t('quickGenerate.title')}</h1>
+        <h1 className="text-base font-semibold truncate">
+          {t('quickGenerate.title')}
+        </h1>
       </div>
       <div className="flex items-center gap-1">
-        <Button variant="ghost" size="sm" onClick={onToggleLeft} className="lg:hidden">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleLeft}
+          className="lg:hidden"
+        >
           <HugeiconsIcon icon={Menu01Icon} className="size-5" />
         </Button>
         <Button variant="ghost" size="sm" asChild>
@@ -594,7 +689,12 @@ function QuickGenerateHeader({
             <span className="hidden sm:inline">{t('nav.gallery')}</span>
           </Link>
         </Button>
-        <Button variant="ghost" size="sm" onClick={onToggleRight} className="lg:hidden">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onToggleRight}
+          className="lg:hidden"
+        >
           <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5" />
         </Button>
       </div>
@@ -615,7 +715,11 @@ function PromptPanelLocal({
   setState: React.Dispatch<React.SetStateAction<QuickGenerateState>>
   addCharacter: () => void
   removeCharacter: (id: string) => void
-  updateCharacterField: (id: string, field: keyof CharacterEntry, value: string) => void
+  updateCharacterField: (
+    id: string,
+    field: keyof CharacterEntry,
+    value: string,
+  ) => void
 }) {
   const { t } = useTranslation()
   const bundleNames = useBundleNames()
@@ -662,11 +766,16 @@ function PromptPanelLocal({
         </div>
 
         {state.characters.map((char) => (
-          <div key={char.id} className="rounded-lg border border-border p-2 space-y-2">
+          <div
+            key={char.id}
+            className="rounded-lg border border-border p-2 space-y-2"
+          >
             <div className="flex items-center gap-1.5">
               <Input
                 value={char.name}
-                onChange={(e) => updateCharacterField(char.id, 'name', e.target.value)}
+                onChange={(e) =>
+                  updateCharacterField(char.id, 'name', e.target.value)
+                }
                 placeholder={t('quickGenerate.characterName')}
                 className="h-7 text-sm flex-1"
               />
@@ -680,7 +789,9 @@ function PromptPanelLocal({
               </Button>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{t('quickGenerate.prompt')}</Label>
+              <Label className="text-xs text-muted-foreground">
+                {t('quickGenerate.prompt')}
+              </Label>
               <LazyPromptEditor
                 value={char.prompt}
                 onChange={(v) => updateCharacterField(char.id, 'prompt', v)}
@@ -690,7 +801,9 @@ function PromptPanelLocal({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">{t('quickGenerate.negativePrompt')}</Label>
+              <Label className="text-xs text-muted-foreground">
+                {t('quickGenerate.negativePrompt')}
+              </Label>
               <LazyPromptEditor
                 value={char.negative}
                 onChange={(v) => updateCharacterField(char.id, 'negative', v)}
@@ -732,7 +845,10 @@ function CenterPreview({
   if (!selectedImage) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-        <HugeiconsIcon icon={Image02Icon} className="size-12 text-muted-foreground/30" />
+        <HugeiconsIcon
+          icon={Image02Icon}
+          className="size-12 text-muted-foreground/30"
+        />
         <p className="text-sm">{t('quickGenerate.emptyState')}</p>
       </div>
     )
@@ -757,7 +873,13 @@ function CenterPreview({
       <div className="shrink-0 border-t border-border px-4 py-2 flex items-center gap-3 text-sm">
         {/* Favorite */}
         <button onClick={onToggleFavorite} className="transition-colors">
-          <span className={selectedImage.isFavorite ? 'text-destructive' : 'text-muted-foreground hover:text-destructive'}>
+          <span
+            className={
+              selectedImage.isFavorite
+                ? 'text-destructive'
+                : 'text-muted-foreground hover:text-destructive'
+            }
+          >
             {selectedImage.isFavorite ? '\u2764' : '\u2661'}
           </span>
         </button>
@@ -769,7 +891,9 @@ function CenterPreview({
               key={r}
               onClick={() => onSetRating(r)}
               className={`text-sm transition-colors ${
-                (selectedImage.rating ?? 0) >= r ? 'text-primary' : 'text-muted-foreground/30 hover:text-primary/50'
+                (selectedImage.rating ?? 0) >= r
+                  ? 'text-primary'
+                  : 'text-muted-foreground/30 hover:text-primary/50'
               }`}
             >
               {'\u2605'}
@@ -800,7 +924,14 @@ function CenterPreview({
 
         {/* View in gallery */}
         <button
-          onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: selectedImage.id }) } as any)}
+          onClick={() =>
+            navigate({
+              search: (prev: Record<string, unknown>) => ({
+                ...prev,
+                imageDetail: selectedImage.id,
+              }),
+            } as any)
+          }
           className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
         >
           {t('imageDetail.details')}
@@ -846,7 +977,10 @@ function HistoryPanelLocal({
     return () => ro.disconnect()
   }, [])
 
-  const cellSize = containerWidth > 0 ? Math.floor((containerWidth - 8 - GAP * (cols - 1)) / cols) : 80
+  const cellSize =
+    containerWidth > 0
+      ? Math.floor((containerWidth - 8 - GAP * (cols - 1)) / cols)
+      : 80
   const rowHeight = cellSize + GAP
   const rowCount = Math.ceil(images.length / cols)
 
@@ -875,11 +1009,19 @@ function HistoryPanelLocal({
 
       {images.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center">{t('quickGenerate.noImagesYet')}</p>
+          <p className="text-sm text-muted-foreground text-center">
+            {t('quickGenerate.noImagesYet')}
+          </p>
         </div>
       ) : (
         <div ref={scrollRef} className="flex-1 overflow-y-auto -mx-1 px-1">
-          <div style={{ height: `${virtualizer.getTotalSize()}px`, position: 'relative', width: '100%' }}>
+          <div
+            style={{
+              height: `${virtualizer.getTotalSize()}px`,
+              position: 'relative',
+              width: '100%',
+            }}
+          >
             {virtualizer.getVirtualItems().map((vRow) => {
               const startIdx = vRow.index * cols
               const rowImages = images.slice(startIdx, startIdx + cols)
@@ -901,9 +1043,14 @@ function HistoryPanelLocal({
                         key={img.id}
                         onClick={() => onSelect(img.id)}
                         className={`relative rounded-md overflow-hidden bg-secondary group block shrink-0 ${
-                          img.id === selectedImageId ? 'ring-2 ring-primary' : ''
+                          img.id === selectedImageId
+                            ? 'ring-2 ring-primary'
+                            : ''
                         }`}
-                        style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
+                        style={{
+                          width: `${cellSize}px`,
+                          height: `${cellSize}px`,
+                        }}
                       >
                         {img.thumbnailPath ? (
                           <img
@@ -948,7 +1095,12 @@ function HistoryPanelLocal({
 
 // ─── Import Metadata Dialog ───────────────────────────────────────────────
 
-type ImportField = 'generalPrompt' | 'negativePrompt' | 'characters' | 'parameters' | 'resolution'
+type ImportField =
+  | 'generalPrompt'
+  | 'negativePrompt'
+  | 'characters'
+  | 'parameters'
+  | 'resolution'
 
 function ImportMetadataDialog({
   metadata,
@@ -962,7 +1114,7 @@ function ImportMetadataDialog({
   onApply: (data: {
     generalPrompt?: string
     negativePrompt?: string
-    characters?: CharacterEntry[]
+    characters?: Array<CharacterEntry>
     parameters?: Record<string, unknown>
   }) => void
 }) {
@@ -975,7 +1127,8 @@ function ImportMetadataDialog({
     resolution: true,
   })
 
-  const hasV4Chars = metadata.v4_prompt?.caption?.char_captions &&
+  const hasV4Chars =
+    metadata.v4_prompt?.caption?.char_captions &&
     metadata.v4_prompt.caption.char_captions.length > 0
 
   function toggleField(field: ImportField) {
@@ -998,15 +1151,18 @@ function ImportMetadataDialog({
     }
 
     if (fields.characters && hasV4Chars) {
-      result.characters = metadata.v4_prompt!.caption!.char_captions!.map((cc, i) => {
-        const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-        return {
-          id: `imported-${Date.now()}-${i}`,
-          name: `Character ${i + 1}`,
-          prompt: cc.char_caption,
-          negative: negChar?.char_caption ?? '',
-        }
-      })
+      result.characters = metadata.v4_prompt!.caption!.char_captions!.map(
+        (cc, i) => {
+          const negChar =
+            metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+          return {
+            id: `imported-${Date.now()}-${i}`,
+            name: `Character ${i + 1}`,
+            prompt: cc.char_caption,
+            negative: negChar?.char_caption ?? '',
+          }
+        },
+      )
     }
 
     if (fields.parameters || fields.resolution) {
@@ -1038,16 +1194,18 @@ function ImportMetadataDialog({
 
         <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
           <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">{t('quickGenerate.importFields')}</Label>
+            <Label className="text-sm text-muted-foreground">
+              {t('quickGenerate.importFields')}
+            </Label>
             <div className="space-y-2.5 pt-1">
               <ImportFieldCheckbox
                 checked={fields.generalPrompt}
                 onCheckedChange={() => toggleField('generalPrompt')}
                 label={t('quickGenerate.generalPrompt')}
                 preview={
-                  metadata.v4_prompt?.caption?.base_caption
-                    || metadata.prompt
-                    || undefined
+                  metadata.v4_prompt?.caption?.base_caption ||
+                  metadata.prompt ||
+                  undefined
                 }
               />
               <ImportFieldCheckbox
@@ -1060,21 +1218,29 @@ function ImportMetadataDialog({
                 <ImportFieldCheckbox
                   checked={fields.characters}
                   onCheckedChange={() => toggleField('characters')}
-                  label={t('quickGenerate.characterPrompts', { count: metadata.v4_prompt!.caption!.char_captions!.length })}
-                  preview={metadata.v4_prompt!.caption!.char_captions!.map(
-                    (c) => c.char_caption,
-                  ).join(' | ')}
+                  label={t('quickGenerate.characterPrompts', {
+                    count: metadata.v4_prompt!.caption!.char_captions!.length,
+                  })}
+                  preview={metadata
+                    .v4_prompt!.caption!.char_captions!.map(
+                      (c) => c.char_caption,
+                    )
+                    .join(' | ')}
                 />
               )}
               <ImportFieldCheckbox
                 checked={fields.parameters}
                 onCheckedChange={() => toggleField('parameters')}
                 label={t('quickGenerate.generationParameters')}
-                preview={[
-                  metadata.steps && `Steps: ${metadata.steps}`,
-                  metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
-                  metadata.sampler && `Sampler: ${metadata.sampler}`,
-                ].filter(Boolean).join(', ') || undefined}
+                preview={
+                  [
+                    metadata.steps && `Steps: ${metadata.steps}`,
+                    metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
+                    metadata.sampler && `Sampler: ${metadata.sampler}`,
+                  ]
+                    .filter(Boolean)
+                    .join(', ') || undefined
+                }
               />
               <ImportFieldCheckbox
                 checked={fields.resolution}
@@ -1137,8 +1303,14 @@ function ImportFieldCheckbox({
 
 function ImportReferenceWarning({ metadata }: { metadata: NAIMetadata }) {
   const { t } = useTranslation()
-  const hasVibe = metadata.hasVibeTransfer && metadata.vibeTransferInfo && metadata.vibeTransferInfo.length > 0
-  const hasPrecise = metadata.hasCharacterReference && metadata.characterReferenceInfo && metadata.characterReferenceInfo.length > 0
+  const hasVibe =
+    metadata.hasVibeTransfer &&
+    metadata.vibeTransferInfo &&
+    metadata.vibeTransferInfo.length > 0
+  const hasPrecise =
+    metadata.hasCharacterReference &&
+    metadata.characterReferenceInfo &&
+    metadata.characterReferenceInfo.length > 0
 
   if (!hasVibe && !hasPrecise) return null
 
@@ -1149,16 +1321,25 @@ function ImportReferenceWarning({ metadata }: { metadata: NAIMetadata }) {
       preciseCount: String(metadata.characterReferenceInfo!.length),
     })
   } else if (hasVibe) {
-    message = t('reference.importWarningVibe', { count: String(metadata.vibeTransferInfo!.length) })
+    message = t('reference.importWarningVibe', {
+      count: String(metadata.vibeTransferInfo!.length),
+    })
   } else {
-    message = t('reference.importWarningPrecise', { count: String(metadata.characterReferenceInfo!.length) })
+    message = t('reference.importWarningPrecise', {
+      count: String(metadata.characterReferenceInfo!.length),
+    })
   }
 
   return (
     <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
-      <HugeiconsIcon icon={AlertCircleIcon} className="size-4 text-amber-500 shrink-0 mt-0.5" />
+      <HugeiconsIcon
+        icon={AlertCircleIcon}
+        className="size-4 text-amber-500 shrink-0 mt-0.5"
+      />
       <div className="min-w-0">
-        <p className="text-sm font-medium text-amber-500">{t('reference.importWarningTitle')}</p>
+        <p className="text-sm font-medium text-amber-500">
+          {t('reference.importWarningTitle')}
+        </p>
         <p className="text-xs text-amber-500/80 mt-0.5">{message}</p>
       </div>
     </div>

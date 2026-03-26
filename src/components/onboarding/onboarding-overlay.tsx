@@ -1,13 +1,13 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { toast } from 'sonner'
-import { useOnboardingMaybe } from '@/lib/onboarding'
-import { useTranslation } from '@/lib/i18n'
-import { ONBOARDING_STEPS, TOTAL_STEPS } from '@/lib/onboarding/steps'
 import { WelcomeDialog } from './welcome-dialog'
 import { CompletionDialog } from './completion-dialog'
 import { SpotlightBackdrop } from './spotlight-backdrop'
 import { InstructionTooltip } from './instruction-tooltip'
+import { ONBOARDING_STEPS, TOTAL_STEPS } from '@/lib/onboarding/steps'
+import { useTranslation } from '@/lib/i18n'
+import { useOnboardingMaybe } from '@/lib/onboarding'
 
 function checkCondition(check: string): boolean {
   if (check === 'prompt-has-placeholder') {
@@ -20,14 +20,18 @@ function checkCondition(check: string): boolean {
     const items = document.querySelectorAll('[data-onboarding="scene-item"]')
     return items.length > 0
   } else if (check === 'scene-selected-in-edit') {
-    const editor = document.querySelector('[data-onboarding="placeholder-editor"]')
+    const editor = document.querySelector(
+      '[data-onboarding="placeholder-editor"]',
+    )
     return !!editor
   } else if (check === 'placeholder-filled') {
-    const editor = document.querySelector('[data-onboarding="placeholder-editor"]')
+    const editor = document.querySelector(
+      '[data-onboarding="placeholder-editor"]',
+    )
     if (editor) {
       const textareas = editor.querySelectorAll('textarea')
       for (const ta of textareas) {
-        if ((ta as HTMLTextAreaElement).value.trim()) return true
+        if (ta.value.trim()) return true
       }
     }
   }
@@ -49,11 +53,8 @@ function OnboardingActiveOverlay() {
   const isStepInRange = active && step >= 1 && step <= TOTAL_STEPS
 
   useEffect(() => {
-    if (!isStepInRange || !stepDef) {
-      targetElRef.current = null
-      setTargetRect(null)
-      return
-    }
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!isStepInRange || !stepDef) return
 
     let selector = `[data-onboarding="${stepDef.target}"]`
     if (step === 3 && projectId) {
@@ -67,8 +68,9 @@ function OnboardingActiveOverlay() {
 
     function findAndTrack() {
       // Prefer activeTarget (e.g., dialog/form opened by button click)
-      const el = (activeSelector && document.querySelector(activeSelector))
-        || document.querySelector(selector)
+      const el =
+        (activeSelector && document.querySelector(activeSelector)) ||
+        document.querySelector(selector)
       if (el) {
         targetElRef.current = el
         setTargetRect(el.getBoundingClientRect())
@@ -119,11 +121,9 @@ function OnboardingActiveOverlay() {
 
   // Condition polling — local to overlay, doesn't re-render the main tree
   useEffect(() => {
-    if (!isStepInRange || !stepDef) return
-    if (stepDef.completion.type !== 'condition') {
-      setConditionMet(false)
+    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+    if (!isStepInRange || !stepDef || stepDef.completion.type !== 'condition')
       return
-    }
 
     const check = stepDef.completion.check
 
@@ -161,7 +161,7 @@ function OnboardingActiveOverlay() {
       {state?.showWelcome && <WelcomeDialog />}
 
       {/* Active step overlay */}
-      {isStepInRange && stepDef && (
+      {isStepInRange && (
         <>
           <SpotlightBackdrop targetRect={targetRect} />
           <InstructionTooltip

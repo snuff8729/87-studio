@@ -49,7 +49,8 @@ const en = {
     deleteFailed: 'Failed to delete',
     apiKeyNotSet: 'API key not set',
     deleteProject: 'Delete Project',
-    deleteProjectDesc: 'Delete "{{name}}"? Generated images will be preserved on disk.',
+    deleteProjectDesc:
+      'Delete "{{name}}"? Generated images will be preserved on disk.',
     noProjectsYet: 'No projects yet',
     noProjectsDesc: 'Create your first project to get started.',
     newProject: 'New Project',
@@ -113,7 +114,8 @@ const en = {
     apiKeyNetworkError: 'Could not connect to NAI server',
     apiKeyUnknownError: 'Validation failed',
     uiScale: 'UI Scale',
-    uiScaleDesc: 'Adjust the overall size of the interface. Useful for high-resolution displays.',
+    uiScaleDesc:
+      'Adjust the overall size of the interface. Useful for high-resolution displays.',
     uiScaleReset: 'Reset',
   },
   gallery: {
@@ -190,7 +192,8 @@ const en = {
     characterNegative: 'Character {{n}} Negative',
     references: 'References',
     deleteTitle: 'Delete Image',
-    deleteDesc: 'This image and its file will be permanently deleted. This cannot be undone.',
+    deleteDesc:
+      'This image and its file will be permanently deleted. This cannot be undone.',
     deleted: 'Image deleted',
     deleteFailed: 'Failed to delete image',
   },
@@ -200,7 +203,8 @@ const en = {
     dropToReplace: 'Drop to replace image',
     dropToInspect: 'Drop image to inspect',
     dropOrClick: 'Drop an image here or click to browse',
-    supportsNai: 'Supports PNG with NAI metadata (tEXt chunks or stealth alpha)',
+    supportsNai:
+      'Supports PNG with NAI metadata (tEXt chunks or stealth alpha)',
     selectImage: 'Please select an image file',
     noMetadata: 'No NAI metadata found in this image',
     failedToParse: 'Failed to parse image metadata',
@@ -245,11 +249,13 @@ const en = {
     characterAdded: 'Character added',
     addCharacterFailed: 'Failed to add character',
     deleteCharacter: 'Delete Character',
-    deleteCharacterDesc: 'Delete "{{name}}"? This will also remove all scene overrides for this character.',
+    deleteCharacterDesc:
+      'Delete "{{name}}"? This will also remove all scene overrides for this character.',
     characterDeleted: '{{name}} deleted',
     deleteCharacterFailed: 'Failed to delete character',
     characterSaveFailed: 'Character save failed',
-    noCharactersYet: 'No characters yet. Add one to define character-specific prompts.',
+    noCharactersYet:
+      'No characters yet. Add one to define character-specific prompts.',
     characters: 'Characters',
     noCharactersEmpty: 'No characters. Add one for multi-character images.',
     characterName: 'Character name',
@@ -346,7 +352,8 @@ const en = {
     sceneDeleted: 'Scene deleted',
     deleteSceneFailed: 'Failed to delete scene',
     deleteScenePack: 'Delete Scene Pack',
-    deleteScenePackDesc: 'Delete "{{name}}" and all its scenes? This cannot be undone.',
+    deleteScenePackDesc:
+      'Delete "{{name}}" and all its scenes? This cannot be undone.',
     deleteSceneTitle: 'Delete Scene',
     deleteSceneDesc: 'Delete "{{name}}"?',
     noScenesYet: 'No scenes yet',
@@ -399,7 +406,8 @@ const en = {
   queue: {
     title: 'Queue',
     empty: 'No pending tasks',
-    emptyDescription: 'Start generating images from a workspace or Quick Generate.',
+    emptyDescription:
+      'Start generating images from a workspace or Quick Generate.',
     batchesCount: '{{count}} batches',
     imagesRemaining: '{{count}} images remaining',
     eta: '~{{time}}',
@@ -458,7 +466,8 @@ const en = {
     promptPreview: 'Prompt Preview',
     generalPrompt: 'General Prompt',
     negativePrompt: 'Negative Prompt',
-    addPlaceholders: 'Add \\\\placeholders\\\\ to your prompts to create key slots.',
+    addPlaceholders:
+      'Add \\\\placeholders\\\\ to your prompts to create key slots.',
     empty: 'Empty',
     keyAlreadyExists: 'Key already exists',
     failedToAddKey: 'Failed to add key',
@@ -539,7 +548,8 @@ const en = {
     failed: 'Export failed',
     noImages: 'No images match the current filters.',
     filenameTemplate: 'Filename Template',
-    templateHelp: 'Available: {{project_name}}, {{scene_name}}, {{seed}}, {{index}}, {{date}}, {{rating}}, {{id}}, {{wins}}, {{win_rate}}',
+    templateHelp:
+      'Available: {{project_name}}, {{scene_name}}, {{seed}}, {{index}}, {{date}}, {{rating}}, {{id}}, {{wins}}, {{win_rate}}',
     templatePreview: 'Preview',
     favoritesOnly: 'Favorites only',
     minRating: 'Min rating',
@@ -557,7 +567,8 @@ const en = {
   },
   bundles: {
     title: 'Prompt Bundles',
-    description: 'Reusable prompt text snippets. Use @{bundle name} in any prompt editor.',
+    description:
+      'Reusable prompt text snippets. Use @{bundle name} in any prompt editor.',
     noBundlesYet: 'No bundles yet',
     noBundlesDesc: 'Create your first prompt bundle to get started.',
     createBundle: 'New Bundle',
@@ -585,15 +596,18 @@ const en = {
   onboarding: {
     welcome: {
       title: 'Welcome to 87 Studio',
-      description: 'This tutorial will guide you through the key workflow: setting up your API key, creating a project, writing prompts, managing scenes, and generating images.',
+      description:
+        'This tutorial will guide you through the key workflow: setting up your API key, creating a project, writing prompts, managing scenes, and generating images.',
     },
     step1: {
       title: 'Set Up API Key',
-      description: 'Enter your NovelAI API key to enable image generation. You can skip this step and set it up later.',
+      description:
+        'Enter your NovelAI API key to enable image generation. You can skip this step and set it up later.',
     },
     step2: {
       title: 'Create a Project',
-      description: 'Click the button below to create your first project. Give it a name to get started.',
+      description:
+        'Click the button below to create your first project. Give it a name to get started.',
     },
     step3: {
       title: 'Open Your Project',
@@ -601,27 +615,33 @@ const en = {
     },
     step4: {
       title: 'Write a Prompt',
-      description: 'Write your image generation prompt. Use \\\\placeholder\\\\ syntax to create variable slots that can change per scene. For example: "1girl, \\\\expression\\\\, \\\\background\\\\"',
+      description:
+        'Write your image generation prompt. Use \\\\placeholder\\\\ syntax to create variable slots that can change per scene. For example: "1girl, \\\\expression\\\\, \\\\background\\\\"',
     },
     step5: {
       title: 'Add a Scene',
-      description: 'Click the + button to add a scene. Enter a name (e.g., "happy", "sad") and save it.',
+      description:
+        'Click the + button to add a scene. Enter a name (e.g., "happy", "sad") and save it.',
     },
     step6: {
       title: 'Edit a Scene',
-      description: 'Switch to Edit mode and select a scene to edit its placeholder values.',
+      description:
+        'Switch to Edit mode and select a scene to edit its placeholder values.',
     },
     step7: {
       title: 'Fill Placeholders',
-      description: 'Fill in the placeholder values for your scene. These values replace the \\\\placeholders\\\\ in your prompt.',
+      description:
+        'Fill in the placeholder values for your scene. These values replace the \\\\placeholders\\\\ in your prompt.',
     },
     step8: {
       title: 'Generate Images',
-      description: 'Set the number of images to generate and click the Generate button. Your images will be created in the background.',
+      description:
+        'Set the number of images to generate and click the Generate button. Your images will be created in the background.',
     },
     completion: {
       title: 'Tutorial Complete!',
-      description: 'You\'re all set! Explore the gallery to review generated images, use tournaments to rank them, and download your favorites.',
+      description:
+        "You're all set! Explore the gallery to review generated images, use tournaments to rank them, and download your favorites.",
     },
     startTutorial: 'Start Tutorial',
     skipTutorial: 'Skip',
@@ -660,9 +680,12 @@ const en = {
     updateFailed: 'Failed to update reference image',
     maxVibes: 'Maximum 16 vibe images',
     importWarningTitle: 'Reference images detected',
-    importWarningVibe: 'This image was generated with Vibe Transfer ({{count}} image(s)). Results may differ without the same reference images.',
-    importWarningPrecise: 'This image was generated with Precise Reference ({{count}} image(s)). Results may differ without the same reference images.',
-    importWarningBoth: 'This image was generated with Vibe Transfer ({{vibeCount}}) and Precise Reference ({{preciseCount}}). Results may differ without the same reference images.',
+    importWarningVibe:
+      'This image was generated with Vibe Transfer ({{count}} image(s)). Results may differ without the same reference images.',
+    importWarningPrecise:
+      'This image was generated with Precise Reference ({{count}} image(s)). Results may differ without the same reference images.',
+    importWarningBoth:
+      'This image was generated with Vibe Transfer ({{vibeCount}}) and Precise Reference ({{preciseCount}}). Results may differ without the same reference images.',
   },
 } as const
 

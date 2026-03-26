@@ -7,12 +7,14 @@ CodeMirror 프롬프트 에디터에 확대 편집 기능을 추가한다. 프�
 ## Scope
 
 **대상**: CodeMirror 기반 PromptEditor가 사용되는 4개 에디터
+
 - General Prompt (200px)
 - Negative Prompt (120px)
 - Character Prompt (200px)
 - Character Negative Prompt (120px)
 
 **추가 대상**: 프로젝트 내 모든 textarea 편집 필드
+
 - PlaceholderEditor의 플레이스홀더 값 textarea (unfilled/filled, general/character)
 - ScenePackDialog의 씬 플레이스홀더 값 Textarea
 - 이미지 메모 Textarea (image-detail-overlay, gallery/$imageId)
@@ -134,13 +136,14 @@ interface ExpandedTextareaDialogProps {
 
 ### New Keys
 
-| Key | EN | KO |
-|-----|----|----|
+| Key                       | EN            | KO          |
+| ------------------------- | ------------- | ----------- |
 | `workspace.prompt.expand` | Expand editor | 에디터 확대 |
 
 ### Reused Keys
 
 Dialog 타이틀은 기존 라벨 키를 재사용한다:
+
 - `workspace.prompt.general`
 - `workspace.prompt.negative`
 - (캐릭터 이름은 데이터에서 가져옴)
@@ -158,9 +161,9 @@ UI 인터랙션 중심 기능이므로 별도 유닛 테스트 대상 아님. �
 
 ## Summary
 
-| Item | Detail |
-|------|--------|
-| New files | 2 (`expanded-editor-dialog.tsx`, `expanded-textarea-dialog.tsx`) |
-| Modified files | 8 (`prompt-panel.tsx`, `placeholder-editor.tsx`, `scene-pack-dialog.tsx`, `image-detail-overlay.tsx`, `gallery/$imageId.tsx`, `index.tsx`, `en.ts`, `ko.ts`) |
-| New dependencies | None |
-| Breaking changes | None |
+| Item             | Detail                                                                                                                                                       |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| New files        | 2 (`expanded-editor-dialog.tsx`, `expanded-textarea-dialog.tsx`)                                                                                             |
+| Modified files   | 8 (`prompt-panel.tsx`, `placeholder-editor.tsx`, `scene-pack-dialog.tsx`, `image-detail-overlay.tsx`, `gallery/$imageId.tsx`, `index.tsx`, `en.ts`, `ko.ts`) |
+| New dependencies | None                                                                                                                                                         |
+| Breaking changes | None                                                                                                                                                         |

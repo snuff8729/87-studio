@@ -1,4 +1,5 @@
-import { ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { Decoration, ViewPlugin } from '@codemirror/view'
+import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
 const WEIGHT_RE = /(?<![a-zA-Z_])(-?\d+(?:\.\d+)?)::((?:[^:]|:(?!:))*?)::/g
 
@@ -34,8 +35,8 @@ function findWeights(doc: { toString: () => string }) {
 
     const { hue, chroma, lightness } = weightColor(weight)
     const t = clamp(Math.abs(weight), 0, 3) / 3
-    const bgAlpha = (0.14 + t * 0.18).toFixed(2)    // 0.14 → 0.32
-    const borderAlpha = (0.30 + t * 0.35).toFixed(2) // 0.30 → 0.65
+    const bgAlpha = (0.14 + t * 0.18).toFixed(2) // 0.14 → 0.32
+    const borderAlpha = (0.3 + t * 0.35).toFixed(2) // 0.30 → 0.65
     const bg = `oklch(${lightness} ${chroma} ${hue} / ${bgAlpha})`
     const border = `oklch(${lightness} ${chroma} ${hue} / ${borderAlpha})`
 

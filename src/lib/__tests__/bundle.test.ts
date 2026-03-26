@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, expect, it } from 'vitest'
 import { extractBundleReferences, resolveBundles } from '../bundle'
 
 describe('extractBundleReferences', () => {
@@ -42,15 +42,16 @@ describe('extractBundleReferences', () => {
 
 describe('resolveBundles', () => {
   it('resolves a single bundle', () => {
-    expect(resolveBundles('@{quality}', { quality: 'masterpiece, best quality' }))
-      .toBe('masterpiece, best quality')
+    expect(
+      resolveBundles('@{quality}', { quality: 'masterpiece, best quality' }),
+    ).toBe('masterpiece, best quality')
   })
 
   it('resolves multiple bundles', () => {
-    const result = resolveBundles(
-      '@{quality}, @{style}',
-      { quality: 'masterpiece', style: 'anime' },
-    )
+    const result = resolveBundles('@{quality}, @{style}', {
+      quality: 'masterpiece',
+      style: 'anime',
+    })
     expect(result).toBe('masterpiece, anime')
   })
 
@@ -59,13 +60,13 @@ describe('resolveBundles', () => {
   })
 
   it('preserves surrounding text', () => {
-    expect(resolveBundles('1girl, @{pose}, outdoor', { pose: 'standing' }))
-      .toBe('1girl, standing, outdoor')
+    expect(
+      resolveBundles('1girl, @{pose}, outdoor', { pose: 'standing' }),
+    ).toBe('1girl, standing, outdoor')
   })
 
   it('resolves same bundle multiple times', () => {
-    expect(resolveBundles('@{x} @{x}', { x: 'val' }))
-      .toBe('val val')
+    expect(resolveBundles('@{x} @{x}', { x: 'val' })).toBe('val val')
   })
 
   it('returns original string when no bundles', () => {

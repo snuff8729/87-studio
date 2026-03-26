@@ -39,9 +39,7 @@ export function WorkspaceLayout({
         </aside>
 
         {/* Center Panel — Scene Workspace */}
-        <main className="flex-1 overflow-y-auto min-w-0">
-          {centerPanel}
-        </main>
+        <main className="flex-1 overflow-y-auto min-w-0">{centerPanel}</main>
 
         {/* Right Panel — History */}
         <aside

@@ -21,7 +21,7 @@ interface SceneInfo {
 interface ConvertToTemplateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
-  scenes: SceneInfo[]
+  scenes: Array<SceneInfo>
 }
 
 export function ConvertToTemplateDialog({
@@ -79,7 +79,9 @@ export function ConvertToTemplateDialog({
         <div className="space-y-4 pt-2">
           {/* Pack name */}
           <div className="space-y-2">
-            <Label className="text-sm font-medium">{t('scene.templateName')}</Label>
+            <Label className="text-sm font-medium">
+              {t('scene.templateName')}
+            </Label>
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}

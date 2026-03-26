@@ -1,12 +1,12 @@
 import { createServerFn } from '@tanstack/react-start'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { referenceImages } from '../db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
 import {
-  uploadReferenceImage,
-  generateReferenceThumbnail,
   deleteReferenceImage,
+  generateReferenceThumbnail,
   getProjectReferences,
+  uploadReferenceImage,
 } from '../services/reference'
 import { createLogger } from '../services/logger'
 
@@ -14,14 +14,19 @@ const log = createLogger('fn.references')
 
 export const uploadReference = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { projectId: number | null; type: 'vibe' | 'precise'; imageBase64: string }) => data,
+    (data: {
+      projectId: number | null
+      type: 'vibe' | 'precise'
+      imageBase64: string
+    }) => data,
   )
   .handler(async ({ data }) => {
     // Validate vibe count limit
     if (data.type === 'vibe') {
-      const projectCondition = data.projectId != null
-        ? eq(referenceImages.projectId, data.projectId)
-        : isNull(referenceImages.projectId)
+      const projectCondition =
+        data.projectId != null
+          ? eq(referenceImages.projectId, data.projectId)
+          : isNull(referenceImages.projectId)
       const existing = db
         .select({ id: referenceImages.id })
         .from(referenceImages)
@@ -38,7 +43,11 @@ export const uploadReference = createServerFn({ method: 'POST' })
     // Generate thumbnail async
     await generateReferenceThumbnail(row.filePath, row.thumbnailPath!)
 
-    log.info('upload', 'Reference image uploaded', { id: row.id, projectId: data.projectId, type: data.type })
+    log.info('upload', 'Reference image uploaded', {
+      id: row.id,
+      projectId: data.projectId,
+      type: data.type,
+    })
     return row
   })
 
@@ -60,12 +69,16 @@ export const updateReference = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const updates: Record<string, unknown> = { updatedAt: new Date().toISOString() }
+    const updates: Record<string, unknown> = {
+      updatedAt: new Date().toISOString(),
+    }
 
     if (data.strength !== undefined) updates.strength = data.strength
-    if (data.informationExtracted !== undefined) updates.informationExtracted = data.informationExtracted
+    if (data.informationExtracted !== undefined)
+      updates.informationExtracted = data.informationExtracted
     if (data.fidelity !== undefined) updates.fidelity = data.fidelity
-    if (data.referenceMode !== undefined) updates.referenceMode = data.referenceMode
+    if (data.referenceMode !== undefined)
+      updates.referenceMode = data.referenceMode
     if (data.enabled !== undefined) updates.enabled = data.enabled
 
     // If informationExtracted changed for a vibe, invalidate encoding cache
@@ -94,7 +107,7 @@ export const deleteReference = createServerFn({ method: 'POST' })
 
 export const reorderReferences = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { projectId: number; orderedIds: number[] }) => data,
+    (data: { projectId: number; orderedIds: Array<number> }) => data,
   )
   .handler(async ({ data }) => {
     for (let i = 0; i < data.orderedIds.length; i++) {

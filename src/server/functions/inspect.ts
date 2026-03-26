@@ -1,6 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
-import { projects, characters } from '../db/schema'
+import { characters, projects } from '../db/schema'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.inspect')

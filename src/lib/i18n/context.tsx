@@ -1,11 +1,18 @@
-import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react'
-import type { Locale, TranslationKeys } from './types'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react'
 import { createT } from './t'
+import type { Locale, TranslationKeys } from './types'
 
 const STORAGE_KEY = '87studio-locale'
 const DEFAULT_LOCALE: Locale = 'en'
 
-const SUPPORTED_LOCALES: Locale[] = ['en', 'ko']
+const SUPPORTED_LOCALES: Array<Locale> = ['en', 'ko']
 
 function detectBrowserLocale(): Locale | null {
   if (typeof navigator === 'undefined') return null
@@ -46,7 +53,10 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
 
   const t = useMemo(() => createT(locale), [locale])
 
-  const value = useMemo<I18nContextValue>(() => ({ locale, setLocale, t }), [locale, setLocale, t])
+  const value = useMemo<I18nContextValue>(
+    () => ({ locale, setLocale, t }),
+    [locale, setLocale, t],
+  )
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
 }

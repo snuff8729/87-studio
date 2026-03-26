@@ -1,7 +1,12 @@
-import type { CompletionContext, CompletionResult, Completion } from '@codemirror/autocomplete'
+import type {
+  Completion,
+  CompletionContext,
+  CompletionResult,
+} from '@codemirror/autocomplete'
 
 // In-memory tag database (loaded on first use)
-let tagDatabase: Array<{ name: string; category: number; postCount: number }> = []
+let tagDatabase: Array<{ name: string; category: number; postCount: number }> =
+  []
 let loaded = false
 
 export async function loadTagDatabase() {
@@ -17,8 +22,7 @@ export async function loadTagDatabase() {
   loaded = true
 }
 
-
-function searchTags(query: string, limit = 15): Completion[] {
+function searchTags(query: string, limit = 15): Array<Completion> {
   if (!query || tagDatabase.length === 0) return []
 
   const lower = query.toLowerCase()
@@ -47,7 +51,9 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-export function danbooruCompletion(context: CompletionContext): CompletionResult | null {
+export function danbooruCompletion(
+  context: CompletionContext,
+): CompletionResult | null {
   // Trigger after comma or at start of tag
   const beforeCursor = context.state.sliceDoc(0, context.pos)
   const lastComma = beforeCursor.lastIndexOf(',')

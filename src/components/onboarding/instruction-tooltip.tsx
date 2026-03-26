@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
+import type { OnboardingStepDef } from '@/lib/onboarding/types'
 import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
-import type { OnboardingStepDef } from '@/lib/onboarding/types'
 
 type Placement = 'bottom' | 'top' | 'right' | 'left'
 
@@ -9,9 +9,11 @@ const TOOLTIP_WIDTH = 368
 const TOOLTIP_GAP = 16
 const VIEWPORT_PADDING = 16
 
-function calculatePlacement(
-  targetRect: DOMRect
-): { placement: Placement; top: number; left: number } {
+function calculatePlacement(targetRect: DOMRect): {
+  placement: Placement
+  top: number
+  left: number
+} {
   const vw = window.innerWidth
   const vh = window.innerHeight
 
@@ -30,7 +32,7 @@ function calculatePlacement(
       top: targetRect.bottom + TOOLTIP_GAP,
       left: clampHorizontal(
         targetRect.left + targetRect.width / 2 - TOOLTIP_WIDTH / 2,
-        vw
+        vw,
       ),
     }
   }
@@ -40,7 +42,7 @@ function calculatePlacement(
       top: targetRect.top - TOOLTIP_GAP - estimatedHeight,
       left: clampHorizontal(
         targetRect.left + targetRect.width / 2 - TOOLTIP_WIDTH / 2,
-        vw
+        vw,
       ),
     }
   }
@@ -50,7 +52,7 @@ function calculatePlacement(
       top: clampVertical(
         targetRect.top + targetRect.height / 2 - estimatedHeight / 2,
         vh,
-        estimatedHeight
+        estimatedHeight,
       ),
       left: targetRect.right + TOOLTIP_GAP,
     }
@@ -61,7 +63,7 @@ function calculatePlacement(
       top: clampVertical(
         targetRect.top + targetRect.height / 2 - estimatedHeight / 2,
         vh,
-        estimatedHeight
+        estimatedHeight,
       ),
       left: targetRect.left - TOOLTIP_GAP - TOOLTIP_WIDTH,
     }
@@ -70,10 +72,13 @@ function calculatePlacement(
   // Fallback: bottom with clamping
   return {
     placement: 'bottom',
-    top: Math.min(targetRect.bottom + TOOLTIP_GAP, vh - estimatedHeight - VIEWPORT_PADDING),
+    top: Math.min(
+      targetRect.bottom + TOOLTIP_GAP,
+      vh - estimatedHeight - VIEWPORT_PADDING,
+    ),
     left: clampHorizontal(
       targetRect.left + targetRect.width / 2 - TOOLTIP_WIDTH / 2,
-      vw
+      vw,
     ),
   }
 }
@@ -81,18 +86,14 @@ function calculatePlacement(
 function clampHorizontal(left: number, vw: number): number {
   return Math.max(
     VIEWPORT_PADDING,
-    Math.min(left, vw - TOOLTIP_WIDTH - VIEWPORT_PADDING)
+    Math.min(left, vw - TOOLTIP_WIDTH - VIEWPORT_PADDING),
   )
 }
 
-function clampVertical(
-  top: number,
-  vh: number,
-  height: number
-): number {
+function clampVertical(top: number, vh: number, height: number): number {
   return Math.max(
     VIEWPORT_PADDING,
-    Math.min(top, vh - height - VIEWPORT_PADDING)
+    Math.min(top, vh - height - VIEWPORT_PADDING),
   )
 }
 
@@ -127,7 +128,7 @@ export function InstructionTooltip({
         top: window.innerHeight / 2 - 100,
         left: Math.max(
           VIEWPORT_PADDING,
-          window.innerWidth / 2 - TOOLTIP_WIDTH / 2
+          window.innerWidth / 2 - TOOLTIP_WIDTH / 2,
         ),
       }
     }
@@ -145,10 +146,13 @@ export function InstructionTooltip({
           top: -arrowSize,
           left: Math.min(
             Math.max(
-              targetRect.left + targetRect.width / 2 - position.left - arrowSize,
-              16
+              targetRect.left +
+                targetRect.width / 2 -
+                position.left -
+                arrowSize,
+              16,
             ),
-            TOOLTIP_WIDTH - 32
+            TOOLTIP_WIDTH - 32,
           ),
           borderLeft: `${arrowSize}px solid transparent`,
           borderRight: `${arrowSize}px solid transparent`,
@@ -159,10 +163,13 @@ export function InstructionTooltip({
           bottom: -arrowSize,
           left: Math.min(
             Math.max(
-              targetRect.left + targetRect.width / 2 - position.left - arrowSize,
-              16
+              targetRect.left +
+                targetRect.width / 2 -
+                position.left -
+                arrowSize,
+              16,
             ),
-            TOOLTIP_WIDTH - 32
+            TOOLTIP_WIDTH - 32,
           ),
           borderLeft: `${arrowSize}px solid transparent`,
           borderRight: `${arrowSize}px solid transparent`,
@@ -171,7 +178,10 @@ export function InstructionTooltip({
       case 'right':
         return {
           left: -arrowSize,
-          top: Math.max(16, targetRect.top + targetRect.height / 2 - position.top - arrowSize),
+          top: Math.max(
+            16,
+            targetRect.top + targetRect.height / 2 - position.top - arrowSize,
+          ),
           borderTop: `${arrowSize}px solid transparent`,
           borderBottom: `${arrowSize}px solid transparent`,
           borderRight: `${arrowSize}px solid var(--card)`,
@@ -179,7 +189,10 @@ export function InstructionTooltip({
       case 'left':
         return {
           right: -arrowSize,
-          top: Math.max(16, targetRect.top + targetRect.height / 2 - position.top - arrowSize),
+          top: Math.max(
+            16,
+            targetRect.top + targetRect.height / 2 - position.top - arrowSize,
+          ),
           borderTop: `${arrowSize}px solid transparent`,
           borderBottom: `${arrowSize}px solid transparent`,
           borderLeft: `${arrowSize}px solid var(--card)`,
@@ -258,11 +271,7 @@ export function InstructionTooltip({
             </Button>
           )}
           {stepDef.showNextButton && (
-            <Button
-              size="xs"
-              onClick={onNext}
-              disabled={!conditionMet}
-            >
+            <Button size="xs" onClick={onNext} disabled={!conditionMet}>
               {t('onboarding.next')}
             </Button>
           )}

@@ -1,26 +1,40 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from '@tanstack/react-router'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Image02Icon, FolderOpenIcon, Download04Icon } from '@hugeicons/core-free-icons'
+import {
+  Download04Icon,
+  FolderOpenIcon,
+  Image02Icon,
+} from '@hugeicons/core-free-icons'
+import { TournamentDialog } from './tournament-dialog'
+import { CompareDialog } from './compare-dialog'
+import type { GridSize } from '@/lib/use-image-grid-size'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { getSceneDetail, getSceneImages } from '@/server/functions/workspace'
-import { updateProjectScene, upsertCharacterOverride } from '@/server/functions/project-scenes'
-import { updateImage, bulkUpdateImages } from '@/server/functions/gallery'
+import {
+  updateProjectScene,
+  upsertCharacterOverride,
+} from '@/server/functions/project-scenes'
+import { bulkUpdateImages, updateImage } from '@/server/functions/gallery'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useTranslation } from '@/lib/i18n'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DownloadDialog } from '@/components/common/download-dialog'
-import { TournamentDialog } from './tournament-dialog'
-import { CompareDialog } from './compare-dialog'
 import { GridSizeToggle } from '@/components/common/grid-size-toggle'
-import { useImageGridSize, type GridSize } from '@/lib/use-image-grid-size'
+import { useImageGridSize } from '@/lib/use-image-grid-size'
 
 interface SceneDetailProps {
   sceneId: number
@@ -30,10 +44,13 @@ interface SceneDetailProps {
     charPrompt: string
     charNegative: string
   }>
-  generalPlaceholderKeys: string[]
+  generalPlaceholderKeys: Array<string>
   projectId: number
   thumbnailImageId: number | null
-  onThumbnailChange: (imageId: number | null, thumbnailPath?: string | null) => void
+  onThumbnailChange: (
+    imageId: number | null,
+    thumbnailPath?: string | null,
+  ) => void
   projectThumbnailImageId?: number | null
   onProjectThumbnailChange?: (imageId: number | null) => void
   refreshKey?: number
@@ -53,7 +70,10 @@ type ImageItem = SceneData['images'][number] & {
 
 const GAP = 6 // gap-1.5 = 6px
 
-const sceneDetailSizeMap: Record<GridSize, [number, number, number, number, number]> = {
+const sceneDetailSizeMap: Record<
+  GridSize,
+  [number, number, number, number, number]
+> = {
   sm: [4, 5, 7, 6, 7],
   md: [3, 4, 5, 4, 5],
   lg: [2, 3, 4, 3, 4],
@@ -109,14 +129,16 @@ export function SceneDetail({
   const initialLoadDone = useRef(false)
 
   // Images with pagination
-  const [images, setImages] = useState<ImageItem[]>([])
+  const [images, setImages] = useState<Array<ImageItem>>([])
   const [totalImageCount, setTotalImageCount] = useState(0)
   const [loadingMore, setLoadingMore] = useState(false)
   const hasMore = images.length < totalImageCount
 
   // Tournament & Compare
   const [tournamentOpen, setTournamentOpen] = useState(false)
-  const [tournamentImageIds, setTournamentImageIds] = useState<number[] | undefined>(undefined)
+  const [tournamentImageIds, setTournamentImageIds] = useState<
+    Array<number> | undefined
+  >(undefined)
   const [compareOpen, setCompareOpen] = useState(false)
   const [internalSortBy, setInternalSortBy] = useState<SortBy>('newest')
   const sortBy = externalSortBy ?? internalSortBy
@@ -127,43 +149,56 @@ export function SceneDetail({
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Placeholder values (general)
-  const [placeholderValues, setPlaceholderValues] = useState<Record<string, string>>({})
+  const [placeholderValues, setPlaceholderValues] = useState<
+    Record<string, string>
+  >({})
   // Character override values
-  const [charOverrides, setCharOverrides] = useState<Record<number, Record<string, string>>>({})
+  const [charOverrides, setCharOverrides] = useState<
+    Record<number, Record<string, string>>
+  >({})
 
-  const loadScene = useCallback(async (silent?: boolean, overrideSortBy?: SortBy) => {
-    if (!silent) setLoading(true)
-    try {
-      const currentSort = overrideSortBy ?? sortBy
-      const result = await getSceneDetail({ data: { sceneId, sortBy: currentSort } })
-      setTotalImageCount(result.totalImageCount)
-
-      if (silent) {
-        setImages((prev) => {
-          const updatedMap = new Map(result.images.map((img) => [img.id, img]))
-          const existingIds = new Set(prev.map((img) => img.id))
-          const newImages = result.images.filter((img) => !existingIds.has(img.id))
-          const updated = prev.map((img) => updatedMap.get(img.id) ?? img)
-          return newImages.length > 0 ? [...newImages, ...updated] : updated
+  const loadScene = useCallback(
+    async (silent?: boolean, overrideSortBy?: SortBy) => {
+      if (!silent) setLoading(true)
+      try {
+        const currentSort = overrideSortBy ?? sortBy
+        const result = await getSceneDetail({
+          data: { sceneId, sortBy: currentSort },
         })
-      } else {
-        setImages(result.images)
-      }
+        setTotalImageCount(result.totalImageCount)
 
-      if (!initialLoadDone.current) {
-        setPlaceholderValues(JSON.parse(result.scene.placeholders || '{}'))
-        const ov: Record<number, Record<string, string>> = {}
-        for (const o of result.characterOverrides) {
-          ov[o.characterId] = JSON.parse(o.placeholders || '{}')
+        if (silent) {
+          setImages((prev) => {
+            const updatedMap = new Map(
+              result.images.map((img) => [img.id, img]),
+            )
+            const existingIds = new Set(prev.map((img) => img.id))
+            const newImages = result.images.filter(
+              (img) => !existingIds.has(img.id),
+            )
+            const updated = prev.map((img) => updatedMap.get(img.id) ?? img)
+            return newImages.length > 0 ? [...newImages, ...updated] : updated
+          })
+        } else {
+          setImages(result.images)
         }
-        setCharOverrides(ov)
-        initialLoadDone.current = true
+
+        if (!initialLoadDone.current) {
+          setPlaceholderValues(JSON.parse(result.scene.placeholders || '{}'))
+          const ov: Record<number, Record<string, string>> = {}
+          for (const o of result.characterOverrides) {
+            ov[o.characterId] = JSON.parse(o.placeholders || '{}')
+          }
+          setCharOverrides(ov)
+          initialLoadDone.current = true
+        }
+      } catch {
+        toast.error(t('scene.failedToLoad'))
       }
-    } catch {
-      toast.error(t('scene.failedToLoad'))
-    }
-    if (!silent) setLoading(false)
-  }, [sceneId, sortBy])
+      if (!silent) setLoading(false)
+    },
+    [sceneId, sortBy],
+  )
 
   useEffect(() => {
     initialLoadDone.current = false
@@ -183,7 +218,9 @@ export function SceneDetail({
     loadMoreRef.current = true
     setLoadingMore(true)
     try {
-      const more = await getSceneImages({ data: { sceneId, offset: images.length, sortBy } })
+      const more = await getSceneImages({
+        data: { sceneId, offset: images.length, sortBy },
+      })
       setImages((prev) => {
         const existingIds = new Set(prev.map((img) => img.id))
         const deduped = more.filter((img) => !existingIds.has(img.id))
@@ -215,7 +252,9 @@ export function SceneDetail({
   useEffect(() => {
     const el = gridRef.current
     if (!el) return
-    const ro = new ResizeObserver(([entry]) => setGridWidth(entry.contentRect.width))
+    const ro = new ResizeObserver(([entry]) =>
+      setGridWidth(entry.contentRect.width),
+    )
     ro.observe(el)
     return () => ro.disconnect()
   }, [images.length > 0]) // re-observe when images first appear
@@ -290,7 +329,11 @@ export function SceneDetail({
     }, 800)
   }
 
-  function handleCharOverrideChange(charId: number, key: string, value: string) {
+  function handleCharOverrideChange(
+    charId: number,
+    key: string,
+    value: string,
+  ) {
     const updated = {
       ...charOverrides,
       [charId]: { ...(charOverrides[charId] || {}), [key]: value },
@@ -357,11 +400,17 @@ export function SceneDetail({
 
   async function handleBulkFavorite() {
     try {
-      await bulkUpdateImages({ data: { imageIds: [...selectedIds], isFavorite: 1 } })
+      await bulkUpdateImages({
+        data: { imageIds: [...selectedIds], isFavorite: 1 },
+      })
       setImages((prev) =>
-        prev.map((img) => (selectedIds.has(img.id) ? { ...img, isFavorite: 1 } : img)),
+        prev.map((img) =>
+          selectedIds.has(img.id) ? { ...img, isFavorite: 1 } : img,
+        ),
       )
-      toast.success(t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }))
+      toast.success(
+        t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }),
+      )
       exitSelectMode()
     } catch {
       toast.error(t('gallery.bulkFailed'))
@@ -371,7 +420,9 @@ export function SceneDetail({
   async function handleBulkDelete() {
     try {
       const count = selectedIds.size
-      await bulkUpdateImages({ data: { imageIds: [...selectedIds], delete: true } })
+      await bulkUpdateImages({
+        data: { imageIds: [...selectedIds], delete: true },
+      })
       setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)))
       setTotalImageCount((prev) => prev - count)
       toast.success(t('gallery.bulkDeleteSuccess', { count }))
@@ -394,278 +445,81 @@ export function SceneDetail({
 
   return (
     <>
-    <div ref={rootRef} className="p-4 space-y-4">
-      {/* General Placeholders */}
-      {!hidePlaceholders && generalPlaceholders.length > 0 && (
-        <div className="space-y-2">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('scene.generalPlaceholders')}
-          </Label>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {generalPlaceholders.map((key) => (
-              <div key={key} className="space-y-1">
-                <label className="text-sm font-mono text-muted-foreground">{`\\\\${key}\\\\`}</label>
-                <Input
-                  value={placeholderValues[key] ?? ''}
-                  onChange={(e) => handlePlaceholderChange(key, e.target.value)}
-                  className="h-8 text-base"
-                  placeholder={t('scene.valueFor', { key })}
-                />
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Character Overrides */}
-      {!hidePlaceholders && characters.length > 0 && uniqueCharPlaceholders.length > 0 && (
-        <div className="space-y-3">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('scene.characterOverrides')}
-          </Label>
-          {characters.map((char) => {
-            const charSpecificPlaceholders = [
-              ...new Set([
-                ...extractPlaceholders(char.charPrompt),
-                ...extractPlaceholders(char.charNegative),
-              ]),
-            ]
-            if (charSpecificPlaceholders.length === 0) return null
-
-            return (
-              <div key={char.id} className="space-y-1.5 pl-3 border-l-2 border-border">
-                <span className="text-sm font-medium">{char.name}</span>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {charSpecificPlaceholders.map((key) => {
-                    const generalVal = placeholderValues[key]
-                    const ownVal = charOverrides[char.id]?.[key] ?? ''
-                    const isInherited = !ownVal && !!generalVal
-                    return (
-                      <div key={key} className="space-y-1">
-                        <label className="text-sm font-mono text-muted-foreground flex items-center gap-1.5">
-                          {`\\\\${key}\\\\`}
-                          {isInherited && (
-                            <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5 font-sans">{t('placeholder.defaultValue')}</span>
-                          )}
-                        </label>
-                        <Input
-                          value={ownVal || generalVal || ''}
-                          onChange={(e) => handleCharOverrideChange(char.id, key, e.target.value)}
-                          className="h-8 text-base"
-                          placeholder={t('scene.valueFor', { key })}
-                        />
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Generated Images — Virtualized Grid */}
-      {images.length > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between gap-2 flex-wrap">
+      <div ref={rootRef} className="p-4 space-y-4">
+        {/* General Placeholders */}
+        {!hidePlaceholders && generalPlaceholders.length > 0 && (
+          <div className="space-y-2">
             <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-              {t('scene.images', { count: totalImageCount })}
+              {t('scene.generalPlaceholders')}
             </Label>
-            <div className="flex items-center gap-2">
-              {totalImageCount >= 2 && (
-                <Button variant="outline" size="xs" onClick={() => {
-                  setTournamentImageIds(undefined)
-                  setTournamentOpen(true)
-                }}>
-                  {t('tournament.tournament')}
-                </Button>
-              )}
-              <Button
-                size="xs"
-                variant={selectMode ? 'default' : 'outline'}
-                onClick={() => {
-                  setSelectMode(!selectMode)
-                  if (selectMode) setSelectedIds(new Set())
-                }}
-              >
-                {selectMode ? t('gallery.deselect') : t('gallery.select')}
-              </Button>
-              <Select value={sortBy} onValueChange={(v) => handleSortChange(v as SortBy)}>
-                <SelectTrigger size="sm" className="h-7 text-xs">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">{t('scene.newest')}</SelectItem>
-                  <SelectItem value="tournament_winrate">{t('scene.winRate')}</SelectItem>
-                  <SelectItem value="tournament_wins">{t('scene.totalWins')}</SelectItem>
-                </SelectContent>
-              </Select>
-              <GridSizeToggle value={gridSize} onChange={setGridSize} />
-              {thumbnailImageId !== null && (
-                <button
-                  onClick={() => onThumbnailChange(null, null)}
-                  className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {t('scene.resetThumbnail')}
-                </button>
-              )}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {generalPlaceholders.map((key) => (
+                <div key={key} className="space-y-1">
+                  <label className="text-sm font-mono text-muted-foreground">{`\\\\${key}\\\\`}</label>
+                  <Input
+                    value={placeholderValues[key] ?? ''}
+                    onChange={(e) =>
+                      handlePlaceholderChange(key, e.target.value)
+                    }
+                    className="h-8 text-base"
+                    placeholder={t('scene.valueFor', { key })}
+                  />
+                </div>
+              ))}
             </div>
           </div>
+        )}
 
-          <div ref={gridRef}>
-            <div
-              style={{
-                height: `${rowVirtualizer.getTotalSize()}px`,
-                position: 'relative',
-                width: '100%',
-              }}
-            >
-              {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                const startIdx = virtualRow.index * cols
-                const rowImages = images.slice(startIdx, startIdx + cols)
+        {/* Character Overrides */}
+        {!hidePlaceholders &&
+          characters.length > 0 &&
+          uniqueCharPlaceholders.length > 0 && (
+            <div className="space-y-3">
+              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                {t('scene.characterOverrides')}
+              </Label>
+              {characters.map((char) => {
+                const charSpecificPlaceholders = [
+                  ...new Set([
+                    ...extractPlaceholders(char.charPrompt),
+                    ...extractPlaceholders(char.charNegative),
+                  ]),
+                ]
+                if (charSpecificPlaceholders.length === 0) return null
 
                 return (
                   <div
-                    key={virtualRow.key}
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start - scrollMargin}px)`,
-                    }}
+                    key={char.id}
+                    className="space-y-1.5 pl-3 border-l-2 border-border"
                   >
-                    <div style={{ display: 'flex', gap: `${GAP}px` }}>
-                      {rowImages.map((img) => {
-                        const isThumbnail = thumbnailImageId === img.id
-                        const isSelected = selectedIds.has(img.id)
-
-                        // Image thumbnail content (shared between modes)
-                        const imageContent = img.thumbnailPath ? (
-                          <img
-                            src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-                            {t('scene.noThumb')}
-                          </div>
-                        )
-
-                        if (selectMode) {
-                          return (
-                            <div
-                              key={img.id}
-                              style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
-                              className="relative group rounded-lg overflow-hidden bg-secondary shrink-0 cursor-pointer"
-                              onClick={() => toggleSelect(img.id)}
-                            >
-                              {imageContent}
-                              <div className="absolute top-1.5 left-1.5 z-10">
-                                <Checkbox
-                                  checked={isSelected}
-                                  onCheckedChange={() => toggleSelect(img.id)}
-                                  onClick={(e) => e.stopPropagation()}
-                                />
-                              </div>
-                              {isSelected && (
-                                <div className="absolute inset-0 bg-primary/20 ring-2 ring-primary ring-inset rounded-lg" />
-                              )}
-                              {/* Thumbnail bar (keep in select mode) */}
-                              {(isThumbnail || projectThumbnailImageId === img.id) && (
-                                <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
-                                  {isThumbnail && projectThumbnailImageId === img.id
-                                    ? t('scene.scenePlusProjectThumb')
-                                    : isThumbnail
-                                      ? t('scene.sceneThumb')
-                                      : t('scene.projectThumb')}
-                                </div>
-                              )}
-                              {/* Tournament W/L badge (keep in select mode) */}
-                              {((img.tournamentWins ?? 0) > 0 || (img.tournamentLosses ?? 0) > 0) && (
-                                <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[9px] px-1 rounded z-10 pointer-events-none">
-                                  {img.tournamentWins ?? 0}W-{img.tournamentLosses ?? 0}L
-                                </div>
-                              )}
-                            </div>
-                          )
-                        }
-
+                    <span className="text-sm font-medium">{char.name}</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {charSpecificPlaceholders.map((key) => {
+                        const generalVal = placeholderValues[key]
+                        const ownVal = charOverrides[char.id]?.[key] ?? ''
+                        const isInherited = !ownVal && !!generalVal
                         return (
-                          <div
-                            key={img.id}
-                            style={{ width: `${cellSize}px`, height: `${cellSize}px` }}
-                            className={`relative group rounded-lg overflow-hidden bg-secondary shrink-0 ${isThumbnail ? 'ring-2 ring-primary' : ''}`}
-                          >
-                            <button
-                              onClick={() => navigate({ search: (prev: Record<string, unknown>) => ({ ...prev, imageDetail: img.id }) } as any)}
-                              className="absolute inset-0 z-0 cursor-pointer"
+                          <div key={key} className="space-y-1">
+                            <label className="text-sm font-mono text-muted-foreground flex items-center gap-1.5">
+                              {`\\\\${key}\\\\`}
+                              {isInherited && (
+                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5 font-sans">
+                                  {t('placeholder.defaultValue')}
+                                </span>
+                              )}
+                            </label>
+                            <Input
+                              value={ownVal || generalVal || ''}
+                              onChange={(e) =>
+                                handleCharOverrideChange(
+                                  char.id,
+                                  key,
+                                  e.target.value,
+                                )
+                              }
+                              className="h-8 text-base"
+                              placeholder={t('scene.valueFor', { key })}
                             />
-                            {imageContent}
-                            {/* Overlay buttons */}
-                            {/* Favorite button - always visible when favorited */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation()
-                                handleToggleFavorite(img.id, img.isFavorite)
-                              }}
-                              className={`absolute top-1 right-1 p-0.5 z-10 transition-opacity ${img.isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                              aria-label={img.isFavorite ? t('gallery.unfavorite') : t('gallery.favorite')}
-                            >
-                              <span className={`text-base ${img.isFavorite ? 'text-destructive' : 'text-white/70'}`}>
-                                {img.isFavorite ? '\u2764' : '\u2661'}
-                              </span>
-                            </button>
-                            {/* Overlay buttons */}
-                            <div className="absolute inset-x-0 top-0 flex items-center p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                              <div className="flex items-center gap-0.5">
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation()
-                                    onThumbnailChange(
-                                      isThumbnail ? null : img.id,
-                                      isThumbnail ? null : img.thumbnailPath,
-                                    )
-                                  }}
-                                  className={`p-0.5 ${isThumbnail ? 'text-primary' : 'text-white/70 hover:text-white'}`}
-                                  title={t('scene.sceneThumb')}
-                                >
-                                  <HugeiconsIcon icon={Image02Icon} className="size-5" />
-                                </button>
-                                {onProjectThumbnailChange && (() => {
-                                  const isProjectThumb = projectThumbnailImageId === img.id
-                                  return (
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation()
-                                        onProjectThumbnailChange(isProjectThumb ? null : img.id)
-                                      }}
-                                      className={`p-0.5 ${isProjectThumb ? 'text-primary' : 'text-white/70 hover:text-white'}`}
-                                      title={t('scene.projectThumb')}
-                                    >
-                                      <HugeiconsIcon icon={FolderOpenIcon} className="size-5" />
-                                    </button>
-                                  )
-                                })()}
-                              </div>
-                            </div>
-                            {(isThumbnail || projectThumbnailImageId === img.id) && (
-                              <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
-                                {isThumbnail && projectThumbnailImageId === img.id
-                                  ? t('scene.scenePlusProjectThumb')
-                                  : isThumbnail
-                                    ? t('scene.sceneThumb')
-                                    : t('scene.projectThumb')}
-                              </div>
-                            )}
-                            {/* Tournament W/L badge */}
-                            {((img.tournamentWins ?? 0) > 0 || (img.tournamentLosses ?? 0) > 0) && (
-                              <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[9px] px-1 rounded z-10 pointer-events-none">
-                                {img.tournamentWins ?? 0}W-{img.tournamentLosses ?? 0}L
-                              </div>
-                            )}
                           </div>
                         )
                       })}
@@ -674,38 +528,303 @@ export function SceneDetail({
                 )
               })}
             </div>
-          </div>
-
-          {/* Load more indicator */}
-          {hasMore && (
-            <div className="flex justify-center py-2">
-              {loadingMore ? (
-                <span className="text-sm text-muted-foreground">{t('common.loading')}</span>
-              ) : (
-                <button
-                  onClick={handleLoadMore}
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {t('scene.loadMore', { current: images.length, total: totalImageCount })}
-                </button>
-              )}
-            </div>
           )}
-        </div>
-      )}
 
-      {!loading && images.length === 0 && (
-        <div className="text-center py-8 text-base text-muted-foreground">
-          {t('scene.noImagesYet')}
-        </div>
-      )}
+        {/* Generated Images — Virtualized Grid */}
+        {images.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                {t('scene.images', { count: totalImageCount })}
+              </Label>
+              <div className="flex items-center gap-2">
+                {totalImageCount >= 2 && (
+                  <Button
+                    variant="outline"
+                    size="xs"
+                    onClick={() => {
+                      setTournamentImageIds(undefined)
+                      setTournamentOpen(true)
+                    }}
+                  >
+                    {t('tournament.tournament')}
+                  </Button>
+                )}
+                <Button
+                  size="xs"
+                  variant={selectMode ? 'default' : 'outline'}
+                  onClick={() => {
+                    setSelectMode(!selectMode)
+                    if (selectMode) setSelectedIds(new Set())
+                  }}
+                >
+                  {selectMode ? t('gallery.deselect') : t('gallery.select')}
+                </Button>
+                <Select
+                  value={sortBy}
+                  onValueChange={(v) => handleSortChange(v as SortBy)}
+                >
+                  <SelectTrigger size="sm" className="h-7 text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">{t('scene.newest')}</SelectItem>
+                    <SelectItem value="tournament_winrate">
+                      {t('scene.winRate')}
+                    </SelectItem>
+                    <SelectItem value="tournament_wins">
+                      {t('scene.totalWins')}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <GridSizeToggle value={gridSize} onChange={setGridSize} />
+                {thumbnailImageId !== null && (
+                  <button
+                    onClick={() => onThumbnailChange(null, null)}
+                    className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {t('scene.resetThumbnail')}
+                  </button>
+                )}
+              </div>
+            </div>
 
-    </div>
+            <div ref={gridRef}>
+              <div
+                style={{
+                  height: `${rowVirtualizer.getTotalSize()}px`,
+                  position: 'relative',
+                  width: '100%',
+                }}
+              >
+                {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                  const startIdx = virtualRow.index * cols
+                  const rowImages = images.slice(startIdx, startIdx + cols)
+
+                  return (
+                    <div
+                      key={virtualRow.key}
+                      style={{
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        width: '100%',
+                        transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+                      }}
+                    >
+                      <div style={{ display: 'flex', gap: `${GAP}px` }}>
+                        {rowImages.map((img) => {
+                          const isThumbnail = thumbnailImageId === img.id
+                          const isSelected = selectedIds.has(img.id)
+
+                          // Image thumbnail content (shared between modes)
+                          const imageContent = img.thumbnailPath ? (
+                            <img
+                              src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+                              {t('scene.noThumb')}
+                            </div>
+                          )
+
+                          if (selectMode) {
+                            return (
+                              <div
+                                key={img.id}
+                                style={{
+                                  width: `${cellSize}px`,
+                                  height: `${cellSize}px`,
+                                }}
+                                className="relative group rounded-lg overflow-hidden bg-secondary shrink-0 cursor-pointer"
+                                onClick={() => toggleSelect(img.id)}
+                              >
+                                {imageContent}
+                                <div className="absolute top-1.5 left-1.5 z-10">
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => toggleSelect(img.id)}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                                {isSelected && (
+                                  <div className="absolute inset-0 bg-primary/20 ring-2 ring-primary ring-inset rounded-lg" />
+                                )}
+                                {/* Thumbnail bar (keep in select mode) */}
+                                {(isThumbnail ||
+                                  projectThumbnailImageId === img.id) && (
+                                  <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
+                                    {isThumbnail &&
+                                    projectThumbnailImageId === img.id
+                                      ? t('scene.scenePlusProjectThumb')
+                                      : isThumbnail
+                                        ? t('scene.sceneThumb')
+                                        : t('scene.projectThumb')}
+                                  </div>
+                                )}
+                                {/* Tournament W/L badge (keep in select mode) */}
+                                {((img.tournamentWins ?? 0) > 0 ||
+                                  (img.tournamentLosses ?? 0) > 0) && (
+                                  <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[9px] px-1 rounded z-10 pointer-events-none">
+                                    {img.tournamentWins ?? 0}W-
+                                    {img.tournamentLosses ?? 0}L
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          }
+
+                          return (
+                            <div
+                              key={img.id}
+                              style={{
+                                width: `${cellSize}px`,
+                                height: `${cellSize}px`,
+                              }}
+                              className={`relative group rounded-lg overflow-hidden bg-secondary shrink-0 ${isThumbnail ? 'ring-2 ring-primary' : ''}`}
+                            >
+                              <button
+                                onClick={() =>
+                                  navigate({
+                                    search: (
+                                      prev: Record<string, unknown>,
+                                    ) => ({ ...prev, imageDetail: img.id }),
+                                  } as any)
+                                }
+                                className="absolute inset-0 z-0 cursor-pointer"
+                              />
+                              {imageContent}
+                              {/* Overlay buttons */}
+                              {/* Favorite button - always visible when favorited */}
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  handleToggleFavorite(img.id, img.isFavorite)
+                                }}
+                                className={`absolute top-1 right-1 p-0.5 z-10 transition-opacity ${img.isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                                aria-label={
+                                  img.isFavorite
+                                    ? t('gallery.unfavorite')
+                                    : t('gallery.favorite')
+                                }
+                              >
+                                <span
+                                  className={`text-base ${img.isFavorite ? 'text-destructive' : 'text-white/70'}`}
+                                >
+                                  {img.isFavorite ? '\u2764' : '\u2661'}
+                                </span>
+                              </button>
+                              {/* Overlay buttons */}
+                              <div className="absolute inset-x-0 top-0 flex items-center p-1 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                <div className="flex items-center gap-0.5">
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      onThumbnailChange(
+                                        isThumbnail ? null : img.id,
+                                        isThumbnail ? null : img.thumbnailPath,
+                                      )
+                                    }}
+                                    className={`p-0.5 ${isThumbnail ? 'text-primary' : 'text-white/70 hover:text-white'}`}
+                                    title={t('scene.sceneThumb')}
+                                  >
+                                    <HugeiconsIcon
+                                      icon={Image02Icon}
+                                      className="size-5"
+                                    />
+                                  </button>
+                                  {onProjectThumbnailChange &&
+                                    (() => {
+                                      const isProjectThumb =
+                                        projectThumbnailImageId === img.id
+                                      return (
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            onProjectThumbnailChange(
+                                              isProjectThumb ? null : img.id,
+                                            )
+                                          }}
+                                          className={`p-0.5 ${isProjectThumb ? 'text-primary' : 'text-white/70 hover:text-white'}`}
+                                          title={t('scene.projectThumb')}
+                                        >
+                                          <HugeiconsIcon
+                                            icon={FolderOpenIcon}
+                                            className="size-5"
+                                          />
+                                        </button>
+                                      )
+                                    })()}
+                                </div>
+                              </div>
+                              {(isThumbnail ||
+                                projectThumbnailImageId === img.id) && (
+                                <div className="absolute bottom-0 inset-x-0 bg-primary/80 text-primary-foreground text-[10px] text-center py-0.5">
+                                  {isThumbnail &&
+                                  projectThumbnailImageId === img.id
+                                    ? t('scene.scenePlusProjectThumb')
+                                    : isThumbnail
+                                      ? t('scene.sceneThumb')
+                                      : t('scene.projectThumb')}
+                                </div>
+                              )}
+                              {/* Tournament W/L badge */}
+                              {((img.tournamentWins ?? 0) > 0 ||
+                                (img.tournamentLosses ?? 0) > 0) && (
+                                <div className="absolute bottom-0.5 left-0.5 bg-black/70 text-white text-[9px] px-1 rounded z-10 pointer-events-none">
+                                  {img.tournamentWins ?? 0}W-
+                                  {img.tournamentLosses ?? 0}L
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Load more indicator */}
+            {hasMore && (
+              <div className="flex justify-center py-2">
+                {loadingMore ? (
+                  <span className="text-sm text-muted-foreground">
+                    {t('common.loading')}
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleLoadMore}
+                    className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {t('scene.loadMore', {
+                      current: images.length,
+                      total: totalImageCount,
+                    })}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {!loading && images.length === 0 && (
+          <div className="text-center py-8 text-base text-muted-foreground">
+            {t('scene.noImagesYet')}
+          </div>
+        )}
+      </div>
 
       {/* Bulk action bar — outside space-y-4 to prevent margin change triggering scrollbar/resize */}
       {selectMode && selectedIds.size > 0 && (
         <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
-          <span className="text-base font-medium">{t('gallery.selectedCount', { count: selectedIds.size })}</span>
+          <span className="text-base font-medium">
+            {t('gallery.selectedCount', { count: selectedIds.size })}
+          </span>
           <Button
             size="sm"
             variant="outline"
@@ -734,15 +853,25 @@ export function SceneDetail({
             }
             selectedImageIds={[...selectedIds]}
           />
-          <Button size="sm" variant="outline" onClick={handleBulkFavorite}>{t('gallery.addToFavorites')}</Button>
+          <Button size="sm" variant="outline" onClick={handleBulkFavorite}>
+            {t('gallery.addToFavorites')}
+          </Button>
           <ConfirmDialog
-            trigger={<Button size="sm" variant="destructive">{t('common.delete')}</Button>}
+            trigger={
+              <Button size="sm" variant="destructive">
+                {t('common.delete')}
+              </Button>
+            }
             title={t('gallery.deleteImages')}
-            description={t('gallery.deleteImagesDesc', { count: selectedIds.size })}
+            description={t('gallery.deleteImagesDesc', {
+              count: selectedIds.size,
+            })}
             variant="destructive"
             onConfirm={handleBulkDelete}
           />
-          <Button size="sm" variant="ghost" onClick={exitSelectMode}>{t('common.cancel')}</Button>
+          <Button size="sm" variant="ghost" onClick={exitSelectMode}>
+            {t('common.cancel')}
+          </Button>
         </div>
       )}
 

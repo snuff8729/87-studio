@@ -1,4 +1,5 @@
-import { ViewPlugin, Decoration, type DecorationSet, type ViewUpdate } from '@codemirror/view'
+import { Decoration, ViewPlugin } from '@codemirror/view'
+import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
 const bundleDeco = Decoration.mark({ class: 'cm-bundle-highlight' })
 
@@ -26,7 +27,9 @@ export const bundleHighlight = ViewPlugin.fromClass(
     update(update: ViewUpdate) {
       if (update.docChanged) {
         this.decorations = Decoration.set(
-          findBundles(update.state.doc).map((d) => bundleDeco.range(d.from, d.to)),
+          findBundles(update.state.doc).map((d) =>
+            bundleDeco.range(d.from, d.to),
+          ),
         )
       }
     }

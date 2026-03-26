@@ -1,5 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { toast } from 'sonner'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Download04Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -15,9 +17,10 @@ import {
 import { useTranslation } from '@/lib/i18n'
 import { prepareDownload } from '@/server/functions/download'
 import { getSetting, setSetting } from '@/server/functions/settings'
-import { resolveFilenameTemplate, DEFAULT_FILENAME_TEMPLATE } from '@/server/services/download'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Download04Icon } from '@hugeicons/core-free-icons'
+import {
+  DEFAULT_FILENAME_TEMPLATE,
+  resolveFilenameTemplate,
+} from '@/server/services/download'
 
 interface SceneItem {
   id: number
@@ -29,10 +32,10 @@ interface DownloadDialogProps {
   trigger: React.ReactNode
   projectId?: number
   projectName?: string
-  availableScenes?: SceneItem[]
+  availableScenes?: Array<SceneItem>
   filenameTemplate?: string
-  selectedImageIds?: number[]
-  projectSceneIds?: number[]
+  selectedImageIds?: Array<number>
+  projectSceneIds?: Array<number>
 }
 
 export function DownloadDialog({
@@ -55,24 +58,30 @@ export function DownloadDialog({
   const [selectedSceneIds, setSelectedSceneIds] = useState<Set<number>>(
     new Set(availableScenes?.map((s) => s.id) ?? []),
   )
-  const [template, setTemplate] = useState(initialTemplate || DEFAULT_FILENAME_TEMPLATE)
+  const [template, setTemplate] = useState(
+    initialTemplate || DEFAULT_FILENAME_TEMPLATE,
+  )
 
   const allSceneIds = useMemo(
     () => new Set(availableScenes?.map((s) => s.id) ?? []),
     [availableScenes],
   )
-  const allSelected = selectedSceneIds.size === allSceneIds.size && allSceneIds.size > 0
+  const allSelected =
+    selectedSceneIds.size === allSceneIds.size && allSceneIds.size > 0
 
   // Group scenes by pack
   const scenesByPack = useMemo(() => {
     if (!availableScenes) return []
-    const groups = new Map<string, SceneItem[]>()
+    const groups = new Map<string, Array<SceneItem>>()
     for (const scene of availableScenes) {
       const pack = scene.packName || ''
       if (!groups.has(pack)) groups.set(pack, [])
       groups.get(pack)!.push(scene)
     }
-    return [...groups.entries()].map(([packName, scenes]) => ({ packName, scenes }))
+    return [...groups.entries()].map(([packName, scenes]) => ({
+      packName,
+      scenes,
+    }))
   }, [availableScenes])
 
   // Reset state when opening — load saved template from settings
@@ -96,17 +105,19 @@ export function DownloadDialog({
 
   // Template preview
   const preview = useMemo(() => {
-    return resolveFilenameTemplate(template || DEFAULT_FILENAME_TEMPLATE, {
-      project_name: projectName || 'MyProject',
-      scene_name: 'smile',
-      seed: 12345,
-      index: 1,
-      date: '2025-01-15',
-      rating: 5,
-      id: 42,
-      wins: 3,
-      win_rate: '75.0',
-    }) + '.png'
+    return (
+      resolveFilenameTemplate(template || DEFAULT_FILENAME_TEMPLATE, {
+        project_name: projectName || 'MyProject',
+        scene_name: 'smile',
+        seed: 12345,
+        index: 1,
+        date: '2025-01-15',
+        rating: 5,
+        id: 42,
+        wins: 3,
+        win_rate: '75.0',
+      }) + '.png'
+    )
   }, [template, projectName])
 
   const isSelectedMode = selectedImageIds && selectedImageIds.length > 0
@@ -129,7 +140,9 @@ export function DownloadDialog({
                 }
               : {
                   projectId,
-                  projectSceneIds: allSelected ? undefined : [...selectedSceneIds],
+                  projectSceneIds: allSelected
+                    ? undefined
+                    : [...selectedSceneIds],
                   isFavorite: favoritesOnly || undefined,
                   minRating: minRating > 0 ? minRating : undefined,
                   minWinRate: minWinRate > 0 ? minWinRate : undefined,
@@ -174,7 +187,7 @@ export function DownloadDialog({
     })
   }
 
-  function togglePack(scenes: SceneItem[]) {
+  function togglePack(scenes: Array<SceneItem>) {
     setSelectedSceneIds((prev) => {
       const next = new Set(prev)
       const packIds = scenes.map((s) => s.id)
@@ -208,7 +221,9 @@ export function DownloadDialog({
           {/* Filters (only when not downloading selected images or fixed scenes) */}
           {!isSelectedMode && (
             <section className="space-y-3">
-              <Label className="text-sm font-medium">{t('export.filters')}</Label>
+              <Label className="text-sm font-medium">
+                {t('export.filters')}
+              </Label>
 
               {/* Favorites */}
               <div className="flex items-center gap-2">
@@ -217,7 +232,10 @@ export function DownloadDialog({
                   checked={favoritesOnly}
                   onCheckedChange={(v) => setFavoritesOnly(v === true)}
                 />
-                <Label htmlFor="dl-favorites" className="text-sm cursor-pointer">
+                <Label
+                  htmlFor="dl-favorites"
+                  className="text-sm cursor-pointer"
+                >
                   {t('export.favoritesOnly')}
                 </Label>
               </div>
@@ -257,23 +275,25 @@ export function DownloadDialog({
               </div>
 
               {/* Scene Selection — inline search + checklist (hidden when fixed scene IDs provided) */}
-              {!isFixedSceneMode && availableScenes && availableScenes.length > 0 && (
-                <SceneChecklist
-                  scenesByPack={scenesByPack}
-                  selectedSceneIds={selectedSceneIds}
-                  allSelected={allSelected}
-                  totalCount={allSceneIds.size}
-                  onToggleScene={toggleScene}
-                  onTogglePack={togglePack}
-                  onToggleAll={toggleAll}
-                />
-              )}
+              {!isFixedSceneMode &&
+                availableScenes &&
+                availableScenes.length > 0 && (
+                  <SceneChecklist
+                    scenesByPack={scenesByPack}
+                    selectedSceneIds={selectedSceneIds}
+                    allSelected={allSelected}
+                    totalCount={allSceneIds.size}
+                    onToggleScene={toggleScene}
+                    onTogglePack={togglePack}
+                    onToggleAll={toggleAll}
+                  />
+                )}
             </section>
           )}
 
           {isSelectedMode && (
             <p className="text-sm text-muted-foreground">
-              {t('gallery.selectedCount', { count: selectedImageIds!.length })}
+              {t('gallery.selectedCount', { count: selectedImageIds.length })}
             </p>
           )}
 
@@ -281,7 +301,9 @@ export function DownloadDialog({
 
           {/* Filename Template */}
           <section className="space-y-2">
-            <Label className="text-sm font-medium">{t('export.filenameTemplate')}</Label>
+            <Label className="text-sm font-medium">
+              {t('export.filenameTemplate')}
+            </Label>
             <Input
               value={template}
               onChange={(e) => setTemplate(e.target.value)}
@@ -292,8 +314,12 @@ export function DownloadDialog({
               {t('export.templateHelp')}
             </p>
             <div className="text-xs text-muted-foreground">
-              <span className="font-medium">{t('export.templatePreview')}:</span>{' '}
-              <code className="bg-secondary/60 px-1.5 py-0.5 rounded text-foreground">{preview}</code>
+              <span className="font-medium">
+                {t('export.templatePreview')}:
+              </span>{' '}
+              <code className="bg-secondary/60 px-1.5 py-0.5 rounded text-foreground">
+                {preview}
+              </code>
             </div>
           </section>
 
@@ -301,7 +327,13 @@ export function DownloadDialog({
           <Button
             className="w-full"
             onClick={handleDownload}
-            disabled={preparing || (!isSelectedMode && selectedSceneIds.size === 0 && availableScenes && availableScenes.length > 0)}
+            disabled={
+              preparing ||
+              (!isSelectedMode &&
+                selectedSceneIds.size === 0 &&
+                availableScenes &&
+                availableScenes.length > 0)
+            }
           >
             <HugeiconsIcon icon={Download04Icon} className="size-4" />
             {preparing ? t('export.preparing') : t('export.export')}
@@ -323,12 +355,12 @@ function SceneChecklist({
   onTogglePack,
   onToggleAll,
 }: {
-  scenesByPack: Array<{ packName: string; scenes: SceneItem[] }>
+  scenesByPack: Array<{ packName: string; scenes: Array<SceneItem> }>
   selectedSceneIds: Set<number>
   allSelected: boolean
   totalCount: number
   onToggleScene: (id: number) => void
-  onTogglePack: (scenes: SceneItem[]) => void
+  onTogglePack: (scenes: Array<SceneItem>) => void
   onToggleAll: () => void
 }) {
   const { t } = useTranslation()
@@ -390,8 +422,12 @@ function SceneChecklist({
           </div>
         ) : (
           filteredPacks.map(({ packName, scenes }) => {
-            const packAllSelected = scenes.every((s) => selectedSceneIds.has(s.id))
-            const packSomeSelected = scenes.some((s) => selectedSceneIds.has(s.id))
+            const packAllSelected = scenes.every((s) =>
+              selectedSceneIds.has(s.id),
+            )
+            const packSomeSelected = scenes.some((s) =>
+              selectedSceneIds.has(s.id),
+            )
 
             return (
               <div key={packName}>
@@ -403,13 +439,20 @@ function SceneChecklist({
                     className="sticky top-0 z-10 w-full flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-muted-foreground bg-secondary/80 backdrop-blur-sm hover:bg-secondary transition-colors"
                   >
                     <Checkbox
-                      checked={packAllSelected ? true : packSomeSelected ? 'indeterminate' : false}
+                      checked={
+                        packAllSelected
+                          ? true
+                          : packSomeSelected
+                            ? 'indeterminate'
+                            : false
+                      }
                       tabIndex={-1}
                       className="pointer-events-none"
                     />
                     {packName || 'Unnamed'}
                     <span className="ml-auto tabular-nums">
-                      {scenes.filter((s) => selectedSceneIds.has(s.id)).length}/{scenes.length}
+                      {scenes.filter((s) => selectedSceneIds.has(s.id)).length}/
+                      {scenes.length}
                     </span>
                   </button>
                 )}
