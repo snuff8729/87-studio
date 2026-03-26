@@ -468,6 +468,15 @@ async function processQueue() {
     // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (queueStopped) {
       log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
+      // Recalculate running batches so UI shows correct state (e.g. paused)
+      const runningBatches = db
+        .select({ id: generationBatches.id })
+        .from(generationBatches)
+        .where(eq(generationBatches.status, 'running'))
+        .all()
+      for (const batch of runningBatches) {
+        updateBatchStatusFromJobs(batch.id)
+      }
     } else {
       log.info('queue.complete', 'Queue processing completed', {
         totalImages: sessionTiming?.completedImages ?? 0,
