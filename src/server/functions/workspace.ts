@@ -10,7 +10,7 @@ import {
   generationJobs,
 } from '../db/schema'
 import { eq, desc, and, sql, inArray } from 'drizzle-orm'
-import { getQueueStatus, getBatchTiming } from '../services/generation'
+import { getQueueStatus, getGlobalQueueStats } from '../services/generation'
 
 export const getWorkspaceData = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -223,7 +223,17 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       recentImages,
       activeJobs,
       queueStatus,
-      batchTiming: getBatchTiming(),
+      batchTiming: (() => {
+        const globalStats = getGlobalQueueStats()
+        return globalStats.sessionTiming
+          ? {
+              startedAt: globalStats.sessionTiming.startedAt,
+              totalImages: globalStats.totalImages,
+              completedImages: globalStats.completedImages,
+              avgImageDurationMs: globalStats.avgImageDurationMs,
+            }
+          : null
+      })(),
     }
   })
 
@@ -474,5 +484,17 @@ export const listProjectJobs = createServerFn({ method: 'GET' })
       if (failedJob) jobs.unshift(failedJob)
     }
 
-    return { jobs, batchTiming: getBatchTiming(), queueStatus }
+    const globalStats = getGlobalQueueStats()
+    return {
+      jobs,
+      batchTiming: globalStats.sessionTiming
+        ? {
+            startedAt: globalStats.sessionTiming.startedAt,
+            totalImages: globalStats.totalImages,
+            completedImages: globalStats.completedImages,
+            avgImageDurationMs: globalStats.avgImageDurationMs,
+          }
+        : null,
+      queueStatus,
+    }
   })
