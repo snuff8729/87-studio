@@ -155,7 +155,7 @@ export function enqueueBatch(_batchId: number) {
   log.debug('queue.enqueueBatch', 'Batch enqueued, triggering processing', {
     batchId: _batchId,
   })
-  if (!processing) processQueue()
+  if (!processing && !queueStopped) processQueue()
 }
 
 /**
@@ -164,7 +164,7 @@ export function enqueueBatch(_batchId: number) {
  */
 export function enqueueJob(_jobId: number) {
   log.debug('queue.enqueueJob', 'Job enqueued (legacy)', { jobId: _jobId })
-  if (!processing) processQueue()
+  if (!processing && !queueStopped) processQueue()
 }
 
 // ─── Cancel ───────────────────────────────────────────────────────────────
