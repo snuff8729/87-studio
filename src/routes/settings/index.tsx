@@ -13,6 +13,10 @@ import { getStorageStats, cleanupOrphanFiles } from '@/server/functions/storage'
 import { useTranslation } from '@/lib/i18n'
 import type { Locale } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Sun02Icon, Moon02Icon, ComputerIcon } from '@hugeicons/core-free-icons'
+import { useTheme } from '@/lib/theme'
+import type { Theme } from '@/lib/theme'
 
 function PendingComponent() {
   return (
@@ -70,6 +74,7 @@ function SettingsPage() {
   const [validating, setValidating] = useState(false)
   const { t, locale, setLocale } = useTranslation()
   const onboarding = useOnboardingMaybe()
+  const { theme, setTheme } = useTheme()
   const lastSavedApiKey = useRef(initialApiKey)
   const lastSavedDelay = useRef(Number(initialDelay))
 
@@ -238,6 +243,33 @@ function SettingsPage() {
                   size="sm"
                   onClick={() => setLocale(code as Locale)}
                 >
+                  {label}
+                </Button>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>{t('settings.theme')}</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">{t('settings.themeDesc')}</p>
+            <div className="flex gap-2">
+              {([
+                ['system', t('settings.themeSystem'), ComputerIcon],
+                ['light', t('settings.themeLight'), Sun02Icon],
+                ['dark', t('settings.themeDark'), Moon02Icon],
+              ] as const).map(([value, label, icon]) => (
+                <Button
+                  key={value}
+                  variant={theme === value ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTheme(value as Theme)}
+                  className="gap-1.5"
+                >
+                  <HugeiconsIcon icon={icon} size={16} />
                   {label}
                 </Button>
               ))}
