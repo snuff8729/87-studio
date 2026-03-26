@@ -747,7 +747,6 @@ function WorkspacePage() {
           countPerScene={countPerScene}
           onCountChange={setCountPerScene}
           onGenerate={handleGenerate}
-          generating={generating}
           totalImages={totalImages}
           parameterPopover={
             <ParameterPopover params={params} onChange={handleParamsChange} />

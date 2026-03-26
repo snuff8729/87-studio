@@ -91,6 +91,36 @@ export const Route = createFileRoute('/generate/')({
   component: QuickGeneratePage,
 })
 
+function QuickGenerateButton({
+  count,
+  disabled,
+  onGenerate,
+}: {
+  count: number
+  disabled: boolean
+  onGenerate: () => void
+}) {
+  const { t } = useTranslation()
+  const [cooldown, setCooldown] = useState(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const handleClick = useCallback(() => {
+    onGenerate()
+    setCooldown(true)
+    if (timerRef.current) clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => setCooldown(false), 1000)
+  }, [onGenerate])
+
+  return (
+    <Button size="sm" onClick={handleClick} disabled={disabled || cooldown}>
+      <HugeiconsIcon icon={PlayIcon} className="size-5" />
+      <span className="hidden sm:inline">
+        {t('generation.generateCount', { count })}
+      </span>
+    </Button>
+  )
+}
+
 const STORAGE_KEY = '87studio-quick-generate'
 
 interface CharacterEntry {
@@ -140,7 +170,7 @@ function QuickGeneratePage() {
   const [state, setState] = useState<QuickGenerateState>(loadState)
   const [leftOpen, setLeftOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
-  const [generating, setGenerating] = useState(false)
+  const [_generating, setGenerating] = useState(false)
 
   // Image history
   const [images, setImages] = useState<
@@ -629,18 +659,11 @@ function QuickGeneratePage() {
                 max={100}
                 size="md"
               />
-              <Button
-                size="sm"
-                onClick={handleGenerate}
+              <QuickGenerateButton
+                count={state.count}
                 disabled={!state.generalPrompt.trim()}
-              >
-                <HugeiconsIcon icon={PlayIcon} className="size-5" />
-                <span className="hidden sm:inline">
-                  {generating
-                    ? t('generation.generating')
-                    : t('generation.generateCount', { count: state.count })}
-                </span>
-              </Button>
+                onGenerate={handleGenerate}
+              />
             </div>
           </div>
         }
