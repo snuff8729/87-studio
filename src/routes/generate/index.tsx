@@ -10,6 +10,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   AlertCircleIcon,
+  ArrowExpand01Icon,
   ArrowLeft02Icon,
   ArrowRight01Icon,
   Delete02Icon,
@@ -43,6 +44,7 @@ import { GridSizeToggle } from '@/components/common/grid-size-toggle'
 import { useImageGridSize } from '@/lib/use-image-grid-size'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
+import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
 import {
   createQuickGenerationJob,
@@ -669,14 +671,63 @@ function PromptPanelLocal({
 }) {
   const { t } = useTranslation()
   const bundleNames = useBundleNames()
+  const [expandTarget, setExpandTarget] = useState<{
+    type: 'general' | 'negative' | 'charPrompt' | 'charNegative'
+    charId?: string
+    label: string
+  } | null>(null)
+
+  const expandValue = expandTarget
+    ? expandTarget.type === 'general'
+      ? state.generalPrompt
+      : expandTarget.type === 'negative'
+        ? state.negativePrompt
+        : expandTarget.type === 'charPrompt'
+          ? (state.characters.find((c) => c.id === expandTarget.charId)
+              ?.prompt ?? '')
+          : (state.characters.find((c) => c.id === expandTarget.charId)
+              ?.negative ?? '')
+    : ''
+
+  const expandOnChange = useCallback(
+    (v: string) => {
+      if (!expandTarget) return
+      if (expandTarget.type === 'general')
+        setState((prev) => ({ ...prev, generalPrompt: v }))
+      else if (expandTarget.type === 'negative')
+        setState((prev) => ({ ...prev, negativePrompt: v }))
+      else if (expandTarget.charId)
+        updateCharacterField(
+          expandTarget.charId,
+          expandTarget.type === 'charPrompt' ? 'prompt' : 'negative',
+          v,
+        )
+    },
+    [expandTarget, setState, updateCharacterField],
+  )
 
   return (
     <div className="p-3 space-y-3">
       {/* General Prompt */}
       <div className="space-y-1.5">
-        <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-          {t('quickGenerate.prompt')}
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+            {t('quickGenerate.prompt')}
+          </Label>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() =>
+              setExpandTarget({
+                type: 'general',
+                label: t('quickGenerate.prompt'),
+              })
+            }
+            title={t('workspace.expandEditor')}
+          >
+            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+          </Button>
+        </div>
         <LazyPromptEditor
           value={state.generalPrompt}
           onChange={(v) => setState((prev) => ({ ...prev, generalPrompt: v }))}
@@ -688,9 +739,24 @@ function PromptPanelLocal({
 
       {/* Negative Prompt */}
       <div className="space-y-1.5">
-        <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-          {t('quickGenerate.negativePrompt')}
-        </Label>
+        <div className="flex items-center justify-between">
+          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+            {t('quickGenerate.negativePrompt')}
+          </Label>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() =>
+              setExpandTarget({
+                type: 'negative',
+                label: t('quickGenerate.negativePrompt'),
+              })
+            }
+            title={t('workspace.expandEditor')}
+          >
+            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+          </Button>
+        </div>
         <LazyPromptEditor
           value={state.negativePrompt}
           onChange={(v) => setState((prev) => ({ ...prev, negativePrompt: v }))}
@@ -735,9 +801,28 @@ function PromptPanelLocal({
               </Button>
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
-                {t('quickGenerate.prompt')}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">
+                  {t('quickGenerate.prompt')}
+                </Label>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() =>
+                    setExpandTarget({
+                      type: 'charPrompt',
+                      charId: char.id,
+                      label: `${char.name || t('quickGenerate.characters')} — ${t('quickGenerate.prompt')}`,
+                    })
+                  }
+                  title={t('workspace.expandEditor')}
+                >
+                  <HugeiconsIcon
+                    icon={ArrowExpand01Icon}
+                    className="size-3.5"
+                  />
+                </Button>
+              </div>
               <LazyPromptEditor
                 value={char.prompt}
                 onChange={(v) => updateCharacterField(char.id, 'prompt', v)}
@@ -747,9 +832,28 @@ function PromptPanelLocal({
               />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground">
-                {t('quickGenerate.negativePrompt')}
-              </Label>
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">
+                  {t('quickGenerate.negativePrompt')}
+                </Label>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() =>
+                    setExpandTarget({
+                      type: 'charNegative',
+                      charId: char.id,
+                      label: `${char.name || t('quickGenerate.characters')} — ${t('quickGenerate.negativePrompt')}`,
+                    })
+                  }
+                  title={t('workspace.expandEditor')}
+                >
+                  <HugeiconsIcon
+                    icon={ArrowExpand01Icon}
+                    className="size-3.5"
+                  />
+                </Button>
+              </div>
               <LazyPromptEditor
                 value={char.negative}
                 onChange={(v) => updateCharacterField(char.id, 'negative', v)}
@@ -761,6 +865,17 @@ function PromptPanelLocal({
           </div>
         ))}
       </div>
+
+      <ExpandedEditorDialog
+        open={expandTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setExpandTarget(null)
+        }}
+        title={expandTarget?.label ?? ''}
+        value={expandValue}
+        onChange={expandOnChange}
+        bundleNames={bundleNames}
+      />
     </div>
   )
 }
