@@ -24,13 +24,6 @@ function detectBrowserLocale(): Locale | null {
   return null
 }
 
-function getInitialLocale(): Locale {
-  if (typeof window === 'undefined') return DEFAULT_LOCALE
-  const stored = localStorage.getItem(STORAGE_KEY)
-  if (stored === 'en' || stored === 'ko') return stored
-  return detectBrowserLocale() ?? DEFAULT_LOCALE
-}
-
 interface I18nContextValue {
   locale: Locale
   setLocale: (locale: Locale) => void
@@ -40,11 +33,24 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null)
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>(getInitialLocale)
+  const [locale, setLocaleState] = useState<Locale>(DEFAULT_LOCALE)
+  const [ready, setReady] = useState(false)
 
   const setLocale = useCallback((newLocale: Locale) => {
     setLocaleState(newLocale)
     localStorage.setItem(STORAGE_KEY, newLocale)
+  }, [])
+
+  // Read locale from localStorage after mount to avoid SSR/hydration mismatch
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored === 'en' || stored === 'ko') {
+      setLocaleState(stored)
+    } else {
+      const detected = detectBrowserLocale()
+      if (detected) setLocaleState(detected)
+    }
+    setReady(true)
   }, [])
 
   useEffect(() => {
@@ -58,7 +64,13 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     [locale, setLocale, t],
   )
 
-  return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>
+  return (
+    <I18nContext.Provider value={value}>
+      <div style={{ visibility: ready ? 'visible' : 'hidden' }}>
+        {children}
+      </div>
+    </I18nContext.Provider>
+  )
 }
 
 const fallbackT = createT('en')

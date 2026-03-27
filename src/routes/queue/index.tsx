@@ -21,6 +21,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   AlertCircleIcon,
   ArrowReloadHorizontalIcon,
+  ArrowUpRight,
   Cancel01Icon,
   CheckmarkCircle01Icon,
   ChevronDown as ChevronDownIcon,
@@ -38,6 +39,7 @@ import {
   cancelBatch,
   fetchQueueSummary,
   getBatchJobs,
+  getJobPrompts,
   listQueueBatches,
   listRecentBatches,
   reorderBatchJobsFn,
@@ -176,21 +178,22 @@ function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProp
         {/* Label + progress */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center justify-between gap-2 mb-1">
-            {batch.projectId ? (
-              <Link
-                to="/workspace/$projectId"
-                params={{ projectId: String(batch.projectId) }}
-                search={{ imageDetail: undefined }}
-                className="text-sm font-medium text-foreground truncate hover:text-primary transition-colors"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {batch.label ?? `Batch #${batch.id}`}
-              </Link>
-            ) : (
+            <div className="flex items-center gap-1 min-w-0">
               <span className="text-sm font-medium text-foreground truncate">
                 {batch.label ?? `Batch #${batch.id}`}
               </span>
-            )}
+              {batch.projectId && (
+                <Link
+                  to="/workspace/$projectId"
+                  params={{ projectId: String(batch.projectId) }}
+                  search={{ imageDetail: undefined }}
+                  className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <HugeiconsIcon icon={ArrowUpRight} className="size-3.5" />
+                </Link>
+              )}
+            </div>
             <span className="text-xs text-muted-foreground tabular-nums shrink-0">
               {batch.completedImages}/{batch.totalImages}
             </span>
@@ -250,7 +253,7 @@ function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProp
         onOpenChange={setCancelDialogOpen}
         title={t('queue.cancelBatch' as any)}
         description={t('queue.cancelBatchConfirm' as any)}
-        actionLabel={t('queue.cancel' as any)}
+        actionLabel={t('common.delete' as any)}
         onConfirm={() => onCancel(batch.id)}
         variant="destructive"
       />
@@ -276,7 +279,77 @@ interface JobData {
   sceneName: string | null
 }
 
+// ---- JobPromptDisplay ----
+
+function JobPromptDisplay({ jobId }: { jobId: number }) {
+  const { t } = useTranslation()
+  const { data: prompts, isLoading } = useQuery({
+    queryKey: ['job-prompts', jobId],
+    queryFn: () => getJobPrompts({ data: jobId }),
+  })
+
+  if (isLoading) {
+    return (
+      <div className="text-[11px] text-muted-foreground py-1 pl-5">
+        Loading...
+      </div>
+    )
+  }
+
+  if (!prompts) return null
+
+  return (
+    <div className="space-y-1.5 py-1.5 pl-5 pr-2">
+      {prompts.generalPrompt && (
+        <div>
+          <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+            {t('queue.promptGeneral' as any)}
+          </span>
+          <p className="text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed mt-0.5">
+            {prompts.generalPrompt}
+          </p>
+        </div>
+      )}
+      {prompts.characterPrompts?.map((char) => (
+        <div key={char.characterId}>
+          {char.prompt && (
+            <div>
+              <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                {t('queue.promptCharacter' as any, { name: char.name })}
+              </span>
+              <p className="text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed mt-0.5">
+                {char.prompt}
+              </p>
+            </div>
+          )}
+          {char.negative && (
+            <div className="mt-1">
+              <span className="text-[10px] font-medium text-destructive/60 uppercase tracking-wide">
+                {t('queue.promptCharacterNegative' as any, { name: char.name })}
+              </span>
+              <p className="text-[11px] text-destructive/50 whitespace-pre-wrap break-all leading-relaxed mt-0.5">
+                {char.negative}
+              </p>
+            </div>
+          )}
+        </div>
+      ))}
+      {prompts.negativePrompt && (
+        <div>
+          <span className="text-[10px] font-medium text-destructive/60 uppercase tracking-wide">
+            {t('queue.promptNegative' as any)}
+          </span>
+          <p className="text-[11px] text-destructive/50 whitespace-pre-wrap break-all leading-relaxed mt-0.5">
+            {prompts.negativePrompt}
+          </p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SortableJobRow({ job }: { job: JobData }) {
+  const [showPrompts, setShowPrompts] = useState(false)
   const {
     attributes,
     listeners,
@@ -301,46 +374,27 @@ function SortableJobRow({ job }: { job: JobData }) {
   const pct = total > 0 ? (completed / total) * 100 : 0
 
   return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className="flex items-center gap-2 py-1"
-    >
-      <button
-        {...attributes}
-        {...listeners}
-        className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground shrink-0 touch-none"
-      >
-        <HugeiconsIcon icon={DragDropVerticalIcon} className="size-3.5" />
-      </button>
-
-      {isFailed ? (
-        <span className="size-1.5 rounded-full bg-destructive shrink-0 inline-block" />
-      ) : isRunning ? (
-        <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0 inline-block" />
-      ) : (
-        <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0 inline-block" />
-      )}
-
-      {job.projectId && job.projectSceneId ? (
-        <Link
-          to="/workspace/$projectId/scenes/$sceneId"
-          params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
-          search={{ imageDetail: undefined }}
-          className={`text-xs truncate flex-1 min-w-0 hover:underline ${
-            isFailed
-              ? 'text-destructive'
-              : isRunning
-                ? 'text-foreground'
-                : 'text-muted-foreground'
-          }`}
-          onClick={(e) => e.stopPropagation()}
+    <div ref={setNodeRef} style={style}>
+      <div className="flex items-center gap-2 py-1">
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing text-muted-foreground/40 hover:text-muted-foreground shrink-0 touch-none"
         >
-          {job.sceneName ?? `Job #${job.id}`}
-        </Link>
-      ) : (
-        <span
-          className={`text-xs truncate flex-1 min-w-0 ${
+          <HugeiconsIcon icon={DragDropVerticalIcon} className="size-3.5" />
+        </button>
+
+        {isFailed ? (
+          <span className="size-1.5 rounded-full bg-destructive shrink-0 inline-block" />
+        ) : isRunning ? (
+          <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0 inline-block" />
+        ) : (
+          <span className="size-1.5 rounded-full bg-muted-foreground/30 shrink-0 inline-block" />
+        )}
+
+        <button
+          onClick={() => setShowPrompts((v) => !v)}
+          className={`text-xs truncate flex-1 min-w-0 text-left hover:underline ${
             isFailed
               ? 'text-destructive'
               : isRunning
@@ -349,19 +403,93 @@ function SortableJobRow({ job }: { job: JobData }) {
           }`}
         >
           {job.sceneName ?? `Job #${job.id}`}
+        </button>
+
+        {job.projectId && job.projectSceneId && (
+          <Link
+            to="/workspace/$projectId/scenes/$sceneId"
+            params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
+            search={{ imageDetail: undefined }}
+            className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <HugeiconsIcon icon={ArrowUpRight} className="size-3" />
+          </Link>
+        )}
+
+        <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
+          <div
+            className={`h-full rounded-full ${isFailed ? 'bg-destructive' : 'bg-primary'} transition-all duration-300`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-10 text-right">
+          {completed}/{total}
         </span>
-      )}
-
-      <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
-        <div
-          className={`h-full rounded-full ${isFailed ? 'bg-destructive' : 'bg-primary'} transition-all duration-300`}
-          style={{ width: `${pct}%` }}
-        />
       </div>
+      {showPrompts && <JobPromptDisplay jobId={job.id} />}
+    </div>
+  )
+}
 
-      <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-10 text-right">
-        {completed}/{total}
-      </span>
+// ---- RecentJobRow ----
+
+function RecentJobRow({ job }: { job: JobData }) {
+  const [showPrompts, setShowPrompts] = useState(false)
+
+  const isJobRunning = job.status === 'running'
+  const isJobFailed = job.status === 'failed'
+  const isJobCompleted = job.status === 'completed'
+  const completed = job.completedCount ?? 0
+  const total = job.totalCount ?? 0
+  const pct = total > 0 ? (completed / total) * 100 : 0
+  const statusColor = isJobFailed
+    ? 'bg-destructive'
+    : isJobRunning
+      ? 'bg-primary animate-pulse'
+      : isJobCompleted
+        ? 'bg-green-500'
+        : 'bg-muted-foreground/30'
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 py-1 pl-1">
+        <span
+          className={`size-1.5 rounded-full shrink-0 inline-block ${statusColor}`}
+        />
+        <button
+          onClick={() => setShowPrompts((v) => !v)}
+          className="text-xs truncate flex-1 min-w-0 text-left hover:underline"
+        >
+          {job.sceneName ?? `Job #${job.id}`}
+        </button>
+        {job.projectId && job.projectSceneId && (
+          <Link
+            to="/workspace/$projectId/scenes/$sceneId"
+            params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
+            search={{ imageDetail: undefined }}
+            className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
+          >
+            <HugeiconsIcon icon={ArrowUpRight} className="size-3" />
+          </Link>
+        )}
+        <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
+          <div
+            className="h-full rounded-full bg-primary"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-10 text-right">
+          {completed}/{total}
+        </span>
+      </div>
+      {job.status === 'failed' && job.errorMessage && (
+        <p className="text-[11px] text-destructive/80 pl-3.5 line-clamp-2">
+          {job.errorMessage}
+        </p>
+      )}
+      {showPrompts && <JobPromptDisplay jobId={job.id} />}
     </div>
   )
 }
@@ -421,20 +549,21 @@ function RecentBatchRow({
         </div>
 
         <div className="flex-1 min-w-0">
-          {batch.projectId ? (
-            <Link
-              to="/workspace/$projectId"
-              params={{ projectId: String(batch.projectId) }}
-              search={{ imageDetail: undefined }}
-              className="text-sm text-foreground truncate block hover:text-primary transition-colors"
-            >
-              {batch.label ?? `Batch #${batch.id}`}
-            </Link>
-          ) : (
-            <span className="text-sm text-foreground truncate block">
+          <div className="flex items-center gap-1">
+            <span className="text-sm text-foreground truncate">
               {batch.label ?? `Batch #${batch.id}`}
             </span>
-          )}
+            {batch.projectId && (
+              <Link
+                to="/workspace/$projectId"
+                params={{ projectId: String(batch.projectId) }}
+                search={{ imageDetail: undefined }}
+                className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
+              >
+                <HugeiconsIcon icon={ArrowUpRight} className="size-3.5" />
+              </Link>
+            )}
+          </div>
           <span className="text-xs text-muted-foreground">
             {batch.completedImages}/{batch.totalImages}
             {' · '}
@@ -472,58 +601,9 @@ function RecentBatchRow({
       {/* Expanded jobs */}
       {expanded && jobs && jobs.length > 0 && (
         <div className="border-t border-border bg-muted/30 px-3 py-2 space-y-0.5">
-          {jobs.map((job) => {
-            const isJobRunning = job.status === 'running'
-            const isJobFailed = job.status === 'failed'
-            const isJobCompleted = job.status === 'completed'
-            const completed = job.completedCount ?? 0
-            const total = job.totalCount ?? 0
-            const pct = total > 0 ? (completed / total) * 100 : 0
-            const statusColor = isJobFailed
-              ? 'bg-destructive'
-              : isJobRunning
-                ? 'bg-primary animate-pulse'
-                : isJobCompleted
-                  ? 'bg-green-500'
-                  : 'bg-muted-foreground/30'
-            return (
-              <div key={job.id}>
-                <div className="flex items-center gap-2 py-1 pl-1">
-                  <span
-                    className={`size-1.5 rounded-full shrink-0 inline-block ${statusColor}`}
-                  />
-                  {job.projectId && job.projectSceneId ? (
-                    <Link
-                      to="/workspace/$projectId/scenes/$sceneId"
-                      params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
-                      search={{ imageDetail: undefined }}
-                      className="text-xs truncate flex-1 min-w-0 hover:underline"
-                    >
-                      {job.sceneName ?? `Job #${job.id}`}
-                    </Link>
-                  ) : (
-                    <span className="text-xs truncate flex-1 min-w-0">
-                      {job.sceneName ?? `Job #${job.id}`}
-                    </span>
-                  )}
-                  <div className="w-16 h-1 rounded-full bg-secondary overflow-hidden shrink-0">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                  <span className="text-xs tabular-nums text-muted-foreground shrink-0 w-10 text-right">
-                    {completed}/{total}
-                  </span>
-                </div>
-                {job.status === 'failed' && job.errorMessage && (
-                  <p className="text-[11px] text-destructive/80 pl-3.5 line-clamp-2">
-                    {job.errorMessage}
-                  </p>
-                )}
-              </div>
-            )
-          })}
+          {jobs.map((job) => (
+            <RecentJobRow key={job.id} job={job} />
+          ))}
         </div>
       )}
     </div>

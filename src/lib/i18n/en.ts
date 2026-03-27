@@ -432,6 +432,10 @@ const en = {
     quickGenerate: 'Quick Generate',
     goToWorkspace: 'Go to Workspace',
     goToGenerate: 'Go to Quick Generate',
+    promptGeneral: 'General Prompt',
+    promptNegative: 'Negative Prompt',
+    promptCharacter: '{{name}}',
+    promptCharacterNegative: '{{name}} (Negative)',
   },
   generation: {
     progress: 'Generation Progress',

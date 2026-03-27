@@ -149,6 +149,28 @@ export const getBatchJobs = createServerFn({ method: 'GET' })
       .all()
   })
 
+/** Get resolved prompts for a single job (lazy-loaded) */
+export const getJobPrompts = createServerFn({ method: 'GET' })
+  .inputValidator((jobId: number) => jobId)
+  .handler(async ({ data: jobId }) => {
+    const row = db
+      .select({ resolvedPrompts: generationJobs.resolvedPrompts })
+      .from(generationJobs)
+      .where(eq(generationJobs.id, jobId))
+      .get()
+    if (!row) return null
+    return JSON.parse(row.resolvedPrompts) as {
+      generalPrompt: string
+      negativePrompt: string
+      characterPrompts: Array<{
+        characterId: number
+        name: string
+        prompt: string
+        negative: string
+      }>
+    }
+  })
+
 /** Reorder batches in the queue */
 export const reorderQueueBatches = createServerFn({ method: 'POST' })
   .inputValidator((data: { batchIds: Array<number> }) => data)

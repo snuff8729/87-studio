@@ -440,6 +440,10 @@ const ko: DeepStringify<typeof en> = {
     quickGenerate: 'Quick Generate',
     goToWorkspace: '워크스페이스로 이동',
     goToGenerate: 'Quick Generate로 이동',
+    promptGeneral: '일반 프롬프트',
+    promptNegative: '네거티브 프롬프트',
+    promptCharacter: '{{name}}',
+    promptCharacterNegative: '{{name}} (네거티브)',
   },
   generation: {
     progress: '생성 진행률',
