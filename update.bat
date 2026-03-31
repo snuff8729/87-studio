@@ -1,1 +1,1 @@
-@powershell -ExecutionPolicy Bypass -File "%~dp0scripts\update.ps1"
+@powershell -ExecutionPolicy Bypass -File "%~dp0update.ps1"

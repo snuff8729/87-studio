@@ -12,7 +12,7 @@ $NODE_VERSION = "22.12.0"
 $NODE_DIST = "node-v$NODE_VERSION-win-x64"
 $NODE_URL = "https://nodejs.org/dist/v$NODE_VERSION/$NODE_DIST.zip"
 
-$ROOT_DIR = Split-Path -Parent $PSScriptRoot
+$ROOT_DIR = $PSScriptRoot
 $RUNTIME_DIR = Join-Path $ROOT_DIR "runtime"
 $NODE_DIR = Join-Path $RUNTIME_DIR "node"
 $DATA_DIR = Join-Path $ROOT_DIR "data"
