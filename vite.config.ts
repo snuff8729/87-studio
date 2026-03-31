@@ -1,5 +1,6 @@
 import { normalize, resolve } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
+import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
@@ -73,7 +74,18 @@ function serveDataFiles(): Plugin {
   }
 }
 
+function getAppVersion(): string {
+  try {
+    return execSync('git describe --tags --abbrev=0', { encoding: 'utf-8' }).trim()
+  } catch {
+    return 'dev'
+  }
+}
+
 const config = defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(getAppVersion()),
+  },
   server: {
     host: '0.0.0.0',
   },

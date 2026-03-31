@@ -44,14 +44,13 @@ if ! command -v git &>/dev/null; then
 fi
 
 echo "  [1/5] 최신 릴리스 가져오는 중..."
-git fetch --tags
+git fetch origin --tags --force
 if [ $? -ne 0 ]; then
     echo "  [ERROR] Git fetch에 실패했습니다."
     echo "  인터넷 연결 또는 저장소 상태를 확인해주세요."
     exit 1
 fi
 
-CURRENT_TAG=$(git describe --tags --abbrev=0 HEAD 2>/dev/null || echo "")
 LATEST_TAG=$(git tag --sort=-v:refname | head -n 1)
 
 if [ -z "$LATEST_TAG" ]; then
@@ -59,7 +58,11 @@ if [ -z "$LATEST_TAG" ]; then
     exit 1
 fi
 
-if [ "$CURRENT_TAG" = "$LATEST_TAG" ]; then
+CURRENT_COMMIT=$(git rev-parse HEAD)
+LATEST_TAG_COMMIT=$(git rev-list -n 1 "$LATEST_TAG")
+CURRENT_TAG=$(git describe --tags --exact-match HEAD 2>/dev/null || echo "")
+
+if [ "$CURRENT_COMMIT" = "$LATEST_TAG_COMMIT" ]; then
     echo "        이미 최신 버전입니다: $LATEST_TAG"
 else
     if [ -n "$CURRENT_TAG" ]; then

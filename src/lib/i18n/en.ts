@@ -117,6 +117,7 @@ const en = {
     uiScaleDesc:
       'Adjust the overall size of the interface. Useful for high-resolution displays.',
     uiScaleReset: 'Reset',
+    version: 'Version',
   },
   gallery: {
     title: 'Gallery',

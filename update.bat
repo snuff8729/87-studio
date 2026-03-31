@@ -65,7 +65,7 @@ goto :fail
 
 :git_pull
 echo   [1/5] 최신 릴리스 가져오는 중...
-"%GIT_CMD%" fetch --tags
+"%GIT_CMD%" fetch origin --tags --force
 if errorlevel 1 (
     echo.
     echo   [ERROR] Git fetch에 실패했습니다.
@@ -73,8 +73,12 @@ if errorlevel 1 (
     goto :fail
 )
 
-:: Find latest tag
-for /f "delims=" %%T in ('"%GIT_CMD%" describe --tags --abbrev^=0 HEAD 2^>nul') do set "CURRENT_TAG=%%T"
+:: Find latest tag and compare commits
+set "CURRENT_TAG="
+set "LATEST_TAG="
+set "CURRENT_COMMIT="
+set "LATEST_TAG_COMMIT="
+
 for /f "delims=" %%T in ('"%GIT_CMD%" tag --sort^=-v:refname') do (
     if not defined LATEST_TAG set "LATEST_TAG=%%T"
 )
@@ -85,7 +89,11 @@ if not defined LATEST_TAG (
     goto :fail
 )
 
-if "%CURRENT_TAG%"=="%LATEST_TAG%" (
+for /f "delims=" %%C in ('"%GIT_CMD%" rev-parse HEAD') do set "CURRENT_COMMIT=%%C"
+for /f "delims=" %%C in ('"%GIT_CMD%" rev-list -n 1 "%LATEST_TAG%"') do set "LATEST_TAG_COMMIT=%%C"
+for /f "delims=" %%T in ('"%GIT_CMD%" describe --tags --exact-match HEAD 2^>nul') do set "CURRENT_TAG=%%T"
+
+if "%CURRENT_COMMIT%"=="%LATEST_TAG_COMMIT%" (
     echo         이미 최신 버전입니다: %LATEST_TAG%
 ) else (
     if defined CURRENT_TAG (

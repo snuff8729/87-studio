@@ -505,6 +505,10 @@ function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        <p className="text-sm text-muted-foreground text-center">
+          {t('settings.version')} {__APP_VERSION__}
+        </p>
       </div>
     </div>
   )

@@ -120,6 +120,7 @@ const ko: DeepStringify<typeof en> = {
     uiScaleDesc:
       '인터페이스의 전체 크기를 조절합니다. 고해상도 디스플레이에서 유용합니다.',
     uiScaleReset: '초기화',
+    version: '버전',
   },
   gallery: {
     title: '갤러리',
