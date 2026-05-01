@@ -50,7 +50,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 
 - **CodeMirror 6** — 프롬프트 편집기
   - 단부루(Danbooru) 태그 자동완성 지원
-  - `\\placeholder\\` 구문 하이라이팅
+  - `@{slot:name}` 구문 하이라이팅
   - 가중치(weight) 구문 하이라이팅
   - 커스텀 다크 테마
   - React.lazy()로 지연 로딩 (`<Textarea>` 폴백)
@@ -120,7 +120,7 @@ src/
 │   ├── prompt-editor/         # CodeMirror 기반 프롬프트 에디터
 │   │   ├── prompt-editor.tsx  # 메인 에디터 컴포넌트
 │   │   ├── danbooru-completion.ts  # 단부루 태그 자동완성
-│   │   ├── placeholder-highlight.ts  # \\placeholder\\ 하이라이팅
+│   │   ├── placeholder-highlight.ts  # @{slot:name} 하이라이팅
 │   │   ├── weight-highlight.ts  # 가중치 구문 하이라이팅
 │   │   └── theme.ts           # 커스텀 다크 테마
 │   └── workspace/             # 워크스페이스 컴포넌트 (17개)
@@ -169,7 +169,7 @@ src/
 │       ├── download.ts        # 이미지 다운로드 (ZIP, 필터링, 템플릿 파일명)
 │       └── storage.ts         # 스토리지 통계, 고아 파일 정리
 ├── lib/
-│   ├── placeholder.ts         # \\placeholder\\ 파싱/치환 유틸
+│   ├── placeholder.ts         # @{slot:name} 파싱/치환 유틸
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
 │   ├── nai-metadata.ts        # NAI 이미지 메타데이터 파서 (PNG tEXt, Stealth Alpha)
@@ -211,7 +211,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 - 하나의 이미지 생성 단위 (씬)
 - general_prompt, negative_prompt, 생성 파라미터(steps, cfg, sampler, model 등)를 가짐
-- 프롬프트에 `\\placeholder\\` 형식의 플레이스홀더를 배치하여 씬별 가변 값을 삽입
+- 프롬프트에 `@{slot:name}` 형식의 플레이스홀더를 배치하여 씬별 가변 값을 삽입
 - 하나의 프로젝트에 여러 캐릭터(슬롯)가 존재할 수 있음 (한 이미지에 모두 포함되는 캐릭터들)
 - 대표 썸네일 이미지 설정 가능 (thumbnailImageId)
 
@@ -219,7 +219,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 - 프로젝트 내 NAI 캐릭터 프롬프트 슬롯
 - 각 캐릭터는 독립적인 char_prompt와 char_negative(캐릭터별 네거티브 프롬프트)를 가짐
-- `\\placeholder\\` 사용 가능
+- `@{slot:name}` 사용 가능
 - slot_index로 순서 관리
 
 ### Scene Pack (씬 팩)
@@ -298,11 +298,11 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ## 프롬프트 합성 규칙
 
-1. project.general_prompt의 `\\placeholder\\`를 project_scenes.placeholders 값으로 치환
-2. 각 character.char_prompt의 `\\placeholder\\`를 character_scene_overrides.placeholders 값으로 치환
+1. project.general_prompt의 `@{slot:name}`를 project_scenes.placeholders 값으로 치환
+2. 각 character.char_prompt의 `@{slot:name}`를 character_scene_overrides.placeholders 값으로 치환
 3. 매칭되지 않는 플레이스홀더는 빈 문자열로 처리
 4. 합성된 최종 프롬프트는 generation_jobs.resolved_prompts에 JSON으로 저장 (재현용)
-5. **중첩 플레이스홀더 불가** (`\\\\outer_\\\\inner\\\\\\\\` 형태 미지원)
+5. **중첩 플레이스홀더 불가** (`@{slot:}` 구문 내 중첩 미지원)
 6. 프롬프트 템플릿에서 **플레이스홀더 목록을 자동 추출**하여 씬 편집 UI에 입력 필드로 표시
 
 ## 이미지 생성 (비동기)
@@ -370,7 +370,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 ### 프롬프트 에디터 (CodeMirror 6)
 
 - 단부루(Danbooru) 태그 자동완성 (`/danbooru-tags.json`)
-- `\\placeholder\\` 구문 하이라이팅 (시각적으로 구분)
+- `@{slot:name}` 구문 하이라이팅 (시각적으로 구분)
 - 가중치 구문 하이라이팅
 - general_prompt, negative_prompt, char_prompt, char_negative 모두에 적용
 
@@ -648,7 +648,7 @@ src/
 | 모듈                              | 테스트 항목                                                                                                           |
 | --------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | `src/lib/placeholder.ts`          | `extractPlaceholders`, `resolvePlaceholders` — 정규식 기반 플레이스홀더 추출/치환, 엣지 케이스                        |
-| `src/lib/bundle.ts`               | `extractBundleReferences`, `resolveBundles` — `@{name}` 구문 추출/치환                                                |
+| `src/lib/bundle.ts`               | `extractBundleReferences`, `resolveBundles` — `@{bundle:name}` 구문 추출/치환                                         |
 | `src/lib/sd-studio-import.ts`     | `parseSdStudioFile` — 입력 검증, 카테시안 곱, 라이브러리 참조, 이름 중복 처리, 프롬프트 정리                          |
 | `src/lib/nai-metadata.ts`         | `parseNAIMetadata`, `getUcPresetLabel` — PNG 바이너리 tEXt 청크 파싱, NAI/A1111 형식 변환, V4 프롬프트, Vibe Transfer |
 | `src/server/services/download.ts` | `resolveFilenameTemplate` — 변수 치환, 금지 문자 제거, 빈 결과 폴백                                                   |

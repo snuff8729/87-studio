@@ -6,7 +6,7 @@ NovelAI(NAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 ## 주요 기능
 
 - **프롬프트 프리셋 관리** — 씬 팩/씬 기반 포즈·제스처 프리셋 템플릿 시스템
-- **플레이스홀더 시스템** — `\\placeholder\\` 구문으로 씬별 가변 값 삽입
+- **플레이스홀더 시스템** — `@{slot:name}` 구문으로 씬별 가변 값 삽입
 - **다중 캐릭터 지원** — 프로젝트 내 여러 캐릭터 슬롯, 캐릭터별 씬 오버라이드
 - **배치 이미지 생성** — 여러 씬을 한번에 선택하여 대량 생성, 비동기 큐 처리
 - **갤러리** — 프로젝트/씬/즐겨찾기/태그 필터링, 별점, 메모, 무한 스크롤
@@ -64,8 +64,8 @@ pnpm test -- --watch  # 워치 모드
 
 테스트 대상 모듈:
 
-- **플레이스홀더 시스템** — `\\placeholder\\` 추출/치환 (`src/lib/placeholder.ts`)
-- **프롬프트 번들** — `@{bundle}` 참조 추출/치환 (`src/lib/bundle.ts`)
+- **플레이스홀더 시스템** — `@{slot:name}` 추출/치환 (`src/lib/placeholder.ts`)
+- **프롬프트 번들** — `@{bundle:name}` 참조 추출/치환 (`src/lib/bundle.ts`)
 - **SD Studio 임포트** — JSON 파싱, 카테시안 곱, 라이브러리 참조 (`src/lib/sd-studio-import.ts`)
 - **NAI 메타데이터 파서** — PNG tEXt 청크, NAI/A1111 형식 (`src/lib/nai-metadata.ts`)
 - **다운로드 파일명 템플릿** — 파일명 변수 치환, 금지 문자 처리 (`src/server/services/download.ts`)
