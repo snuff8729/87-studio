@@ -76,7 +76,11 @@ function BundlesPage() {
 
   const [bundles, setBundles] = useState(initialBundles)
   const [selectedId, setSelectedId] = useState<number | null>(null)
-  const [search, setSearch] = useState('')
+  const [searchText, setSearchText] = useState('')
+  const [filterTags, setFilterTags] = useState<Array<string>>([])
+  const [showTagDropdown, setShowTagDropdown] = useState(false)
+  const [tagSearchPart, setTagSearchPart] = useState('')
+  const searchInputRef = useRef<HTMLInputElement>(null)
 
   // Sync loader data
   useEffect(() => {
@@ -271,9 +275,46 @@ function BundlesPage() {
     toast.success(t('common.copied'))
   }
 
-  const filtered = search
-    ? bundles.filter((b) => b.name.toLowerCase().includes(search.toLowerCase()))
-    : bundles
+  function handleSearchInput(value: string) {
+    const hashIdx = value.lastIndexOf('#')
+    if (hashIdx >= 0) {
+      const afterHash = value.slice(hashIdx + 1)
+      setTagSearchPart(afterHash)
+      setSearchText(value.slice(0, hashIdx))
+      setShowTagDropdown(true)
+    } else {
+      setSearchText(value)
+      setTagSearchPart('')
+      setShowTagDropdown(false)
+    }
+  }
+
+  function handleSelectFilterTag(tagName: string) {
+    if (!filterTags.includes(tagName)) {
+      setFilterTags([...filterTags, tagName])
+    }
+    setTagSearchPart('')
+    setShowTagDropdown(false)
+    if (searchInputRef.current) {
+      searchInputRef.current.value = searchText
+    }
+  }
+
+  function handleRemoveFilterTag(tagName: string) {
+    setFilterTags(filterTags.filter((t) => t !== tagName))
+  }
+
+  const filtered = bundles.filter((b) => {
+    if (filterTags.length > 0) {
+      const bundleTagNames = b.tags?.map((t: { name: string }) => t.name) ?? []
+      const hasMatchingTag = filterTags.some((ft) => bundleTagNames.includes(ft))
+      if (!hasMatchingTag) return false
+    }
+    if (searchText) {
+      if (!b.name.toLowerCase().includes(searchText.toLowerCase())) return false
+    }
+    return true
+  })
 
   return (
     <div className="flex flex-col h-full">
@@ -290,14 +331,82 @@ function BundlesPage() {
             <div className="relative">
               <HugeiconsIcon
                 icon={Search01Icon}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10"
               />
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={t('bundles.searchBundles')}
-                className="h-8 pl-8 text-sm"
-              />
+              <div className="flex flex-wrap items-center gap-1 pl-8 pr-2 border border-border rounded-md bg-background min-h-[32px]">
+                {filterTags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="inline-flex items-center gap-0.5 bg-primary/15 text-primary rounded px-1.5 py-0.5 text-xs"
+                  >
+                    #{tag}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveFilterTag(tag)}
+                      className="hover:text-primary/70"
+                    >
+                      <HugeiconsIcon icon={Cancel01Icon} className="size-2.5" />
+                    </button>
+                  </span>
+                ))}
+                <input
+                  ref={searchInputRef}
+                  defaultValue=""
+                  onChange={(e) => handleSearchInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (
+                      e.key === 'Backspace' &&
+                      e.currentTarget.value === '' &&
+                      filterTags.length > 0
+                    ) {
+                      handleRemoveFilterTag(filterTags[filterTags.length - 1])
+                    }
+                    if (e.key === 'Escape') {
+                      setShowTagDropdown(false)
+                    }
+                  }}
+                  onBlur={() => {
+                    setTimeout(() => setShowTagDropdown(false), 200)
+                  }}
+                  placeholder={
+                    filterTags.length === 0
+                      ? t('bundles.searchBundles')
+                      : ''
+                  }
+                  className="flex-1 min-w-[60px] h-[30px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                />
+              </div>
+              {showTagDropdown && (
+                <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
+                  {allTags
+                    .filter(
+                      (t) =>
+                        t.name.includes(tagSearchPart.toLowerCase()) &&
+                        !filterTags.includes(t.name),
+                    )
+                    .slice(0, 10)
+                    .map((tag) => (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSelectFilterTag(tag.name)}
+                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
+                      >
+                        #{tag.name}
+                      </button>
+                    ))}
+                  {allTags.filter(
+                    (t) =>
+                      t.name.includes(tagSearchPart.toLowerCase()) &&
+                      !filterTags.includes(t.name),
+                  ).length === 0 && (
+                    <div className="px-3 py-2 text-sm text-muted-foreground">
+                      {t('bundles.noBundlesDesc')}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {creating ? (
               <div className="flex gap-1.5">
@@ -407,6 +516,23 @@ function BundlesPage() {
                             </Badge>
                           )}
                         </div>
+                        {bundle.tags && bundle.tags.length > 0 && (
+                          <div className="flex gap-0.5 mt-0.5 flex-wrap">
+                            {bundle.tags.slice(0, 2).map((tag: { id: number; name: string }) => (
+                              <span
+                                key={tag.id}
+                                className="text-[9px] bg-white/15 text-white/80 rounded px-1"
+                              >
+                                {tag.name}
+                              </span>
+                            ))}
+                            {bundle.tags.length > 2 && (
+                              <span className="text-[9px] text-white/50">
+                                +{bundle.tags.length - 2}
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </button>
                   )
