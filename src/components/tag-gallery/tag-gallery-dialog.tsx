@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { createPortal } from 'react-dom'
 import { TagGalleryContent } from './tag-gallery-content'
 
 interface TagGalleryDialogProps {
@@ -16,7 +17,7 @@ export function TagGalleryDialog({
 
   if (!open) return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
       <div
@@ -34,6 +35,7 @@ export function TagGalleryDialog({
           }}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
