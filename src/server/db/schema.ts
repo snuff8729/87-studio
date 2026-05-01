@@ -307,6 +307,29 @@ export const promptBundles = sqliteTable('prompt_bundles', {
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 })
 
+// ─── Bundle Tags ───────────────────────────────────────────────────────────
+export const bundleTags = sqliteTable('bundle_tags', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+})
+
+// ─── Bundle Tag Assignments (junction) ─────────────────────────────────────
+export const bundleTagAssignments = sqliteTable(
+  'bundle_tag_assignments',
+  {
+    bundleId: integer('bundle_id')
+      .notNull()
+      .references(() => promptBundles.id, { onDelete: 'cascade' }),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => bundleTags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.bundleId, table.tagId] }),
+    index('bundle_tag_assignments_tag_id_idx').on(table.tagId),
+  ],
+)
+
 // ─── Image Bundles (junction) ───────────────────────────────────────────────
 export const imageBundles = sqliteTable(
   'image_bundles',
