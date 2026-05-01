@@ -3,14 +3,9 @@
  *
  * Placeholder: \\name\\ → @{slot:name}
  * Bundle: @{name} → @{bundle:name}  (only for refs NOT already prefixed)
- *
- * Run: npx tsx src/server/db/migrate-syntax.ts
  */
 
-import Database from 'better-sqlite3'
-import { resolve } from 'path'
-
-const DB_PATH = resolve(process.cwd(), 'data/studio.db')
+import type Database from 'better-sqlite3'
 
 const LEGACY_PLACEHOLDER_RE = /\\\\(\w+)\\\\/g
 const LEGACY_BUNDLE_RE = /@\{(?!slot:|bundle:)([^}]+)\}/g
@@ -24,7 +19,6 @@ function migrateBundleRefs(text: string): string {
 }
 
 function migrateText(text: string): string {
-  // Order matters: placeholders first (they use \\), then bundles (they use @{})
   return migrateBundleRefs(migratePlaceholders(text))
 }
 
@@ -42,13 +36,9 @@ function migrateJsonValues(json: string): string {
   }
 }
 
-function main() {
-  const db = new Database(DB_PATH)
-  db.pragma('journal_mode = WAL')
-
+export function migrateSyntaxV1(db: Database.Database): number {
   let totalUpdated = 0
 
-  // ── Text columns (prompt fields) ──
   const textColumns = [
     { table: 'projects', columns: ['general_prompt', 'negative_prompt'] },
     { table: 'characters', columns: ['char_prompt', 'char_negative'] },
@@ -56,7 +46,9 @@ function main() {
   ]
 
   for (const { table, columns } of textColumns) {
-    const rows = db.prepare(`SELECT id, ${columns.join(', ')} FROM ${table}`).all() as Array<Record<string, any>>
+    const rows = db
+      .prepare(`SELECT id, ${columns.join(', ')} FROM ${table}`)
+      .all() as Array<Record<string, any>>
     for (const row of rows) {
       const updates: Record<string, string> = {}
       let changed = false
@@ -69,15 +61,19 @@ function main() {
         }
       }
       if (changed) {
-        const setClauses = Object.keys(updates).map((c) => `${c} = ?`).join(', ')
+        const setClauses = Object.keys(updates)
+          .map((c) => `${c} = ?`)
+          .join(', ')
         const values = Object.values(updates)
-        db.prepare(`UPDATE ${table} SET ${setClauses} WHERE id = ?`).run(...values, row.id)
+        db.prepare(`UPDATE ${table} SET ${setClauses} WHERE id = ?`).run(
+          ...values,
+          row.id,
+        )
         totalUpdated++
       }
     }
   }
 
-  // ── JSON columns (placeholder values) ──
   const jsonColumns = [
     { table: 'scenes', column: 'placeholders', pk: 'id' },
     { table: 'project_scenes', column: 'placeholders', pk: 'id' },
@@ -85,19 +81,21 @@ function main() {
   ]
 
   for (const { table, column, pk } of jsonColumns) {
-    const rows = db.prepare(`SELECT ${pk}, ${column} FROM ${table}`).all() as Array<Record<string, any>>
+    const rows = db
+      .prepare(`SELECT ${pk}, ${column} FROM ${table}`)
+      .all() as Array<Record<string, any>>
     for (const row of rows) {
       const original = row[column] ?? '{}'
       const migrated = migrateJsonValues(original)
       if (migrated !== original) {
-        db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${pk} = ?`).run(migrated, row[pk])
+        db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${pk} = ?`).run(
+          migrated,
+          row[pk],
+        )
         totalUpdated++
       }
     }
   }
 
-  console.log(`Migration complete. ${totalUpdated} rows updated.`)
-  db.close()
+  return totalUpdated
 }
-
-main()

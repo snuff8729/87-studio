@@ -169,6 +169,7 @@ if ($LASTEXITCODE -ne 0) {
     Read-Host "   Enter 키를 누르면 종료합니다"
     exit 1
 }
+& $npxCmd --yes tsx src/server/db/custom-migrations.ts
 Write-Host "         완료!"
 
 # ============================================================

@@ -79,6 +79,7 @@ fi
 echo "  [3/5] 데이터베이스 확인 중..."
 mkdir -p data
 "${NODE_BIN}/npx" --yes drizzle-kit migrate 2>/dev/null
+"${NODE_BIN}/npx" --yes tsx src/server/db/custom-migrations.ts
 echo "        완료!"
 
 # =============================================================
