@@ -4,7 +4,6 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
-  BookmarkCheck01Icon,
   Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
@@ -33,6 +32,8 @@ import {
   setBundleThumbnail,
   updateBundle,
 } from '@/server/functions/bundles'
+import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
+import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
 import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 
 const PromptEditor = lazy(() =>
@@ -103,6 +104,7 @@ function BundlesPage() {
   const [editDescription, setEditDescription] = useState('')
   const [editContent, setEditContent] = useState('')
   const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
+  const [expandOpen, setExpandOpen] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Images for selected bundle
@@ -682,19 +684,12 @@ function BundlesPage() {
 
               {/* Content */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                    {t('bundles.bundleContent')}
-                  </Label>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setTagGalleryOpen(true)}
-                    title={t('tagGallery.panelTitle')}
-                  >
-                    <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-4" />
-                  </Button>
-                </div>
+                <PromptEditorHeader
+                  label={t('bundles.bundleContent')}
+                  uppercase
+                  onExpand={() => setExpandOpen(true)}
+                  onOpenTagGallery={() => setTagGalleryOpen(true)}
+                />
                 <LazyPromptEditor
                   value={editContent}
                   onChange={handleContentChange}
@@ -774,6 +769,14 @@ function BundlesPage() {
           )}
         </div>
       </div>
+      <ExpandedEditorDialog
+        open={expandOpen}
+        onOpenChange={setExpandOpen}
+        title={t('bundles.bundleContent')}
+        value={editContent}
+        onChange={handleContentChange}
+        bundleNames={bundleNamesForEditor}
+      />
       <TagGalleryDialog
         open={tagGalleryOpen}
         onOpenChange={setTagGalleryOpen}

@@ -2,12 +2,7 @@ import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  Add01Icon,
-  ArrowExpand01Icon,
-  BookmarkCheck01Icon,
-  Delete02Icon,
-} from '@hugeicons/core-free-icons'
+import { Add01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
 import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -27,6 +22,7 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
+import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
 import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useBundleNames } from '@/lib/use-bundles'
@@ -462,34 +458,19 @@ export function PromptPanel({
       {(activeContext === 'general' || activeChar) && (
         <>
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                {isCharacterTab
+            <PromptEditorHeader
+              label={
+                isCharacterTab
                   ? t('workspace.characterPrompt')
-                  : t('workspace.prompt')}
-              </Label>
-              <div className="flex gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    setTagGalleryTarget('prompt')
-                    setTagGalleryOpen(true)
-                  }}
-                  title={t('tagGallery.panelTitle')}
-                >
-                  <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setExpandTarget('prompt')}
-                  title={t('workspace.expandEditor')}
-                >
-                  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-                </Button>
-              </div>
-            </div>
+                  : t('workspace.prompt')
+              }
+              uppercase
+              onExpand={() => setExpandTarget('prompt')}
+              onOpenTagGallery={() => {
+                setTagGalleryTarget('prompt')
+                setTagGalleryOpen(true)
+              }}
+            />
             <div data-onboarding="prompt-editor">
               <LazyPromptEditor
                 key={`prompt-${activeContext}`}
@@ -523,34 +504,19 @@ export function PromptPanel({
           </div>
 
           <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                {isCharacterTab
+            <PromptEditorHeader
+              label={
+                isCharacterTab
                   ? t('workspace.charNegative')
-                  : t('workspace.negativePrompt')}
-              </Label>
-              <div className="flex gap-0.5">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => {
-                    setTagGalleryTarget('negative')
-                    setTagGalleryOpen(true)
-                  }}
-                  title={t('tagGallery.panelTitle')}
-                >
-                  <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-4" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setExpandTarget('negative')}
-                  title={t('workspace.expandEditor')}
-                >
-                  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-                </Button>
-              </div>
-            </div>
+                  : t('workspace.negativePrompt')
+              }
+              uppercase
+              onExpand={() => setExpandTarget('negative')}
+              onOpenTagGallery={() => {
+                setTagGalleryTarget('negative')
+                setTagGalleryOpen(true)
+              }}
+            />
             <LazyPromptEditor
               key={`negative-${activeContext}`}
               value={displayNegative}
