@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -69,16 +69,36 @@ function LazyPromptEditor(props: {
 export const Route = createFileRoute('/bundles/')({
   component: BundlesPage,
   loader: () => listBundles(),
+  validateSearch: (search: Record<string, unknown>) => ({
+    bundle: (search.bundle as string) || undefined,
+  }),
 })
 
 function BundlesPage() {
   const initialBundles = Route.useLoaderData()
+  const { bundle: urlBundle } = Route.useSearch()
+  const navigate = useNavigate()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const bundleNamesForEditor = useBundleNames()
 
   const [bundles, setBundles] = useState(initialBundles)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
+
+  // Resolve URL bundle name to ID
+  const urlBundleId = urlBundle
+    ? bundles.find((b) => b.name === urlBundle)?.id ?? null
+    : null
+  const [selectedId, setSelectedIdState] = useState<number | null>(urlBundleId)
+
+  function setSelectedId(id: number | null) {
+    setSelectedIdState(id)
+    const bundleName = id ? bundles.find((b) => b.id === id)?.name : null
+    navigate({
+      to: '/bundles',
+      search: bundleName ? { bundle: bundleName } : {},
+      replace: true,
+    })
+  }
   const [searchText, setSearchText] = useState('')
   const [filterTags, setFilterTags] = useState<Array<string>>([])
   const [showTagDropdown, setShowTagDropdown] = useState(false)

@@ -221,7 +221,7 @@ export function EditorContextMenu({
     if (target.type === 'tag') {
       window.open(`/tags?tag=${encodeURIComponent(target.name.replace(/\s/g, '_'))}`, '_blank')
     } else if (target.type === 'bundle') {
-      window.open('/bundles', '_blank')
+      window.open(`/bundles?bundle=${encodeURIComponent(target.name)}`, '_blank')
     }
     onClose()
   }
