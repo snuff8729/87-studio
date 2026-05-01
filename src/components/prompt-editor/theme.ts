@@ -79,6 +79,26 @@ export const darkTheme = EditorView.theme(
       fontStyle: 'normal',
       marginLeft: '8px',
     },
+    // Slot autocomplete — amber (matches placeholder highlight)
+    '.cm-completionIcon-property::after': {
+      content: "'S'",
+      color: 'oklch(0.72 0.14 70)',
+      fontWeight: '700',
+    },
+    '.cm-tooltip-autocomplete ul li .cm-completionIcon-property + .cm-completionLabel':
+      {
+        color: 'oklch(0.82 0.1 70)',
+      },
+    // Bundle autocomplete — teal (matches bundle highlight)
+    '.cm-completionIcon-variable::after': {
+      content: "'B'",
+      color: 'oklch(0.65 0.12 200)',
+      fontWeight: '700',
+    },
+    '.cm-tooltip-autocomplete ul li .cm-completionIcon-variable + .cm-completionLabel':
+      {
+        color: 'oklch(0.75 0.08 200)',
+      },
     // Bundle hover tooltip — compact card
     '.cm-tooltip-bundle-preview': {
       backgroundColor: 'oklch(0.20 0.008 70)',
@@ -191,6 +211,26 @@ export const lightTheme = EditorView.theme(
       fontStyle: 'normal',
       marginLeft: '8px',
     },
+    // Slot autocomplete — amber
+    '.cm-completionIcon-property::after': {
+      content: "'S'",
+      color: 'oklch(0.5 0.14 70)',
+      fontWeight: '700',
+    },
+    '.cm-tooltip-autocomplete ul li .cm-completionIcon-property + .cm-completionLabel':
+      {
+        color: 'oklch(0.4 0.12 70)',
+      },
+    // Bundle autocomplete — teal
+    '.cm-completionIcon-variable::after': {
+      content: "'B'",
+      color: 'oklch(0.45 0.12 200)',
+      fontWeight: '700',
+    },
+    '.cm-tooltip-autocomplete ul li .cm-completionIcon-variable + .cm-completionLabel':
+      {
+        color: 'oklch(0.35 0.1 200)',
+      },
     '.cm-tooltip-bundle-preview': {
       backgroundColor: 'oklch(0.985 0 0)',
       border: '1px solid oklch(0.922 0 0)',
