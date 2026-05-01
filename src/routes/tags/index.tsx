@@ -31,7 +31,11 @@ import {
   listBookmarkTags,
   setBookmarkTags,
 } from '@/server/functions/tag-bookmarks'
-import { searchDanbooruTags } from '@/server/functions/danbooru'
+import {
+  searchDanbooruTags,
+  getDanbooruTagDetail,
+  type DanbooruTagDetail,
+} from '@/server/functions/danbooru'
 
 export const Route = createFileRoute('/tags/')({
   component: TagGalleryPage,
@@ -73,6 +77,7 @@ function TagGalleryPage() {
   const [editMemo, setEditMemo] = useState('')
   const [editTags, setEditTags] = useState<Array<string>>([])
   const [tagInput, setTagInput] = useState('')
+  const [danbooruInfo, setDanbooruInfo] = useState<DanbooruTagDetail | null>(null)
   const memoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const tagTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -102,6 +107,7 @@ function TagGalleryPage() {
   useEffect(() => {
     if (selectedId === null) {
       setDetail(null)
+      setDanbooruInfo(null)
       return
     }
     getTagBookmark({ data: selectedId }).then((d) => {
@@ -109,6 +115,10 @@ function TagGalleryPage() {
       setEditMemo(d.memo ?? '')
       setEditTags(d.tags.map((t) => t.name))
       setTagInput('')
+      // Fetch danbooru info
+      getDanbooruTagDetail({ data: d.name })
+        .then(setDanbooruInfo)
+        .catch(() => setDanbooruInfo(null))
     })
   }, [selectedId])
 
@@ -559,12 +569,131 @@ function TagGalleryPage() {
             </div>
           ) : (
             <div className="p-4 lg:p-6 space-y-5 max-w-3xl">
-              {/* Tag name */}
-              <div>
-                <h2 className="text-lg font-medium">
-                  {detail.name.replace(/_/g, ' ')}
-                </h2>
+              {/* Tag name + danbooru info */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-medium">
+                    {detail.name.replace(/_/g, ' ')}
+                  </h2>
+                  {danbooruInfo && (
+                    <>
+                      <Badge variant="outline" className="text-xs">
+                        {danbooruInfo.categoryLabel}
+                      </Badge>
+                      <span className="text-xs text-muted-foreground">
+                        {danbooruInfo.postCount.toLocaleString()} posts
+                      </span>
+                      {danbooruInfo.isDeprecated && (
+                        <Badge variant="destructive" className="text-xs">
+                          deprecated
+                        </Badge>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Other names */}
+                {danbooruInfo && danbooruInfo.otherNames.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {danbooruInfo.otherNames.map((name) => (
+                      <span
+                        key={name}
+                        className="text-xs bg-secondary rounded px-1.5 py-0.5 text-muted-foreground"
+                      >
+                        {name}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Aliases */}
+                {danbooruInfo && danbooruInfo.aliases.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Aliases: </span>
+                    {danbooruInfo.aliases
+                      .map((a) => a.replace(/_/g, ' '))
+                      .join(', ')}
+                  </div>
+                )}
+
+                {/* Implications */}
+                {danbooruInfo && danbooruInfo.implications.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Implies: </span>
+                    {danbooruInfo.implications
+                      .map((i) => i.replace(/_/g, ' '))
+                      .join(', ')}
+                  </div>
+                )}
+
+                {/* Implied by */}
+                {danbooruInfo && danbooruInfo.impliedBy.length > 0 && (
+                  <div className="text-xs text-muted-foreground">
+                    <span className="font-medium">Implied by: </span>
+                    {danbooruInfo.impliedBy
+                      .map((i) => i.replace(/_/g, ' '))
+                      .join(', ')}
+                  </div>
+                )}
+
+                {/* Wiki description */}
+                {danbooruInfo?.wikiBody && (
+                  <details className="text-xs">
+                    <summary className="text-muted-foreground cursor-pointer hover:text-foreground">
+                      Wiki
+                    </summary>
+                    <pre className="mt-1 whitespace-pre-wrap text-muted-foreground bg-secondary/50 rounded-md p-2 max-h-40 overflow-y-auto font-sans">
+                      {danbooruInfo.wikiBody}
+                    </pre>
+                  </details>
+                )}
               </div>
+
+              {/* Related tags (tag groups) */}
+              {danbooruInfo &&
+                Object.keys(danbooruInfo.groupMembers).length > 0 && (
+                  <>
+                    <Separator />
+                    <div className="space-y-2">
+                      {Object.entries(danbooruInfo.groupMembers).map(
+                        ([group, members]) => (
+                          <details key={group} className="text-xs">
+                            <summary className="text-sm text-muted-foreground cursor-pointer hover:text-foreground font-medium">
+                              {group.replace(/_/g, ' ')}
+                              <span className="text-xs font-normal ml-1">
+                                ({members.length})
+                              </span>
+                            </summary>
+                            <div className="flex flex-wrap gap-1 mt-1.5">
+                              {members.map((m) => (
+                                <button
+                                  key={m}
+                                  type="button"
+                                  onClick={() => {
+                                    // Check if already bookmarked
+                                    const existing = bookmarks.find(
+                                      (b) => b.name === m,
+                                    )
+                                    if (existing) {
+                                      setSelectedId(existing.id)
+                                    } else {
+                                      handleCreate(m)
+                                    }
+                                  }}
+                                  className="bg-secondary hover:bg-accent text-secondary-foreground rounded px-1.5 py-0.5 transition-colors"
+                                >
+                                  {m.replace(/_/g, ' ')}
+                                </button>
+                              ))}
+                            </div>
+                          </details>
+                        ),
+                      )}
+                    </div>
+                  </>
+                )}
+
+              <Separator />
 
               {/* Memo */}
               <div className="space-y-1.5">
