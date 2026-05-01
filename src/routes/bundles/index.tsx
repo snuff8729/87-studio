@@ -271,7 +271,7 @@ function BundlesPage() {
   }
 
   function handleCopyUsage(name: string) {
-    navigator.clipboard.writeText(`@{${name}}`)
+    navigator.clipboard.writeText(`@{bundle:${name}}`)
     toast.success(t('common.copied'))
   }
 
@@ -582,7 +582,7 @@ function BundlesPage() {
               {/* Usage hint */}
               <div className="flex items-center gap-2">
                 <code className="text-xs bg-secondary/50 px-2 py-1 rounded font-mono">
-                  @{'{' + detail.name + '}'}
+                  {'@{bundle:' + detail.name + '}'}
                 </code>
                 <Button
                   variant="ghost"
