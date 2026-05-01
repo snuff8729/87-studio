@@ -455,7 +455,7 @@ export function SceneDetail({
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {generalPlaceholders.map((key) => (
                 <div key={key} className="space-y-1">
-                  <label className="text-sm font-mono text-muted-foreground">{`\\\\${key}\\\\`}</label>
+                  <label className="text-sm font-mono text-muted-foreground">{`@{slot:${key}}`}</label>
                   <Input
                     value={placeholderValues[key] ?? ''}
                     onChange={(e) =>
@@ -501,7 +501,7 @@ export function SceneDetail({
                         return (
                           <div key={key} className="space-y-1">
                             <label className="text-sm font-mono text-muted-foreground flex items-center gap-1.5">
-                              {`\\\\${key}\\\\`}
+                              {`@{slot:${key}}`}
                               {isInherited && (
                                 <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5 font-sans">
                                   {t('placeholder.defaultValue')}

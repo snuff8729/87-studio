@@ -639,7 +639,7 @@ function SceneAccordionItem({
                 className="flex gap-1.5 items-baseline text-xs min-w-0"
               >
                 <span className="font-mono text-muted-foreground shrink-0">
-                  {`\\\\${k}\\\\`}
+                  {`@{slot:${k}}`}
                 </span>
                 {placeholders[k] ? (
                   <span
@@ -804,7 +804,7 @@ function SceneEditPanel({
           {Object.entries(values).map(([key, val]) => (
             <div key={key} className="flex gap-2 items-start">
               <span className="text-sm font-mono text-muted-foreground min-w-20 sm:min-w-24 pt-2.5 shrink-0 inline-block rounded bg-secondary/60 px-2 py-1 text-center truncate">
-                {`\\\\${key}\\\\`}
+                {`@{slot:${key}}`}
               </span>
               <Textarea
                 value={val}
@@ -857,7 +857,7 @@ function SceneEditPanel({
         onOpenChange={(open) => {
           if (!open) setExpandKey(null)
         }}
-        title={expandKey ? `\\\\${expandKey}\\\\` : ''}
+        title={expandKey ? `@{slot:${expandKey}}` : ''}
         value={expandKey ? (values[expandKey] ?? '') : ''}
         onChange={(val) => {
           if (expandKey) handleValueChange(expandKey, val)

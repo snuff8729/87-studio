@@ -47,6 +47,7 @@ function LazyPromptEditor(props: {
   placeholder?: string
   minHeight?: string
   bundleNames?: Array<{ name: string; content: string }>
+  slotNames?: Array<string>
 }) {
   return (
     <Suspense
@@ -224,6 +225,10 @@ export function PromptPanel({
   const negativePlaceholders = useMemo(
     () => extractPlaceholders(displayNegative),
     [displayNegative],
+  )
+  const allSlotNames = useMemo(
+    () => [...new Set([...promptPlaceholders, ...negativePlaceholders])],
+    [promptPlaceholders, negativePlaceholders],
   )
 
   function handlePromptChange(value: string) {
@@ -466,6 +471,7 @@ export function PromptPanel({
                 }
                 minHeight="200px"
                 bundleNames={bundleNames}
+                slotNames={allSlotNames}
               />
             </div>
             {promptPlaceholders.length > 0 && (
@@ -476,7 +482,7 @@ export function PromptPanel({
                     variant={isCharacterTab ? 'outline' : 'secondary'}
                     className="text-xs"
                   >
-                    {`\\\\${p}\\\\`}
+                    {`@{slot:${p}}`}
                   </Badge>
                 ))}
               </div>
@@ -512,6 +518,7 @@ export function PromptPanel({
               }
               minHeight="120px"
               bundleNames={bundleNames}
+              slotNames={allSlotNames}
             />
             {negativePlaceholders.length > 0 && (
               <div className="flex flex-wrap gap-1">
@@ -521,7 +528,7 @@ export function PromptPanel({
                     variant={isCharacterTab ? 'outline' : 'secondary'}
                     className="text-xs"
                   >
-                    {`\\\\${p}\\\\`}
+                    {`@{slot:${p}}`}
                   </Badge>
                 ))}
               </div>

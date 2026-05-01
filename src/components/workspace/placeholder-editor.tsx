@@ -716,7 +716,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                     <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
                       <StatusDot filled={!!getCellValue(key, 'general')} />
                       <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                        {`\\\\${key}\\\\`}
+                        {`@{slot:${key}}`}
                       </span>
                     </label>
                     <button
@@ -761,7 +761,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                     <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
                       <StatusDot filled={false} />
                       <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                        {`\\\\${key}\\\\`}
+                        {`@{slot:${key}}`}
                       </span>
                     </label>
                     <button
@@ -831,7 +831,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         <label className="flex items-center gap-1.5 text-xs font-mono text-muted-foreground">
                           <StatusDot filled={!!getCellValue(key, 'general')} />
                           <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                            {`\\\\${key}\\\\`}
+                            {`@{slot:${key}}`}
                           </span>
                         </label>
                         <button
@@ -904,7 +904,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                   template={isTemplate}
                                 />
                                 <span className="inline-block rounded bg-secondary/80 px-1.5 py-0.5">
-                                  {`\\\\${key}\\\\`}
+                                  {`@{slot:${key}}`}
                                 </span>
                                 {isTemplate && (
                                   <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">
@@ -1130,7 +1130,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         onOpenChange={(open) => {
           if (!open) setExpandTarget(null)
         }}
-        title={expandTarget ? `\\\\${expandTarget.key}\\\\` : ''}
+        title={expandTarget ? `@{slot:${expandTarget.key}}` : ''}
         value={
           expandTarget
             ? typeof expandTarget.owner === 'number'
