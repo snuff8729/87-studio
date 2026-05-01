@@ -13,6 +13,8 @@ import { getBundleNames } from './bundle-completion'
 
 const SLOT_RE = /@\{slot:([^}]+)\}/g
 const BUNDLE_RE = /@\{bundle:([^}]+)\}/g
+// NAI weight syntax: number::content:: — content should not be treated as tags
+const WEIGHT_RE = /(?<![a-zA-Z_])(-?\d+(?:\.\d+)?)::((?:[^:]|:(?!:))*?)::/g
 
 export interface ContextMenuTarget {
   type: 'slot' | 'bundle' | 'tag'
@@ -24,11 +26,24 @@ export interface ContextMenuTarget {
   to: number
 }
 
+/** Check if a position falls inside a weight expression */
+function isInsideWeight(doc: string, pos: number): boolean {
+  for (const match of doc.matchAll(WEIGHT_RE)) {
+    const from = match.index!
+    const to = from + match[0].length
+    if (pos >= from && pos <= to) return true
+  }
+  return false
+}
+
 /** Detect what's at a position in the document */
 export function detectTokenAt(
   doc: string,
   pos: number,
 ): ContextMenuTarget | null {
+  // Skip if inside a weight expression
+  if (isInsideWeight(doc, pos)) return null
+
   // Check slot references
   for (const match of doc.matchAll(SLOT_RE)) {
     const from = match.index!
@@ -47,8 +62,14 @@ export function detectTokenAt(
     }
   }
 
-  // Check danbooru tags (comma-separated segments)
-  const segments = []
+  // Collect weight regions to exclude from tag detection
+  const weightRanges: Array<{ from: number; to: number }> = []
+  for (const match of doc.matchAll(WEIGHT_RE)) {
+    weightRanges.push({ from: match.index!, to: match.index! + match[0].length })
+  }
+
+  // Check danbooru tags (comma-separated segments, excluding weight regions)
+  const segments: Array<{ text: string; from: number; to: number }> = []
   let start = 0
   for (let i = 0; i <= doc.length; i++) {
     if (i === doc.length || doc[i] === ',') {
@@ -56,7 +77,14 @@ export function detectTokenAt(
       const trimmed = raw.trim()
       if (trimmed && !trimmed.startsWith('@{')) {
         const trimStart = start + raw.indexOf(trimmed)
-        segments.push({ text: trimmed, from: trimStart, to: trimStart + trimmed.length })
+        const trimEnd = trimStart + trimmed.length
+        // Skip if this segment overlaps with a weight expression
+        const overlapsWeight = weightRanges.some(
+          (w) => trimStart < w.to && trimEnd > w.from,
+        )
+        if (!overlapsWeight) {
+          segments.push({ text: trimmed, from: trimStart, to: trimEnd })
+        }
       }
       start = i + 1
     }
