@@ -330,6 +330,59 @@ export const bundleTagAssignments = sqliteTable(
   ],
 )
 
+// ─── Tag Bookmarks ─────────────────────────────────────────────────────────
+export const tagBookmarks = sqliteTable('tag_bookmarks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  memo: text('memo'),
+  thumbnailImageId: integer('thumbnail_image_id'),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+})
+
+// ─── Tag Bookmark Images ───────────────────────────────────────────────────
+export const tagBookmarkImages = sqliteTable(
+  'tag_bookmark_images',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    bookmarkId: integer('bookmark_id')
+      .notNull()
+      .references(() => tagBookmarks.id, { onDelete: 'cascade' }),
+    source: text('source').notNull(), // 'gallery' | 'upload'
+    galleryImageId: integer('gallery_image_id'),
+    filePath: text('file_path').notNull(),
+    thumbnailPath: text('thumbnail_path'),
+    sortOrder: integer('sort_order').default(0),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('tag_bookmark_images_bookmark_id_idx').on(table.bookmarkId),
+  ],
+)
+
+// ─── Tag Bookmark Tags (classification) ────────────────────────────────────
+export const tagBookmarkTags = sqliteTable('tag_bookmark_tags', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+})
+
+// ─── Tag Bookmark Tag Assignments ──────────────────────────────────────────
+export const tagBookmarkTagAssignments = sqliteTable(
+  'tag_bookmark_tag_assignments',
+  {
+    bookmarkId: integer('bookmark_id')
+      .notNull()
+      .references(() => tagBookmarks.id, { onDelete: 'cascade' }),
+    tagId: integer('tag_id')
+      .notNull()
+      .references(() => tagBookmarkTags.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.bookmarkId, table.tagId] }),
+    index('tag_bookmark_tag_assignments_tag_id_idx').on(table.tagId),
+  ],
+)
+
 // ─── Image Bundles (junction) ───────────────────────────────────────────────
 export const imageBundles = sqliteTable(
   'image_bundles',
