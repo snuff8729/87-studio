@@ -3,20 +3,20 @@ import { extractPlaceholders, resolvePlaceholders } from '../placeholder'
 
 describe('extractPlaceholders', () => {
   it('extracts single placeholder', () => {
-    expect(extractPlaceholders('hello \\\\expression\\\\')).toEqual([
+    expect(extractPlaceholders('hello @{slot:expression}')).toEqual([
       'expression',
     ])
   })
 
   it('extracts multiple placeholders', () => {
     const result = extractPlaceholders(
-      '\\\\pose\\\\, \\\\expression\\\\, \\\\background\\\\',
+      '@{slot:pose}, @{slot:expression}, @{slot:background}',
     )
     expect(result).toEqual(['pose', 'expression', 'background'])
   })
 
   it('deduplicates repeated placeholders', () => {
-    const result = extractPlaceholders('\\\\pose\\\\ and \\\\pose\\\\')
+    const result = extractPlaceholders('@{slot:pose} and @{slot:pose}')
     expect(result).toEqual(['pose'])
   })
 
@@ -29,34 +29,42 @@ describe('extractPlaceholders', () => {
   })
 
   it('handles placeholders with underscores', () => {
-    expect(extractPlaceholders('\\\\hair_color\\\\')).toEqual(['hair_color'])
+    expect(extractPlaceholders('@{slot:hair_color}')).toEqual(['hair_color'])
   })
 
   it('handles placeholders with digits', () => {
-    expect(extractPlaceholders('\\\\slot1\\\\ \\\\slot2\\\\')).toEqual([
+    expect(extractPlaceholders('@{slot:slot1} @{slot:slot2}')).toEqual([
       'slot1',
       'slot2',
     ])
   })
 
   it('ignores malformed placeholders (missing closing)', () => {
-    expect(extractPlaceholders('\\\\open')).toEqual([])
+    expect(extractPlaceholders('@{slot:open')).toEqual([])
   })
 
   it('handles placeholders adjacent to text', () => {
-    expect(extractPlaceholders('text\\\\key\\\\more')).toEqual(['key'])
+    expect(extractPlaceholders('text@{slot:key}more')).toEqual(['key'])
+  })
+
+  it('does not match bundle references', () => {
+    expect(extractPlaceholders('@{bundle:quality}')).toEqual([])
+  })
+
+  it('does not match unprefixed references', () => {
+    expect(extractPlaceholders('@{expression}')).toEqual([])
   })
 })
 
 describe('resolvePlaceholders', () => {
   it('resolves a single placeholder', () => {
     expect(
-      resolvePlaceholders('\\\\expression\\\\', { expression: 'smiling' }),
+      resolvePlaceholders('@{slot:expression}', { expression: 'smiling' }),
     ).toBe('smiling')
   })
 
   it('resolves multiple placeholders', () => {
-    const result = resolvePlaceholders('\\\\pose\\\\, \\\\expression\\\\', {
+    const result = resolvePlaceholders('@{slot:pose}, @{slot:expression}', {
       pose: 'standing',
       expression: 'happy',
     })
@@ -64,25 +72,25 @@ describe('resolvePlaceholders', () => {
   })
 
   it('replaces unmatched placeholders with empty string', () => {
-    expect(resolvePlaceholders('\\\\missing\\\\', {})).toBe('')
+    expect(resolvePlaceholders('@{slot:missing}', {})).toBe('')
   })
 
   it('preserves surrounding text', () => {
     expect(
-      resolvePlaceholders('1girl, \\\\pose\\\\, best quality', {
+      resolvePlaceholders('1girl, @{slot:pose}, best quality', {
         pose: 'sitting',
       }),
     ).toBe('1girl, sitting, best quality')
   })
 
   it('resolves same placeholder multiple times', () => {
-    expect(resolvePlaceholders('\\\\x\\\\ and \\\\x\\\\', { x: 'yes' })).toBe(
-      'yes and yes',
-    )
+    expect(
+      resolvePlaceholders('@{slot:x} and @{slot:x}', { x: 'yes' }),
+    ).toBe('yes and yes')
   })
 
   it('handles empty values', () => {
-    expect(resolvePlaceholders('\\\\a\\\\', { a: '' })).toBe('')
+    expect(resolvePlaceholders('@{slot:a}', { a: '' })).toBe('')
   })
 
   it('returns original string when no placeholders', () => {
@@ -91,5 +99,11 @@ describe('resolvePlaceholders', () => {
 
   it('returns empty string for empty template', () => {
     expect(resolvePlaceholders('', { key: 'val' })).toBe('')
+  })
+
+  it('does not resolve bundle references', () => {
+    expect(
+      resolvePlaceholders('@{bundle:quality}', { quality: 'best' }),
+    ).toBe('@{bundle:quality}')
   })
 })
