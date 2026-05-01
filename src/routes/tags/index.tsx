@@ -53,6 +53,15 @@ function TagGalleryPage() {
   const { t } = useTranslation()
 
   const [bookmarks, setBookmarks] = useState(initialBookmarks)
+  const [leftTab, setLeftTab] = useState<'bookmarks' | 'explore'>('bookmarks')
+
+  // Explore tab state
+  const [exploreQuery, setExploreQuery] = useState('')
+  const [exploreResults, setExploreResults] = useState<
+    Array<{ name: string; postCount: number; category: number }>
+  >([])
+  const [exploreLoading, setExploreLoading] = useState(false)
+  const exploreTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Selected tag name (from URL or user click) — works for any danbooru tag, not just bookmarks
   const [selectedTag, setSelectedTagState] = useState<string | null>(
@@ -168,8 +177,31 @@ function TagGalleryPage() {
       if (memoTimerRef.current) clearTimeout(memoTimerRef.current)
       if (tagTimerRef.current) clearTimeout(tagTimerRef.current)
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
+      if (exploreTimerRef.current) clearTimeout(exploreTimerRef.current)
     }
   }, [])
+
+  // Explore search
+  function handleExploreSearch(q: string) {
+    setExploreQuery(q)
+    if (exploreTimerRef.current) clearTimeout(exploreTimerRef.current)
+    if (q.trim().length < 2) {
+      setExploreResults([])
+      return
+    }
+    setExploreLoading(true)
+    exploreTimerRef.current = setTimeout(async () => {
+      try {
+        const results = await searchDanbooruTags({
+          data: { query: q.trim(), limit: 30 },
+        })
+        setExploreResults(results)
+      } catch {
+        setExploreResults([])
+      }
+      setExploreLoading(false)
+    }, 300)
+  }
 
   // ── Handlers ──
 
@@ -345,9 +377,108 @@ function TagGalleryPage() {
       />
 
       <div className="flex-1 flex min-h-0">
-        {/* Left panel — bookmark list */}
+        {/* Left panel */}
         <div className="w-72 lg:w-80 border-r border-border flex flex-col shrink-0">
-          {/* Search + create */}
+          {/* Tabs */}
+          <div className="flex border-b border-border shrink-0">
+            <button
+              type="button"
+              onClick={() => setLeftTab('bookmarks')}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                leftTab === 'bookmarks'
+                  ? 'text-foreground border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t('tagGallery.tabBookmarks')}
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftTab('explore')}
+              className={`flex-1 py-2 text-sm font-medium transition-colors ${
+                leftTab === 'explore'
+                  ? 'text-foreground border-b-2 border-primary'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {t('tagGallery.tabExplore')}
+            </button>
+          </div>
+
+          {leftTab === 'explore' ? (
+            <>
+              {/* Explore search */}
+              <div className="p-3 border-b border-border">
+                <div className="relative">
+                  <HugeiconsIcon
+                    icon={Search01Icon}
+                    className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+                  />
+                  <Input
+                    value={exploreQuery}
+                    onChange={(e) => handleExploreSearch(e.target.value)}
+                    placeholder={t('tagGallery.exploreSearch')}
+                    className="h-8 pl-8 text-sm"
+                  />
+                </div>
+              </div>
+
+              {/* Explore results */}
+              <div className="flex-1 overflow-y-auto">
+                {exploreQuery.trim().length < 2 ? (
+                  <div className="flex items-center justify-center py-12 px-4">
+                    <p className="text-sm text-muted-foreground text-center">
+                      {t('tagGallery.exploreHint')}
+                    </p>
+                  </div>
+                ) : exploreLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-muted-foreground">
+                      {t('common.loading')}
+                    </p>
+                  </div>
+                ) : exploreResults.length === 0 ? (
+                  <div className="flex items-center justify-center py-12">
+                    <p className="text-sm text-muted-foreground">
+                      {t('tagGallery.noResults')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {exploreResults.map((r) => {
+                      const isBm = bookmarks.some((b) => b.name === r.name)
+                      return (
+                        <button
+                          key={r.name}
+                          type="button"
+                          onClick={() => setSelectedTag(r.name)}
+                          className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors ${
+                            selectedTag === r.name ? 'bg-accent' : ''
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm truncate">
+                              {r.name.replace(/_/g, ' ')}
+                            </span>
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              {isBm && (
+                                <span className="size-1.5 rounded-full bg-primary" />
+                              )}
+                              <span className="text-xs text-muted-foreground">
+                                {r.postCount.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+          {/* Bookmarks: Search + create */}
           <div className="p-3 space-y-2 border-b border-border">
             <div className="relative">
               <HugeiconsIcon
@@ -603,6 +734,8 @@ function TagGalleryPage() {
               </div>
             )}
           </div>
+            </>
+          )}
         </div>
 
         {/* Right panel — detail (any tag, bookmarked or not) */}

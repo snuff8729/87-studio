@@ -650,6 +650,11 @@ const ko: DeepStringify<typeof en> = {
     insertTag: '프롬프트에 삽입',
     openFullPage: '태그 갤러리 열기',
     panelTitle: '태그 갤러리',
+    tabBookmarks: '북마크',
+    tabExplore: '탐색',
+    exploreSearch: '단부루 태그 검색...',
+    exploreHint: '태그를 검색하여 탐색하세요.',
+    noResults: '검색 결과가 없습니다.',
   },
   onboarding: {
     welcome: {

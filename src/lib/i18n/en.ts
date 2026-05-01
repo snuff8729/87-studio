@@ -641,6 +641,11 @@ const en = {
     insertTag: 'Insert into prompt',
     openFullPage: 'Open Tag Gallery',
     panelTitle: 'Tag Gallery',
+    tabBookmarks: 'Bookmarks',
+    tabExplore: 'Explore',
+    exploreSearch: 'Search danbooru tags...',
+    exploreHint: 'Search for tags to explore.',
+    noResults: 'No results found.',
   },
   onboarding: {
     welcome: {
