@@ -5,6 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   ArrowExpand01Icon,
+  BookmarkCheck01Icon,
   Delete02Icon,
 } from '@hugeicons/core-free-icons'
 import { Badge } from '@/components/ui/badge'
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
+import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
@@ -107,6 +109,24 @@ export function PromptPanel({
   const [expandTarget, setExpandTarget] = useState<
     'prompt' | 'negative' | null
   >(null)
+  const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
+  const [tagGalleryTarget, setTagGalleryTarget] = useState<
+    'prompt' | 'negative'
+  >('prompt')
+
+  function handleInsertTag(tagName: string) {
+    if (tagGalleryTarget === 'prompt') {
+      const newValue = displayPrompt
+        ? displayPrompt.trimEnd() + ', ' + tagName
+        : tagName
+      handlePromptChange(newValue)
+    } else {
+      const newValue = displayNegative
+        ? displayNegative.trimEnd() + ', ' + tagName
+        : tagName
+      handleNegativeChange(newValue)
+    }
+  }
 
   // Add character popover
   const [addOpen, setAddOpen] = useState(false)
@@ -448,14 +468,27 @@ export function PromptPanel({
                   ? t('workspace.characterPrompt')
                   : t('workspace.prompt')}
               </Label>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setExpandTarget('prompt')}
-                title={t('workspace.expandEditor')}
-              >
-                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-              </Button>
+              <div className="flex gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => {
+                    setTagGalleryTarget('prompt')
+                    setTagGalleryOpen(true)
+                  }}
+                  title={t('tagGallery.panelTitle')}
+                >
+                  <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setExpandTarget('prompt')}
+                  title={t('workspace.expandEditor')}
+                >
+                  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+                </Button>
+              </div>
             </div>
             <div data-onboarding="prompt-editor">
               <LazyPromptEditor
@@ -496,14 +529,27 @@ export function PromptPanel({
                   ? t('workspace.charNegative')
                   : t('workspace.negativePrompt')}
               </Label>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => setExpandTarget('negative')}
-                title={t('workspace.expandEditor')}
-              >
-                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-              </Button>
+              <div className="flex gap-0.5">
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => {
+                    setTagGalleryTarget('negative')
+                    setTagGalleryOpen(true)
+                  }}
+                  title={t('tagGallery.panelTitle')}
+                >
+                  <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  onClick={() => setExpandTarget('negative')}
+                  title={t('workspace.expandEditor')}
+                >
+                  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
+                </Button>
+              </div>
             </div>
             <LazyPromptEditor
               key={`negative-${activeContext}`}
@@ -556,6 +602,11 @@ export function PromptPanel({
           expandTarget === 'prompt' ? handlePromptChange : handleNegativeChange
         }
         bundleNames={bundleNames}
+      />
+      <TagGalleryDialog
+        open={tagGalleryOpen}
+        onOpenChange={setTagGalleryOpen}
+        onInsertTag={handleInsertTag}
       />
     </div>
   )

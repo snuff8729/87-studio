@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
+  BookmarkCheck01Icon,
   Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
@@ -32,6 +33,7 @@ import {
   setBundleThumbnail,
   updateBundle,
 } from '@/server/functions/bundles'
+import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -100,6 +102,7 @@ function BundlesPage() {
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editContent, setEditContent] = useState('')
+  const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Images for selected bundle
@@ -679,9 +682,19 @@ function BundlesPage() {
 
               {/* Content */}
               <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                  {t('bundles.bundleContent')}
-                </Label>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                    {t('bundles.bundleContent')}
+                  </Label>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setTagGalleryOpen(true)}
+                    title={t('tagGallery.panelTitle')}
+                  >
+                    <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-4" />
+                  </Button>
+                </div>
                 <LazyPromptEditor
                   value={editContent}
                   onChange={handleContentChange}
@@ -761,6 +774,16 @@ function BundlesPage() {
           )}
         </div>
       </div>
+      <TagGalleryDialog
+        open={tagGalleryOpen}
+        onOpenChange={setTagGalleryOpen}
+        onInsertTag={(tag) => {
+          const newContent = editContent
+            ? editContent.trimEnd() + ', ' + tag
+            : tag
+          handleContentChange(newContent)
+        }}
+      />
     </div>
   )
 }
