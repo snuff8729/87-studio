@@ -1,7 +1,7 @@
 import { hoverTooltip } from '@codemirror/view'
 import { getBundleNames } from './bundle-completion'
 
-const BUNDLE_RE = /@\{([^}]+)\}/g
+const BUNDLE_RE = /@\{bundle:([^}]+)\}/g
 const MAX_LINES = 3
 
 export const bundleTooltip = hoverTooltip((view, pos) => {

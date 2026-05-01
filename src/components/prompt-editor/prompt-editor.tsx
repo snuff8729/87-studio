@@ -8,8 +8,8 @@ import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
 import { invalidRefHighlight } from './invalid-ref-highlight'
-import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
-import { bundleCompletion, setBundleNames } from './bundle-completion'
+import { loadTagDatabase } from './danbooru-completion'
+import { setBundleNames, setSlotNames, unifiedCompletion } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
 import type { ViewUpdate } from '@codemirror/view'
 import { useTheme } from '@/lib/theme'
@@ -33,6 +33,7 @@ interface PromptEditorProps {
   placeholder?: string
   minHeight?: string
   bundleNames?: Array<{ name: string; content: string }>
+  slotNames?: Array<string>
 }
 
 export function PromptEditor({
@@ -41,6 +42,7 @@ export function PromptEditor({
   placeholder,
   minHeight = '200px',
   bundleNames: bundleNamesProp,
+  slotNames: slotNamesProp,
 }: PromptEditorProps) {
   const { resolvedTheme } = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
@@ -58,6 +60,12 @@ export function PromptEditor({
       setBundleNames(bundleNamesProp)
     }
   }, [bundleNamesProp])
+
+  useEffect(() => {
+    if (slotNamesProp) {
+      setSlotNames(slotNamesProp)
+    }
+  }, [slotNamesProp])
 
   useEffect(() => {
     if (!containerRef.current) return
@@ -83,7 +91,7 @@ export function PromptEditor({
         invalidRefHighlight,
         bundleTooltip,
         autocompletion({
-          override: [bundleCompletion, danbooruCompletion],
+          override: [unifiedCompletion],
           activateOnTyping: true,
         }),
         EditorView.updateListener.of((update) => {

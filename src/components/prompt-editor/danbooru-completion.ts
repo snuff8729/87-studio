@@ -22,7 +22,7 @@ export async function loadTagDatabase() {
   loaded = true
 }
 
-function searchTags(query: string, limit = 15): Array<Completion> {
+export function searchTags(query: string, limit = 15): Array<Completion> {
   if (!query || tagDatabase.length === 0) return []
 
   const lower = query.toLowerCase()
