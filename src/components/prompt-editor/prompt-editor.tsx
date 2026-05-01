@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Compartment, EditorState } from '@codemirror/state'
 import { EditorView, ViewPlugin, keymap, tooltips } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -12,6 +12,11 @@ import { setBundleNames, setSlotNames, unifiedCompletion } from './bundle-comple
 import { bundleTooltip } from './bundle-tooltip'
 import type { ViewUpdate } from '@codemirror/view'
 import { useTheme } from '@/lib/theme'
+import {
+  EditorContextMenu,
+  detectTokenAt,
+  type ContextMenuTarget,
+} from './editor-context-menu'
 
 // CM6 bug workaround: When lineWrapping is on and cursor is at a wrap boundary,
 // enforceCursorAssoc() modifies the DOM selection without checking hasFocus,
@@ -49,6 +54,36 @@ export function PromptEditor({
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
   const themeCompartmentRef = useRef<Compartment | null>(null)
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    target: ContextMenuTarget
+    x: number
+    y: number
+  } | null>(null)
+
+  const handleContextMenuDelete = useCallback(
+    (from: number, to: number) => {
+      const view = viewRef.current
+      if (!view) return
+      const doc = view.state.doc.toString()
+      // Clean surrounding comma/whitespace
+      let delFrom = from
+      let delTo = to
+      // Remove trailing comma + space
+      if (doc[delTo] === ',' || doc[delTo] === ' ') {
+        delTo++
+        while (delTo < doc.length && doc[delTo] === ' ') delTo++
+      }
+      // Or leading comma + space if at end
+      else if (delFrom > 0 && (doc[delFrom - 1] === ',' || doc[delFrom - 1] === ' ')) {
+        delFrom--
+        while (delFrom > 0 && (doc[delFrom - 1] === ',' || doc[delFrom - 1] === ' ')) delFrom--
+      }
+      view.dispatch({ changes: { from: delFrom, to: delTo } })
+    },
+    [],
+  )
 
   useEffect(() => {
     if (bundleNamesProp) {
@@ -116,7 +151,21 @@ export function PromptEditor({
 
     viewRef.current = view
 
+    // Context menu handler
+    const handleContextMenu = (e: MouseEvent) => {
+      const pos = view.posAtCoords({ x: e.clientX, y: e.clientY })
+      if (pos === null) return
+      const doc = view.state.doc.toString()
+      const token = detectTokenAt(doc, pos)
+      if (token) {
+        e.preventDefault()
+        setContextMenu({ target: token, x: e.clientX, y: e.clientY })
+      }
+    }
+    view.dom.addEventListener('contextmenu', handleContextMenu)
+
     return () => {
+      view.dom.removeEventListener('contextmenu', handleContextMenu)
       view.destroy()
       viewRef.current = null
     }
@@ -149,5 +198,18 @@ export function PromptEditor({
     }
   }, [value])
 
-  return <div ref={containerRef} />
+  return (
+    <>
+      <div ref={containerRef} />
+      {contextMenu && (
+        <EditorContextMenu
+          target={contextMenu.target}
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          onDelete={handleContextMenuDelete}
+        />
+      )}
+    </>
+  )
 }
