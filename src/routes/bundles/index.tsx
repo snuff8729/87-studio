@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
+  Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
   Image02Icon,
@@ -26,6 +27,8 @@ import {
   getBundle,
   listBundleImages,
   listBundles,
+  listBundleTags,
+  setBundleTags,
   setBundleThumbnail,
   updateBundle,
 } from '@/server/functions/bundles'
@@ -107,6 +110,12 @@ function BundlesPage() {
     }>
   >([])
 
+  // Tag state
+  const [allTags, setAllTags] = useState<Array<{ id: number; name: string }>>([])
+  const [editTags, setEditTags] = useState<Array<string>>([])
+  const [tagInput, setTagInput] = useState('')
+  const tagSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
   // Create dialog state
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
@@ -123,6 +132,9 @@ function BundlesPage() {
       setEditName(d.name)
       setEditDescription(d.description ?? '')
       setEditContent(d.content)
+      const bundleInList = bundles.find((b) => b.id === selectedId)
+      setEditTags(bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [])
+      setTagInput('')
     })
     listBundleImages({ data: { bundleId: selectedId, limit: 40 } }).then(
       setBundleImages,
@@ -134,6 +146,16 @@ function BundlesPage() {
     setBundles(updated)
     queryClient.invalidateQueries({ queryKey: ['bundleNames'] })
   }, [queryClient])
+
+  const refreshTags = useCallback(async () => {
+    const tags = await listBundleTags()
+    setAllTags(tags)
+  }, [])
+
+  // Load all tags on mount
+  useEffect(() => {
+    refreshTags()
+  }, [refreshTags])
 
   // Debounced save
   function scheduleSave(name: string, description: string, content: string) {
@@ -154,6 +176,7 @@ function BundlesPage() {
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current)
     }
   }, [])
 
@@ -212,6 +235,35 @@ function BundlesPage() {
   function handleContentChange(content: string) {
     setEditContent(content)
     scheduleSave(editName, editDescription, content)
+  }
+
+  function scheduleTagSave(tags: Array<string>) {
+    if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current)
+    tagSaveTimerRef.current = setTimeout(async () => {
+      if (!selectedId) return
+      try {
+        await setBundleTags({ data: { bundleId: selectedId, tagNames: tags } })
+        refreshList()
+        refreshTags()
+      } catch {
+        toast.error(t('bundles.updateFailed'))
+      }
+    }, 800)
+  }
+
+  function handleAddTag(tagName: string) {
+    const name = tagName.trim().toLowerCase()
+    if (!name || editTags.includes(name)) return
+    const next = [...editTags, name]
+    setEditTags(next)
+    setTagInput('')
+    scheduleTagSave(next)
+  }
+
+  function handleRemoveTag(tagName: string) {
+    const next = editTags.filter((t) => t !== tagName)
+    setEditTags(next)
+    scheduleTagSave(next)
   }
 
   function handleCopyUsage(name: string) {
@@ -410,6 +462,74 @@ function BundlesPage() {
                 >
                   <HugeiconsIcon icon={Copy01Icon} className="size-4" />
                 </Button>
+              </div>
+
+              {/* Tags */}
+              <div className="space-y-1.5">
+                <Label className="text-sm text-muted-foreground">
+                  {t('bundles.tags')}
+                </Label>
+                <div className="flex flex-wrap gap-1.5 items-center p-2 rounded-md border border-border bg-background min-h-[38px]">
+                  {editTags.map((tag) => (
+                    <span
+                      key={tag}
+                      className="inline-flex items-center gap-1 bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-sm"
+                    >
+                      {tag}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(tag)}
+                        className="text-muted-foreground hover:text-foreground"
+                      >
+                        <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                      </button>
+                    </span>
+                  ))}
+                  <div className="relative flex-1 min-w-[80px]">
+                    <input
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ',') {
+                          e.preventDefault()
+                          handleAddTag(tagInput)
+                        }
+                        if (
+                          e.key === 'Backspace' &&
+                          tagInput === '' &&
+                          editTags.length > 0
+                        ) {
+                          handleRemoveTag(editTags[editTags.length - 1])
+                        }
+                      }}
+                      placeholder={
+                        editTags.length === 0 ? t('bundles.tagsPlaceholder') : ''
+                      }
+                      className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                    />
+                    {tagInput.length > 0 && (
+                      <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
+                        {allTags
+                          .filter(
+                            (t) =>
+                              t.name.includes(tagInput.toLowerCase()) &&
+                              !editTags.includes(t.name),
+                          )
+                          .slice(0, 8)
+                          .map((tag) => (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => handleAddTag(tag.name)}
+                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
+                            >
+                              {tag.name}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
 
               <Separator />
