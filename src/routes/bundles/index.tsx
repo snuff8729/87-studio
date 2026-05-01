@@ -378,33 +378,37 @@ function BundlesPage() {
               </div>
               {showTagDropdown && (
                 <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
-                  {allTags
-                    .filter(
+                  {(() => {
+                    const matchedTags = allTags.filter(
                       (t) =>
                         t.name.includes(tagSearchPart.toLowerCase()) &&
                         !filterTags.includes(t.name),
                     )
-                    .slice(0, 10)
-                    .map((tag) => (
-                      <button
-                        key={tag.id}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => handleSelectFilterTag(tag.name)}
-                        className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
-                      >
-                        #{tag.name}
-                      </button>
-                    ))}
-                  {allTags.filter(
-                    (t) =>
-                      t.name.includes(tagSearchPart.toLowerCase()) &&
-                      !filterTags.includes(t.name),
-                  ).length === 0 && (
-                    <div className="px-3 py-2 text-sm text-muted-foreground">
-                      {t('bundles.noBundlesDesc')}
-                    </div>
-                  )}
+                    if (matchedTags.length === 0) {
+                      return (
+                        <div className="px-3 py-2 text-sm text-muted-foreground">
+                          {t('bundles.noMatchingTags')}
+                        </div>
+                      )
+                    }
+                    return matchedTags.slice(0, 10).map((tag) => {
+                      const count = bundles.filter((b) =>
+                        b.tags?.some((bt: { name: string }) => bt.name === tag.name),
+                      ).length
+                      return (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => handleSelectFilterTag(tag.name)}
+                          className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
+                        >
+                          <span>#{tag.name}</span>
+                          <span className="text-xs text-muted-foreground">{count}</span>
+                        </button>
+                      )
+                    })
+                  })()}
                 </div>
               )}
             </div>
@@ -633,27 +637,40 @@ function BundlesPage() {
                       }
                       className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                     />
-                    {tagInput.length > 0 && (
-                      <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
-                        {allTags
-                          .filter(
-                            (t) =>
-                              t.name.includes(tagInput.toLowerCase()) &&
-                              !editTags.includes(t.name),
-                          )
-                          .slice(0, 8)
-                          .map((tag) => (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() => handleAddTag(tag.name)}
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
-                            >
-                              {tag.name}
-                            </button>
-                          ))}
-                      </div>
-                    )}
+                    {tagInput.length > 0 && (() => {
+                      const suggestions = allTags.filter(
+                        (t) =>
+                          t.name.includes(tagInput.toLowerCase()) &&
+                          !editTags.includes(t.name),
+                      )
+                      const exactMatch = editTags.includes(tagInput.trim().toLowerCase())
+                      if (suggestions.length === 0 && exactMatch) return null
+                      return (
+                        <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
+                          {suggestions.slice(0, 8).map((tag) => {
+                            const count = bundles.filter((b) =>
+                              b.tags?.some((bt: { name: string }) => bt.name === tag.name),
+                            ).length
+                            return (
+                              <button
+                                key={tag.id}
+                                type="button"
+                                onClick={() => handleAddTag(tag.name)}
+                                className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
+                              >
+                                <span>{tag.name}</span>
+                                <span className="text-xs text-muted-foreground">{count}</span>
+                              </button>
+                            )
+                          })}
+                          {suggestions.length === 0 && !exactMatch && (
+                            <div className="px-3 py-1.5 text-sm text-muted-foreground">
+                              {t('bundles.createTagHint', { name: tagInput.trim() })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>

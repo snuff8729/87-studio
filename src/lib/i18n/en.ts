@@ -602,6 +602,8 @@ const en = {
     tagAdded: 'Tag added',
     tagRemoved: 'Tag removed',
     searchByTag: 'Type # to filter by tag',
+    noMatchingTags: 'No matching tags',
+    createTagHint: 'Press Enter to create "{{name}}"',
   },
   onboarding: {
     welcome: {

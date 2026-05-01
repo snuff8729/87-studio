@@ -611,6 +611,8 @@ const ko: DeepStringify<typeof en> = {
     tagAdded: '태그가 추가되었습니다',
     tagRemoved: '태그가 제거되었습니다',
     searchByTag: '#을 입력하여 태그로 필터링',
+    noMatchingTags: '일치하는 태그 없음',
+    createTagHint: 'Enter를 눌러 "{{name}}" 생성',
   },
   onboarding: {
     welcome: {
