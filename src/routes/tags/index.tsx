@@ -1,9 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, useNavigate } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
+  BookmarkAdd01Icon,
   Cancel01Icon,
   Delete02Icon,
   Image02Icon,
@@ -40,16 +41,34 @@ import {
 export const Route = createFileRoute('/tags/')({
   component: TagGalleryPage,
   loader: () => listTagBookmarks({ data: {} }),
+  validateSearch: (search: Record<string, unknown>) => ({
+    tag: (search.tag as string) || undefined,
+  }),
 })
 
 function TagGalleryPage() {
   const initialBookmarks = Route.useLoaderData()
+  const { tag: urlTag } = Route.useSearch()
+  const navigate = useNavigate()
   const { t } = useTranslation()
 
   const [bookmarks, setBookmarks] = useState(initialBookmarks)
-  const [selectedId, setSelectedId] = useState<number | null>(null)
 
-  // Search/filter state (same pattern as bundles)
+  // Selected tag name (from URL or user click) — works for any danbooru tag, not just bookmarks
+  const [selectedTag, setSelectedTagState] = useState<string | null>(
+    urlTag ?? null,
+  )
+
+  function setSelectedTag(tag: string | null) {
+    setSelectedTagState(tag)
+    navigate({
+      to: '/tags',
+      search: tag ? { tag } : {},
+      replace: true,
+    })
+  }
+
+  // Search/filter state
   const [searchText, setSearchText] = useState('')
   const [filterTags, setFilterTags] = useState<Array<string>>([])
   const [showTagDropdown, setShowTagDropdown] = useState(false)
@@ -57,10 +76,17 @@ function TagGalleryPage() {
   const searchInputRef = useRef<HTMLInputElement>(null)
 
   // All classification tags
-  const [allTags, setAllTags] = useState<Array<{ id: number; name: string }>>([])
+  const [allTags, setAllTags] = useState<Array<{ id: number; name: string }>>(
+    [],
+  )
 
-  // Detail state
-  const [detail, setDetail] = useState<{
+  // Detail state — danbooru info (always available for any tag)
+  const [danbooruInfo, setDanbooruInfo] = useState<DanbooruTagDetail | null>(
+    null,
+  )
+
+  // Bookmark detail (only if the selected tag is bookmarked)
+  const [bookmarkDetail, setBookmarkDetail] = useState<{
     id: number
     name: string
     memo: string | null
@@ -77,7 +103,6 @@ function TagGalleryPage() {
   const [editMemo, setEditMemo] = useState('')
   const [editTags, setEditTags] = useState<Array<string>>([])
   const [tagInput, setTagInput] = useState('')
-  const [danbooruInfo, setDanbooruInfo] = useState<DanbooruTagDetail | null>(null)
   const memoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const tagTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -103,24 +128,35 @@ function TagGalleryPage() {
     refreshTags()
   }, [refreshTags])
 
-  // Load detail
+  // Load detail when selected tag changes
   useEffect(() => {
-    if (selectedId === null) {
-      setDetail(null)
+    if (!selectedTag) {
       setDanbooruInfo(null)
+      setBookmarkDetail(null)
       return
     }
-    getTagBookmark({ data: selectedId }).then((d) => {
-      setDetail(d)
-      setEditMemo(d.memo ?? '')
-      setEditTags(d.tags.map((t) => t.name))
+
+    // Load danbooru info
+    getDanbooruTagDetail({ data: selectedTag })
+      .then(setDanbooruInfo)
+      .catch(() => setDanbooruInfo(null))
+
+    // Check if bookmarked and load bookmark detail
+    const bm = bookmarks.find((b) => b.name === selectedTag)
+    if (bm) {
+      getTagBookmark({ data: bm.id }).then((d) => {
+        setBookmarkDetail(d)
+        setEditMemo(d.memo ?? '')
+        setEditTags(d.tags.map((t) => t.name))
+        setTagInput('')
+      })
+    } else {
+      setBookmarkDetail(null)
+      setEditMemo('')
+      setEditTags([])
       setTagInput('')
-      // Fetch danbooru info
-      getDanbooruTagDetail({ data: d.name })
-        .then(setDanbooruInfo)
-        .catch(() => setDanbooruInfo(null))
-    })
-  }, [selectedId])
+    }
+  }, [selectedTag, bookmarks])
 
   const refreshList = useCallback(async () => {
     setBookmarks(await listTagBookmarks({ data: {} }))
@@ -141,9 +177,9 @@ function TagGalleryPage() {
     setEditMemo(memo)
     if (memoTimerRef.current) clearTimeout(memoTimerRef.current)
     memoTimerRef.current = setTimeout(async () => {
-      if (!selectedId) return
+      if (!bookmarkDetail) return
       try {
-        await updateTagBookmark({ data: { id: selectedId, memo } })
+        await updateTagBookmark({ data: { id: bookmarkDetail.id, memo } })
       } catch {
         toast.error(t('tagGallery.memoSaved'))
       }
@@ -153,10 +189,10 @@ function TagGalleryPage() {
   function scheduleTagSave(tags: Array<string>) {
     if (tagTimerRef.current) clearTimeout(tagTimerRef.current)
     tagTimerRef.current = setTimeout(async () => {
-      if (!selectedId) return
+      if (!bookmarkDetail) return
       try {
         await setBookmarkTags({
-          data: { bookmarkId: selectedId, tagNames: tags },
+          data: { bookmarkId: bookmarkDetail.id, tagNames: tags },
         })
         refreshList()
         refreshTags()
@@ -181,15 +217,15 @@ function TagGalleryPage() {
     scheduleTagSave(next)
   }
 
-  async function handleCreate(name: string) {
+  async function handleCreateBookmark(name: string) {
     try {
-      const result = await createTagBookmark({ data: { name: name.trim() } })
+      await createTagBookmark({ data: { name: name.trim() } })
       toast.success(t('tagGallery.bookmarkCreated'))
       setCreating(false)
       setCreateQuery('')
       setSearchResults([])
       await refreshList()
-      setSelectedId(result.id)
+      setSelectedTag(name.trim())
     } catch {
       toast.error(t('tagGallery.createFailed'))
     }
@@ -199,7 +235,7 @@ function TagGalleryPage() {
     try {
       await deleteTagBookmark({ data: id })
       toast.success(t('tagGallery.bookmarkDeleted'))
-      if (selectedId === id) setSelectedId(null)
+      // Keep selectedTag — it just won't be bookmarked anymore
       refreshList()
     } catch {
       toast.error(t('tagGallery.deleteFailed'))
@@ -207,32 +243,37 @@ function TagGalleryPage() {
   }
 
   async function handleSetThumbnail(imageId: number) {
-    if (!selectedId) return
+    if (!bookmarkDetail) return
     await setBookmarkThumbnail({
-      data: { bookmarkId: selectedId, imageId },
+      data: { bookmarkId: bookmarkDetail.id, imageId },
     })
     toast.success(t('tagGallery.thumbnailSet'))
     refreshList()
-    setDetail(await getTagBookmark({ data: selectedId }))
+    setBookmarkDetail(await getTagBookmark({ data: bookmarkDetail.id }))
   }
 
   async function handleRemoveImage(imageId: number) {
     await removeBookmarkImage({ data: imageId })
     toast.success(t('tagGallery.imageRemoved'))
-    if (selectedId) setDetail(await getTagBookmark({ data: selectedId }))
+    if (bookmarkDetail)
+      setBookmarkDetail(await getTagBookmark({ data: bookmarkDetail.id }))
     refreshList()
   }
 
   async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
-    if (!file || !selectedId) return
+    if (!file || !bookmarkDetail) return
     const reader = new FileReader()
     reader.onload = async () => {
       const base64 = (reader.result as string).split(',')[1]
       await addBookmarkImageUpload({
-        data: { bookmarkId: selectedId, imageData: base64, filename: file.name },
+        data: {
+          bookmarkId: bookmarkDetail.id,
+          imageData: base64,
+          filename: file.name,
+        },
       })
-      setDetail(await getTagBookmark({ data: selectedId }))
+      setBookmarkDetail(await getTagBookmark({ data: bookmarkDetail.id }))
       refreshList()
     }
     reader.readAsDataURL(file)
@@ -258,7 +299,7 @@ function TagGalleryPage() {
     }, 300)
   }
 
-  // Search/filter handlers (same as bundles)
+  // Search/filter handlers
   function handleSearchInput(value: string) {
     const hashIdx = value.lastIndexOf('#')
     if (hashIdx >= 0) {
@@ -294,6 +335,8 @@ function TagGalleryPage() {
     return true
   })
 
+  const isBookmarked = bookmarkDetail !== null
+
   return (
     <div className="flex flex-col h-full">
       <PageHeader
@@ -306,7 +349,6 @@ function TagGalleryPage() {
         <div className="w-72 lg:w-80 border-r border-border flex flex-col shrink-0">
           {/* Search + create */}
           <div className="p-3 space-y-2 border-b border-border">
-            {/* Search bar with # filter (same as bundles) */}
             <div className="relative">
               <HugeiconsIcon
                 icon={Search01Icon}
@@ -341,7 +383,9 @@ function TagGalleryPage() {
                       handleRemoveFilterTag(filterTags[filterTags.length - 1])
                     if (e.key === 'Escape') setShowTagDropdown(false)
                   }}
-                  onBlur={() => setTimeout(() => setShowTagDropdown(false), 200)}
+                  onBlur={() =>
+                    setTimeout(() => setShowTagDropdown(false), 200)
+                  }
                   placeholder={
                     filterTags.length === 0
                       ? t('tagGallery.searchBookmarks')
@@ -402,7 +446,7 @@ function TagGalleryPage() {
                   autoFocus
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && isCustom && createQuery.trim())
-                      handleCreate(createQuery)
+                      handleCreateBookmark(createQuery)
                     if (e.key === 'Escape') {
                       setCreating(false)
                       setCreateQuery('')
@@ -417,7 +461,7 @@ function TagGalleryPage() {
                       <button
                         key={r.name}
                         type="button"
-                        onClick={() => handleCreate(r.name)}
+                        onClick={() => handleCreateBookmark(r.name)}
                         className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
                       >
                         <span>{r.name.replace(/_/g, ' ')}</span>
@@ -439,7 +483,7 @@ function TagGalleryPage() {
                   {isCustom && (
                     <Button
                       size="xs"
-                      onClick={() => handleCreate(createQuery)}
+                      onClick={() => handleCreateBookmark(createQuery)}
                       disabled={!createQuery.trim()}
                     >
                       {t('common.create')}
@@ -485,17 +529,17 @@ function TagGalleryPage() {
             ) : (
               <div className="p-2 grid grid-cols-2 gap-1.5">
                 {filtered.map((bm) => {
-                  const isActive = selectedId === bm.id
+                  const isActive = selectedTag === bm.name
                   const thumbSrc = bm.thumbnailPath
                     ? bm.thumbnailPath.startsWith('data/tag-images')
-                      ? `/api/images/${bm.thumbnailPath.replace('data/tag-images/', 'tag-images/')}`
+                      ? `/api/tag-images/${bm.thumbnailPath.replace('data/tag-images/', '')}`
                       : `/api/thumbnails/${bm.thumbnailPath.replace('data/thumbnails/', '')}`
                     : null
 
                   return (
                     <button
                       key={bm.id}
-                      onClick={() => setSelectedId(bm.id)}
+                      onClick={() => setSelectedTag(bm.name)}
                       className={`relative rounded-lg overflow-hidden transition-all ${
                         isActive
                           ? 'ring-2 ring-primary'
@@ -561,9 +605,9 @@ function TagGalleryPage() {
           </div>
         </div>
 
-        {/* Right panel — detail */}
+        {/* Right panel — detail (any tag, bookmarked or not) */}
         <div className="flex-1 overflow-y-auto">
-          {!detail ? (
+          {!selectedTag ? (
             <div className="flex items-center justify-center h-full text-muted-foreground">
               <p className="text-sm">{t('tagGallery.selectBookmark')}</p>
             </div>
@@ -573,7 +617,7 @@ function TagGalleryPage() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <h2 className="text-lg font-medium">
-                    {detail.name.replace(/_/g, ' ')}
+                    {selectedTag.replace(/_/g, ' ')}
                   </h2>
                   {danbooruInfo && (
                     <>
@@ -589,6 +633,19 @@ function TagGalleryPage() {
                         </Badge>
                       )}
                     </>
+                  )}
+                  {!isBookmarked && (
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onClick={() => handleCreateBookmark(selectedTag)}
+                    >
+                      <HugeiconsIcon
+                        icon={BookmarkAdd01Icon}
+                        className="size-3.5"
+                      />
+                      {t('tagGallery.addBookmark')}
+                    </Button>
                   )}
                 </div>
 
@@ -669,18 +726,12 @@ function TagGalleryPage() {
                                 <button
                                   key={m}
                                   type="button"
-                                  onClick={() => {
-                                    // Check if already bookmarked
-                                    const existing = bookmarks.find(
-                                      (b) => b.name === m,
-                                    )
-                                    if (existing) {
-                                      setSelectedId(existing.id)
-                                    } else {
-                                      handleCreate(m)
-                                    }
-                                  }}
-                                  className="bg-secondary hover:bg-accent text-secondary-foreground rounded px-1.5 py-0.5 transition-colors"
+                                  onClick={() => setSelectedTag(m)}
+                                  className={`rounded px-1.5 py-0.5 transition-colors ${
+                                    bookmarks.some((b) => b.name === m)
+                                      ? 'bg-primary/15 text-primary hover:bg-primary/25'
+                                      : 'bg-secondary hover:bg-accent text-secondary-foreground'
+                                  }`}
                                 >
                                   {m.replace(/_/g, ' ')}
                                 </button>
@@ -693,204 +744,217 @@ function TagGalleryPage() {
                   </>
                 )}
 
-              <Separator />
+              {/* Bookmark sections (only if bookmarked) */}
+              {isBookmarked && bookmarkDetail && (
+                <>
+                  <Separator />
 
-              {/* Memo */}
-              <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">
-                  {t('tagGallery.memo')}
-                </Label>
-                <Textarea
-                  value={editMemo}
-                  onChange={(e) => handleMemoChange(e.target.value)}
-                  placeholder={t('tagGallery.memoPlaceholder')}
-                  className="text-sm min-h-[80px]"
-                  rows={3}
-                />
-              </div>
-
-              {/* Classification tags */}
-              <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">
-                  {t('tagGallery.tags')}
-                </Label>
-                <div className="flex flex-wrap gap-1.5 items-center p-2 rounded-md border border-border bg-background min-h-[38px]">
-                  {editTags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-sm"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <div className="relative flex-1 min-w-[80px]">
-                    <input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault()
-                          handleAddTag(tagInput)
-                        }
-                        if (
-                          e.key === 'Backspace' &&
-                          tagInput === '' &&
-                          editTags.length > 0
-                        )
-                          handleRemoveTag(editTags[editTags.length - 1])
-                      }}
-                      placeholder={
-                        editTags.length === 0
-                          ? t('tagGallery.tagsPlaceholder')
-                          : ''
-                      }
-                      className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  {/* Memo */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-muted-foreground">
+                      {t('tagGallery.memo')}
+                    </Label>
+                    <Textarea
+                      value={editMemo}
+                      onChange={(e) => handleMemoChange(e.target.value)}
+                      placeholder={t('tagGallery.memoPlaceholder')}
+                      className="text-sm min-h-[80px]"
+                      rows={3}
                     />
-                    {tagInput.length > 0 && (() => {
-                      const suggestions = allTags.filter(
-                        (t) =>
-                          t.name.includes(tagInput.toLowerCase()) &&
-                          !editTags.includes(t.name),
-                      )
-                      const exactMatch = editTags.includes(
-                        tagInput.trim().toLowerCase(),
-                      )
-                      if (suggestions.length === 0 && exactMatch) return null
-                      return (
-                        <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
-                          {suggestions.slice(0, 8).map((tag) => (
-                            <button
-                              key={tag.id}
-                              type="button"
-                              onClick={() => handleAddTag(tag.name)}
-                              className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
-                            >
-                              {tag.name}
-                            </button>
-                          ))}
-                          {suggestions.length === 0 && !exactMatch && (
-                            <div className="px-3 py-1.5 text-sm text-muted-foreground">
-                              {t('tagGallery.createTagHint', {
-                                name: tagInput.trim(),
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })()}
                   </div>
-                </div>
-              </div>
 
-              <Separator />
-
-              {/* Images */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                    {t('tagGallery.images')}
-                  </Label>
-                  <div className="flex gap-1.5">
-                    <label>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleUpload}
-                      />
-                      <Button size="xs" variant="outline" asChild>
-                        <span>
-                          <HugeiconsIcon
-                            icon={Upload04Icon}
-                            className="size-3.5"
-                          />
-                          {t('tagGallery.uploadImage')}
-                        </span>
-                      </Button>
-                    </label>
-                  </div>
-                </div>
-
-                {detail.images.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    {t('tagGallery.noImages')}
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
-                    {detail.images.map((img) => {
-                      const src = img.thumbnailPath
-                        ? img.source === 'upload'
-                          ? `/api/images/${img.thumbnailPath.replace('data/tag-images/', 'tag-images/')}`
-                          : `/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`
-                        : null
-                      return (
-                        <div
-                          key={img.id}
-                          className={`relative aspect-square rounded-md overflow-hidden bg-secondary group ${
-                            detail.thumbnailImageId === img.id
-                              ? 'ring-2 ring-primary'
-                              : ''
-                          }`}
+                  {/* Classification tags */}
+                  <div className="space-y-1.5">
+                    <Label className="text-sm text-muted-foreground">
+                      {t('tagGallery.tags')}
+                    </Label>
+                    <div className="flex flex-wrap gap-1.5 items-center p-2 rounded-md border border-border bg-background min-h-[38px]">
+                      {editTags.map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1 bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-sm"
                         >
-                          {src ? (
-                            <img
-                              src={src}
-                              alt=""
-                              className="w-full h-full object-cover cursor-pointer"
-                              loading="lazy"
-                              onClick={() => handleSetThumbnail(img.id)}
-                              title={t('tagGallery.setThumbnail')}
-                            />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <HugeiconsIcon
-                                icon={Image02Icon}
-                                className="size-4 text-muted-foreground/30"
-                              />
-                            </div>
-                          )}
+                          {tag}
                           <button
                             type="button"
-                            onClick={() => handleRemoveImage(img.id)}
-                            className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            onClick={() => handleRemoveTag(tag)}
+                            className="text-muted-foreground hover:text-foreground"
                           >
                             <HugeiconsIcon
                               icon={Cancel01Icon}
                               className="size-3"
                             />
                           </button>
-                        </div>
-                      )
-                    })}
+                        </span>
+                      ))}
+                      <div className="relative flex-1 min-w-[80px]">
+                        <input
+                          value={tagInput}
+                          onChange={(e) => setTagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ',') {
+                              e.preventDefault()
+                              handleAddTag(tagInput)
+                            }
+                            if (
+                              e.key === 'Backspace' &&
+                              tagInput === '' &&
+                              editTags.length > 0
+                            )
+                              handleRemoveTag(editTags[editTags.length - 1])
+                          }}
+                          placeholder={
+                            editTags.length === 0
+                              ? t('tagGallery.tagsPlaceholder')
+                              : ''
+                          }
+                          className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                        />
+                        {tagInput.length > 0 &&
+                          (() => {
+                            const suggestions = allTags.filter(
+                              (t) =>
+                                t.name.includes(tagInput.toLowerCase()) &&
+                                !editTags.includes(t.name),
+                            )
+                            const exactMatch = editTags.includes(
+                              tagInput.trim().toLowerCase(),
+                            )
+                            if (suggestions.length === 0 && exactMatch)
+                              return null
+                            return (
+                              <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
+                                {suggestions.slice(0, 8).map((tag) => (
+                                  <button
+                                    key={tag.id}
+                                    type="button"
+                                    onClick={() => handleAddTag(tag.name)}
+                                    className="w-full text-left px-3 py-1.5 text-sm hover:bg-accent"
+                                  >
+                                    {tag.name}
+                                  </button>
+                                ))}
+                                {suggestions.length === 0 && !exactMatch && (
+                                  <div className="px-3 py-1.5 text-sm text-muted-foreground">
+                                    {t('tagGallery.createTagHint', {
+                                      name: tagInput.trim(),
+                                    })}
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })()}
+                      </div>
+                    </div>
                   </div>
-                )}
-              </div>
 
-              <Separator />
+                  <Separator />
 
-              {/* Delete */}
-              <div className="flex justify-end">
-                <ConfirmDialog
-                  trigger={
-                    <Button variant="destructive" size="sm">
-                      <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-                      {t('common.delete')}
-                    </Button>
-                  }
-                  title={t('tagGallery.deleteBookmark')}
-                  description={t('tagGallery.deleteBookmarkDesc', {
-                    name: detail.name,
-                  })}
-                  onConfirm={() => handleDelete(detail.id)}
-                />
-              </div>
+                  {/* Images */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                        {t('tagGallery.images')}
+                      </Label>
+                      <div className="flex gap-1.5">
+                        <label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleUpload}
+                          />
+                          <Button size="xs" variant="outline" asChild>
+                            <span>
+                              <HugeiconsIcon
+                                icon={Upload04Icon}
+                                className="size-3.5"
+                              />
+                              {t('tagGallery.uploadImage')}
+                            </span>
+                          </Button>
+                        </label>
+                      </div>
+                    </div>
+
+                    {bookmarkDetail.images.length === 0 ? (
+                      <p className="text-sm text-muted-foreground py-4 text-center">
+                        {t('tagGallery.noImages')}
+                      </p>
+                    ) : (
+                      <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
+                        {bookmarkDetail.images.map((img) => {
+                          const src = img.thumbnailPath
+                            ? img.source === 'upload'
+                              ? `/api/tag-images/${img.thumbnailPath.replace('data/tag-images/', '')}`
+                              : `/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`
+                            : null
+                          return (
+                            <div
+                              key={img.id}
+                              className={`relative aspect-square rounded-md overflow-hidden bg-secondary group ${
+                                bookmarkDetail.thumbnailImageId === img.id
+                                  ? 'ring-2 ring-primary'
+                                  : ''
+                              }`}
+                            >
+                              {src ? (
+                                <img
+                                  src={src}
+                                  alt=""
+                                  className="w-full h-full object-cover cursor-pointer"
+                                  loading="lazy"
+                                  onClick={() => handleSetThumbnail(img.id)}
+                                  title={t('tagGallery.setThumbnail')}
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center">
+                                  <HugeiconsIcon
+                                    icon={Image02Icon}
+                                    className="size-4 text-muted-foreground/30"
+                                  />
+                                </div>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveImage(img.id)}
+                                className="absolute top-0.5 right-0.5 size-5 rounded-full bg-black/60 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                              >
+                                <HugeiconsIcon
+                                  icon={Cancel01Icon}
+                                  className="size-3"
+                                />
+                              </button>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Delete */}
+                  <div className="flex justify-end">
+                    <ConfirmDialog
+                      trigger={
+                        <Button variant="destructive" size="sm">
+                          <HugeiconsIcon
+                            icon={Delete02Icon}
+                            className="size-4"
+                          />
+                          {t('common.delete')}
+                        </Button>
+                      }
+                      title={t('tagGallery.deleteBookmark')}
+                      description={t('tagGallery.deleteBookmarkDesc', {
+                        name: bookmarkDetail.name,
+                      })}
+                      onConfirm={() => handleDelete(bookmarkDetail.id)}
+                    />
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>
