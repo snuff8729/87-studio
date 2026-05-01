@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Add01Icon,
   BookmarkAdd01Icon,
   Cancel01Icon,
   Delete02Icon,
@@ -12,7 +11,6 @@ import {
   Upload04Icon,
 } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
@@ -53,15 +51,12 @@ function TagGalleryPage() {
   const { t } = useTranslation()
 
   const [bookmarks, setBookmarks] = useState(initialBookmarks)
-  const [leftTab, setLeftTab] = useState<'bookmarks' | 'explore'>('bookmarks')
 
-  // Explore tab state
-  const [exploreQuery, setExploreQuery] = useState('')
-  const [exploreResults, setExploreResults] = useState<
+  // Danbooru search results (shown when searchText has 2+ chars)
+  const [danbooruResults, setDanbooruResults] = useState<
     Array<{ name: string; postCount: number; category: number }>
   >([])
-  const [exploreLoading, setExploreLoading] = useState(false)
-  const exploreTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const danbooruSearchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Selected tag name (from URL or user click) — works for any danbooru tag, not just bookmarks
   const [selectedTag, setSelectedTagState] = useState<string | null>(
@@ -115,14 +110,6 @@ function TagGalleryPage() {
   const memoTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const tagTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  // Create dialog state
-  const [creating, setCreating] = useState(false)
-  const [createQuery, setCreateQuery] = useState('')
-  const [searchResults, setSearchResults] = useState<
-    Array<{ name: string; postCount: number; category: number }>
-  >([])
-  const [isCustom, setIsCustom] = useState(false)
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   // Sync loader
   useEffect(() => {
@@ -176,32 +163,30 @@ function TagGalleryPage() {
     return () => {
       if (memoTimerRef.current) clearTimeout(memoTimerRef.current)
       if (tagTimerRef.current) clearTimeout(tagTimerRef.current)
-      if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-      if (exploreTimerRef.current) clearTimeout(exploreTimerRef.current)
+      if (danbooruSearchTimerRef.current) clearTimeout(danbooruSearchTimerRef.current)
     }
   }, [])
 
-  // Explore search
-  function handleExploreSearch(q: string) {
-    setExploreQuery(q)
-    if (exploreTimerRef.current) clearTimeout(exploreTimerRef.current)
-    if (q.trim().length < 2) {
-      setExploreResults([])
+  // Danbooru search when searchText changes
+  useEffect(() => {
+    if (danbooruSearchTimerRef.current) clearTimeout(danbooruSearchTimerRef.current)
+    if (searchText.trim().length < 2) {
+      setDanbooruResults([])
       return
     }
-    setExploreLoading(true)
-    exploreTimerRef.current = setTimeout(async () => {
+    danbooruSearchTimerRef.current = setTimeout(async () => {
       try {
         const results = await searchDanbooruTags({
-          data: { query: q.trim(), limit: 30 },
+          data: { query: searchText.trim(), limit: 20 },
         })
-        setExploreResults(results)
+        // Filter out tags that are already in bookmarks
+        const bmNames = new Set(bookmarks.map((b) => b.name))
+        setDanbooruResults(results.filter((r) => !bmNames.has(r.name)))
       } catch {
-        setExploreResults([])
+        setDanbooruResults([])
       }
-      setExploreLoading(false)
     }, 300)
-  }
+  }, [searchText, bookmarks])
 
   // ── Handlers ──
 
@@ -311,26 +296,6 @@ function TagGalleryPage() {
     reader.readAsDataURL(file)
   }
 
-  // Danbooru search for create dialog
-  function handleCreateQueryChange(q: string) {
-    setCreateQuery(q)
-    if (searchTimerRef.current) clearTimeout(searchTimerRef.current)
-    if (q.trim().length < 2) {
-      setSearchResults([])
-      return
-    }
-    searchTimerRef.current = setTimeout(async () => {
-      try {
-        const results = await searchDanbooruTags({
-          data: { query: q.trim(), limit: 10 },
-        })
-        setSearchResults(results)
-      } catch {
-        setSearchResults([])
-      }
-    }, 300)
-  }
-
   // Search/filter handlers
   function handleSearchInput(value: string) {
     const hashIdx = value.lastIndexOf('#')
@@ -379,107 +344,8 @@ function TagGalleryPage() {
       <div className="flex-1 flex min-h-0">
         {/* Left panel */}
         <div className="w-72 lg:w-80 border-r border-border flex flex-col shrink-0">
-          {/* Tabs */}
-          <div className="flex border-b border-border shrink-0">
-            <button
-              type="button"
-              onClick={() => setLeftTab('bookmarks')}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                leftTab === 'bookmarks'
-                  ? 'text-foreground border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t('tagGallery.tabBookmarks')}
-            </button>
-            <button
-              type="button"
-              onClick={() => setLeftTab('explore')}
-              className={`flex-1 py-2 text-sm font-medium transition-colors ${
-                leftTab === 'explore'
-                  ? 'text-foreground border-b-2 border-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {t('tagGallery.tabExplore')}
-            </button>
-          </div>
-
-          {leftTab === 'explore' ? (
-            <>
-              {/* Explore search */}
-              <div className="p-3 border-b border-border">
-                <div className="relative">
-                  <HugeiconsIcon
-                    icon={Search01Icon}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-                  />
-                  <Input
-                    value={exploreQuery}
-                    onChange={(e) => handleExploreSearch(e.target.value)}
-                    placeholder={t('tagGallery.exploreSearch')}
-                    className="h-8 pl-8 text-sm"
-                  />
-                </div>
-              </div>
-
-              {/* Explore results */}
-              <div className="flex-1 overflow-y-auto">
-                {exploreQuery.trim().length < 2 ? (
-                  <div className="flex items-center justify-center py-12 px-4">
-                    <p className="text-sm text-muted-foreground text-center">
-                      {t('tagGallery.exploreHint')}
-                    </p>
-                  </div>
-                ) : exploreLoading ? (
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-sm text-muted-foreground">
-                      {t('common.loading')}
-                    </p>
-                  </div>
-                ) : exploreResults.length === 0 ? (
-                  <div className="flex items-center justify-center py-12">
-                    <p className="text-sm text-muted-foreground">
-                      {t('tagGallery.noResults')}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {exploreResults.map((r) => {
-                      const isBm = bookmarks.some((b) => b.name === r.name)
-                      return (
-                        <button
-                          key={r.name}
-                          type="button"
-                          onClick={() => setSelectedTag(r.name)}
-                          className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors ${
-                            selectedTag === r.name ? 'bg-accent' : ''
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm truncate">
-                              {r.name.replace(/_/g, ' ')}
-                            </span>
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              {isBm && (
-                                <span className="size-1.5 rounded-full bg-primary" />
-                              )}
-                              <span className="text-xs text-muted-foreground">
-                                {r.postCount.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-          {/* Bookmarks: Search + create */}
-          <div className="p-3 space-y-2 border-b border-border">
+          {/* Search */}
+          <div className="p-3 border-b border-border">
             <div className="relative">
               <HugeiconsIcon
                 icon={Search01Icon}
@@ -565,99 +431,12 @@ function TagGalleryPage() {
                 </div>
               )}
             </div>
-
-            {/* Create button / dialog */}
-            {creating ? (
-              <div className="space-y-2">
-                <Input
-                  value={createQuery}
-                  onChange={(e) => handleCreateQueryChange(e.target.value)}
-                  placeholder={t('tagGallery.searchDanbooru')}
-                  className="h-8 text-sm"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && isCustom && createQuery.trim())
-                      handleCreateBookmark(createQuery)
-                    if (e.key === 'Escape') {
-                      setCreating(false)
-                      setCreateQuery('')
-                      setSearchResults([])
-                      setIsCustom(false)
-                    }
-                  }}
-                />
-                {searchResults.length > 0 && !isCustom && (
-                  <div className="border border-border rounded-md max-h-40 overflow-y-auto">
-                    {searchResults.map((r) => (
-                      <button
-                        key={r.name}
-                        type="button"
-                        onClick={() => handleCreateBookmark(r.name)}
-                        className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
-                      >
-                        <span>{r.name.replace(/_/g, ' ')}</span>
-                        <span className="text-xs text-muted-foreground">
-                          {r.postCount.toLocaleString()}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="flex gap-1.5">
-                  <Button
-                    size="xs"
-                    variant={isCustom ? 'default' : 'outline'}
-                    onClick={() => setIsCustom(!isCustom)}
-                  >
-                    {t('tagGallery.customName')}
-                  </Button>
-                  {isCustom && (
-                    <Button
-                      size="xs"
-                      onClick={() => handleCreateBookmark(createQuery)}
-                      disabled={!createQuery.trim()}
-                    >
-                      {t('common.create')}
-                    </Button>
-                  )}
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    onClick={() => {
-                      setCreating(false)
-                      setCreateQuery('')
-                      setSearchResults([])
-                      setIsCustom(false)
-                    }}
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => setCreating(true)}
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-4" />
-                {t('tagGallery.addBookmark')}
-              </Button>
-            )}
           </div>
 
-          {/* Bookmark list */}
+          {/* Results */}
           <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                <p className="text-sm text-muted-foreground">
-                  {bookmarks.length === 0
-                    ? t('tagGallery.noBookmarks')
-                    : t('tagGallery.noBookmarksDesc')}
-                </p>
-              </div>
-            ) : (
+            {/* Bookmarks section */}
+            {filtered.length > 0 && (
               <div className="p-2 grid grid-cols-2 gap-1.5">
                 {filtered.map((bm) => {
                   const isActive = selectedTag === bm.name
@@ -733,9 +512,54 @@ function TagGalleryPage() {
                 })}
               </div>
             )}
+
+            {/* Danbooru search results (when searching) */}
+            {searchText.trim().length >= 2 && danbooruResults.length > 0 && (
+              <>
+                {filtered.length > 0 && (
+                  <div className="px-3 py-1.5">
+                    <span className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                      Danbooru
+                    </span>
+                  </div>
+                )}
+                <div className="divide-y divide-border">
+                  {danbooruResults.map((r) => (
+                    <button
+                      key={r.name}
+                      type="button"
+                      onClick={() => setSelectedTag(r.name)}
+                      className={`w-full text-left px-3 py-2 hover:bg-accent transition-colors ${
+                        selectedTag === r.name ? 'bg-accent' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm truncate">
+                          {r.name.replace(/_/g, ' ')}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {r.postCount.toLocaleString()}
+                        </span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            {/* Empty state */}
+            {filtered.length === 0 && danbooruResults.length === 0 && (
+              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+                <p className="text-sm text-muted-foreground">
+                  {searchText.trim().length >= 2
+                    ? t('tagGallery.noResults')
+                    : bookmarks.length === 0
+                      ? t('tagGallery.noBookmarks')
+                      : t('tagGallery.noBookmarksDesc')}
+                </p>
+              </div>
+            )}
           </div>
-            </>
-          )}
         </div>
 
         {/* Right panel — detail (any tag, bookmarked or not) */}
