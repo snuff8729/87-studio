@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import {
+  BookmarkCheck01Icon,
   FileSearchIcon,
   Home03Icon,
   Image02Icon,
@@ -35,6 +36,11 @@ const navItems = [
     to: '/bundles',
     key: 'nav.bundles' as TranslationKeys,
     icon: Package01Icon,
+  },
+  {
+    to: '/tags',
+    key: 'nav.tags' as TranslationKeys,
+    icon: BookmarkCheck01Icon,
   },
   {
     to: '/settings',
