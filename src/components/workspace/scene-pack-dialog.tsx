@@ -1,11 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   ArrowDown01Icon,
-  ArrowExpand01Icon,
   Cancel01Icon,
   Delete02Icon,
   FileImportIcon,
@@ -15,12 +14,15 @@ import {
 } from '@hugeicons/core-free-icons'
 import { ImportDialog } from './import-dialog'
 import { useTranslation } from '@/lib/i18n'
+import { useBundleNames } from '@/lib/use-bundles'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
+import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
+import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
+import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 import {
   Select,
   SelectContent,
@@ -47,6 +49,35 @@ import {
   updateScene,
 } from '@/server/functions/scenes'
 import { assignScenePack } from '@/server/functions/projects'
+
+const PromptEditor = lazy(() =>
+  import('@/components/prompt-editor/prompt-editor').then((m) => ({
+    default: m.PromptEditor,
+  })),
+)
+
+function ScenePromptEditor(props: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  bundleNames?: Array<{ name: string; content: string }>
+}) {
+  return (
+    <Suspense
+      fallback={
+        <Textarea
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          placeholder={props.placeholder}
+          className="font-mono text-base min-h-[3rem]"
+          rows={2}
+        />
+      }
+    >
+      <PromptEditor {...props} minHeight="3rem" />
+    </Suspense>
+  )
+}
 
 interface ScenePackDialogProps {
   projectId: number
@@ -688,6 +719,7 @@ function SceneEditPanel({
   onUpdated: () => void
 }) {
   const { t } = useTranslation()
+  const bundleNamesForEditor = useBundleNames()
   const [name, setName] = useState(scene.name)
   const [values, setValues] =
     useState<Record<string, string>>(initialPlaceholders)
@@ -696,16 +728,16 @@ function SceneEditPanel({
     'idle',
   )
   const [expandKey, setExpandKey] = useState<string | null>(null)
+  const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
+  const [tagGalleryKey, setTagGalleryKey] = useState<string | null>(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Reset state when scene changes
   useEffect(() => {
     setName(scene.name)
     setValues(JSON.parse(scene.placeholders || '{}'))
   }, [scene.id, scene.name, scene.placeholders])
 
-  // Debounced auto-save
   const debouncedSave = useCallback(
     (updatedName: string, updatedValues: Record<string, string>) => {
       if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -759,9 +791,16 @@ function SceneEditPanel({
     debouncedSave(name, next)
   }
 
+  function handleInsertTag(tagName: string) {
+    if (!tagGalleryKey) return
+    const current = values[tagGalleryKey] ?? ''
+    const newVal = current ? current.trimEnd() + ', ' + tagName : tagName
+    handleValueChange(tagGalleryKey, newVal)
+  }
+
   return (
-    <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-3 transition-all">
-      {/* Header: name + collapse/delete */}
+    <div className="rounded-lg border border-primary/40 bg-primary/5 p-4 space-y-4 transition-all">
+      {/* Header */}
       <div className="flex items-center gap-2">
         <Input
           value={name}
@@ -770,7 +809,6 @@ function SceneEditPanel({
           placeholder={t('scene.sceneName')}
         />
         <div className="flex items-center gap-1 shrink-0">
-          {/* Save status */}
           {saveStatus === 'saving' && (
             <span className="text-xs text-muted-foreground animate-pulse">
               {t('templates.saving')}
@@ -798,36 +836,46 @@ function SceneEditPanel({
         </div>
       </div>
 
-      {/* Placeholder key-value pairs */}
+      {/* Placeholder key-value pairs — vertical card layout */}
       {Object.keys(values).length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {Object.entries(values).map(([key, val]) => (
-            <div key={key} className="flex gap-2 items-start">
-              <span className="text-sm font-mono text-muted-foreground min-w-20 sm:min-w-24 pt-2.5 shrink-0 inline-block rounded bg-secondary/60 px-2 py-1 text-center truncate">
-                {`@{slot:${key}}`}
-              </span>
-              <Textarea
-                value={val}
-                onChange={(e) => handleValueChange(key, e.target.value)}
-                placeholder={t('templates.valueForKey', { key })}
-                className="flex-1 text-base font-mono min-h-10 py-2 px-3 rounded-lg"
-              />
-              <button
-                type="button"
-                onClick={() => setExpandKey(key)}
-                className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors mt-2 shrink-0"
-                title={t('workspace.expandEditor')}
-              >
-                <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
-              </button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                onClick={() => removeKey(key)}
-                className="text-destructive shrink-0 mt-1.5"
-              >
-                <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-              </Button>
+            <div
+              key={key}
+              className="rounded-md border border-border/60 bg-background/50 overflow-hidden"
+            >
+              {/* Key header with actions */}
+              <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/30 border-b border-border/40">
+                <span className="text-xs font-mono text-muted-foreground truncate">
+                  {`@{slot:${key}}`}
+                </span>
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <PromptEditorHeader
+                    label=""
+                    onOpenTagGallery={() => {
+                      setTagGalleryKey(key)
+                      setTagGalleryOpen(true)
+                    }}
+                    onExpand={() => setExpandKey(key)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeKey(key)}
+                    className="text-destructive/60 hover:text-destructive p-0.5 rounded transition-colors"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
+                  </button>
+                </div>
+              </div>
+              {/* Value editor */}
+              <div className="p-2">
+                <ScenePromptEditor
+                  value={val}
+                  onChange={(v) => handleValueChange(key, v)}
+                  placeholder={t('templates.valueForKey', { key })}
+                  bundleNames={bundleNamesForEditor}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -852,7 +900,7 @@ function SceneEditPanel({
         </Button>
       </div>
 
-      <ExpandedTextareaDialog
+      <ExpandedEditorDialog
         open={expandKey !== null}
         onOpenChange={(open) => {
           if (!open) setExpandKey(null)
@@ -862,9 +910,12 @@ function SceneEditPanel({
         onChange={(val) => {
           if (expandKey) handleValueChange(expandKey, val)
         }}
-        placeholder={
-          expandKey ? t('templates.valueForKey', { key: expandKey }) : ''
-        }
+        bundleNames={bundleNamesForEditor}
+      />
+      <TagGalleryDialog
+        open={tagGalleryOpen}
+        onOpenChange={setTagGalleryOpen}
+        onInsertTag={handleInsertTag}
       />
     </div>
   )
