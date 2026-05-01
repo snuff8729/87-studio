@@ -1,4 +1,13 @@
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import {
+  Suspense,
+  lazy,
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -12,10 +21,40 @@ import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-di
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { resolvePlaceholders } from '@/lib/placeholder'
 import { resolveBundles } from '@/lib/bundle'
-import { useBundleMap } from '@/lib/use-bundles'
+import { useBundleMap, useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
+
+const PromptEditor = lazy(() =>
+  import('@/components/prompt-editor/prompt-editor').then((m) => ({
+    default: m.PromptEditor,
+  })),
+)
+
+function PlaceholderPromptEditor(props: {
+  value: string
+  onChange: (v: string) => void
+  placeholder?: string
+  bundleNames?: Array<{ name: string; content: string }>
+}) {
+  return (
+    <Suspense
+      fallback={
+        <Textarea
+          value={props.value}
+          onChange={(e) => props.onChange(e.target.value)}
+          placeholder={props.placeholder}
+          className="font-mono text-base min-h-12 sm:min-h-[5rem]"
+          rows={2}
+        />
+      }
+    >
+      <PromptEditor {...props} minHeight="3rem" />
+    </Suspense>
+  )
+}
 
 function StatusDot({
   filled,
@@ -81,6 +120,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 }: PlaceholderEditorProps) {
   const { t } = useTranslation()
   const bundleMap = useBundleMap()
+  const bundleNamesForEditor = useBundleNames()
 
   // ── Collapsed state ──
   const [collapsedSections, setCollapsedSections] = useState<Set<number>>(
@@ -731,11 +771,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       />
                     </button>
                   </div>
-                  <textarea
-                    value={getCellValue(key, 'general')}
-                    onChange={(e) =>
-                      handleCellChange('general', key, e.target.value)
-                    }
+                  <div
                     onFocus={() => {
                       pinnedCellRef.current = {
                         key: `g:${key}`,
@@ -743,10 +779,14 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       }
                     }}
                     onBlur={() => handleSectionBlur(`g:${key}`)}
-                    rows={2}
-                    className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
-                    placeholder={t('scene.valueFor', { key })}
-                  />
+                  >
+                    <PlaceholderPromptEditor
+                      value={getCellValue(key, 'general')}
+                      onChange={(v) => handleCellChange('general', key, v)}
+                      placeholder={t('scene.valueFor', { key })}
+                      bundleNames={bundleNamesForEditor}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -776,11 +816,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       />
                     </button>
                   </div>
-                  <textarea
-                    value={getCellValue(key, charId)}
-                    onChange={(e) =>
-                      handleCellChange(charId, key, e.target.value)
-                    }
+                  <div
                     onFocus={() => {
                       pinnedCellRef.current = {
                         key: `c:${charId}:${key}`,
@@ -788,10 +824,14 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                       }
                     }}
                     onBlur={() => handleSectionBlur(`c:${charId}:${key}`)}
-                    rows={2}
-                    className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
-                    placeholder={`${charName}: ${key}`}
-                  />
+                  >
+                    <PlaceholderPromptEditor
+                      value={getCellValue(key, charId)}
+                      onChange={(v) => handleCellChange(charId, key, v)}
+                      placeholder={`${charName}: ${key}`}
+                      bundleNames={bundleNamesForEditor}
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -848,11 +888,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                           />
                         </button>
                       </div>
-                      <textarea
-                        value={getCellValue(key, 'general')}
-                        onChange={(e) =>
-                          handleCellChange('general', key, e.target.value)
-                        }
+                      <div
                         onFocus={() => {
                           pinnedCellRef.current = {
                             key: `g:${key}`,
@@ -860,10 +896,14 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                           }
                         }}
                         onBlur={() => handleSectionBlur(`g:${key}`)}
-                        rows={2}
-                        className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
-                        placeholder={t('scene.valueFor', { key })}
-                      />
+                      >
+                        <PlaceholderPromptEditor
+                          value={getCellValue(key, 'general')}
+                          onChange={(v) => handleCellChange('general', key, v)}
+                          placeholder={t('scene.valueFor', { key })}
+                          bundleNames={bundleNamesForEditor}
+                        />
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -926,11 +966,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                 />
                               </button>
                             </div>
-                            <textarea
-                              value={getEffectiveCharValue(key, charId)}
-                              onChange={(e) =>
-                                handleCellChange(charId, key, e.target.value)
-                              }
+                            <div
                               onFocus={() => {
                                 pinnedCellRef.current = {
                                   key: `c:${charId}:${key}`,
@@ -940,10 +976,14 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                               onBlur={() =>
                                 handleSectionBlur(`c:${charId}:${key}`)
                               }
-                              rows={2}
-                              className="w-full rounded-lg border border-border bg-input/30 px-3 py-2 text-base font-mono placeholder:text-muted-foreground/40 focus:border-primary/50 focus:ring-1 focus:ring-primary/20 focus:outline-none resize-y min-h-12 sm:min-h-[5rem] transition-all"
-                              placeholder={`${charName}: ${key}`}
-                            />
+                            >
+                              <PlaceholderPromptEditor
+                                value={getEffectiveCharValue(key, charId)}
+                                onChange={(v) => handleCellChange(charId, key, v)}
+                                placeholder={`${charName}: ${key}`}
+                                bundleNames={bundleNamesForEditor}
+                              />
+                            </div>
                           </div>
                         ))}
                       </div>
