@@ -99,6 +99,12 @@ export const darkTheme = EditorView.theme(
       {
         color: 'oklch(0.75 0.08 200)',
       },
+    // Danbooru tag categories
+    '.cm-completionIcon-tag-general::after': { content: "'G'", color: 'oklch(0.7 0.12 250)', fontWeight: '700' },
+    '.cm-completionIcon-tag-artist::after': { content: "'A'", color: 'oklch(0.7 0.15 25)', fontWeight: '700' },
+    '.cm-completionIcon-tag-copyright::after': { content: "'C'", color: 'oklch(0.7 0.15 310)', fontWeight: '700' },
+    '.cm-completionIcon-tag-character::after': { content: "'C'", color: 'oklch(0.7 0.15 145)', fontWeight: '700' },
+    '.cm-completionIcon-tag-meta::after': { content: "'M'", color: 'oklch(0.7 0.12 70)', fontWeight: '700' },
     // Bundle hover tooltip — compact card
     '.cm-tooltip-bundle-preview': {
       backgroundColor: 'oklch(0.20 0.008 70)',
@@ -231,6 +237,12 @@ export const lightTheme = EditorView.theme(
       {
         color: 'oklch(0.35 0.1 200)',
       },
+    // Danbooru tag categories
+    '.cm-completionIcon-tag-general::after': { content: "'G'", color: 'oklch(0.45 0.12 250)', fontWeight: '700' },
+    '.cm-completionIcon-tag-artist::after': { content: "'A'", color: 'oklch(0.45 0.15 25)', fontWeight: '700' },
+    '.cm-completionIcon-tag-copyright::after': { content: "'C'", color: 'oklch(0.45 0.15 310)', fontWeight: '700' },
+    '.cm-completionIcon-tag-character::after': { content: "'C'", color: 'oklch(0.45 0.15 145)', fontWeight: '700' },
+    '.cm-completionIcon-tag-meta::after': { content: "'M'", color: 'oklch(0.45 0.12 70)', fontWeight: '700' },
     '.cm-tooltip-bundle-preview': {
       backgroundColor: 'oklch(0.985 0 0)',
       border: '1px solid oklch(0.922 0 0)',

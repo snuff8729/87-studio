@@ -1,48 +1,23 @@
-import type {
-  Completion,
-  CompletionContext,
-  CompletionResult,
-} from '@codemirror/autocomplete'
+import type { Completion } from '@codemirror/autocomplete'
+import {
+  searchDanbooruTags,
+  type DanbooruTag,
+} from '@/server/functions/danbooru'
 
-// In-memory tag database (loaded on first use)
-let tagDatabase: Array<{ name: string; category: number; postCount: number }> =
-  []
-let loaded = false
-
-export async function loadTagDatabase() {
-  if (loaded) return
-  try {
-    const response = await fetch('/danbooru-tags.json')
-    if (response.ok) {
-      tagDatabase = await response.json()
-    }
-  } catch {
-    // Tags file not available yet, that's fine
-  }
-  loaded = true
+const CATEGORY_TYPE: Record<number, string> = {
+  0: 'tag-general',
+  1: 'tag-artist',
+  3: 'tag-copyright',
+  4: 'tag-character',
+  5: 'tag-meta',
 }
 
-export function searchTags(query: string, limit = 15): Array<Completion> {
-  if (!query || tagDatabase.length === 0) return []
-
-  const lower = query.toLowerCase()
-  const matches = tagDatabase
-    .filter((t) => t.name.includes(lower))
-    .sort((a, b) => {
-      // Exact prefix match first
-      const aPrefix = a.name.startsWith(lower) ? 0 : 1
-      const bPrefix = b.name.startsWith(lower) ? 0 : 1
-      if (aPrefix !== bPrefix) return aPrefix - bPrefix
-      return b.postCount - a.postCount
-    })
-    .slice(0, limit)
-
-  return matches.map((t) => ({
-    label: t.name.replace(/_/g, ' '),
-    detail: `${formatCount(t.postCount)}`,
-    type: 'tag',
-    apply: t.name.replace(/_/g, ' '),
-  }))
+const CATEGORY_LABEL: Record<number, string> = {
+  0: 'general',
+  1: 'artist',
+  3: 'copyright',
+  4: 'character',
+  5: 'meta',
 }
 
 function formatCount(n: number): string {
@@ -51,24 +26,28 @@ function formatCount(n: number): string {
   return String(n)
 }
 
-export function danbooruCompletion(
-  context: CompletionContext,
-): CompletionResult | null {
-  // Trigger after comma or at start of tag
-  const beforeCursor = context.state.sliceDoc(0, context.pos)
-  const lastComma = beforeCursor.lastIndexOf(',')
-  const afterComma = beforeCursor.slice(lastComma + 1).trimStart()
-
-  if (afterComma.length < 2) return null
-
-  const from = context.pos - afterComma.length
-  const options = searchTags(afterComma)
-
-  if (options.length === 0) return null
-
+function tagToCompletion(t: DanbooruTag): Completion {
+  const displayName = t.name.replace(/_/g, ' ')
   return {
-    from,
-    options,
-    validFor: /^[^\s,]*$/,
+    label: displayName,
+    detail: `${CATEGORY_LABEL[t.category] ?? 'tag'} · ${formatCount(t.postCount)}`,
+    type: CATEGORY_TYPE[t.category] ?? 'tag-general',
+    apply: displayName,
+  }
+}
+
+export async function searchTags(
+  query: string,
+  limit = 15,
+): Promise<Array<Completion>> {
+  if (!query || query.length < 2) return []
+
+  try {
+    const tags = await searchDanbooruTags({
+      data: { query: query.toLowerCase(), limit },
+    })
+    return tags.map(tagToCompletion)
+  } catch {
+    return []
   }
 }

@@ -41,16 +41,17 @@ function bundleCompletions(query: string): Array<Completion> {
     .slice(0, 10)
     .map((b) => ({
       label: b.name,
-      detail: b.content.length > 30 ? b.content.slice(0, 30) + '...' : b.content,
+      detail:
+        b.content.length > 30 ? b.content.slice(0, 30) + '...' : b.content,
       type: 'variable',
       apply: `@{bundle:${b.name}}`,
       boost: 1,
     }))
 }
 
-export function unifiedCompletion(
+export async function unifiedCompletion(
   context: CompletionContext,
-): CompletionResult | null {
+): Promise<CompletionResult | null> {
   const beforeCursor = context.state.sliceDoc(0, context.pos)
 
   // ── Mode 1: Inside @{ ... } ──
@@ -72,14 +73,18 @@ export function unifiedCompletion(
             type: 'property',
             apply: `slot:${name}}`,
           }))
-        return options.length > 0 ? { from, options, validFor: /^[^}]*$/ } : null
+        return options.length > 0
+          ? { from, options, validFor: /^[^}]*$/ }
+          : null
       }
 
       // Already typed "bundle:" prefix
       if (query.startsWith('bundle:')) {
         const nameQuery = query.slice(7)
         const options: Array<Completion> = bundleNames
-          .filter((b) => !nameQuery || b.name.toLowerCase().includes(nameQuery))
+          .filter(
+            (b) => !nameQuery || b.name.toLowerCase().includes(nameQuery),
+          )
           .slice(0, 15)
           .map((b) => ({
             label: `bundle:${b.name}`,
@@ -90,23 +95,34 @@ export function unifiedCompletion(
             type: 'variable',
             apply: `bundle:${b.name}}`,
           }))
-        return options.length > 0 ? { from, options, validFor: /^[^}]*$/ } : null
+        return options.length > 0
+          ? { from, options, validFor: /^[^}]*$/ }
+          : null
       }
 
       // No prefix yet — show both slot: and bundle: options
       const options: Array<Completion> = [
         ...slotNames
-          .filter((n) => !query || n.toLowerCase().includes(query) || 'slot:'.includes(query))
+          .filter(
+            (n) =>
+              !query ||
+              n.toLowerCase().includes(query) ||
+              'slot:'.includes(query),
+          )
           .slice(0, 8)
           .map((name) => ({
             label: `slot:${name}`,
-            detail: 'slot',
             type: 'property' as const,
             apply: `slot:${name}}`,
             boost: 2,
           })),
         ...bundleNames
-          .filter((b) => !query || b.name.toLowerCase().includes(query) || 'bundle:'.includes(query))
+          .filter(
+            (b) =>
+              !query ||
+              b.name.toLowerCase().includes(query) ||
+              'bundle:'.includes(query),
+          )
           .slice(0, 8)
           .map((b) => ({
             label: `bundle:${b.name}`,
@@ -120,7 +136,9 @@ export function unifiedCompletion(
           })),
       ]
 
-      return options.length > 0 ? { from, options, validFor: /^[^}]*$/ } : null
+      return options.length > 0
+        ? { from, options, validFor: /^[^}]*$/ }
+        : null
     }
   }
 
@@ -138,7 +156,7 @@ export function unifiedCompletion(
 
   const slots = slotCompletions(query)
   const bundles = bundleCompletions(query)
-  const tags = searchTags(afterComma, 10)
+  const tags = await searchTags(afterComma, 10)
 
   const options = [...slots, ...bundles, ...tags]
 
