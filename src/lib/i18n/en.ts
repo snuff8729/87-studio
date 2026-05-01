@@ -260,8 +260,8 @@ const en = {
     characters: 'Characters',
     noCharactersEmpty: 'No characters. Add one for multi-character images.',
     characterName: 'Character name',
-    promptPlaceholder: 'Enter general prompt with \\\\placeholders\\\\...',
-    charPromptPlaceholder: '{{name}} prompt with \\\\placeholders\\\\...',
+    promptPlaceholder: 'Enter general prompt with @{slot:placeholders}...',
+    charPromptPlaceholder: '{{name}} prompt with @{slot:placeholders}...',
     negativePromptPlaceholder: 'Enter negative prompt...',
     charNegativePlaceholder: '{{name}} negative...',
     expandEditor: 'Expand editor',
@@ -472,7 +472,7 @@ const en = {
     generalPrompt: 'General Prompt',
     negativePrompt: 'Negative Prompt',
     addPlaceholders:
-      'Add \\\\placeholders\\\\ to your prompts to create key slots.',
+      'Add @{slot:name} to your prompts to create key slots.',
     empty: 'Empty',
     keyAlreadyExists: 'Key already exists',
     failedToAddKey: 'Failed to add key',
@@ -628,7 +628,7 @@ const en = {
     step4: {
       title: 'Write a Prompt',
       description:
-        'Write your image generation prompt. Use \\\\placeholder\\\\ syntax to create variable slots that can change per scene. For example: "1girl, \\\\expression\\\\, \\\\background\\\\"',
+        'Write your image generation prompt. Use @{slot:name} syntax to create variable slots that can change per scene. For example: "1girl, @{slot:expression}, @{slot:background}"',
     },
     step5: {
       title: 'Add a Scene',
@@ -643,7 +643,7 @@ const en = {
     step7: {
       title: 'Fill Placeholders',
       description:
-        'Fill in the placeholder values for your scene. These values replace the \\\\placeholders\\\\ in your prompt.',
+        'Fill in the placeholder values for your scene. These values replace the @{slot:name} references in your prompt.',
     },
     step8: {
       title: 'Generate Images',

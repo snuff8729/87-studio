@@ -14,7 +14,7 @@ function checkCondition(check: string): boolean {
     const el = document.querySelector('[data-onboarding="prompt-editor"]')
     if (el) {
       const text = el.textContent || ''
-      return /\\\\.+?\\\\/.test(text)
+      return /@\{slot:.+?\}/.test(text)
     }
   } else if (check === 'scene-exists') {
     const items = document.querySelectorAll('[data-onboarding="scene-item"]')

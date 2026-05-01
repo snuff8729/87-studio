@@ -81,7 +81,7 @@ export function synthesizePrompts(
   const bundleMap = loadBundleMap()
   const usedBundleIds = new Set<number>()
 
-  // 1) Resolve @{bundles} first, then \\placeholders\\
+  // 1) Resolve @{bundle:...} first, then @{slot:...}
   const generalPrompt = resolvePlaceholders(
     resolveBundlesWithTracking(
       project.generalPrompt || '',

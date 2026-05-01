@@ -265,9 +265,9 @@ const ko: DeepStringify<typeof en> = {
       '캐릭터가 없습니다. 다중 캐릭터 이미지를 위해 추가하세요.',
     characterName: '캐릭터 이름',
     promptPlaceholder:
-      '\\\\placeholders\\\\를 포함한 일반 프롬프트를 입력하세요...',
+      '@{slot:placeholders}를 포함한 일반 프롬프트를 입력하세요...',
     charPromptPlaceholder:
-      '{{name}} 프롬프트 (\\\\placeholders\\\\ 사용 가능)...',
+      '{{name}} 프롬프트 (@{slot:placeholders} 사용 가능)...',
     negativePromptPlaceholder: '네거티브 프롬프트를 입력하세요...',
     charNegativePlaceholder: '{{name}} 네거티브...',
     expandEditor: '에디터 확대',
@@ -480,7 +480,7 @@ const ko: DeepStringify<typeof en> = {
     generalPrompt: '일반 프롬프트',
     negativePrompt: '네거티브 프롬프트',
     addPlaceholders:
-      '프롬프트에 \\\\placeholders\\\\를 추가하여 키 슬롯을 만드세요.',
+      '프롬프트에 @{slot:name}를 추가하여 키 슬롯을 만드세요.',
     empty: '비어있음',
     keyAlreadyExists: '이미 존재하는 키입니다',
     failedToAddKey: '키 추가에 실패했습니다',
@@ -637,7 +637,7 @@ const ko: DeepStringify<typeof en> = {
     step4: {
       title: '프롬프트 작성',
       description:
-        '이미지 생성 프롬프트를 작성하세요. \\\\placeholder\\\\ 구문을 사용하여 씬마다 변경되는 변수 슬롯을 만들 수 있습니다. 예: "1girl, \\\\expression\\\\, \\\\background\\\\"',
+        '이미지 생성 프롬프트를 작성하세요. @{slot:name} 구문을 사용하여 씬마다 변경되는 변수 슬롯을 만들 수 있습니다. 예: "1girl, @{slot:expression}, @{slot:background}"',
     },
     step5: {
       title: '씬 추가',
@@ -652,7 +652,7 @@ const ko: DeepStringify<typeof en> = {
     step7: {
       title: '플레이스홀더 입력',
       description:
-        '씬의 플레이스홀더 값을 입력하세요. 이 값들이 프롬프트의 \\\\placeholders\\\\를 대체합니다.',
+        '씬의 플레이스홀더 값을 입력하세요. 이 값들이 프롬프트의 @{slot:name}를 대체합니다.',
     },
     step8: {
       title: '이미지 생성',
