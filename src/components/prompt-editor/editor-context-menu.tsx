@@ -26,9 +26,13 @@ export interface ContextMenuTarget {
   to: number
 }
 
+// NAI category prefixes (artist:, character:, etc.) — strip from tag name
+const NAI_PREFIX_RE = /^(artist|character|copyright|general|meta):/
+
 /**
  * Parse comma-separated tag segments from a text region.
- * Each segment is trimmed; @{...} references and empty segments are skipped.
+ * Strips NAI category prefixes (artist:, character:, etc.) from tag names.
+ * @{...} references and empty segments are skipped.
  */
 function parseTagSegments(
   text: string,
@@ -42,11 +46,17 @@ function parseTagSegments(
       const trimmed = raw.trim()
       if (trimmed && !trimmed.startsWith('@{')) {
         const trimStart = start + raw.indexOf(trimmed)
-        segments.push({
-          text: trimmed,
-          from: baseOffset + trimStart,
-          to: baseOffset + trimStart + trimmed.length,
-        })
+        // Strip NAI category prefix
+        const prefixMatch = trimmed.match(NAI_PREFIX_RE)
+        const tagName = prefixMatch ? trimmed.slice(prefixMatch[0].length) : trimmed
+        const nameOffset = prefixMatch ? prefixMatch[0].length : 0
+        if (tagName) {
+          segments.push({
+            text: tagName,
+            from: baseOffset + trimStart + nameOffset,
+            to: baseOffset + trimStart + nameOffset + tagName.length,
+          })
+        }
       }
       start = i + 1
     }
