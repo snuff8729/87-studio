@@ -7,7 +7,7 @@ import { darkTheme, lightTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
-import { invalidRefHighlight } from './invalid-ref-highlight'
+import { invalidRefHighlight, invalidRefTooltip } from './invalid-ref-highlight'
 import { loadTagDatabase } from './danbooru-completion'
 import { setBundleNames, setSlotNames, unifiedCompletion } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
@@ -89,6 +89,7 @@ export function PromptEditor({
         bundleHighlight,
         weightHighlight,
         invalidRefHighlight,
+        invalidRefTooltip,
         bundleTooltip,
         autocompletion({
           override: [unifiedCompletion],

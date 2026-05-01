@@ -90,6 +90,11 @@ export const darkTheme = EditorView.theme(
       lineHeight: '1.5',
       boxShadow: '0 4px 12px oklch(0 0 0 / 40%)',
     },
+    '.cm-tooltip-invalid-ref': {
+      color: 'oklch(0.85 0.15 25)',
+      fontSize: '11px',
+      padding: '4px 8px',
+    },
     '.cm-tooltip-bundle-name': {
       color: 'oklch(0.72 0.12 200)',
       fontWeight: '600',
@@ -195,6 +200,11 @@ export const lightTheme = EditorView.theme(
       fontSize: '11px',
       lineHeight: '1.5',
       boxShadow: '0 4px 12px oklch(0 0 0 / 10%)',
+    },
+    '.cm-tooltip-invalid-ref': {
+      color: 'oklch(0.45 0.18 25)',
+      fontSize: '11px',
+      padding: '4px 8px',
     },
     '.cm-tooltip-bundle-name': {
       color: 'oklch(0.45 0.12 200)',

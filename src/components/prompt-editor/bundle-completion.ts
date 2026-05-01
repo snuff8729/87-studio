@@ -29,7 +29,6 @@ function slotCompletions(query: string): Array<Completion> {
     .slice(0, 10)
     .map((name) => ({
       label: name,
-      detail: 'slot',
       type: 'property',
       apply: `@{slot:${name}}`,
       boost: 2,
@@ -70,7 +69,6 @@ export function unifiedCompletion(
           .slice(0, 15)
           .map((name) => ({
             label: `slot:${name}`,
-            detail: 'slot',
             type: 'property',
             apply: `slot:${name}}`,
           }))
