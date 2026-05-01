@@ -7,6 +7,7 @@ import { darkTheme, lightTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
+import { invalidRefHighlight } from './invalid-ref-highlight'
 import { danbooruCompletion, loadTagDatabase } from './danbooru-completion'
 import { bundleCompletion, setBundleNames } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
@@ -79,6 +80,7 @@ export function PromptEditor({
         placeholderHighlight,
         bundleHighlight,
         weightHighlight,
+        invalidRefHighlight,
         bundleTooltip,
         autocompletion({
           override: [bundleCompletion, danbooruCompletion],

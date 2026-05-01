@@ -6,7 +6,7 @@ const bundleDeco = Decoration.mark({ class: 'cm-bundle-highlight' })
 function findBundles(doc: { toString: () => string }) {
   const decorations: Array<{ from: number; to: number }> = []
   const text = doc.toString()
-  const re = /@\{[^}]+\}/g
+  const re = /@\{bundle:[^}]+\}/g
   let match
   while ((match = re.exec(text)) !== null) {
     decorations.push({ from: match.index, to: match.index + match[0].length })

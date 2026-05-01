@@ -50,6 +50,13 @@ export const darkTheme = EditorView.theme(
       padding: '1px 0',
       border: '1px solid oklch(0.65 0.12 200 / 30%)',
     },
+    // Invalid ref highlight — red wavy underline
+    '.cm-invalid-ref-highlight': {
+      textDecoration: 'wavy underline oklch(0.65 0.2 25)',
+      textDecorationSkipInk: 'none',
+      backgroundColor: 'oklch(0.65 0.2 25 / 8%)',
+      borderRadius: '3px',
+    },
     // Autocomplete styling
     '.cm-tooltip-autocomplete': {
       backgroundColor: 'oklch(0.20 0.008 70)',
@@ -151,6 +158,12 @@ export const lightTheme = EditorView.theme(
       borderRadius: '3px',
       padding: '1px 0',
       border: '1px solid oklch(0.45 0.12 200 / 25%)',
+    },
+    '.cm-invalid-ref-highlight': {
+      textDecoration: 'wavy underline oklch(0.55 0.2 25)',
+      textDecorationSkipInk: 'none',
+      backgroundColor: 'oklch(0.55 0.2 25 / 8%)',
+      borderRadius: '3px',
     },
     '.cm-tooltip-autocomplete': {
       backgroundColor: 'oklch(0.985 0 0)',
