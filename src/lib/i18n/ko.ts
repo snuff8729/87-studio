@@ -606,6 +606,11 @@ const ko: DeepStringify<typeof en> = {
     contentPlaceholder: '프롬프트 텍스트를 입력하세요...',
     descriptionPlaceholder: '설명 (선택)',
     usage: '사용법: @{{{name}}}',
+    tags: '태그',
+    tagsPlaceholder: '태그 추가...',
+    tagAdded: '태그가 추가되었습니다',
+    tagRemoved: '태그가 제거되었습니다',
+    searchByTag: '#을 입력하여 태그로 필터링',
   },
   onboarding: {
     welcome: {

@@ -597,6 +597,11 @@ const en = {
     contentPlaceholder: 'Enter prompt text...',
     descriptionPlaceholder: 'Description (optional)',
     usage: 'Usage: @{{{name}}}',
+    tags: 'Tags',
+    tagsPlaceholder: 'Add tag...',
+    tagAdded: 'Tag added',
+    tagRemoved: 'Tag removed',
+    searchByTag: 'Type # to filter by tag',
   },
   onboarding: {
     welcome: {
