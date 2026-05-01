@@ -29,6 +29,7 @@ function slotCompletions(query: string): Array<Completion> {
     .slice(0, 10)
     .map((name) => ({
       label: name,
+      detail: 'slot',
       type: 'property',
       apply: `@{slot:${name}}`,
       boost: 2,
@@ -41,8 +42,7 @@ function bundleCompletions(query: string): Array<Completion> {
     .slice(0, 10)
     .map((b) => ({
       label: b.name,
-      detail:
-        b.content.length > 30 ? b.content.slice(0, 30) + '...' : b.content,
+      detail: 'bundle',
       type: 'variable',
       apply: `@{bundle:${b.name}}`,
       boost: 1,
