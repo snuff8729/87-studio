@@ -62,6 +62,8 @@ function ScenePromptEditor(props: {
   placeholder?: string
   bundleNames?: Array<{ name: string; content: string }>
 }) {
+  // Explicitly pass empty slotNames to prevent slot autocomplete
+  // (scene pack editor defines slot values, not references them)
   return (
     <Suspense
       fallback={
@@ -74,7 +76,7 @@ function ScenePromptEditor(props: {
         />
       }
     >
-      <PromptEditor {...props} minHeight="3rem" />
+      <PromptEditor {...props} minHeight="3rem" slotNames={[]} />
     </Suspense>
   )
 }
