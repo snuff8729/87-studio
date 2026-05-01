@@ -14,10 +14,12 @@ import {
   Add01Icon,
   ArrowDown01Icon,
   ArrowExpand01Icon,
+  BookmarkCheck01Icon,
   Cancel01Icon,
   TextIcon,
 } from '@hugeicons/core-free-icons'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
+import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -471,6 +473,24 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     owner: 'general' | number
   } | null>(null)
 
+  // ── Tag gallery dialog ──
+  const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
+  const [tagGalleryTarget, setTagGalleryTarget] = useState<{
+    key: string
+    owner: 'general' | number
+  } | null>(null)
+
+  function handleInsertTagFromGallery(tagName: string) {
+    if (!tagGalleryTarget) return
+    const { key, owner } = tagGalleryTarget
+    const current =
+      owner === 'general'
+        ? getCellValue(key, 'general')
+        : getCellValue(key, owner)
+    const newValue = current ? current.trimEnd() + ', ' + tagName : tagName
+    handleCellChange(owner, key, newValue)
+  }
+
   // ── Prompt Preview (throttled) ──
   const [previewOpen, setPreviewOpen] = useState(false)
   const [resolvedPrompts, setResolvedPrompts] = useState<{
@@ -759,17 +779,27 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         {`@{slot:${key}}`}
                       </span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setExpandTarget({ key, owner: 'general' })}
-                      className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                      title={t('workspace.expandEditor')}
-                    >
-                      <HugeiconsIcon
-                        icon={ArrowExpand01Icon}
-                        className="size-3.5"
-                      />
-                    </button>
+                    <div className="flex gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTagGalleryTarget({ key, owner: 'general' })
+                          setTagGalleryOpen(true)
+                        }}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                        title={t('tagGallery.panelTitle')}
+                      >
+                        <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpandTarget({ key, owner: 'general' })}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                        title={t('workspace.expandEditor')}
+                      >
+                        <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <div
                     onFocus={() => {
@@ -804,17 +834,27 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         {`@{slot:${key}}`}
                       </span>
                     </label>
-                    <button
-                      type="button"
-                      onClick={() => setExpandTarget({ key, owner: charId })}
-                      className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                      title={t('workspace.expandEditor')}
-                    >
-                      <HugeiconsIcon
-                        icon={ArrowExpand01Icon}
-                        className="size-3.5"
-                      />
-                    </button>
+                    <div className="flex gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTagGalleryTarget({ key, owner: charId })
+                          setTagGalleryOpen(true)
+                        }}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                        title={t('tagGallery.panelTitle')}
+                      >
+                        <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpandTarget({ key, owner: charId })}
+                        className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                        title={t('workspace.expandEditor')}
+                      >
+                        <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                      </button>
+                    </div>
                   </div>
                   <div
                     onFocus={() => {
@@ -952,19 +992,29 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                   </span>
                                 )}
                               </label>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  setExpandTarget({ key, owner: charId })
-                                }
-                                className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                                title={t('workspace.expandEditor')}
-                              >
-                                <HugeiconsIcon
-                                  icon={ArrowExpand01Icon}
-                                  className="size-3.5"
-                                />
-                              </button>
+                              <div className="flex gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTagGalleryTarget({ key, owner: charId })
+                                    setTagGalleryOpen(true)
+                                  }}
+                                  className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                                  title={t('tagGallery.panelTitle')}
+                                >
+                                  <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setExpandTarget({ key, owner: charId })
+                                  }
+                                  className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
+                                  title={t('workspace.expandEditor')}
+                                >
+                                  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                                </button>
+                              </div>
                             </div>
                             <div
                               onFocus={() => {
@@ -1185,6 +1235,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         placeholder={
           expandTarget ? t('scene.valueFor', { key: expandTarget.key }) : ''
         }
+      />
+      <TagGalleryDialog
+        open={tagGalleryOpen}
+        onOpenChange={setTagGalleryOpen}
+        onInsertTag={handleInsertTagFromGallery}
       />
     </div>
   )
