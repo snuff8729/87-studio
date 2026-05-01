@@ -17,9 +17,10 @@ interface Migration {
   run: (db: Database.Database) => number
 }
 
+// Migrations run in order. Never reorder or remove entries — only append.
 const migrations: Array<Migration> = [
   {
-    key: 'syntax_v1',
+    key: '001_syntax_v1',
     description:
       'Migrate \\\\name\\\\ → @{slot:name} and @{name} → @{bundle:name}',
     run: migrateSyntaxV1,
