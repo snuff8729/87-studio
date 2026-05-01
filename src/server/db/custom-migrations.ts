@@ -27,7 +27,40 @@ const migrations: Array<Migration> = [
   },
 ]
 
+const KEY_RE = /^\d{3}_\w+$/
+
+function validate() {
+  const seen = new Set<string>()
+
+  for (const m of migrations) {
+    if (!KEY_RE.test(m.key)) {
+      throw new Error(
+        `[migration] Invalid key format: "${m.key}". Must match NNN_name (e.g. 001_syntax_v1).`,
+      )
+    }
+
+    const prefix = m.key.slice(0, 3)
+    if (seen.has(prefix)) {
+      throw new Error(
+        `[migration] Duplicate order prefix: "${prefix}" in key "${m.key}".`,
+      )
+    }
+    seen.add(prefix)
+  }
+
+  // Verify keys are in ascending order
+  for (let i = 1; i < migrations.length; i++) {
+    if (migrations[i].key < migrations[i - 1].key) {
+      throw new Error(
+        `[migration] Out of order: "${migrations[i].key}" must come after "${migrations[i - 1].key}".`,
+      )
+    }
+  }
+}
+
 function main() {
+  validate()
+
   const DB_PATH = resolve(process.cwd(), 'data/studio.db')
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
