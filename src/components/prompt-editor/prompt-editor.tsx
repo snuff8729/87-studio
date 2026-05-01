@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { Compartment, EditorState } from '@codemirror/state'
-import { EditorView, ViewPlugin, keymap } from '@codemirror/view'
+import { EditorView, ViewPlugin, keymap, tooltips } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { acceptCompletion, autocompletion } from '@codemirror/autocomplete'
 import { darkTheme, lightTheme } from './theme'
@@ -86,6 +86,7 @@ export function PromptEditor({
         invalidRefHighlight,
         invalidRefTooltip,
         bundleTooltip,
+        tooltips({ parent: document.body }),
         autocompletion({
           override: [unifiedCompletion],
           activateOnTyping: true,
