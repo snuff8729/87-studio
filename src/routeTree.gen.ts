@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as GalleryRouteRouteImport } from './routes/gallery/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TagsIndexRouteImport } from './routes/tags/index'
 import { Route as SettingsIndexRouteImport } from './routes/settings/index'
 import { Route as QueueIndexRouteImport } from './routes/queue/index'
 import { Route as MetadataIndexRouteImport } from './routes/metadata/index'
@@ -30,6 +31,11 @@ const GalleryRouteRoute = GalleryRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TagsIndexRoute = TagsIndexRouteImport.update({
+  id: '/tags/',
+  path: '/tags/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
@@ -95,6 +101,7 @@ export interface FileRoutesByFullPath {
   '/metadata/': typeof MetadataIndexRoute
   '/queue/': typeof QueueIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/tags/': typeof TagsIndexRoute
   '/workspace/$projectId/': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
 }
@@ -107,6 +114,7 @@ export interface FileRoutesByTo {
   '/metadata': typeof MetadataIndexRoute
   '/queue': typeof QueueIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/tags': typeof TagsIndexRoute
   '/workspace/$projectId': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
 }
@@ -122,6 +130,7 @@ export interface FileRoutesById {
   '/metadata/': typeof MetadataIndexRoute
   '/queue/': typeof QueueIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/tags/': typeof TagsIndexRoute
   '/workspace/$projectId/': typeof WorkspaceProjectIdIndexRoute
   '/workspace/$projectId/scenes/$sceneId': typeof WorkspaceProjectIdScenesSceneIdRoute
 }
@@ -138,6 +147,7 @@ export interface FileRouteTypes {
     | '/metadata/'
     | '/queue/'
     | '/settings/'
+    | '/tags/'
     | '/workspace/$projectId/'
     | '/workspace/$projectId/scenes/$sceneId'
   fileRoutesByTo: FileRoutesByTo
@@ -150,6 +160,7 @@ export interface FileRouteTypes {
     | '/metadata'
     | '/queue'
     | '/settings'
+    | '/tags'
     | '/workspace/$projectId'
     | '/workspace/$projectId/scenes/$sceneId'
   id:
@@ -164,6 +175,7 @@ export interface FileRouteTypes {
     | '/metadata/'
     | '/queue/'
     | '/settings/'
+    | '/tags/'
     | '/workspace/$projectId/'
     | '/workspace/$projectId/scenes/$sceneId'
   fileRoutesById: FileRoutesById
@@ -177,6 +189,7 @@ export interface RootRouteChildren {
   MetadataIndexRoute: typeof MetadataIndexRoute
   QueueIndexRoute: typeof QueueIndexRoute
   SettingsIndexRoute: typeof SettingsIndexRoute
+  TagsIndexRoute: typeof TagsIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -193,6 +206,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/tags/': {
+      id: '/tags/'
+      path: '/tags'
+      fullPath: '/tags/'
+      preLoaderRoute: typeof TagsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/settings/': {
@@ -307,6 +327,7 @@ const rootRouteChildren: RootRouteChildren = {
   MetadataIndexRoute: MetadataIndexRoute,
   QueueIndexRoute: QueueIndexRoute,
   SettingsIndexRoute: SettingsIndexRoute,
+  TagsIndexRoute: TagsIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

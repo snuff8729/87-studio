@@ -203,6 +203,9 @@ $RECYCLE.BIN/
 
 # End of https://www.toptal.com/developers/gitignore/api/visualstudiocode,node,windows,linux
 
+# macOS
+.DS_Store
+
 # App data
 data/
 
