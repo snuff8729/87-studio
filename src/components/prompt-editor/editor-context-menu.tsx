@@ -26,14 +26,32 @@ export interface ContextMenuTarget {
   to: number
 }
 
-/** Check if a position falls inside a weight expression */
-function isInsideWeight(doc: string, pos: number): boolean {
-  for (const match of doc.matchAll(WEIGHT_RE)) {
-    const from = match.index!
-    const to = from + match[0].length
-    if (pos >= from && pos <= to) return true
+/**
+ * Parse comma-separated tag segments from a text region.
+ * Each segment is trimmed; @{...} references and empty segments are skipped.
+ */
+function parseTagSegments(
+  text: string,
+  baseOffset: number,
+): Array<{ text: string; from: number; to: number }> {
+  const segments: Array<{ text: string; from: number; to: number }> = []
+  let start = 0
+  for (let i = 0; i <= text.length; i++) {
+    if (i === text.length || text[i] === ',') {
+      const raw = text.slice(start, i)
+      const trimmed = raw.trim()
+      if (trimmed && !trimmed.startsWith('@{')) {
+        const trimStart = start + raw.indexOf(trimmed)
+        segments.push({
+          text: trimmed,
+          from: baseOffset + trimStart,
+          to: baseOffset + trimStart + trimmed.length,
+        })
+      }
+      start = i + 1
+    }
   }
-  return false
+  return segments
 }
 
 /** Detect what's at a position in the document */
@@ -41,9 +59,6 @@ export function detectTokenAt(
   doc: string,
   pos: number,
 ): ContextMenuTarget | null {
-  // Skip if inside a weight expression
-  if (isInsideWeight(doc, pos)) return null
-
   // Check slot references
   for (const match of doc.matchAll(SLOT_RE)) {
     const from = match.index!
@@ -62,36 +77,49 @@ export function detectTokenAt(
     }
   }
 
-  // Collect weight regions to exclude from tag detection
-  const weightRanges: Array<{ from: number; to: number }> = []
+  // Check tags inside weight expressions first
+  // Weight syntax: number::content:: — parse content as comma-separated tags
   for (const match of doc.matchAll(WEIGHT_RE)) {
-    weightRanges.push({ from: match.index!, to: match.index! + match[0].length })
-  }
-
-  // Check danbooru tags (comma-separated segments, excluding weight regions)
-  const segments: Array<{ text: string; from: number; to: number }> = []
-  let start = 0
-  for (let i = 0; i <= doc.length; i++) {
-    if (i === doc.length || doc[i] === ',') {
-      const raw = doc.slice(start, i)
-      const trimmed = raw.trim()
-      if (trimmed && !trimmed.startsWith('@{')) {
-        const trimStart = start + raw.indexOf(trimmed)
-        const trimEnd = trimStart + trimmed.length
-        // Skip if this segment overlaps with a weight expression
-        const overlapsWeight = weightRanges.some(
-          (w) => trimStart < w.to && trimEnd > w.from,
-        )
-        if (!overlapsWeight) {
-          segments.push({ text: trimmed, from: trimStart, to: trimEnd })
+    const weightFrom = match.index!
+    const weightTo = weightFrom + match[0].length
+    if (pos >= weightFrom && pos <= weightTo) {
+      // Position is inside this weight expression
+      // match[2] is the content between :: and ::
+      const content = match[2]
+      const contentStart = weightFrom + match[1].length + 2 // skip "number::"
+      const innerSegments = parseTagSegments(content, contentStart)
+      for (const seg of innerSegments) {
+        if (pos >= seg.from && pos <= seg.to) {
+          return {
+            type: 'tag',
+            name: seg.text,
+            fullText: seg.text,
+            from: seg.from,
+            to: seg.to,
+          }
         }
       }
-      start = i + 1
+      // Inside weight but not on a tag — no menu
+      return null
     }
   }
 
+  // Check regular tags (outside weight expressions)
+  const segments = parseTagSegments(doc, 0)
   for (const seg of segments) {
     if (pos >= seg.from && pos <= seg.to) {
+      // Make sure this segment doesn't overlap with a weight expression
+      let insideWeight = false
+      for (const match of doc.matchAll(WEIGHT_RE)) {
+        const wFrom = match.index!
+        const wTo = wFrom + match[0].length
+        if (seg.from < wTo && seg.to > wFrom) {
+          insideWeight = true
+          break
+        }
+      }
+      if (insideWeight) continue
+
       return {
         type: 'tag',
         name: seg.text,
