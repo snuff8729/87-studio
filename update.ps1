@@ -1,4 +1,4 @@
-# 87 Studio - Update Script
+﻿# 87 Studio - Update Script
 # This script pulls the latest release, updates dependencies,
 # runs migrations, and rebuilds the application.
 

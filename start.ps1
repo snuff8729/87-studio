@@ -1,4 +1,4 @@
-# 87 Studio - Start Script
+﻿# 87 Studio - Start Script
 # This script downloads Node.js if needed, installs dependencies,
 # runs database migrations, builds the app, and starts the server.
 
