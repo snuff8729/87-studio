@@ -1,24 +1,18 @@
 import { createServerFn } from '@tanstack/react-start'
-import Database from 'better-sqlite3'
-import { existsSync } from '../data-fs'
-import { dataPath } from '../data-dir'
-
-const DB_PATH = './data/danbooru.db'
-
-let danbooruDb: Database.Database | null = null
+import { categorize, getDanbooruDb } from '../services/tag-index'
+import type Database from 'better-sqlite3'
 
 function getDb(): Database.Database | null {
-  if (danbooruDb) return danbooruDb
-  if (!existsSync(DB_PATH)) return null
-  danbooruDb = new Database(dataPath(DB_PATH), { readonly: true })
-  danbooruDb.pragma('journal_mode = WAL')
-  return danbooruDb
+  return getDanbooruDb()
 }
 
 export interface DanbooruTag {
   name: string
   postCount: number
   category: number // 0=general, 1=artist, 3=copyright, 4=character, 5=meta
+  /** Top-level / fine category keys (see src/lib/tag-categories.ts) */
+  top: string
+  fine: string
 }
 
 const CATEGORY_LABEL: Record<number, string> = {
@@ -34,6 +28,8 @@ export interface DanbooruTagDetail {
   postCount: number
   category: number
   categoryLabel: string
+  top: string
+  fine: string
   isDeprecated: boolean
   otherNames: Array<string>
   wikiBody: string | null
@@ -121,6 +117,7 @@ export const getDanbooruTagDetail = createServerFn({ method: 'GET' })
       postCount: tag.post_count,
       category: tag.category,
       categoryLabel: CATEGORY_LABEL[tag.category] ?? 'unknown',
+      ...categorize(db, tag.name, tag.category),
       isDeprecated: tag.is_deprecated === 1,
       otherNames,
       wikiBody: wiki?.body ?? null,
@@ -166,6 +163,7 @@ export const searchDanbooruTags = createServerFn({ method: 'GET' })
         name: r.name,
         postCount: r.post_count,
         category: r.category,
+        ...categorize(db, r.name, r.category),
       }))
     } catch {
       // FTS query syntax error — fall back to LIKE
@@ -188,6 +186,7 @@ export const searchDanbooruTags = createServerFn({ method: 'GET' })
         name: r.name,
         postCount: r.post_count,
         category: r.category,
+        ...categorize(db, r.name, r.category),
       }))
     }
   })

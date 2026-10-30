@@ -21,6 +21,8 @@ import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { PromptTagImages } from '@/components/tag-gallery/prompt-tag-images'
 import { useTranslation } from '@/lib/i18n'
+import { categoryLabel } from '@/lib/tag-categories'
+import { useTagSearch } from '@/components/tag-search/tag-search-provider'
 import {
   addBookmarkImageUpload,
   createTagBookmark,
@@ -61,7 +63,8 @@ export function TagGalleryContent({
   embedded = false,
   onCountChange,
 }: TagGalleryContentProps) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
+  const { openSearch } = useTagSearch()
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
 
@@ -77,7 +80,12 @@ export function TagGalleryContent({
 
   // Danbooru search results
   const [danbooruResults, setDanbooruResults] = useState<
-    Array<{ name: string; postCount: number; category: number }>
+    Array<{
+      name: string
+      postCount: number
+      category: number
+      fine: string
+    }>
   >([])
   const danbooruSearchTimerRef =
     useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -574,7 +582,12 @@ export function TagGalleryContent({
                     <span className="text-sm truncate">
                       {r.name.replace(/_/g, ' ')}
                     </span>
-                    <span className="text-xs text-muted-foreground">
+                    <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      {r.category === 0 && (
+                        <span className="text-[10px]">
+                          {categoryLabel(r.fine, locale)}
+                        </span>
+                      )}
                       {r.postCount.toLocaleString()}
                     </span>
                   </div>
@@ -618,6 +631,11 @@ export function TagGalleryContent({
                   <Badge variant="outline" className="text-xs">
                     {danbooruInfo.categoryLabel}
                   </Badge>
+                  {danbooruInfo.category === 0 && (
+                    <Badge variant="secondary" className="text-xs">
+                      {categoryLabel(danbooruInfo.fine, locale)}
+                    </Badge>
+                  )}
                   <span className="text-xs text-muted-foreground">
                     {danbooruInfo.postCount.toLocaleString()} posts
                   </span>
@@ -627,6 +645,16 @@ export function TagGalleryContent({
                     </Badge>
                   )}
                 </>
+              )}
+              {!embedded && (
+                <Button
+                  size="xs"
+                  variant="outline"
+                  onClick={() => openSearch()}
+                  data-open-tag-search
+                >
+                  {t('tagAssist.search.title')}
+                </Button>
               )}
               {onInsertTag && (
                 <Button

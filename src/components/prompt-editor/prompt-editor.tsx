@@ -21,9 +21,15 @@ import {
 } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
 import { refreshVarRefs, varCompletionSource, varRefExtension } from './var-ref'
+import { tagRowDecorations } from './danbooru-completion'
+import { tagCaretInfo } from './tag-caret-info'
 import { EditorContextMenu, detectTokenAt } from './editor-context-menu'
 import type { ContextMenuTarget } from './editor-context-menu'
 import type { ViewUpdate } from '@codemirror/view'
+import {
+  registerFocusedEditor,
+  unregisterEditor,
+} from '@/components/tag-search/editor-registry'
 
 // CM mounts its tooltip container as an in-flow 2px child of the parent. On
 // document.body that made every editor route 2px taller per editor than the
@@ -166,6 +172,14 @@ export function PromptEditor({
             varCompletionSource(() => varNamesRef.current),
           ],
           activateOnTyping: true,
+          addToOptions: tagRowDecorations,
+          maxRenderedOptions: 40,
+        }),
+        tagCaretInfo(),
+        EditorView.domEventHandlers({
+          focus: (_e, v) => {
+            registerFocusedEditor(v)
+          },
         }),
         EditorView.updateListener.of((update) => {
           if (update.docChanged) {
@@ -207,6 +221,7 @@ export function PromptEditor({
 
     return () => {
       view.dom.removeEventListener('contextmenu', handleContextMenu)
+      unregisterEditor(view)
       view.destroy()
       viewRef.current = null
     }
