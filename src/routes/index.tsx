@@ -42,13 +42,14 @@ import {
   updateProject,
 } from '@/server/functions/projects'
 import { getSetting } from '@/server/functions/settings'
-import { listQueueBatches } from '@/server/functions/queue'
+import { getBatchJobs, listQueueBatches } from '@/server/functions/queue'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import {
   HeaderActions,
   usePageHeader,
 } from '@/components/layout/breadcrumb-context'
+import { HeaderButton } from '@/components/layout/header-button'
 import { useQueueSummary } from '@/components/queue/queue-status-widget'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
@@ -120,10 +121,22 @@ function RunningStrip() {
     enabled: active,
   })
 
+  const current = batches.find((b) => b.status === 'running') ?? batches.at(0)
+  const { data: jobs } = useQuery({
+    queryKey: ['batch-jobs', current?.id],
+    queryFn: () => getBatchJobs({ data: current?.id ?? 0 }),
+    refetchInterval: 2000,
+    enabled: active && !!current,
+  })
+  const job = jobs?.find((j) => j.status === 'running') ?? jobs?.at(0)
+  const label =
+    job?.projectName && job.sceneName
+      ? `${job.projectName} · ${job.sceneName}`
+      : current?.label
+
   if (!summary || !active) return null
   const { totalImages, completedImages } = summary.globalStats
   const pct = totalImages > 0 ? (completedImages / totalImages) * 100 : 0
-  const current = batches.find((b) => b.status === 'running') ?? batches.at(0)
 
   return (
     <Link
@@ -138,9 +151,7 @@ function RunningStrip() {
       </span>
       <span className="min-w-0 flex-1 truncate text-sm">
         <span className="font-medium">{t('dashboard.generatingNow')}</span>
-        {current && (
-          <span className="text-muted-foreground"> · {current.label}</span>
-        )}
+        {label && <span className="text-muted-foreground"> · {label}</span>}
       </span>
       <div className="hidden h-1.5 w-40 overflow-hidden rounded-full bg-secondary sm:block">
         <div
@@ -274,12 +285,11 @@ function ProjectSelectorPage() {
               placeholder={t('dashboard.searchPlaceholder')}
               aria-label={t('dashboard.searchPlaceholder')}
               data-project-search
-              className="h-8 pl-7 text-sm"
+              className="h-8 pl-7 text-[13px]"
             />
           </div>
         )}
-        <Button
-          size="sm"
+        <HeaderButton
           className={projects.length === 0 ? 'ml-auto' : undefined}
           onClick={() => setDialogOpen(true)}
           data-onboarding="new-project-btn"
@@ -287,7 +297,7 @@ function ProjectSelectorPage() {
         >
           <HugeiconsIcon icon={Add01Icon} className="size-4" />
           <span className="hidden sm:inline">{t('dashboard.newProject')}</span>
-        </Button>
+        </HeaderButton>
       </HeaderActions>
 
       <RunningStrip />

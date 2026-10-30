@@ -4,7 +4,7 @@ import {
   useNavigate,
   useRouter,
 } from '@tanstack/react-router'
-import { useEffect, useLayoutEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -124,49 +124,23 @@ export const Route = createFileRoute('/gallery/$imageId')({
 
 /**
  * Box of the detail overlay: everything right of the sidebar and below the
- * app header, so the header (breadcrumb + actions) stays visible.
+ * app header (h-12), so the header (breadcrumb + actions) stays visible.
+ * Pure CSS: the left edge follows the sidebar's expanded / icon width.
  */
-function useHeaderInset() {
-  const [inset, setInset] = useState({ left: 0, top: 48 })
-  useLayoutEffect(() => {
-    const header = document.querySelector('[data-app-header]')
-    if (!header) return
-    const measure = () => {
-      const r = header.getBoundingClientRect()
-      setInset({ left: r.left, top: r.bottom })
-    }
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(header)
-    window.addEventListener('resize', measure)
-    return () => {
-      ro.disconnect()
-      window.removeEventListener('resize', measure)
-    }
-  }, [])
-  return inset
-}
+const OVERLAY_BOX =
+  'fixed top-12 right-0 bottom-0 left-0 z-30 bg-background md:left-(--sidebar-width) md:group-has-data-[collapsible=icon]/sidebar-wrapper:left-(--sidebar-width-icon)'
 
 function PendingOverlay() {
-  const { left, top } = useHeaderInset()
   return (
-    <div
-      className="fixed right-0 bottom-0 z-30 bg-background"
-      style={{ left, top }}
-    >
+    <div className={OVERLAY_BOX}>
       <PendingComponent />
     </div>
   )
 }
 
 function ImageDetailOverlay() {
-  const { left, top } = useHeaderInset()
   return (
-    <div
-      data-image-detail
-      className="fixed right-0 bottom-0 z-30 bg-background"
-      style={{ left, top }}
-    >
+    <div data-image-detail className={OVERLAY_BOX}>
       <ImageDetailPage />
     </div>
   )

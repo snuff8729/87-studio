@@ -32,6 +32,7 @@ import {
   usePageHeader,
 } from '@/components/layout/breadcrumb-context'
 import { Button } from '@/components/ui/button'
+import { HeaderButton } from '@/components/layout/header-button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   bulkUpdateImages,
@@ -162,6 +163,7 @@ function GalleryLayout() {
 
   useEffect(() => {
     setImages(initialImages)
+    setSelectedIds(new Set())
     setPage(1)
     setHasMore(initialImages.length >= 40)
   }, [initialImages])
@@ -261,6 +263,11 @@ function GalleryLayout() {
     )
   }
 
+  // Checked ids that are still loaded (filter changes / deletes drop out)
+  const selectedList = images
+    .filter((img) => selectedIds.has(img.id))
+    .map((img) => img.id)
+
   function toggleSelect(id: number) {
     setSelectedIds((prev) => {
       const next = new Set(prev)
@@ -276,8 +283,8 @@ function GalleryLayout() {
   }
 
   function toggleAll() {
-    setSelectedIds((prev) =>
-      prev.size >= images.length
+    setSelectedIds(
+      selectedList.length >= images.length
         ? new Set()
         : new Set(images.map((img) => img.id)),
     )
@@ -286,15 +293,15 @@ function GalleryLayout() {
   async function handleBulkFavorite() {
     try {
       await bulkUpdateImages({
-        data: { imageIds: [...selectedIds], isFavorite: 1 },
+        data: { imageIds: selectedList, isFavorite: 1 },
       })
       setImages((prev) =>
         prev.map((img) =>
-          selectedIds.has(img.id) ? { ...img, isFavorite: 1 } : img,
+          selectedList.includes(img.id) ? { ...img, isFavorite: 1 } : img,
         ),
       )
       toast.success(
-        t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }),
+        t('gallery.bulkFavoriteSuccess', { count: selectedList.length }),
       )
       exitSelectMode()
     } catch {
@@ -305,10 +312,12 @@ function GalleryLayout() {
   async function handleBulkDelete() {
     try {
       await bulkUpdateImages({
-        data: { imageIds: [...selectedIds], delete: true },
+        data: { imageIds: selectedList, delete: true },
       })
-      setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)))
-      toast.success(t('gallery.bulkDeleteSuccess', { count: selectedIds.size }))
+      setImages((prev) => prev.filter((img) => !selectedList.includes(img.id)))
+      toast.success(
+        t('gallery.bulkDeleteSuccess', { count: selectedList.length }),
+      )
       exitSelectMode()
     } catch {
       toast.error(t('gallery.bulkDeleteFailed'))
@@ -332,14 +341,14 @@ function GalleryLayout() {
           <GalleryHeader
             count={hasMore ? `${images.length}+` : images.length}
             selectMode={selectMode}
-            selectedCount={selectedIds.size}
+            selectedCount={selectedList.length}
             total={images.length}
             onEnterSelect={() => setSelectMode(true)}
             onExitSelect={exitSelectMode}
             onToggleAll={toggleAll}
             onFavorite={handleBulkFavorite}
             onDelete={handleBulkDelete}
-            selectedIds={selectedIds}
+            selectedIds={selectedList}
             projectId={search.project}
             projectName={allProjects.find((p) => p.id === search.project)?.name}
             scenes={projectScenes}
@@ -474,7 +483,7 @@ function GalleryHeader({
   onToggleAll: () => void
   onFavorite: () => void
   onDelete: () => void
-  selectedIds: ReadonlySet<number>
+  selectedIds: ReadonlyArray<number>
   projectId: number | undefined
   projectName: string | undefined
   scenes: Array<{ id: number; name: string }>
@@ -491,6 +500,8 @@ function GalleryHeader({
           total={total}
           onExit={onExitSelect}
           onToggleAll={onToggleAll}
+          selectAllLabel={t('gallery.selectLoaded')}
+          deselectAllLabel={t('gallery.deselectLoaded')}
         >
           <button
             type="button"
@@ -539,8 +550,7 @@ function GalleryHeader({
       ) : (
         <>
           <div className="ml-auto" />
-          <Button
-            size="sm"
+          <HeaderButton
             variant="outline"
             onClick={onEnterSelect}
             data-gallery-select
@@ -548,18 +558,17 @@ function GalleryHeader({
           >
             <HugeiconsIcon icon={CheckListIcon} className="size-4" />
             <span className="hidden sm:inline">{t('gallery.select')}</span>
-          </Button>
+          </HeaderButton>
           <DownloadDialog
             trigger={
-              <Button
-                size="sm"
+              <HeaderButton
                 variant="outline"
                 aria-label={t('export.export')}
                 data-gallery-export
               >
                 <HugeiconsIcon icon={Download04Icon} className="size-4" />
                 <span className="hidden sm:inline">{t('export.export')}</span>
-              </Button>
+              </HeaderButton>
             }
             projectId={projectId}
             projectName={projectName}

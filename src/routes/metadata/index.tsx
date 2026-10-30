@@ -12,6 +12,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import { HeaderActions } from '@/components/layout/breadcrumb-context'
+import { HeaderButton } from '@/components/layout/header-button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -188,7 +189,10 @@ function InspectPage() {
             <>
               {metadata && (
                 <>
-                  <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+                  <HeaderButton
+                    aria-label={t('metadata.createProject')}
+                    onClick={() => setShowCreateDialog(true)}
+                  >
                     <HugeiconsIcon
                       icon={ArrowRight01Icon}
                       className="size-4 sm:mr-1.5"
@@ -196,10 +200,10 @@ function InspectPage() {
                     <span className="hidden sm:inline">
                       {t('metadata.createProject')}
                     </span>
-                  </Button>
-                  <Button
-                    size="sm"
+                  </HeaderButton>
+                  <HeaderButton
                     variant="outline"
+                    aria-label={t('metadata.quickGenerate')}
                     onClick={() => setShowQuickDialog(true)}
                   >
                     <HugeiconsIcon
@@ -209,12 +213,12 @@ function InspectPage() {
                     <span className="hidden sm:inline">
                       {t('metadata.quickGenerate')}
                     </span>
-                  </Button>
+                  </HeaderButton>
                 </>
               )}
-              <Button
-                size="sm"
+              <HeaderButton
                 variant="outline"
+                aria-label={t('common.replace')}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <HugeiconsIcon
@@ -222,14 +226,18 @@ function InspectPage() {
                   className="size-4 sm:mr-1.5"
                 />
                 <span className="hidden sm:inline">{t('common.replace')}</span>
-              </Button>
-              <Button size="sm" variant="outline" onClick={handleClear}>
+              </HeaderButton>
+              <HeaderButton
+                variant="outline"
+                aria-label={t('common.clear')}
+                onClick={handleClear}
+              >
                 <HugeiconsIcon
                   icon={Cancel01Icon}
                   className="size-4 sm:mr-1.5"
                 />
                 <span className="hidden sm:inline">{t('common.clear')}</span>
-              </Button>
+              </HeaderButton>
             </>
           </HeaderActions>
 
@@ -881,11 +889,7 @@ function QuickGenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            <span className="hidden sm:inline">
-              {t('metadata.quickGenerate')}
-            </span>
-          </DialogTitle>
+          <DialogTitle>{t('metadata.quickGenerate')}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
@@ -958,11 +962,7 @@ function QuickGenerateDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleApply}>
-            <span className="hidden sm:inline">
-              {t('metadata.quickGenerate')}
-            </span>
-          </Button>
+          <Button onClick={handleApply}>{t('metadata.quickGenerate')}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

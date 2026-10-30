@@ -133,6 +133,8 @@ const en = {
     version: 'Version',
   },
   gallery: {
+    selectLoaded: 'Select loaded images',
+    deselectLoaded: 'Deselect loaded images',
     addFilter: 'Filter',
     filterProject: 'Project',
     filterScene: 'Scene',

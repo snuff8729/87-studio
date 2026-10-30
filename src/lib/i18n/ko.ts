@@ -136,6 +136,8 @@ const ko: DeepStringify<typeof en> = {
     version: '버전',
   },
   gallery: {
+    selectLoaded: '불러온 이미지 모두 선택',
+    deselectLoaded: '불러온 이미지 선택 해제',
     addFilter: '필터',
     filterProject: '프로젝트',
     filterScene: '씬',

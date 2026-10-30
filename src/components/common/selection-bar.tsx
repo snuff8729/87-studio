@@ -19,6 +19,8 @@ export function SelectionBar({
   total,
   onExit,
   onToggleAll,
+  selectAllLabel,
+  deselectAllLabel,
   children,
   className,
 }: {
@@ -26,6 +28,9 @@ export function SelectionBar({
   total: number
   onExit: () => void
   onToggleAll: () => void
+  /** Overrides the select-all tooltip / aria label (e.g. "Select loaded") */
+  selectAllLabel?: string
+  deselectAllLabel?: string
   children?: ReactNode
   className?: string
 }) {
@@ -51,9 +56,11 @@ export function SelectionBar({
         }
         onCheckedChange={onToggleAll}
         disabled={total === 0}
-        aria-label={t('common.selectAll')}
+        aria-label={selectAllLabel ?? t('common.selectAll')}
         title={
-          state === 'all' ? t('common.deselectAll') : t('common.selectAll')
+          state === 'all'
+            ? (deselectAllLabel ?? t('common.deselectAll'))
+            : (selectAllLabel ?? t('common.selectAll'))
         }
         className="mx-1"
       />

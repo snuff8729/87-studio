@@ -493,6 +493,25 @@ async function dashboard(w, h, tag) {
     (await page.locator('[data-running-strip]').innerText()).includes('8/60'),
     `dashboard ${tag}: running strip shows done/total`,
   )
+  check(
+    (await page.locator('[data-running-strip]').innerText()).includes(
+      'Project 01 · Scene 1',
+    ),
+    `dashboard ${tag}: running strip shows project · scene`,
+  )
+  const btn = await page
+    .locator('[data-onboarding="new-project-btn"]')
+    .evaluate((el) => {
+      const c = getComputedStyle(el)
+      return {
+        h: Math.round(el.getBoundingClientRect().height),
+        fs: c.fontSize,
+      }
+    })
+  check(
+    btn.h === 32 && btn.fs === '13px',
+    `dashboard ${tag}: header action is compact (${btn.h}px / ${btn.fs})`,
+  )
   const cover = await page.locator('[data-project-card] img').count()
   check(
     cover === 9,
@@ -701,6 +720,15 @@ async function gallery(w, h, tag) {
     !(await page.evaluate(() => !!document.querySelector('.fixed.bottom-4'))),
     `gallery ${tag}: no floating bulk bar`,
   )
+  await page.locator('[data-add-filter]').click()
+  await page.locator('[data-filter-option="favorite"]').click()
+  await settle(page, 1000)
+  check(
+    /^0 selected/.test(
+      norm(await page.locator('[data-selection-header]').innerText()),
+    ),
+    `gallery ${tag}: changing a filter clears the selection`,
+  )
   await page.locator('[data-selection-header] button').first().click()
   await settle(page, 300)
   check(
@@ -743,6 +771,31 @@ async function gallery(w, h, tag) {
     `gallery ${tag}: detail starts right of the sidebar (${d.oLeft}/${d.hLeft})`,
   )
   check(!d.headerOverflow, `gallery ${tag}: detail header fits`)
+  if (w >= 768) {
+    await page.goBack()
+    await page.waitForSelector('[data-gallery-select]')
+    await page.locator('[data-sidebar="trigger"]').first().click()
+    await settle(page, 600)
+    await page
+      .locator('[data-gallery-grid] a[href^="/gallery/"]')
+      .first()
+      .click()
+    await settle(page, 1200)
+    const c = await page.evaluate(() => ({
+      o: Math.round(
+        document.querySelector('[data-image-detail]')?.getBoundingClientRect()
+          .left ?? -2,
+      ),
+      h: Math.round(
+        document.querySelector('[data-app-header]')?.getBoundingClientRect()
+          .left ?? -1,
+      ),
+    }))
+    check(
+      c.o === c.h && c.h < 100,
+      `gallery ${tag}: detail follows the collapsed sidebar (${c.o}/${c.h})`,
+    )
+  }
   await shot(page, `gallery-detail-${tag}`)
   check(page.blocked.length === 0, `gallery ${tag}: no writes sent`)
   await ctx.close()
@@ -803,6 +856,15 @@ async function masterDetail(
     check(
       (await page.locator(rowsSel).count()) === 10,
       `${name} ${tag}: back returns to the list`,
+    )
+    await page.locator(rowsSel).nth(2).click()
+    await settle(page, 600)
+    await page.goBack()
+    await settle(page, 800)
+    check(
+      (await page.locator(rowsSel).count()) === 10 &&
+        (await page.locator('[data-master-detail-back]').count()) === 0,
+      `${name} ${tag}: phone Back from a detail returns to the list`,
     )
   } else {
     await page.locator(rowsSel).nth(1).click()
@@ -879,6 +941,12 @@ async function queue(w, h, tag) {
   check(
     /\(4\)/.test(norm(await hist.innerText())),
     `queue ${tag}: history shows its count`,
+  )
+  await page.locator('[data-now-generating-expand]').click()
+  await settle(page, 600)
+  check(
+    (await card.innerText()).includes('Scene 2'),
+    `queue ${tag}: running batch expands to its job list`,
   )
   await shot(page, `queue-${tag}`)
   await hist.locator('button').first().click()

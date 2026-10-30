@@ -39,6 +39,7 @@ import {
   usePageHeader,
 } from '@/components/layout/breadcrumb-context'
 import { useTranslation } from '@/lib/i18n'
+import { HeaderButton } from '@/components/layout/header-button'
 import { listImages } from '@/server/functions/gallery'
 import {
   cancelBatch,
@@ -267,7 +268,7 @@ function SortableBatchRow({
         onOpenChange={setCancelDialogOpen}
         title={t('queue.cancelBatch' as any)}
         description={t('queue.cancelBatchConfirm' as any)}
-        actionLabel={t('common.delete' as any)}
+        actionLabel={t('queue.cancelBatch' as any)}
         onConfirm={() => onCancel(batch.id)}
         variant="destructive"
       />
@@ -644,6 +645,14 @@ function NowGeneratingCard({
 }) {
   const { t } = useTranslation()
   const [cancelOpen, setCancelOpen] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  const queryClient = useQueryClient()
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    }),
+  )
   const isPaused = queueStopped === 'paused'
   const isError = queueStopped === 'error'
 
@@ -652,6 +661,22 @@ function NowGeneratingCard({
     queryFn: () => getBatchJobs({ data: batch.id }),
     refetchInterval: 2000,
   })
+  const reorderJobsMutation = useMutation({
+    mutationFn: (jobIds: Array<number>) =>
+      reorderBatchJobsFn({ data: { batchId: batch.id, jobIds } }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: ['batch-jobs', batch.id] }),
+  })
+  function handleJobDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (!over || active.id === over.id || !jobs) return
+    const oldIndex = jobs.findIndex((j) => j.id === active.id)
+    const newIndex = jobs.findIndex((j) => j.id === over.id)
+    if (oldIndex === -1 || newIndex === -1) return
+    reorderJobsMutation.mutate(
+      arrayMove(jobs, oldIndex, newIndex).map((j) => j.id),
+    )
+  }
   const job = jobs?.find((j) => j.status === 'running') ?? jobs?.at(0)
 
   // Latest image of the running scene (or of Quick Generate) as a live preview
@@ -696,84 +721,116 @@ function NowGeneratingCard({
   return (
     <div
       data-now-generating
-      className="flex items-center gap-4 rounded-xl border border-border bg-card p-3"
+      className="overflow-hidden rounded-xl border border-border bg-card"
     >
-      <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary sm:size-24">
-        {thumb ? (
-          <img
-            src={`/api/thumbnails/${thumb.replace('data/thumbnails/', '')}`}
-            alt=""
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <HugeiconsIcon
-            icon={TimeQuarter02Icon}
-            className="size-7 text-muted-foreground/30"
-          />
-        )}
-      </div>
-      <div className="min-w-0 flex-1 space-y-2">
-        <div className="flex items-center gap-2">
-          {isPaused || isError ? (
-            <span
-              className={`inline-block size-2 shrink-0 rounded-full ${isError ? 'bg-destructive' : 'bg-muted-foreground/40'}`}
+      <div className="flex items-center gap-4 p-3">
+        <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary sm:size-24">
+          {thumb ? (
+            <img
+              src={`/api/thumbnails/${thumb.replace('data/thumbnails/', '')}`}
+              alt=""
+              className="h-full w-full object-cover"
             />
           ) : (
-            <span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-primary" />
-          )}
-          <span className="text-xs font-medium text-muted-foreground">
-            {isError
-              ? t('queue.error')
-              : isPaused
-                ? t('queue.paused')
-                : t('queue.nowGenerating')}
-          </span>
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="truncate text-base font-medium">{label}</span>
-          {batch.projectId && (
-            <Link
-              to="/workspace/$projectId"
-              params={{ projectId: String(batch.projectId) }}
-              search={
-                job?.projectSceneId
-                  ? { scene: job.projectSceneId, imageDetail: undefined }
-                  : { imageDetail: undefined }
-              }
-              className="shrink-0 text-muted-foreground/40 transition-colors hover:text-primary"
-            >
-              <HugeiconsIcon icon={ArrowUpRight} className="size-3.5" />
-            </Link>
-          )}
-        </div>
-        <div className="flex items-center gap-3">
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
-            <div
-              className={`h-full rounded-full transition-all duration-500 ${barClass}`}
-              style={{ width: `${pct}%` }}
+            <HugeiconsIcon
+              icon={TimeQuarter02Icon}
+              className="size-7 text-muted-foreground/30"
             />
-          </div>
-          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-            {batch.completedImages}/{batch.totalImages}
-          </span>
+          )}
         </div>
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex items-center gap-2">
+            {isPaused || isError ? (
+              <span
+                className={`inline-block size-2 shrink-0 rounded-full ${isError ? 'bg-destructive' : 'bg-muted-foreground/40'}`}
+              />
+            ) : (
+              <span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-primary" />
+            )}
+            <span className="text-xs font-medium text-muted-foreground">
+              {isError
+                ? t('queue.error')
+                : isPaused
+                  ? t('queue.paused')
+                  : t('queue.nowGenerating')}
+            </span>
+          </div>
+          <div className="flex items-center gap-1">
+            <span className="truncate text-base font-medium">{label}</span>
+            {batch.projectId && (
+              <Link
+                to="/workspace/$projectId"
+                params={{ projectId: String(batch.projectId) }}
+                search={
+                  job?.projectSceneId
+                    ? { scene: job.projectSceneId, imageDetail: undefined }
+                    : { imageDetail: undefined }
+                }
+                className="shrink-0 text-muted-foreground/40 transition-colors hover:text-primary"
+              >
+                <HugeiconsIcon icon={ArrowUpRight} className="size-3.5" />
+              </Link>
+            )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${barClass}`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+              {batch.completedImages}/{batch.totalImages}
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={() => setExpanded((v) => !v)}
+          className="shrink-0 rounded p-1 text-muted-foreground hover:text-foreground"
+          aria-label={expanded ? 'Collapse' : 'Expand'}
+          aria-expanded={expanded}
+          data-now-generating-expand
+        >
+          <HugeiconsIcon
+            icon={expanded ? ChevronUpIcon : ChevronDownIcon}
+            className="size-4"
+          />
+        </button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          className="shrink-0 text-muted-foreground hover:text-destructive"
+          onClick={() => setCancelOpen(true)}
+          aria-label={t('queue.cancelBatch')}
+          title={t('queue.cancelBatch')}
+        >
+          <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+        </Button>
       </div>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        className="shrink-0 text-muted-foreground hover:text-destructive"
-        onClick={() => setCancelOpen(true)}
-        aria-label={t('queue.cancelBatch')}
-        title={t('queue.cancelBatch')}
-      >
-        <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-      </Button>
+      {expanded && jobs && jobs.length > 0 && (
+        <div className="space-y-1 border-t border-border bg-muted/30 px-3 py-2">
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleJobDragEnd}
+          >
+            <SortableContext
+              items={jobs.map((j) => j.id)}
+              strategy={verticalListSortingStrategy}
+            >
+              {jobs.map((j) => (
+                <SortableJobRow key={j.id} job={j} />
+              ))}
+            </SortableContext>
+          </DndContext>
+        </div>
+      )}
       <ConfirmDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title={t('queue.cancelBatch')}
         description={t('queue.cancelBatchConfirm')}
-        actionLabel={t('common.delete')}
+        actionLabel={t('queue.cancelBatch')}
         onConfirm={() => onCancel(batch.id)}
         variant="destructive"
       />
@@ -888,9 +945,8 @@ function QueuePage() {
         <HeaderActions>
           <div className="ml-auto" />
           {isPaused || isError ? (
-            <Button
+            <HeaderButton
               variant="secondary"
-              size="sm"
               onClick={() => resumeMutation.mutate()}
               disabled={resumeMutation.isPending}
               aria-label={t('queue.resume')}
@@ -898,11 +954,10 @@ function QueuePage() {
             >
               <HugeiconsIcon icon={PlayIcon} className="size-4" />
               <span className="hidden sm:inline">{t('queue.resume')}</span>
-            </Button>
+            </HeaderButton>
           ) : (
-            <Button
+            <HeaderButton
               variant="secondary"
-              size="sm"
               onClick={() => pauseMutation.mutate()}
               disabled={pauseMutation.isPending}
               aria-label={t('queue.pause')}
@@ -910,7 +965,7 @@ function QueuePage() {
             >
               <HugeiconsIcon icon={PauseIcon} className="size-4" />
               <span className="hidden sm:inline">{t('queue.pause')}</span>
-            </Button>
+            </HeaderButton>
           )}
         </HeaderActions>
       )}

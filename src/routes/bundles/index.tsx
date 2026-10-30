@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { useIsMobile } from '@/hooks/use-mobile'
 import { MasterDetail } from '@/components/common/master-detail'
 import { usePageHeader } from '@/components/layout/breadcrumb-context'
 import { useTranslation } from '@/lib/i18n'
@@ -78,6 +79,7 @@ function BundlesPage() {
   const initialBundles = Route.useLoaderData()
   const { bundle: urlBundle } = Route.useSearch()
   const navigate = useNavigate()
+  const isMobile = useIsMobile()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const bundleNamesForEditor = useBundleNames()
@@ -96,9 +98,21 @@ function BundlesPage() {
     navigate({
       to: '/bundles',
       search: bundleName ? { bundle: bundleName } : {},
-      replace: true,
+      // Opening a detail from the mobile list is a real step: phone Back
+      // returns to the list. Everything else replaces.
+      replace: !(isMobile && id !== null && selectedId === null),
     })
   }
+
+  // Follow the URL (phone Back / forward)
+  useEffect(() => {
+    setSelectedIdState(
+      urlBundle
+        ? (bundles.find((b) => b.name === urlBundle)?.id ?? null)
+        : null,
+    )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlBundle])
   usePageHeader({ count: bundles.length })
   const [searchText, setSearchText] = useState('')
   const [filterTags, setFilterTags] = useState<Array<string>>([])
