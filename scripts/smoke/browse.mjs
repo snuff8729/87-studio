@@ -14,6 +14,10 @@
 //   SMOKE_BASE  app URL (default: http://127.0.0.1:3100)
 //   SMOKE_OUT   screenshot dir (default: <os tmp>/87studio-smoke)
 //
+// Phase 5 adds settings, metadata (real PNG with an NAI tEXt chunk, set via
+// the file input and a synthetic drop) and the gallery win-rate filter, bulk
+// tag and add-to-bookmark popovers.
+//
 // Every read server fn the pages use is answered with mock data (12 projects,
 // 300 gallery images, a running queue, 10 bundles, 10 tag bookmarks), so the
 // local DB is never read for these pages. Pages are entered by client-side
@@ -23,6 +27,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import zlib from 'node:zlib'
 import { pathToFileURL } from 'node:url'
 
 const PW_CORE =
@@ -127,7 +132,7 @@ const envelope = (result) =>
   })
 
 const WRITE =
-  /^(create|update|delete|bulk|add|rename|duplicate|assign|upsert|set|remove|cancel|pause|resume|reorder|toggle|upload|import|convert|record|retry)/i
+  /^(create|update|delete|bulk|add|rename|duplicate|assign|upsert|set|remove|cancel|pause|resume|reorder|toggle|upload|import|convert|record|retry|cleanup)/i
 
 // ── mock data ──
 const TS = '2026-10-30 12:00:00'
@@ -159,8 +164,8 @@ const IMAGES = Array.from({ length: 300 }, (_, i) => ({
   isFavorite: i % 5 === 0 ? 1 : 0,
   rating: i % 4 === 0 ? (i % 5) + 1 : null,
   memo: null,
-  tournamentWins: 0,
-  tournamentLosses: 0,
+  tournamentWins: i % 3 === 0 ? 3 : 0,
+  tournamentLosses: i % 3 === 0 ? 1 : i % 7 === 0 ? 2 : 0,
   createdAt: TS,
 }))
 const BUNDLES = Array.from({ length: 10 }, (_, i) => ({
@@ -273,10 +278,34 @@ function handlers(opts) {
       if (a.isFavorite) list = list.filter((x) => x.isFavorite)
       if (a.projectId) list = list.filter((x) => x.projectId === a.projectId)
       if (a.minRating) list = list.filter((x) => (x.rating ?? 0) >= a.minRating)
+      if (a.minWinRate)
+        list = list.filter((x) => {
+          const n = x.tournamentWins + x.tournamentLosses
+          return n > 0 && (x.tournamentWins / n) * 100 >= a.minWinRate
+        })
       const page = a.page ?? 1
       const limit = a.limit ?? 40
       return list.slice((page - 1) * limit, page * limit)
     },
+    getImageTagCounts: (a) => [
+      { tagId: 1, count: a.imageIds.length },
+      ...(a.imageIds.length > 1 ? [{ tagId: 2, count: 1 }] : []),
+    ],
+    getSetting: (key) =>
+      ({
+        nai_api_key: 'sk-mock-key-0000',
+        generation_delay: '1500',
+        onboarding_completed: 'true',
+      })[key] ?? null,
+    getStorageStats: () => ({
+      totalFiles: 640,
+      totalSize: 123456789,
+      imageFiles: 320,
+      thumbnailFiles: 320,
+      dbRecords: 318,
+      orphanFiles: 4,
+      orphanSize: 2048,
+    }),
     listTags: () => [
       { id: 1, name: 'keeper' },
       { id: 2, name: 'wip' },
@@ -968,6 +997,548 @@ async function queue(w, h, tag) {
   await idle.ctx.close()
 }
 
+// ───────── Phase 5: settings, metadata, gallery tools ─────────
+
+/** A real (CRC-valid) PNG with an NAI-style tEXt "Comment" chunk. */
+function pngChunk(type, data) {
+  const len = Buffer.alloc(4)
+  len.writeUInt32BE(data.length)
+  const td = Buffer.concat([Buffer.from(type), data])
+  const crc = Buffer.alloc(4)
+  crc.writeUInt32BE(zlib.crc32(td) >>> 0)
+  return Buffer.concat([len, td, crc])
+}
+function makeNaiPng(w, h, comment) {
+  const ihdr = Buffer.alloc(13)
+  ihdr.writeUInt32BE(w, 0)
+  ihdr.writeUInt32BE(h, 4)
+  ihdr[8] = 8
+  ihdr[9] = 2
+  const stride = w * 3 + 1
+  const raw = Buffer.alloc(stride * h)
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      const o = y * stride + 1 + x * 3
+      raw[o] = (x * 255) / w
+      raw[o + 1] = (y * 255) / h
+      raw[o + 2] = 160
+    }
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+    pngChunk('IHDR', ihdr),
+    pngChunk('tEXt', Buffer.from(`Comment\0${JSON.stringify(comment)}`)),
+    pngChunk('IDAT', zlib.deflateSync(raw)),
+    pngChunk('IEND', Buffer.alloc(0)),
+  ])
+}
+const NAI_SAMPLE = {
+  prompt: '1girl, solo, smile, masterpiece',
+  uc: 'lowres, bad anatomy',
+  steps: 28,
+  scale: 5,
+  seed: 1234567890,
+  sampler: 'k_euler_ancestral',
+  width: 416,
+  height: 608,
+  v4_prompt: {
+    caption: {
+      base_caption: '1girl, solo',
+      char_captions: [
+        { char_caption: 'girl, red hair', centers: [{ x: 0.5, y: 0.5 }] },
+        { char_caption: 'boy, black hair', centers: [{ x: 0.2, y: 0.5 }] },
+      ],
+    },
+  },
+  v4_negative_prompt: {
+    caption: {
+      base_caption: 'lowres',
+      char_captions: [{ char_caption: 'bad hands', centers: [] }],
+    },
+  },
+}
+
+async function settingsPage(w, h, tag) {
+  console.log(`== settings ${w}x${h}`)
+  const { ctx, page } = await newPage(w, h)
+  await page.goto(BASE + '/metadata', { waitUntil: 'networkidle' })
+  await navTo(page, '/settings')
+  await settle(page, 800)
+  await frameChecks(page, `settings ${tag}`, {
+    title: 'Settings',
+    actions: false,
+  })
+  const desktop = w >= 1024
+  const nav = page.locator('[data-settings-nav]')
+  const chips = page.locator('[data-settings-chips]')
+  check(
+    (await nav.isVisible()) === desktop &&
+      (await chips.isVisible()) === !desktop,
+    `settings ${tag}: ${desktop ? 'side nav' : 'chip row'} shown`,
+  )
+  const control = desktop ? nav : chips
+  check(
+    (await control.locator('button').count()) === 5,
+    `settings ${tag}: 5 sections in the nav`,
+  )
+  check(
+    (await page.locator('section[id^="settings-"]').count()) === 5,
+    `settings ${tag}: 5 section cards`,
+  )
+  if (!desktop) {
+    const top = await chips.evaluate((el) => el.getBoundingClientRect().top)
+    await page.evaluate(() => window.scrollTo(0, 400))
+    await settle(page, 200)
+    const topAfter = await chips.evaluate(
+      (el) => el.getBoundingClientRect().top,
+    )
+    check(
+      Math.abs(topAfter - 48) <= 1 && top > 0,
+      `settings ${tag}: chip row sticks under the header (${topAfter}px)`,
+    )
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await settle(page, 200)
+  }
+  // content stays within the 720px column
+  const colW = await page.evaluate(
+    () =>
+      document.getElementById('settings-general').getBoundingClientRect().width,
+  )
+  check(
+    colW <= 721,
+    `settings ${tag}: cards max ~720px (${Math.round(colW)}px)`,
+  )
+  // API key
+  const input = page.locator('#api-key')
+  check(
+    (await input.getAttribute('type')) === 'password',
+    `settings ${tag}: API key masked`,
+  )
+  await page.locator('#settings-general button[aria-label]').first().click()
+  check(
+    (await input.getAttribute('type')) === 'text',
+    `settings ${tag}: show/hide toggles the key`,
+  )
+  check(
+    /Set/.test(await page.locator('[data-key-status]').innerText()),
+    `settings ${tag}: key status badge "${norm(await page.locator('[data-key-status]').innerText())}"`,
+  )
+  // scroll-spy + click-to-scroll
+  await control.locator('button', { hasText: 'Storage' }).click()
+  await settle(page, 900)
+  check(
+    (await control
+      .locator('button[aria-current="true"]')
+      .innerText()
+      .catch(() => '')) === 'Storage',
+    `settings ${tag}: clicking Storage activates it`,
+  )
+  const stTop = await page.evaluate(
+    () =>
+      document.getElementById('settings-storage').getBoundingClientRect().top,
+  )
+  check(
+    stTop < h && (await page.evaluate(() => window.scrollY)) > 0,
+    `settings ${tag}: Storage scrolled into view (${Math.round(stTop)}px)`,
+  )
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await settle(page, 200)
+  await page.evaluate(() =>
+    window.scrollTo(0, document.documentElement.scrollHeight),
+  )
+  await settle(page, 400)
+  check(
+    (await control
+      .locator('button[aria-current="true"]')
+      .innerText()
+      .catch(() => '')) === 'Help',
+    `settings ${tag}: scroll-spy reaches Help at the bottom`,
+  )
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await settle(page, 300)
+  // delay numeric input commits via setSetting (aborted)
+  const delayInput = page.locator('#delay-input')
+  check(
+    (await delayInput.inputValue()) === '1500',
+    `settings ${tag}: delay input shows saved value`,
+  )
+  await delayInput.fill('2500')
+  await delayInput.blur()
+  await settle(page, 400)
+  check(
+    page.blocked.includes('setSetting'),
+    `settings ${tag}: delay edit sends setSetting (aborted)`,
+  )
+  // storage: scan, then cleanup asks for confirmation
+  await page.locator('#settings-storage button', { hasText: /^Scan$/ }).click()
+  await settle(page, 600)
+  const cleanup = page.locator('#settings-storage button', {
+    hasText: 'Clean up',
+  })
+  check(
+    (await cleanup.count()) === 1,
+    `settings ${tag}: orphan cleanup offered`,
+  )
+  await cleanup.scrollIntoViewIfNeeded()
+  await cleanup.click()
+  await settle(page, 400)
+  check(
+    (await page.getByRole('alertdialog').count()) === 1,
+    `settings ${tag}: cleanup asks for confirmation`,
+  )
+  await shot(page, `settings-confirm-${tag}`)
+  await page
+    .getByRole('alertdialog')
+    .getByRole('button', { name: 'Cancel' })
+    .click()
+  await settle(page, 300)
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await settle(page, 200)
+  await shot(page, `settings-${tag}`)
+  check(
+    await noPageOverflow(page),
+    `settings ${tag}: no horizontal page overflow`,
+  )
+  check(
+    !page.blocked.includes('cleanupOrphanFiles'),
+    `settings ${tag}: cleanup not triggered`,
+  )
+  await ctx.close()
+}
+
+async function metadataPage(w, h, tag) {
+  console.log(`== metadata ${w}x${h}`)
+  const { ctx, page } = await newPage(w, h)
+  await page.goto(BASE + '/metadata', { waitUntil: 'networkidle' })
+  await settle(page, 600)
+  await frameChecks(page, `metadata ${tag}`, {
+    title: 'Metadata',
+    actions: false,
+  })
+  const zone = page.locator('[data-metadata-dropzone]')
+  const zr = await zone.evaluate((el) => {
+    const r = el.getBoundingClientRect()
+    return {
+      h: Math.round(r.height),
+      w: Math.round(r.width),
+      top: Math.round(r.top),
+    }
+  })
+  check(
+    zr.h >= h * 0.7 && zr.w >= w * 0.5,
+    `metadata ${tag}: drop zone fills the content area (${zr.w}x${zr.h})`,
+  )
+  check(
+    (await zone.innerText()).includes('Drop an NAI image or click to choose'),
+    `metadata ${tag}: drop zone copy`,
+  )
+  await shot(page, `metadata-empty-${tag}`)
+  const file = (name, extra = {}) => ({
+    name,
+    mimeType: 'image/png',
+    buffer: makeNaiPng(416, 608, { ...NAI_SAMPLE, ...extra }),
+  })
+  await page.locator('input[type="file"]').setInputFiles(file('first.png'))
+  await settle(page, 1500)
+  const tabs = page.locator('[data-metadata-tabs] [role="tab"]')
+  check(
+    (await tabs.count()) === 4,
+    `metadata ${tag}: Prompt / Characters / Parameters / Raw tabs (${await tabs.count()})`,
+  )
+  check(
+    (await page.locator('[data-metadata-preview]').innerText()).includes(
+      'first.png',
+    ),
+    `metadata ${tag}: file name shown`,
+  )
+  check(
+    /KB/.test(await page.locator('[data-metadata-preview]').innerText()),
+    `metadata ${tag}: file size shown`,
+  )
+  check(
+    (await page
+      .locator('[data-metadata-preview] [data-metadata-replace]')
+      .count()) === 1,
+    `metadata ${tag}: Replace button`,
+  )
+  const layout = await page.evaluate(() => {
+    const p = document
+      .querySelector('[data-metadata-preview]')
+      .getBoundingClientRect()
+    const t = document
+      .querySelector('[data-metadata-tabs]')
+      .getBoundingClientRect()
+    const box = document
+      .querySelector('[data-metadata-preview] > div')
+      .getBoundingClientRect()
+    return {
+      sideBySide: t.left >= p.right - 1,
+      stacked: t.top >= p.bottom - 1,
+      imgBox: Math.round(box.height),
+    }
+  })
+  check(
+    w >= 1024 ? layout.sideBySide : layout.stacked,
+    `metadata ${tag}: ${w >= 1024 ? 'two panes' : 'stacked, image on top'}`,
+  )
+  if (w < 1024) {
+    check(
+      layout.imgBox <= Math.round(h * 0.4) + 1,
+      `metadata ${tag}: image max 40vh (${layout.imgBox}/${Math.round(h * 0.4)})`,
+    )
+  }
+  check(
+    (
+      await page
+        .locator('[data-metadata-tabs] [role="tabpanel"][data-state="active"]')
+        .innerText()
+    ).includes('1girl, solo, smile'),
+    `metadata ${tag}: positive prompt shown`,
+  )
+  check(
+    (await page.getByRole('button', { name: /^Copy: Positive/ }).count()) === 1,
+    `metadata ${tag}: prompt copy button`,
+  )
+  await tabs.nth(1).click()
+  await settle(page, 300)
+  const chars = await page
+    .locator('[data-metadata-tabs] [role="tabpanel"][data-state="active"]')
+    .innerText()
+  check(
+    /girl, red hair/.test(chars) && /boy, black hair/.test(chars),
+    `metadata ${tag}: per-character captions`,
+  )
+  check(
+    (await page.getByRole('button', { name: /^Copy: Character/ }).count()) >= 2,
+    `metadata ${tag}: per-character copy buttons`,
+  )
+  await tabs.nth(2).click()
+  await settle(page, 300)
+  const params = await page
+    .locator('[data-metadata-tabs] [role="tabpanel"][data-state="active"]')
+    .innerText()
+  check(
+    /Seed/.test(params) && /1234567890/.test(params) && /Steps/.test(params),
+    `metadata ${tag}: parameters grid`,
+  )
+  check(
+    (await page.getByRole('button', { name: 'Copy: Seed' }).count()) === 1,
+    `metadata ${tag}: seed copy button`,
+  )
+  await tabs.nth(3).click()
+  await settle(page, 300)
+  check(
+    /"steps": 28/.test(
+      await page.locator('[data-metadata-tabs] pre').innerText(),
+    ),
+    `metadata ${tag}: raw JSON`,
+  )
+  await tabs.nth(0).click()
+  await shot(page, `metadata-loaded-${tag}`)
+  // header actions
+  const hdr = await headerInfo(page)
+  check(
+    hdr.actionsChildren >= 2 &&
+      !hdr.overflowX &&
+      hdr.actionsRight <= hdr.viewport,
+    `metadata ${tag}: header actions fit (${hdr.actionsChildren})`,
+  )
+  check(
+    (await page
+      .locator('[data-app-header] button[aria-label="Create Project"]')
+      .count()) === 1,
+    `metadata ${tag}: Create Project action`,
+  )
+  // dropping a new image anywhere replaces the current one
+  const second = makeNaiPng(300, 300, {
+    ...NAI_SAMPLE,
+    prompt: 'second image prompt',
+  })
+  await page.evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+    const dt = new DataTransfer()
+    dt.items.add(new File([bytes], 'second.png', { type: 'image/png' }))
+    document.dispatchEvent(
+      new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }),
+    )
+    document.dispatchEvent(
+      new DragEvent('drop', { dataTransfer: dt, bubbles: true }),
+    )
+  }, second.toString('base64'))
+  await settle(page, 1500)
+  check(
+    (await page.locator('[data-metadata-preview]').innerText()).includes(
+      'second.png',
+    ) &&
+      (
+        await page
+          .locator(
+            '[data-metadata-tabs] [role="tabpanel"][data-state="active"]',
+          )
+          .innerText()
+      ).includes('second image prompt'),
+    `metadata ${tag}: drop replaces the loaded image`,
+  )
+  check(
+    await noPageOverflow(page),
+    `metadata ${tag}: no horizontal page overflow`,
+  )
+  check(page.blocked.length === 0, `metadata ${tag}: no writes sent`)
+  await ctx.close()
+}
+
+async function galleryTools(w, h, tag) {
+  console.log(`== gallery tools ${w}x${h}`)
+  const { ctx, page } = await newPage(w, h)
+  await navTo(page, '/gallery')
+  // ── min win-rate filter ──
+  await page.locator('[data-add-filter]').click()
+  await page.locator('[data-filter-menu="winrate"]').click()
+  await settle(page, 300)
+  check(
+    (await page.locator('[data-filter-option^="winrate-"]').count()) === 4,
+    `gallery tools ${tag}: win-rate presets 50/60/70/80`,
+  )
+  await page.locator('[data-filter-option="winrate-60"]').click()
+  await settle(page, 1200)
+  check(
+    param(page, 'minWinRate') === '60',
+    `gallery tools ${tag}: minWinRate in the URL (${param(page, 'minWinRate')})`,
+  )
+  const chip = page.locator('[data-filter-chip="winrate"]')
+  check(
+    (await chip.count()) === 1 && /60%\+ win rate/.test(await chip.innerText()),
+    `gallery tools ${tag}: win-rate chip`,
+  )
+  const gridImgs = await page
+    .locator('[data-gallery-grid] a[href^="/gallery/"]')
+    .count()
+  check(
+    gridImgs > 0 && gridImgs <= 100,
+    `gallery tools ${tag}: list is filtered (${gridImgs})`,
+  )
+  await shot(page, `gallery-winrate-${tag}`)
+  await chip.locator('button').click()
+  await settle(page, 1000)
+  check(
+    param(page, 'minWinRate') === null &&
+      (await page.locator('[data-filter-chip]').count()) === 0,
+    `gallery tools ${tag}: removing the chip clears the filter`,
+  )
+
+  // ── select + bulk tag ──
+  await page.locator('[data-gallery-select]').click()
+  await settle(page, 300)
+  const cells = page.locator('[data-gallery-grid] .shrink-0[style*="width"]')
+  await cells.nth(0).click()
+  await cells.nth(1).click()
+  await settle(page, 200)
+  const info = await headerInfo(page)
+  check(
+    !info.overflowX,
+    `gallery tools ${tag}: selection header fits with Tag/Bookmark actions`,
+  )
+  await page.locator('[data-gallery-bulk-tag]').click()
+  await settle(page, 600)
+  const pop = page.locator('[data-bulk-tag-popover]')
+  check((await pop.count()) === 1, `gallery tools ${tag}: tag popover opens`)
+  const states = await pop
+    .locator('[data-tag-option]')
+    .evaluateAll((els) => els.map((e) => e.getAttribute('data-tag-state')))
+  check(
+    states.join(',') === 'all,some',
+    `gallery tools ${tag}: tag states reflect the selection (${states.join(',')})`,
+  )
+  await shot(page, `gallery-bulk-tag-${tag}`)
+  await pop.locator('[data-tag-option="2"]').click()
+  await settle(page, 400)
+  check(
+    page.blocked.includes('bulkUpdateImageTags'),
+    `gallery tools ${tag}: toggling a tag calls bulkUpdateImageTags (aborted)`,
+  )
+  await pop.getByPlaceholder(/tag/i).fill('Brand New')
+  await settle(page, 300)
+  check(
+    (await pop.locator('[data-tag-create]').count()) === 1 &&
+      /brand new/.test(await pop.locator('[data-tag-create]').innerText()),
+    `gallery tools ${tag}: new tag can be created`,
+  )
+  await page.keyboard.press('Escape')
+  await settle(page, 300)
+
+  // ── bulk add to tag bookmark ──
+  await page.locator('[data-gallery-bulk-bookmark]').click()
+  await settle(page, 600)
+  const bp = page.locator('[data-bookmark-popover]')
+  check(
+    (await bp.locator('[data-bookmark-option]').count()) === 10,
+    `gallery tools ${tag}: bookmark list (${await bp.locator('[data-bookmark-option]').count()})`,
+  )
+  await bp.getByPlaceholder(/bookmark/i).fill('zz-new-bookmark')
+  await settle(page, 300)
+  check(
+    (await bp.locator('[data-bookmark-create]').count()) === 1,
+    `gallery tools ${tag}: bookmark can be created from the search`,
+  )
+  await shot(page, `gallery-bulk-bookmark-${tag}`)
+  await bp.getByPlaceholder(/bookmark/i).fill('')
+  await bp.locator('[data-bookmark-option]').first().click()
+  await settle(page, 400)
+  check(
+    page.blocked.includes('addBookmarkImagesFromGallery'),
+    `gallery tools ${tag}: picking a bookmark calls addBookmarkImagesFromGallery (aborted)`,
+  )
+  await page.keyboard.press('Escape')
+  await page.locator('[data-selection-header] button').first().click()
+  await settle(page, 300)
+
+  // ── image detail (route + overlay) ──
+  await page.locator('[data-gallery-grid] a[href^="/gallery/"]').first().click()
+  await settle(page, 1500)
+  check(
+    (await page.locator('[data-app-header] [data-detail-bookmark]').count()) ===
+      1,
+    `gallery tools ${tag}: detail has "Add to tag bookmark" in the header`,
+  )
+  await page.locator('[data-app-header] [data-detail-bookmark]').click()
+  await settle(page, 600)
+  check(
+    (await page
+      .locator('[data-bookmark-popover] [data-bookmark-option]')
+      .count()) === 10,
+    `gallery tools ${tag}: detail bookmark picker lists bookmarks`,
+  )
+  await shot(page, `gallery-detail-bookmark-${tag}`)
+  await page.keyboard.press('Escape')
+  await ctx.close()
+
+  // overlay (global imageDetail param on a non-gallery page)
+  const ov = await newPage(w, h)
+  await navTo(ov.page, '/queue')
+  await ov.page.evaluate(() => {
+    const u = new URL(location.href)
+    u.searchParams.set('imageDetail', '1000')
+    history.pushState({}, '', u)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  })
+  await settle(ov.page, 1500)
+  const overlayBtn = ov.page.locator('[role="dialog"] [data-detail-bookmark]')
+  check(
+    (await overlayBtn.count()) === 1,
+    `gallery tools ${tag}: overlay has "Add to tag bookmark"`,
+  )
+  if ((await overlayBtn.count()) === 1) {
+    await overlayBtn.click()
+    await settle(ov.page, 600)
+    check(
+      (await ov.page
+        .locator('[data-bookmark-popover] [data-bookmark-option]')
+        .count()) === 10,
+      `gallery tools ${tag}: overlay bookmark picker lists bookmarks`,
+    )
+  }
+  await ov.ctx.close()
+}
+
 for (const [w, h, tag] of [
   [1440, 900, 'desktop'],
   [390, 844, 'mobile'],
@@ -989,6 +1560,9 @@ for (const [w, h, tag] of [
     storageKey: '87studio-master-detail:tags',
   })
   await queue(w, h, tag)
+  await settingsPage(w, h, tag)
+  await metadataPage(w, h, tag)
+  await galleryTools(w, h, tag)
 }
 
 console.log(`\nconsole errors: ${consoleErrors}\nfailures: ${failures}`)

@@ -203,6 +203,8 @@ function SettingsPage() {
   const lastSavedApiKey = useRef(initialApiKey)
   const lastSavedDelay = useRef(Number(initialDelay))
   const [active, setActive] = useState<SectionId>('general')
+  // A nav click owns the highlight until its smooth scroll has settled
+  const spyLockUntil = useRef(0)
 
   // Storage management state
   const [storageStats, setStorageStats] = useState<Awaited<
@@ -222,6 +224,7 @@ function SettingsPage() {
   // Scroll-spy: the active section is the last one whose top passed the header
   useEffect(() => {
     function onScroll() {
+      if (Date.now() < spyLockUntil.current) return
       let current: SectionId = SECTION_IDS[0]
       const atBottom =
         window.innerHeight + window.scrollY >=
@@ -247,6 +250,7 @@ function SettingsPage() {
 
   function goTo(id: SectionId) {
     setActive(id)
+    spyLockUntil.current = Date.now() + 700
     document
       .getElementById(`settings-${id}`)
       ?.scrollIntoView({ behavior: 'smooth', block: 'start' })

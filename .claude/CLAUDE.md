@@ -282,7 +282,8 @@ public/
 start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js 자동 다운로드)
 start.bat                      # Windows 간편 실행 스크립트
 scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단)
-scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐, server fn 응답 목업, 1440·390, 쓰기 차단)
+scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
+scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 실행). `npm run demo`, `npm run demo:seed`
 LICENSE                        # PolyForm Noncommercial 1.0.0
 ```
 
@@ -453,6 +454,9 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 이미지는 로컬 파일시스템에 저장, 썸네일 자동 생성
 - **갤러리 레이아웃**: 무한 스크롤 그리드 (헤더 "Gallery {n}", 액션 Select·Export, 툴바 = 필터 칩 + ＋ Filter + 정렬 + 카드 크기 슬라이더 `87studio-grid-gallery`)
 - **이미지 상세**: 별도 라우트 (`/gallery/$imageId`)
+- **최소 승률 필터**: `+ Filter` → Min win rate (50/60/70/80%), URL `?minWinRate=`, 매치가 1회 이상인 이미지만 (`listImages`, 헬퍼 `src/lib/win-rate.ts`)
+- **일괄 태그**: 선택 헤더의 Tag 팝오버 (`bulk-tag-popover.tsx`, `getImageTagCounts`/`bulkUpdateImageTags`) — 전체가 가진 태그는 클릭 시 제거, 그 외는 추가, 새 태그 생성 가능
+- **태그 북마크에 추가**: 이미지 상세(오버레이/라우트 헤더)와 선택 헤더의 북마크 팝오버 (`add-to-bookmark-popover.tsx`, `addBookmarkImagesFromGallery`, 이미 있는 이미지는 건너뜀)
 - **일괄 다운로드**: 필터/선택 기반 ZIP 다운로드 (파일명 템플릿 지원)
 
 ## 프론트엔드 UI 세부사항
@@ -496,12 +500,17 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ### 메타데이터 인스펙터 (/metadata)
 
+- 빈 상태: 전체 영역 드롭존. 로드 후: 좌 이미지 미리보기(파일명/크기/교체) + 우 탭(Prompt/Characters/Parameters/References/Raw), 모바일은 세로 스택(이미지 최대 40vh), 페이지 어디에 드롭해도 이미지 교체
+
 - 이미지 드래그 앤 드롭 업로드
 - NAI 메타데이터 추출 (PNG tEXt, Stealth Alpha)
 - 프롬프트, 파라미터, V4 캐릭터 캡션 표시
 - 메타데이터에서 프로젝트 직접 생성
 
 ### 설정 페이지 (/settings)
+
+- 데스크톱(≥1024): 좌측 sticky 섹션 내비(General/Generation/Appearance/Storage/Help, 스크롤 스파이) + 우측 카드(max 720px). 그 미만: 상단 sticky 칩 행
+- API 키는 마스킹 + 표시 토글 + 상태 배지(미설정/설정됨/유효), 스토리지 정리는 확인 다이얼로그
 
 - NAI API 키 입력/저장
 - 이미지 생성 간 딜레이 설정 (기본 500ms, 범위 0~30초)

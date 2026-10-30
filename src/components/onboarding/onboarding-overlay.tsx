@@ -40,6 +40,10 @@ function checkCondition(check: string): boolean {
       for (const ta of textareas) {
         if (ta.value.trim()) return true
       }
+      // The prompt editor (CodeMirror) replaces the textarea once loaded
+      for (const cm of editor.querySelectorAll('.cm-content')) {
+        if ((cm.textContent || '').trim()) return true
+      }
     }
   }
   return false

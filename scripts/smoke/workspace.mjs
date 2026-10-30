@@ -12,6 +12,10 @@
 //   SMOKE_BASE  app URL (default: http://127.0.0.1:3100)
 //   SMOKE_OUT   screenshot dir (default: <os tmp>/87studio-smoke)
 //
+// Phase 5 adds: document height on editor routes, the virtualized scene board
+// and the onboarding order (settings mocked via getSetting, step transitions
+// read from the aborted setSetting requests).
+//
 // Needs project 1 in the local DB. getWorkspaceData is intercepted on
 // client-side navigation and 5 mock packs (125 scenes) are appended to the
 // real scenes (128 total when project 1 has 3); two mock characters are added
@@ -65,6 +69,45 @@ const fnName = (u) => {
     return ''
   }
 }
+function decode(node) {
+  switch (node.t) {
+    case 0:
+    case 1:
+      return node.s
+    case 2:
+      return [null, undefined, true, false][node.s]
+    case 9:
+      return node.a.map(decode)
+    case 10:
+      return Object.fromEntries(
+        node.p.k.map((k, i) => [k, decode(node.p.v[i])]),
+      )
+    default:
+      return undefined
+  }
+}
+function argsOf(url) {
+  const payload = new URL(url).searchParams.get('payload')
+  if (!payload) return undefined
+  const root = JSON.parse(payload)
+  return decode(root.t).data
+}
+
+const envelope = (result) =>
+  JSON.stringify({
+    t: 10,
+    i: 0,
+    p: {
+      k: ['result', 'error', 'context'],
+      v: [
+        enc(result),
+        { t: 2, s: 1 },
+        { t: 11, i: nextId++, p: { k: [], v: [] }, o: 0 },
+      ],
+    },
+    o: 0,
+  })
+
 const WRITE =
   /^(create|update|delete|bulk|add|rename|duplicate|assign|upsert|set|remove|cancel|pause|resume|reorder|toggle|upload|import|convert|record)/i
 
@@ -162,6 +205,17 @@ async function newPage(width, height) {
     if (WRITE.test(name)) {
       page.blocked.push(name)
       return route.abort()
+    }
+    if (name === 'getSetting' && page.settings) {
+      const key = argsOf(url)
+      return route.fulfill({
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'x-tss-serialized': 'true',
+        },
+        body: envelope(page.settings[key] ?? null),
+      })
     }
     if (name === 'getWorkspaceData') {
       const resp = await route.fetch()
@@ -921,6 +975,246 @@ async function quickGenerate(width, height, label) {
 }
 await quickGenerate(1440, 900, 'qg-desktop')
 await quickGenerate(390, 844, 'qg-mobile')
+
+// ───────── Phase 5: document height, virtualized board, onboarding order ─────────
+const docHeight = (page) =>
+  page.evaluate(() => ({
+    sh: document.scrollingElement.scrollHeight,
+    ih: window.innerHeight,
+  }))
+
+async function phase5(w, h, tag) {
+  console.log(`== phase 5 ${w}x${h}`)
+
+  // C2: editor routes fit the viewport exactly (no CodeMirror tooltip host leak)
+  {
+    const { ctx, page } = await newPage(w, h)
+    await openWorkspace(page)
+    await page.waitForSelector('.cm-editor', { timeout: 15000 })
+    await settle(page, 600)
+    let d = await docHeight(page)
+    check(
+      d.sh === d.ih,
+      `workspace ${tag}: document height = viewport (${d.sh}/${d.ih})`,
+    )
+    check(
+      (await page
+        .locator('body > .cm-editor, body > div[class*="ͼ"]')
+        .count()) === 0,
+      `workspace ${tag}: no CodeMirror nodes in the document flow`,
+    )
+    // tooltips (completion) still render, inside the fixed host
+    const cm = page
+      .locator(
+        '#left [data-onboarding="prompt-editor"] .cm-content, [data-onboarding="prompt-editor"] .cm-content',
+      )
+      .first()
+    await cm.click()
+    await page.keyboard.press('Control+End')
+    await page.keyboard.type(', @{bundle:')
+    await settle(page, 600)
+    d = await docHeight(page)
+    check(
+      d.sh === d.ih,
+      `workspace ${tag}: height unchanged while typing (${d.sh}/${d.ih})`,
+    )
+    check(
+      (await page.locator('[data-cm-tooltip-host] .cm-tooltip').count()) >= 0,
+      `workspace ${tag}: tooltip host present`,
+    )
+    check(
+      (await page.locator('[data-cm-tooltip-host]').count()) === 1,
+      `workspace ${tag}: single tooltip host`,
+    )
+    await page.keyboard.press('Escape')
+    await ctx.close()
+
+    const q = await newPage(w, h)
+    await q.page.goto(BASE + '/generate', { waitUntil: 'networkidle' })
+    await q.page.waitForSelector('.cm-editor', { timeout: 15000 })
+    await settle(q.page, 600)
+    d = await docHeight(q.page)
+    check(
+      d.sh === d.ih,
+      `generate ${tag}: document height = viewport (${d.sh}/${d.ih})`,
+    )
+    await q.ctx.close()
+  }
+
+  // C3: virtualized board
+  if (w >= 1024) {
+    const { ctx, page } = await newPage(w, h)
+    await openWorkspace(page)
+    await page
+      .locator('#center')
+      .getByRole('button', { name: 'Board view' })
+      .first()
+      .click()
+    await settle(page, 800)
+    const cardsIn = () =>
+      page.locator('#center [data-scene-board] [data-scene-id]').count()
+    const rendered = await cardsIn()
+    check(
+      rendered > 0 && rendered < 60,
+      `board ${tag}: only visible cards are in the DOM (${rendered} of 128)`,
+    )
+    const scroller = page
+      .locator('#center [data-scene-board] .overflow-y-auto')
+      .last()
+    const total = await scroller.evaluate((el) => el.scrollHeight)
+    check(
+      total > h * 3,
+      `board ${tag}: virtual height covers all rows (${total}px)`,
+    )
+    const t0 = Date.now()
+    await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight))
+    await settle(page, 500)
+    const t1 = Date.now() - t0
+    const lastVisible = await page
+      .locator('#center [data-scene-board] [data-scene-id]')
+      .evaluateAll((els) => els.map((e) => e.textContent).join('|'))
+    check(
+      /Backgrounds 2[0-5]/.test(lastVisible),
+      `board ${tag}: bottom reaches the last pack's cards (${t1}ms)`,
+    )
+    const after = await cardsIn()
+    check(
+      after < 60,
+      `board ${tag}: DOM stays small after scrolling (${after})`,
+    )
+    await shot(page, `board-bottom-${tag}`)
+    // mid-scroll: sticky grouping — a pack header is rendered
+    await scroller.evaluate((el) => (el.scrollTop = el.scrollHeight / 2))
+    await settle(page, 400)
+    check(
+      (await scroller.locator('button[aria-expanded]').count()) >= 1,
+      `board ${tag}: pack headers render while scrolled`,
+    )
+    // card size slider re-flows without losing the window
+    const slider = page.getByRole('slider', { name: /card size/i })
+    if (await slider.count()) {
+      await slider.focus()
+      await page.keyboard.press('Home')
+      await settle(page, 500)
+      const small = await cardsIn()
+      check(
+        small > 0,
+        `board ${tag}: card size slider re-flows (${small} cards)`,
+      )
+    }
+    // collapse a pack, then click a card → back to scene mode
+    await scroller.evaluate((el) => (el.scrollTop = 0))
+    await settle(page, 400)
+    const header = scroller.locator('button[aria-expanded="true"]').first()
+    await header.click()
+    await settle(page, 300)
+    check(
+      (await scroller.locator('button[aria-expanded="false"]').count()) === 1,
+      `board ${tag}: pack collapses`,
+    )
+    await page
+      .locator('#center [data-scene-board] [data-scene-id]')
+      .first()
+      .click()
+    await settle(page, 600)
+    check(
+      param(page, 'view') === null &&
+        (await page.locator('#center [data-scene-board]').count()) === 0,
+      `board ${tag}: card click returns to scene mode`,
+    )
+    await ctx.close()
+  }
+
+  // C4: onboarding runs 1..8 in order; "edit scene" needs a real click
+  if (w >= 1024) {
+    const { ctx, page } = await newPage(w, h)
+    page.settings = {
+      onboarding_step: '1',
+      onboarding_project_id: '1',
+    }
+    const seen = []
+    page.on('request', (req) => {
+      if (fnName(req.url()) !== 'setSetting') return
+      const body = req.postData() ?? ''
+      const m = body.match(/onboarding_step[\s\S]*?"s":"(\d+)"/)
+      if (m) seen.push(Number(m[1]))
+    })
+    const step = async () => {
+      const t = await page.locator('body').innerText()
+      const m = t.match(/Step (\d+) of 8/)
+      return m ? Number(m[1]) : null
+    }
+    const waitStep = async (n, ms = 8000) => {
+      const end = Date.now() + ms
+      while (Date.now() < end) {
+        if ((await step()) === n) return true
+        await page.waitForTimeout(150)
+      }
+      return false
+    }
+    await page.goto(BASE + '/', { waitUntil: 'networkidle' })
+    check(await waitStep(1), 'onboarding: starts at step 1 (API key)')
+    await page.evaluate(() =>
+      window.dispatchEvent(new CustomEvent('onboarding:api-key-saved')),
+    )
+    check(await waitStep(2), 'onboarding: API key saved → step 2')
+    await page.evaluate(() =>
+      window.dispatchEvent(
+        new CustomEvent('onboarding:project-created', {
+          detail: { projectId: 1 },
+        }),
+      ),
+    )
+    check(await waitStep(3), 'onboarding: project created → step 3')
+    await page.locator('a[href="/workspace/1"]').first().click()
+    // step 4 (prompt) has a Next button; step 5 (scene exists) is satisfied by
+    // the project data; step 6 needs a real click
+    check(await waitStep(4, 15000), 'onboarding: workspace → step 4 (prompt)')
+    const nextBtn = page.getByRole('button', { name: /^Next$/ })
+    await nextBtn.waitFor({ timeout: 8000 })
+    await nextBtn.click()
+    check(await waitStep(6, 15000), 'onboarding: reaches step 6 (edit a scene)')
+    await page.waitForTimeout(2500)
+    check(
+      (await step()) === 6,
+      'onboarding: step 6 is NOT auto-satisfied by auto-selection',
+    )
+    await page
+      .locator('#center [role="listbox"] [data-onboarding="scene-item"]')
+      .nth(1)
+      .click()
+    check(await waitStep(7), 'onboarding: clicking a scene → step 7')
+    // step 7 needs a filled placeholder before Next enables
+    await page
+      .locator('[data-onboarding="placeholder-editor"] .cm-content')
+      .first()
+      .click()
+    await page.keyboard.type('smile')
+    const next = page.getByRole('button', { name: /^Next$/ })
+    await next.click({ timeout: 8000 })
+    check(await waitStep(8, 6000), 'onboarding: step 8 (generate)')
+    await shot(page, `onboarding-step8-${tag}`)
+    await page.evaluate(() =>
+      window.dispatchEvent(new CustomEvent('onboarding:generation-started')),
+    )
+    await settle(page, 600)
+    check(
+      (await page
+        .getByText(/Tutorial complete|You're all set|complete/i)
+        .count()) >= 1,
+      'onboarding: completion dialog after generation starts',
+    )
+    const uniq = [...new Set(seen)]
+    check(
+      uniq.join(',') === '1,2,3,4,5,6,7,8,9',
+      `onboarding: persisted steps are strictly in order (${uniq.join(',')})`,
+    )
+    await ctx.close()
+  }
+}
+
+await phase5(1440, 900, 'desktop')
+await phase5(390, 844, 'mobile')
 
 console.log(`\nconsole errors: ${consoleErrors}\nfailures: ${failures}`)
 await browser.close()
