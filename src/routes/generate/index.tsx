@@ -24,6 +24,7 @@ import { useVirtualizer } from '@tanstack/react-virtual'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import type { GridSize } from '@/lib/use-image-grid-size'
 import { Button } from '@/components/ui/button'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -616,6 +617,7 @@ function QuickGenerateHeader({
   return (
     <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 shrink-0">
       <div className="flex items-center gap-2 min-w-0">
+        <SidebarTrigger className="-ml-1 shrink-0" />
         <Button variant="ghost" size="sm" asChild className="shrink-0">
           <Link to="/" search={{ imageDetail: undefined }}>
             <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />

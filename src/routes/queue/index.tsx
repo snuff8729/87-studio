@@ -84,7 +84,11 @@ interface SortableBatchRowProps {
   queuePaused: boolean
 }
 
-function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProps) {
+function SortableBatchRow({
+  batch,
+  onCancel,
+  queuePaused,
+}: SortableBatchRowProps) {
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
@@ -143,9 +147,14 @@ function SortableBatchRow({ batch, onCancel, queuePaused }: SortableBatchRowProp
       ? (batch.completedImages / batch.totalImages) * 100
       : 0
   const isRunning = batch.status === 'running' && !queuePaused
-  const isPaused = queuePaused && (batch.status === 'running' || batch.status === 'pending')
+  const isPaused =
+    queuePaused && (batch.status === 'running' || batch.status === 'pending')
 
-  const barColor = isPaused ? 'bg-muted-foreground/40' : isRunning ? 'bg-primary' : 'bg-muted-foreground/40'
+  const barColor = isPaused
+    ? 'bg-muted-foreground/40'
+    : isRunning
+      ? 'bg-primary'
+      : 'bg-muted-foreground/40'
 
   return (
     <div
@@ -408,7 +417,10 @@ function SortableJobRow({ job }: { job: JobData }) {
         {job.projectId && job.projectSceneId && (
           <Link
             to="/workspace/$projectId/scenes/$sceneId"
-            params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
+            params={{
+              projectId: String(job.projectId),
+              sceneId: String(job.projectSceneId),
+            }}
             search={{ imageDetail: undefined }}
             className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
             onClick={(e) => e.stopPropagation()}
@@ -467,7 +479,10 @@ function RecentJobRow({ job }: { job: JobData }) {
         {job.projectId && job.projectSceneId && (
           <Link
             to="/workspace/$projectId/scenes/$sceneId"
-            params={{ projectId: String(job.projectId), sceneId: String(job.projectSceneId) }}
+            params={{
+              projectId: String(job.projectId),
+              sceneId: String(job.projectSceneId),
+            }}
             search={{ imageDetail: undefined }}
             className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
           >
@@ -582,7 +597,10 @@ function RecentBatchRow({
               className="p-1.5 text-muted-foreground hover:text-foreground rounded text-xs flex items-center gap-1"
               title={t('queue.retryBatch' as any)}
             >
-              <HugeiconsIcon icon={ArrowReloadHorizontalIcon} className="size-4" />
+              <HugeiconsIcon
+                icon={ArrowReloadHorizontalIcon}
+                className="size-4"
+              />
             </button>
           )}
           <button
@@ -710,7 +728,7 @@ function QueuePage() {
   const isEmpty = activeBatches.length === 0 && !loadingActive
 
   return (
-    <div className="min-h-screen bg-background">
+    <div>
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">

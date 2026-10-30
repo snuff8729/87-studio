@@ -10,6 +10,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowLeft02Icon, Menu01Icon } from '@hugeicons/core-free-icons'
 import { useTranslation } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import {
   getScenePageContext,
@@ -26,7 +27,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 function PendingComponent() {
   return (
-    <div className="h-dvh flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <header className="h-12 border-b border-border bg-background flex items-center px-3 shrink-0 gap-2">
         <Skeleton className="h-7 w-7 rounded-md" />
@@ -327,9 +328,10 @@ function SceneDetailPage() {
           : null
 
   return (
-    <div className="h-dvh flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <header className="h-12 border-b border-border bg-background flex items-center px-3 shrink-0 gap-2">
+        <SidebarTrigger className="-ml-1 shrink-0" />
         <Button
           variant="ghost"
           size="icon-sm"

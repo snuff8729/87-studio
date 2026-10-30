@@ -38,7 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 
 function PendingComponent() {
   return (
-    <div className="h-dvh flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Header */}
       <div className="h-12 border-b border-border bg-background flex items-center px-3 shrink-0 gap-3">
         <Skeleton className="size-7 rounded-md" />
@@ -709,9 +709,7 @@ function WorkspacePage() {
               filenameTemplate={params.filenameTemplate as string | undefined}
             />
           }
-          generationProgress={
-            <GenerationProgress />
-          }
+          generationProgress={<GenerationProgress />}
         />
       }
       leftOpen={leftOpen}

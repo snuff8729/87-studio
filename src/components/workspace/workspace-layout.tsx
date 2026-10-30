@@ -22,7 +22,7 @@ export function WorkspaceLayout({
   onDismiss,
 }: WorkspaceLayoutProps) {
   return (
-    <div className="h-dvh flex flex-col overflow-hidden">
+    <div className="h-full flex flex-col overflow-hidden">
       {header}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Left Panel — Prompts */}
