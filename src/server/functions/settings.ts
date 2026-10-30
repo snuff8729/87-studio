@@ -4,6 +4,7 @@ import { db } from '../db'
 import { settings } from '../db/schema'
 import { createLogger } from '../services/logger'
 import { NAI_MOCK } from '../services/nai-mock'
+import { fetchNaiAccount } from '../services/nai-account'
 
 const log = createLogger('fn.settings')
 
@@ -46,34 +47,29 @@ export const validateApiKey = createServerFn({ method: 'POST' })
   .inputValidator((apiKey: string) => apiKey)
   .handler(async ({ data: apiKey }) => {
     if (!apiKey.trim()) {
-      return { valid: false, error: 'empty' as const }
+      return { valid: false, error: 'empty' as const, account: null }
     }
-    if (NAI_MOCK) return { valid: true, error: null }
-
-    try {
-      // NAI moved /user/* to image.novelai.net (2026-07); the api.novelai.net
-      // path now answers 401 "User not found" for every token
-      const response = await fetch(
-        'https://image.novelai.net/user/subscription',
-        {
-          headers: { Authorization: `Bearer ${apiKey.trim()}` },
-          signal: AbortSignal.timeout(10_000),
-        },
-      )
-
-      if (response.ok) {
-        return { valid: true, error: null }
-      }
-
-      if (response.status === 401) {
-        return { valid: false, error: 'unauthorized' as const }
-      }
-
-      return { valid: false, error: 'unknown' as const }
-    } catch {
-      return { valid: false, error: 'network' as const }
+    const result = await fetchNaiAccount(apiKey)
+    if (result.ok) {
+      return { valid: true, error: null, account: result.summary }
     }
+    return { valid: false, error: result.error, account: null }
   })
+
+/** Account summary (Anlas, tier, usage) for the saved key; null when unavailable. */
+export const getNaiAccount = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    const row = db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, 'nai_api_key'))
+      .get()
+    const key = row?.value?.trim() || (NAI_MOCK ? 'mock' : '')
+    if (!key) return null
+    const result = await fetchNaiAccount(key)
+    return result.ok ? result.summary : null
+  },
+)
 
 export const getAllSettings = createServerFn({ method: 'GET' }).handler(
   async () => {
