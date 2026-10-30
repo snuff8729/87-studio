@@ -1,6 +1,16 @@
-import { normalize, resolve } from 'node:path'
+import { extname, normalize, resolve, sep } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 import { defineHandler } from 'nitro/h3'
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.zip': 'application/zip',
+  '.bin': 'application/octet-stream',
+}
 
 export default defineHandler((event) => {
   if (event.req.method !== 'GET' && event.req.method !== 'HEAD') return
@@ -34,7 +44,7 @@ export default defineHandler((event) => {
     normalize(decodeURIComponent(relativePath)),
   )
 
-  if (!filePath.startsWith(basePath)) {
+  if (filePath !== basePath && !filePath.startsWith(basePath + sep)) {
     return new Response('Forbidden', { status: 403 })
   }
 
@@ -46,7 +56,9 @@ export default defineHandler((event) => {
   const isZip = filePath.endsWith('.zip')
 
   const headers: Record<string, string> = {
-    'Content-Type': isZip ? 'application/zip' : 'image/png',
+    'Content-Type':
+      CONTENT_TYPES[extname(filePath).toLowerCase()] ??
+      'application/octet-stream',
   }
 
   if (isZip) {

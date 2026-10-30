@@ -698,13 +698,20 @@ function WorkspacePage() {
       skipReservePersist.current = false
       return
     }
+    // Only this project's scenes: stale ids (deleted scenes) are dropped
+    const sceneIdSet = new Set(allScenes.map((s) => s.id))
     writeStorage(
       reserveKey(projectId),
       serializeReservePrefs({
-        counts: sceneCounts,
+        counts: Object.fromEntries(
+          Object.entries(sceneCounts).filter(([id]) =>
+            sceneIdSet.has(Number(id)),
+          ),
+        ),
         defaultCount: countPerScene,
       }),
     )
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, sceneCounts, countPerScene])
   const [generating, setGenerating] = useState(data.activeJobs.length > 0)
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(

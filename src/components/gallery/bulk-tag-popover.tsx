@@ -54,6 +54,7 @@ export function BulkTagPopover({
   const [query, setQuery] = useState('')
   const [counts, setCounts] = useState<Record<number, number>>({})
   const [busy, setBusy] = useState(false)
+  const [loaded, setLoaded] = useState(false)
   const total = imageIds.length
 
   async function handleOpenChange(next: boolean) {
@@ -62,18 +63,22 @@ export function BulkTagPopover({
       setQuery('')
       return
     }
+    // Never show the previous selection's counts
+    setCounts({})
+    setLoaded(false)
     try {
       const rows = await getImageTagCounts({
         data: { imageIds: [...imageIds] },
       })
       setCounts(Object.fromEntries(rows.map((r) => [r.tagId, r.count])))
+      setLoaded(true)
     } catch {
       setCounts({})
     }
   }
 
   async function toggle(tag: TagOption) {
-    if (busy) return
+    if (busy || !loaded) return
     const state = tagStateFor(counts[tag.id] ?? 0, total)
     setBusy(true)
     try {
@@ -148,6 +153,7 @@ export function BulkTagPopover({
                     value={tag.name}
                     data-tag-option={tag.id}
                     data-tag-state={state}
+                    disabled={!loaded}
                     onSelect={() => toggle(tag)}
                   >
                     <span

@@ -1,4 +1,4 @@
-import { normalize, resolve } from 'node:path'
+import { extname, normalize, resolve, sep } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
 import { defineConfig } from 'vite'
@@ -9,6 +9,16 @@ import viteTsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 import type { Plugin } from 'vite'
+
+const CONTENT_TYPES: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.zip': 'application/zip',
+  '.bin': 'application/octet-stream',
+}
 
 function serveDataFiles(): Plugin {
   return {
@@ -47,7 +57,7 @@ function serveDataFiles(): Plugin {
           normalize(decodeURIComponent(relativePath)),
         )
 
-        if (!filePath.startsWith(basePath)) {
+        if (filePath !== basePath && !filePath.startsWith(basePath + sep)) {
           res.statusCode = 403
           res.end('Forbidden')
           return
@@ -61,7 +71,11 @@ function serveDataFiles(): Plugin {
 
         const data = readFileSync(filePath)
         const isZip = filePath.endsWith('.zip')
-        res.setHeader('Content-Type', isZip ? 'application/zip' : 'image/png')
+        res.setHeader(
+          'Content-Type',
+          CONTENT_TYPES[extname(filePath).toLowerCase()] ??
+            'application/octet-stream',
+        )
         if (isZip) {
           const filename = relativePath.split('/').pop() ?? 'download.zip'
           res.setHeader(
@@ -79,7 +93,9 @@ function serveDataFiles(): Plugin {
 
 function getAppVersion(): string {
   try {
-    return execSync('git describe --tags --abbrev=0', { encoding: 'utf-8' }).trim()
+    return execSync('git describe --tags --abbrev=0', {
+      encoding: 'utf-8',
+    }).trim()
   } catch {
     return 'dev'
   }

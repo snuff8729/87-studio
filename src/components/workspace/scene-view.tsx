@@ -747,6 +747,7 @@ function ScrollFade({
   children: ReactNode
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  const inner = useRef<HTMLDivElement>(null)
   const [more, setMore] = useState(false)
 
   useEffect(() => {
@@ -758,7 +759,7 @@ function ScrollFade({
     el.addEventListener('scroll', update, { passive: true })
     const ro = new ResizeObserver(update)
     ro.observe(el)
-    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    if (inner.current) ro.observe(inner.current)
     return () => {
       el.removeEventListener('scroll', update)
       ro.disconnect()
@@ -772,7 +773,7 @@ function ScrollFade({
         data-placeholder-scroll
         className={cn('flex-1 overflow-y-auto', className)}
       >
-        {children}
+        <div ref={inner}>{children}</div>
       </div>
       {more && (
         <div

@@ -23,6 +23,10 @@ import {
 } from '@/server/functions/tag-bookmarks'
 import { useTranslation } from '@/lib/i18n'
 
+/** Bookmark names are stored like the tags page: spaces as underscores */
+const normalizeName = (s: string) => s.trim().replace(/\s+/g, '_')
+const displayName = (s: string) => s.replace(/_/g, ' ')
+
 type BookmarkOption = { id: number; name: string; imageCount: number }
 
 /**
@@ -76,12 +80,12 @@ export function AddToBookmarkPopover({
         res.skipped > 0
           ? t('gallery.addedToBookmarkSkipped', {
               count: res.added,
-              name: bookmark.name,
+              name: displayName(bookmark.name),
               skipped: res.skipped,
             })
           : t('gallery.addedToBookmark', {
               count: res.added,
-              name: bookmark.name,
+              name: displayName(bookmark.name),
             }),
       )
       setOpen(false)
@@ -94,7 +98,7 @@ export function AddToBookmarkPopover({
     }
   }
 
-  const trimmed = query.trim()
+  const trimmed = normalizeName(query)
   const canCreate =
     trimmed !== '' &&
     !(bookmarks ?? []).some(
@@ -138,12 +142,14 @@ export function AddToBookmarkPopover({
               {(bookmarks ?? []).map((b) => (
                 <CommandItem
                   key={b.id}
-                  value={b.name}
+                  value={`${b.name} ${displayName(b.name)}`}
                   data-bookmark-option={b.id}
                   disabled={busy}
                   onSelect={() => addTo(b)}
                 >
-                  <span className="min-w-0 flex-1 truncate">{b.name}</span>
+                  <span className="min-w-0 flex-1 truncate">
+                    {displayName(b.name)}
+                  </span>
                   <span className="text-xs text-muted-foreground tabular-nums">
                     {b.imageCount}
                   </span>
@@ -160,7 +166,9 @@ export function AddToBookmarkPopover({
                 >
                   <HugeiconsIcon icon={Add01Icon} className="size-4" />
                   <span className="truncate">
-                    {t('gallery.createBookmarkNamed', { name: trimmed })}
+                    {t('gallery.createBookmarkNamed', {
+                      name: displayName(trimmed),
+                    })}
                   </span>
                 </CommandItem>
               </CommandGroup>

@@ -258,48 +258,64 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
 
     if (!scene) throw new Error('Scene not found')
 
-    // Make room right after the source scene
-    db.update(projectScenes)
-      .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })
-      .where(
-        and(
-          eq(projectScenes.projectScenePackId, scene.projectScenePackId),
-          sql`${projectScenes.sortOrder} > ${scene.sortOrder}`,
-        ),
+    return db.transaction((tx) => {
+      // Free name: "(Copy)", "(Copy 2)", ...
+      const taken = new Set(
+        tx
+          .select({ name: projectScenes.name })
+          .from(projectScenes)
+          .where(eq(projectScenes.projectScenePackId, scene.projectScenePackId))
+          .all()
+          .map((r) => r.name),
       )
-      .run()
+      let name = `${scene.name} (Copy)`
+      for (let n = 2; taken.has(name); n++) {
+        name = `${scene.name} (Copy ${n})`
+      }
 
-    // Insert duplicated scene
-    const newScene = db
-      .insert(projectScenes)
-      .values({
-        projectScenePackId: scene.projectScenePackId,
-        sourceSceneId: scene.sourceSceneId,
-        name: `${scene.name} (Copy)`,
-        placeholders: scene.placeholders,
-        sortOrder: (scene.sortOrder ?? 0) + 1,
-      })
-      .returning()
-      .get()
-
-    // Copy character overrides
-    const overrides = db
-      .select()
-      .from(characterSceneOverrides)
-      .where(eq(characterSceneOverrides.projectSceneId, projectSceneId))
-      .all()
-
-    for (const override of overrides) {
-      db.insert(characterSceneOverrides)
-        .values({
-          projectSceneId: newScene.id,
-          characterId: override.characterId,
-          placeholders: override.placeholders,
-        })
+      // Make room right after the source scene
+      tx.update(projectScenes)
+        .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })
+        .where(
+          and(
+            eq(projectScenes.projectScenePackId, scene.projectScenePackId),
+            sql`${projectScenes.sortOrder} > ${scene.sortOrder}`,
+          ),
+        )
         .run()
-    }
 
-    return newScene
+      // Insert duplicated scene
+      const newScene = db
+        .insert(projectScenes)
+        .values({
+          projectScenePackId: scene.projectScenePackId,
+          sourceSceneId: scene.sourceSceneId,
+          name,
+          placeholders: scene.placeholders,
+          sortOrder: (scene.sortOrder ?? 0) + 1,
+        })
+        .returning()
+        .get()
+
+      // Copy character overrides
+      const overrides = db
+        .select()
+        .from(characterSceneOverrides)
+        .where(eq(characterSceneOverrides.projectSceneId, projectSceneId))
+        .all()
+
+      for (const override of overrides) {
+        tx.insert(characterSceneOverrides)
+          .values({
+            projectSceneId: newScene.id,
+            characterId: override.characterId,
+            placeholders: override.placeholders,
+          })
+          .run()
+      }
+
+      return newScene
+    })
   })
 
 export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })

@@ -10,7 +10,12 @@ import {
   promptBundles,
   tags,
 } from '../db/schema'
-import { buildImageConditions, imageOrder } from '../services/image-query'
+import {
+  afterPosition,
+  buildImageConditions,
+  imageOrder,
+  sortValues,
+} from '../services/image-query'
 import type { ImageFilters, ImageSort } from '../services/image-query'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
@@ -287,17 +292,17 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
     // Prev/next = neighbours in the same filtered, sorted list as the grid
     const f = data.filters ?? {}
     const conditions = buildImageConditions(f)
-    const orderedIds = db
-      .select({ id: generatedImages.id })
-      .from(generatedImages)
-      .where(conditions.length > 0 ? and(...conditions) : undefined)
-      .orderBy(...imageOrder(f.sortBy))
-      .all()
-      .map((r) => r.id)
-    const at = orderedIds.indexOf(data.imageId)
-    const prevResult = at > 0 ? { id: orderedIds[at - 1] } : null
-    const nextResult =
-      at >= 0 && at < orderedIds.length - 1 ? { id: orderedIds[at + 1] } : null
+    const position = sortValues(f.sortBy, image)
+    const neighbour = (side: 'after' | 'before') =>
+      db
+        .select({ id: generatedImages.id })
+        .from(generatedImages)
+        .where(and(afterPosition(f.sortBy, position, side), ...conditions))
+        .orderBy(...imageOrder(f.sortBy, side === 'before'))
+        .limit(1)
+        .get()
+    const prevResult = neighbour('before')
+    const nextResult = neighbour('after')
 
     // Fetch linked bundles
     const linkedBundles = db
