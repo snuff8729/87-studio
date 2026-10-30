@@ -937,6 +937,10 @@ const rows = (page) =>
   await shot(page, 'mobile-sheet-select')
   await sh.getByRole('button', { name: 'Exit selection' }).click()
   await settle(page, 300)
+  // the list is virtualized and real packs can precede the mock ones, so
+  // narrow it with the sheet search instead of assuming the row is rendered
+  await sheet.getByPlaceholder('Search by name...').fill('Emotions 03')
+  await settle(page, 400)
   await sheet.locator(`[data-scene-id="${MOCK_ID + 3}"]`).click()
   await settle(page, 600)
   check(
@@ -1245,7 +1249,10 @@ async function phase5(w, h, tag) {
     await header.click()
     await settle(page, 300)
     check(
-      (await scroller.locator('button[aria-expanded="false"]').count()) === 1,
+      // pack headers only: card / row menu buttons also carry aria-expanded
+      (await scroller
+        .locator('button[aria-expanded="false"]', { hasText: '·' })
+        .count()) === 1,
       `board ${tag}: pack collapses`,
     )
     await page
