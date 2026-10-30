@@ -84,6 +84,13 @@ const ko: DeepStringify<typeof en> = {
     minutesAgo: '{{count}}분 전',
     hoursAgo: '{{count}}시간 전',
     daysAgo: '{{count}}일 전',
+    searchPlaceholder: '프로젝트 검색',
+    sceneCount: '씬 {{count}}개',
+    noMatches: '검색과 일치하는 프로젝트가 없습니다',
+    generatingNow: '생성 중',
+    viewQueue: '큐 보기',
+    importFromMetadata: '이미지에서 가져오기',
+    newProjectShort: '새로 만들기',
   },
   settings: {
     title: '설정',

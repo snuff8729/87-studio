@@ -81,6 +81,13 @@ const en = {
     minutesAgo: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    searchPlaceholder: 'Search projects',
+    sceneCount: '{{count}} scenes',
+    noMatches: 'No projects match your search',
+    generatingNow: 'Generating',
+    viewQueue: 'View queue',
+    importFromMetadata: 'Import from an image',
+    newProjectShort: 'New',
   },
   settings: {
     title: 'Settings',

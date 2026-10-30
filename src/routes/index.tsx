@@ -1,31 +1,31 @@
 import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
   ArrowExpand01Icon,
+  ArrowRight01Icon,
   Copy01Icon,
   Delete02Icon,
+  FileSearchIcon,
   FolderOpenIcon,
-  Image02Icon,
   MoreHorizontalIcon,
   PencilEdit01Icon,
-  Settings02Icon,
+  Search01Icon,
 } from '@hugeicons/core-free-icons'
 import type { TranslationKeys } from '@/lib/i18n'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@/components/ui/dialog'
 import {
   DropdownMenu,
@@ -42,8 +42,14 @@ import {
   updateProject,
 } from '@/server/functions/projects'
 import { getSetting } from '@/server/functions/settings'
+import { listQueueBatches } from '@/server/functions/queue'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
+import {
+  HeaderActions,
+  usePageHeader,
+} from '@/components/layout/breadcrumb-context'
+import { useQueueSummary } from '@/components/queue/queue-status-widget'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 
@@ -70,36 +76,19 @@ function formatRelativeDate(dateStr: string, t: TFn): string {
 
 function PendingComponent() {
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Skeleton className="size-8 rounded-lg" />
-          <Skeleton className="h-5 w-16" />
-        </div>
-        <Skeleton className="h-8 w-20" />
-      </div>
-
-      {/* Project list */}
-      <div className="space-y-2">
-        {Array.from({ length: 4 }).map((_, i) => (
-          <div
-            key={i}
-            className="flex items-center gap-3 rounded-xl border border-border p-3"
-          >
-            <Skeleton className="size-12 rounded-lg shrink-0" />
-            <div className="flex-1 min-w-0 space-y-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-3 w-24" />
-            </div>
+    <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div
+          key={i}
+          className="overflow-hidden rounded-xl border border-border"
+        >
+          <Skeleton className="aspect-[3/2] w-full rounded-none" />
+          <div className="space-y-2 p-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-40" />
           </div>
-        ))}
-      </div>
-
-      {/* Create button */}
-      <div className="mt-4">
-        <Skeleton className="h-9 w-full rounded-md" />
-      </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -119,6 +108,58 @@ export const Route = createFileRoute('/')({
   pendingComponent: PendingComponent,
 })
 
+/** One-row strip shown only while the queue has pending or running work. */
+function RunningStrip() {
+  const { t } = useTranslation()
+  const { data: summary } = useQueueSummary()
+  const active = (summary?.globalStats.totalPendingImages ?? 0) > 0
+  const { data: batches = [] } = useQuery({
+    queryKey: ['queue-batches'],
+    queryFn: () => listQueueBatches(),
+    refetchInterval: 2000,
+    enabled: active,
+  })
+
+  if (!summary || !active) return null
+  const { totalImages, completedImages } = summary.globalStats
+  const pct = totalImages > 0 ? (completedImages / totalImages) * 100 : 0
+  const current = batches.find((b) => b.status === 'running') ?? batches.at(0)
+
+  return (
+    <Link
+      to="/queue"
+      search={{ imageDetail: undefined }}
+      data-running-strip
+      className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5 transition-colors hover:border-primary/30"
+    >
+      <span className="relative flex size-2 shrink-0">
+        <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-60" />
+        <span className="relative inline-flex size-2 rounded-full bg-primary" />
+      </span>
+      <span className="min-w-0 flex-1 truncate text-sm">
+        <span className="font-medium">{t('dashboard.generatingNow')}</span>
+        {current && (
+          <span className="text-muted-foreground"> · {current.label}</span>
+        )}
+      </span>
+      <div className="hidden h-1.5 w-40 overflow-hidden rounded-full bg-secondary sm:block">
+        <div
+          className="h-full rounded-full bg-brand-gradient transition-all duration-500"
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs text-muted-foreground tabular-nums">
+        {completedImages}/{totalImages}
+      </span>
+      <HugeiconsIcon
+        icon={ArrowRight01Icon}
+        className="size-4 text-muted-foreground"
+        aria-label={t('dashboard.viewQueue')}
+      />
+    </Link>
+  )
+}
+
 function ProjectSelectorPage() {
   const data = Route.useLoaderData()
   const router = useRouter()
@@ -127,6 +168,7 @@ function ProjectSelectorPage() {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
   const [descExpanded, setDescExpanded] = useState(false)
+  const [search, setSearch] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number
     name: string
@@ -138,6 +180,14 @@ function ProjectSelectorPage() {
   const [renameName, setRenameName] = useState('')
   const { t } = useTranslation()
   const onboarding = useOnboardingMaybe()
+
+  usePageHeader({ count: projects.length })
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return projects
+    return projects.filter((p) => p.name.toLowerCase().includes(q))
+  }, [projects, search])
 
   async function handleCreate() {
     if (!name.trim()) {
@@ -210,217 +260,248 @@ function ProjectSelectorPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <div className="size-8 rounded-lg bg-primary flex items-center justify-center">
-            <span className="text-base font-bold text-primary-foreground">
-              87
-            </span>
+    <div>
+      <HeaderActions>
+        {projects.length > 0 && (
+          <div className="relative min-w-0 flex-1 sm:w-56 sm:flex-none">
+            <HugeiconsIcon
+              icon={Search01Icon}
+              className="pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2 text-muted-foreground"
+            />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('dashboard.searchPlaceholder')}
+              aria-label={t('dashboard.searchPlaceholder')}
+              data-project-search
+              className="h-8 pl-7 text-sm"
+            />
           </div>
-          <h1 className="text-lg font-semibold tracking-tight">Studio</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {!hasApiKey && (
-            <Badge variant="secondary" className="text-sm">
-              {t('dashboard.apiKeyNotSet')}
-            </Badge>
-          )}
-          <Button variant="ghost" size="sm" asChild>
-            <Link to="/settings" search={{ imageDetail: undefined }}>
-              <HugeiconsIcon icon={Settings02Icon} className="size-5" />
-              {t('nav.settings')}
-            </Link>
-          </Button>
-        </div>
-      </div>
+        )}
+        <Button
+          size="sm"
+          className={projects.length === 0 ? 'ml-auto' : undefined}
+          onClick={() => setDialogOpen(true)}
+          data-onboarding="new-project-btn"
+          aria-label={t('dashboard.newProject')}
+        >
+          <HugeiconsIcon icon={Add01Icon} className="size-4" />
+          <span className="hidden sm:inline">{t('dashboard.newProject')}</span>
+        </Button>
+      </HeaderActions>
 
-      {/* Project list */}
-      <div className="space-y-2">
-        {projects.map((p) => (
-          <div
-            key={p.id}
-            className="group relative rounded-xl border border-border hover:border-primary/30 transition-colors"
-          >
-            <Link
-              to="/workspace/$projectId"
-              params={{ projectId: String(p.id) }}
-              search={{ imageDetail: undefined }}
-              className="flex items-center gap-3 p-3 min-w-0"
-              data-onboarding={`project-card-${p.id}`}
-            >
-              {/* Project thumbnail */}
-              <div className="size-12 rounded-lg overflow-hidden bg-secondary/40 shrink-0 flex items-center justify-center">
-                {p.thumbnailPath ? (
-                  <img
-                    src={`/api/thumbnails/${p.thumbnailPath.replace('data/thumbnails/', '')}`}
-                    alt=""
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <HugeiconsIcon
-                    icon={FolderOpenIcon}
-                    className="size-5 text-muted-foreground/20"
-                  />
-                )}
-              </div>
+      <RunningStrip />
 
-              {/* Info */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-medium group-hover:text-primary transition-colors truncate">
-                    {p.name}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3 mt-0.5">
-                  <span className="text-xs text-muted-foreground flex items-center gap-1">
-                    <HugeiconsIcon icon={Image02Icon} className="size-3.5" />
-                    {p.imageCount > 0
-                      ? t('dashboard.imageCount', { count: p.imageCount })
-                      : t('dashboard.noImages')}
-                  </span>
-                  {p.lastActivityAt && (
-                    <span className="text-xs text-muted-foreground">
-                      {formatRelativeDate(p.lastActivityAt, t)}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Spacer for menu button */}
-              <div className="w-8 shrink-0" />
-            </Link>
-
-            {/* Context menu - positioned absolute to avoid interfering with the Link */}
-            <div className="absolute right-2 top-1/2 -translate-y-1/2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="sm:opacity-0 sm:group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 text-muted-foreground"
-                  >
-                    <HugeiconsIcon
-                      icon={MoreHorizontalIcon}
-                      className="size-5"
-                    />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setRenameTarget({ id: p.id, name: p.name })
-                      setRenameName(p.name)
-                    }}
-                  >
-                    <HugeiconsIcon icon={PencilEdit01Icon} className="size-4" />
-                    {t('dashboard.renameProject')}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDuplicate(p.id)}>
-                    <HugeiconsIcon icon={Copy01Icon} className="size-4" />
-                    {t('dashboard.duplicateProject')}
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem
-                    className="text-destructive focus:text-destructive"
-                    onClick={() => setDeleteTarget({ id: p.id, name: p.name })}
-                  >
-                    <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-                    {t('dashboard.deleteProject')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {projects.length === 0 && (
-        <div className="rounded-xl border border-border border-dashed py-12 text-center">
-          <HugeiconsIcon
-            icon={FolderOpenIcon}
-            className="size-10 text-muted-foreground/30 mx-auto mb-3"
-          />
-          <p className="text-base text-muted-foreground mb-1">
-            {t('dashboard.noProjectsYet')}
-          </p>
-          <p className="text-sm text-muted-foreground mb-4">
-            {t('dashboard.noProjectsDesc')}
-          </p>
-        </div>
+      {!hasApiKey && (
+        <Link
+          to="/settings"
+          search={{ imageDetail: undefined }}
+          className="mb-4 flex items-center justify-between rounded-xl border border-dashed border-border px-3 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+        >
+          {t('dashboard.apiKeyNotSet')}
+          <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+        </Link>
       )}
 
-      {/* Create project button */}
-      <div className="mt-4">
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button
-              variant="outline"
-              className="w-full"
-              data-onboarding="new-project-btn"
-            >
-              <HugeiconsIcon icon={Add01Icon} className="size-5" />
+      {projects.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border py-16 text-center">
+          <HugeiconsIcon
+            icon={FolderOpenIcon}
+            className="mx-auto mb-3 size-10 text-muted-foreground/30"
+          />
+          <p className="mb-1 text-base text-muted-foreground">
+            {t('dashboard.noProjectsYet')}
+          </p>
+          <p className="mb-4 text-sm text-muted-foreground">
+            {t('dashboard.noProjectsDesc')}
+          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button size="sm" onClick={() => setDialogOpen(true)}>
+              <HugeiconsIcon icon={Add01Icon} className="size-4" />
               {t('dashboard.newProject')}
             </Button>
-          </DialogTrigger>
-          <DialogContent data-onboarding="create-project-dialog">
-            <DialogHeader>
-              <DialogTitle>{t('dashboard.newProject')}</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>{t('common.name')}</Label>
-                <Input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder={t('dashboard.projectName')}
-                  onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  autoFocus
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>{t('dashboard.descriptionOptional')}</Label>
-                  <button
-                    type="button"
-                    onClick={() => setDescExpanded(true)}
-                    className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
-                    title={t('workspace.expandEditor')}
-                  >
-                    <HugeiconsIcon
-                      icon={ArrowExpand01Icon}
-                      className="size-3.5"
-                    />
-                  </button>
-                </div>
-                <Textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder={t('dashboard.briefDescription')}
-                  rows={2}
-                />
-                <ExpandedTextareaDialog
-                  open={descExpanded}
-                  onOpenChange={setDescExpanded}
-                  title={t('dashboard.descriptionOptional')}
-                  value={description}
-                  onChange={setDescription}
-                  placeholder={t('dashboard.briefDescription')}
-                />
-              </div>
-              <Button
-                onClick={handleCreate}
-                disabled={!name.trim()}
-                className="w-full"
+            <Button size="sm" variant="outline" asChild>
+              <Link to="/metadata" search={{ imageDetail: undefined }}>
+                <HugeiconsIcon icon={FileSearchIcon} className="size-4" />
+                {t('dashboard.importFromMetadata')}
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          {filtered.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              {t('dashboard.noMatches')}
+            </p>
+          )}
+          <div
+            data-project-grid
+            className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4"
+          >
+            {filtered.map((p) => (
+              <div
+                key={p.id}
+                data-project-card
+                className="group relative overflow-hidden rounded-xl border border-border bg-card transition-colors hover:border-primary/30"
               >
-                {t('common.create')}
-              </Button>
+                <Link
+                  to="/workspace/$projectId"
+                  params={{ projectId: String(p.id) }}
+                  search={{ imageDetail: undefined }}
+                  className="block min-w-0"
+                  data-onboarding={`project-card-${p.id}`}
+                >
+                  <div className="flex aspect-[3/2] items-center justify-center overflow-hidden bg-secondary/40">
+                    {p.thumbnailPath ? (
+                      <img
+                        src={`/api/thumbnails/${p.thumbnailPath.replace('data/thumbnails/', '')}`}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <HugeiconsIcon
+                        icon={FolderOpenIcon}
+                        className="size-8 text-muted-foreground/20"
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0 p-3 pr-10">
+                    <div className="truncate text-base font-medium transition-colors group-hover:text-primary">
+                      {p.name}
+                    </div>
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground">
+                      {t('dashboard.sceneCount', { count: p.sceneCount })} ·{' '}
+                      {p.imageCount > 0
+                        ? t('dashboard.imageCount', { count: p.imageCount })
+                        : t('dashboard.noImages')}
+                      {' · '}
+                      {formatRelativeDate(
+                        p.lastActivityAt ?? p.updatedAt ?? p.createdAt ?? '',
+                        t,
+                      )}
+                    </div>
+                  </div>
+                </Link>
+
+                <div className="absolute right-2 bottom-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        className="text-muted-foreground"
+                        aria-label={p.name}
+                      >
+                        <HugeiconsIcon
+                          icon={MoreHorizontalIcon}
+                          className="size-5"
+                        />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setRenameTarget({ id: p.id, name: p.name })
+                          setRenameName(p.name)
+                        }}
+                      >
+                        <HugeiconsIcon
+                          icon={PencilEdit01Icon}
+                          className="size-4"
+                        />
+                        {t('dashboard.renameProject')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDuplicate(p.id)}>
+                        <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+                        {t('dashboard.duplicateProject')}
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() =>
+                          setDeleteTarget({ id: p.id, name: p.name })
+                        }
+                      >
+                        <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                        {t('dashboard.deleteProject')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
+            ))}
+
+            <button
+              type="button"
+              onClick={() => setDialogOpen(true)}
+              data-new-project-card
+              className="flex min-h-40 flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border text-sm text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground"
+            >
+              <HugeiconsIcon icon={Add01Icon} className="size-6" />
+              {t('dashboard.newProject')}
+            </button>
+          </div>
+        </>
+      )}
+
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent data-onboarding="create-project-dialog">
+          <DialogHeader>
+            <DialogTitle>{t('dashboard.newProject')}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>{t('common.name')}</Label>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t('dashboard.projectName')}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
+                autoFocus
+              />
             </div>
-          </DialogContent>
-        </Dialog>
-      </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>{t('dashboard.descriptionOptional')}</Label>
+                <button
+                  type="button"
+                  onClick={() => setDescExpanded(true)}
+                  className="rounded p-0.5 text-muted-foreground transition-colors hover:text-foreground"
+                  title={t('workspace.expandEditor')}
+                >
+                  <HugeiconsIcon
+                    icon={ArrowExpand01Icon}
+                    className="size-3.5"
+                  />
+                </button>
+              </div>
+              <Textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder={t('dashboard.briefDescription')}
+                rows={2}
+              />
+              <ExpandedTextareaDialog
+                open={descExpanded}
+                onOpenChange={setDescExpanded}
+                title={t('dashboard.descriptionOptional')}
+                value={description}
+                onChange={setDescription}
+                placeholder={t('dashboard.briefDescription')}
+              />
+            </div>
+            <Button
+              onClick={handleCreate}
+              disabled={!name.trim()}
+              className="w-full"
+            >
+              {t('common.create')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Rename dialog */}
       <Dialog

@@ -148,7 +148,7 @@ function RootComponent() {
                 ) : (
                   <>
                     <AppHeader />
-                    <div className="p-4 lg:p-6 animate-page-fade">
+                    <div className="p-4 md:p-6 animate-page-fade">
                       <Outlet />
                     </div>
                     <Toaster richColors position="bottom-right" />

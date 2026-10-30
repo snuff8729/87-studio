@@ -37,6 +37,22 @@ export const listProjects = createServerFn({ method: 'GET' }).handler(
 
     const statsMap = new Map(stats.map((s) => [s.projectId, s]))
 
+    const sceneCounts = db
+      .select({
+        projectId: projectScenePacks.projectId,
+        sceneCount: count(projectScenes.id),
+      })
+      .from(projectScenes)
+      .innerJoin(
+        projectScenePacks,
+        eq(projectScenes.projectScenePackId, projectScenePacks.id),
+      )
+      .groupBy(projectScenePacks.projectId)
+      .all()
+    const sceneCountMap = new Map(
+      sceneCounts.map((s) => [s.projectId, s.sceneCount]),
+    )
+
     return rows.map((project) => {
       let thumbnailPath: string | null = null
 
@@ -68,6 +84,7 @@ export const listProjects = createServerFn({ method: 'GET' }).handler(
         ...project,
         thumbnailPath,
         imageCount: s?.imageCount ?? 0,
+        sceneCount: sceneCountMap.get(project.id) ?? 0,
         lastActivityAt: s?.lastActivityAt ?? null,
       }
     })
