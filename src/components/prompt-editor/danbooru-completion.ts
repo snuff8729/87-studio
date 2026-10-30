@@ -1,6 +1,11 @@
+import { buildInfoPanel, categoryBadge, el } from './tag-info-dom'
+import { loadTagInfo, translator } from './tag-info-client'
 import type { Completion } from '@codemirror/autocomplete'
-import type { DanbooruTag } from '@/server/functions/danbooru'
-import { searchDanbooruTags } from '@/server/functions/danbooru'
+import type { EditorState, Text } from '@codemirror/state'
+import type { TagSuggestion } from '@/server/functions/tag-assist'
+import { suggestTags } from '@/server/functions/tag-assist'
+import { formatCount, tagDisplayName } from '@/lib/tag-query'
+import { extractPromptTokens, normalizeTag } from '@/lib/prompt-tags'
 
 const CATEGORY_TYPE: Record<number, string> = {
   0: 'tag-general',
@@ -10,42 +15,83 @@ const CATEGORY_TYPE: Record<number, string> = {
   5: 'tag-meta',
 }
 
-const CATEGORY_LABEL: Record<number, string> = {
-  0: 'general',
-  1: 'artist',
-  3: 'copyright',
-  4: 'character',
-  5: 'meta',
-}
+/** Extra row data for tag completions (Completion has no custom fields). */
+const meta = new WeakMap<Completion, TagSuggestion>()
 
-function formatCount(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}k`
-  return String(n)
-}
-
-function tagToCompletion(t: DanbooruTag): Completion {
-  const displayName = t.name.replace(/_/g, ' ')
-  return {
+function tagToCompletion(s: TagSuggestion): Completion {
+  const displayName = tagDisplayName(s.name)
+  const completion: Completion = {
     label: displayName,
-    detail: `${CATEGORY_LABEL[t.category] ?? 'tag'} · ${formatCount(t.postCount)}`,
-    type: CATEGORY_TYPE[t.category] ?? 'tag-general',
+    type: CATEGORY_TYPE[s.category] ?? 'tag-general',
     apply: displayName,
+    info: async () => {
+      // Debounce: rapid arrow-key travel only fetches the row it rests on
+      await new Promise((r) => setTimeout(r, 140))
+      const info = await loadTagInfo(s.name)
+      return info ? buildInfoPanel(info) : null
+    },
   }
+  meta.set(completion, s)
+  return completion
 }
 
 export async function searchTags(
   query: string,
-  limit = 15,
+  limit = 20,
 ): Promise<Array<Completion>> {
-  if (!query || query.length < 2) return []
-
+  if (!query || query.trim().length < 2) return []
   try {
-    const tags = await searchDanbooruTags({
-      data: { query: query.toLowerCase(), limit },
-    })
+    const tags = await suggestTags({ data: { query, limit } })
     return tags.map(tagToCompletion)
   } catch {
     return []
   }
 }
+
+// ── row decorations (autocompletion({ addToOptions })) ───────────────────────
+
+const tokenCache = new WeakMap<Text, Set<string>>()
+
+function promptTokens(state: EditorState): Set<string> {
+  let set = tokenCache.get(state.doc)
+  if (!set) {
+    set = new Set(extractPromptTokens(state.doc.toString()))
+    tokenCache.set(state.doc, set)
+  }
+  return set
+}
+
+export const tagRowDecorations = [
+  {
+    position: 55,
+    render(completion: Completion): Node | null {
+      const s = meta.get(completion)
+      if (!s) return null
+      return categoryBadge(s.fine, s.top)
+    },
+  },
+  {
+    position: 60,
+    render(completion: Completion): Node | null {
+      const s = meta.get(completion)
+      if (!s?.via) return null
+      return el('span', 'cm-tag-alias', `← ${tagDisplayName(s.via)}`)
+    },
+  },
+  {
+    position: 70,
+    render(completion: Completion, state: EditorState): Node | null {
+      const s = meta.get(completion)
+      if (!s || !promptTokens(state).has(normalizeTag(s.name))) return null
+      return el('span', 'cm-tag-inprompt', translator()('tagAssist.inPrompt'))
+    },
+  },
+  {
+    position: 90,
+    render(completion: Completion): Node | null {
+      const s = meta.get(completion)
+      if (!s) return null
+      return el('span', 'cm-tag-rowcount', formatCount(s.postCount))
+    },
+  },
+]

@@ -127,6 +127,13 @@
       "when": 1793377552378,
       "tag": "0017_parts_occlusion_gallery",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793383159419,
+      "tag": "0018_tag_descriptions",
+      "breakpoints": true
     }
   ]
 }

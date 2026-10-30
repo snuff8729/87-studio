@@ -20,6 +20,7 @@ import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider, useTranslation } from '@/lib/i18n'
 import { OnboardingProvider } from '@/lib/onboarding'
 import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay'
+import { TagSearchProvider } from '@/components/tag-search/tag-search-provider'
 import { ImageDetailOverlay } from '@/components/common/image-detail-overlay'
 
 function RootErrorComponent({ error }: { error: Error }) {
@@ -152,34 +153,36 @@ function RootComponent() {
     <I18nProvider>
       <OnboardingProvider>
         <TooltipProvider delayDuration={300}>
-          <SidebarProvider defaultOpen={sidebarOpen}>
-            <BreadcrumbProvider>
-              <SidebarRouteSync />
-              <AppSidebar />
-              <SidebarInset className="min-w-0">
-                {isEditor ? (
-                  <>
-                    <div className="h-svh overflow-hidden">
-                      <Outlet />
-                    </div>
-                    <Toaster richColors position="top-center" />
-                  </>
-                ) : (
-                  <>
-                    <AppHeader />
-                    <div className="p-4 md:p-6 animate-page-fade">
-                      <Outlet />
-                    </div>
-                    <Toaster richColors position="bottom-right" />
-                  </>
-                )}
-              </SidebarInset>
-            </BreadcrumbProvider>
-          </SidebarProvider>
-          {imageDetail && !isGallery && (
-            <ImageDetailOverlay imageId={imageDetail} />
-          )}
-          <OnboardingOverlay />
+          <TagSearchProvider>
+            <SidebarProvider defaultOpen={sidebarOpen}>
+              <BreadcrumbProvider>
+                <SidebarRouteSync />
+                <AppSidebar />
+                <SidebarInset className="min-w-0">
+                  {isEditor ? (
+                    <>
+                      <div className="h-svh overflow-hidden">
+                        <Outlet />
+                      </div>
+                      <Toaster richColors position="top-center" />
+                    </>
+                  ) : (
+                    <>
+                      <AppHeader />
+                      <div className="p-4 md:p-6 animate-page-fade">
+                        <Outlet />
+                      </div>
+                      <Toaster richColors position="bottom-right" />
+                    </>
+                  )}
+                </SidebarInset>
+              </BreadcrumbProvider>
+            </SidebarProvider>
+            {imageDetail && !isGallery && (
+              <ImageDetailOverlay imageId={imageDetail} />
+            )}
+            <OnboardingOverlay />
+          </TagSearchProvider>
         </TooltipProvider>
       </OnboardingProvider>
     </I18nProvider>

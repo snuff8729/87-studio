@@ -144,3 +144,11 @@
     background: var(--muted-foreground);
   }
 }
+
+/* Tag assist: the completion info panel would cover the list on narrow
+   screens (the Tag Search sheet shows details there). */
+@media (max-width: 767px) {
+  .cm-completionInfo {
+    display: none !important;
+  }
+}

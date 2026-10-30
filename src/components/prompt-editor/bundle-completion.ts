@@ -4,6 +4,7 @@ import type {
   CompletionContext,
   CompletionResult,
 } from '@codemirror/autocomplete'
+import { extractTagQuery } from '@/lib/tag-query'
 
 // Module-level cache, updated externally
 let bundleNames: Array<{ name: string; content: string }> = []
@@ -172,28 +173,18 @@ async function completeRefs(
   }
 
   // ── Mode 2: General text (after comma, 2+ chars) ──
-  const lastComma = beforeCursor.lastIndexOf(',')
-  const afterComma = beforeCursor.slice(lastComma + 1).trimStart()
+  const typed = extractTagQuery(beforeCursor)
+  if (!typed) return null
 
-  if (afterComma.length < 2) return null
-
-  // Don't trigger if we're inside @{...}
-  if (afterComma.includes('@{')) return null
-
-  const from = context.pos - afterComma.length
-  const query = afterComma.toLowerCase()
-
+  const query = typed.text.toLowerCase()
   const slots = slotCompletions(query)
   const bundles = bundleCompletions(query)
-  const tags = await searchTags(afterComma, 10)
+  const tags = await searchTags(typed.text, 20)
 
   const options = [...slots, ...bundles, ...tags]
-
   if (options.length === 0) return null
 
-  return {
-    from,
-    options,
-    validFor: /^[^\s,]*$/,
-  }
+  // filter: false keeps the server's ranking (alias hits do not contain the
+  // typed text); no validFor so every keystroke re-queries.
+  return { from: typed.from, options, filter: false }
 }

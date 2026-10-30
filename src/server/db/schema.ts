@@ -611,3 +611,16 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 })
+
+// ─── Tag descriptions (localized, filled by import/translation later) ───────
+export const tagDescriptions = sqliteTable(
+  'tag_descriptions',
+  {
+    tag: text('tag').notNull(),
+    locale: text('locale').notNull(),
+    text: text('text').notNull(),
+    source: text('source'),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [primaryKey({ columns: [table.tag, table.locale] })],
+)

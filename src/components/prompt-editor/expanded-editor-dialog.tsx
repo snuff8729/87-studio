@@ -1,6 +1,6 @@
 import { Suspense, lazy, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { BookmarkCheck01Icon } from '@hugeicons/core-free-icons'
+import { BookmarkCheck01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import {
   Dialog,
   DialogContent,
@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 import { appendTag } from '@/components/tag-gallery/use-tag-gallery'
+import { useTagSearch } from '@/components/tag-search/tag-search-provider'
 import { useTranslation } from '@/lib/i18n'
 
 const PromptEditor = lazy(() =>
@@ -50,6 +51,7 @@ export function ExpandedEditorDialog({
   partsTokens,
 }: ExpandedEditorDialogProps) {
   const { t } = useTranslation()
+  const { openSearch } = useTagSearch()
   const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
   const [contentEl, setContentEl] = useState<HTMLElement | null>(null)
 
@@ -64,6 +66,15 @@ export function ExpandedEditorDialog({
             <DialogTitle className="min-w-0 flex-1 truncate">
               {title}
             </DialogTitle>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => openSearch({ container: contentEl })}
+              title={t('tagAssist.openSearch')}
+              data-tag-search-open
+            >
+              <HugeiconsIcon icon={Search01Icon} className="size-4" />
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"

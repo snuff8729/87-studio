@@ -621,6 +621,16 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 모든 프롬프트 입력(Quick Generate prompt/negative/캐릭터, 워크스페이스 prompt/negative/캐릭터, 플레이스홀더)에 태그 갤러리 버튼 (`useTagGallery`)
 - general_prompt, negative_prompt, char_prompt, char_negative 모두에 적용
 
+### 태그 어시스트 (자동완성 · 커서 태그 카드 · Tag Search 창)
+
+- 데이터: `data/danbooru.db`(읽기 전용, `STUDIO_DATA_DIR` 반영). 서버 접근은 `src/server/services/tag-index.ts`(`getDanbooruDb`, `suggestTagsFor`, `searchTagsFor`, `getTagInfoFor`), server fn은 `src/server/functions/tag-assist.ts`(`suggestTags`, `getTagInfo`, `searchTagsWindow`, `hasTagDb`, `setTagDescription`)
+- **세부 카테고리**: `src/lib/tag-categories.ts` 상단에 카테고리 목록과 매핑 규칙 문서화. `tag_groups` 그룹(점수) + 이름 규칙으로 일반 태그를 분류, 나머지는 `uncategorized`. 모든 태그 결과에 `top`/`fine` 포함
+- **설명**: 스튜디오 DB `tag_descriptions(tag, locale, text, source, updated_at)` (마이그레이션 0018) → 없으면 위키 본문 요약(`src/lib/dtext.ts` `wikiSummary`, DText 제거). 현재는 `setTagDescription`만 쓰기 가능(향후 번역/임포트용)
+- **자동완성**: 순위 exact > alias exact > prefix > alias/other_names prefix > substring(≥3자), 가중치 문법 제거, 20개. 행 = 색 태그 + 세부 카테고리 라벨 + 게시물 수 + 별칭 힌트(`← alias`, 선택 시 정식 태그 삽입) + "in prompt" 표시, 옆에 정보 패널(`info`). 순수 로직 `src/lib/tag-query.ts`
+- **커서 태그 카드** (`prompt-editor/tag-caret-info.ts`): 클릭/방향키로 태그에 멈추면 300ms 후 표시(타이핑·자동완성·Esc·blur 시 숨김, 모르는 태그는 없음). 칩(별칭/함의/피함의/같은 그룹) 클릭 → 현재 토큰 뒤에 `, tag` 삽입. 에디터 헤더 토글, localStorage `87studio-tag-info`
+- **Tag Search 창** (`components/tag-search/`): 비모달 플로팅 창, Ctrl/Cmd+Shift+F(전역) 또는 에디터 헤더 🔍. 제목줄 드래그/우하단 리사이즈/뷰포트 클램프/더블클릭 리셋, localStorage `87studio-tag-search-window`(순수 로직 `src/lib/floating-window.ts`). "프롬프트에 추가"는 마지막으로 포커스한 에디터(`editor-registry.ts`)에 삽입. 모바일(<768)은 하단 시트. 모달 다이얼로그(확장 에디터) 안에서는 다이얼로그 콘텐츠에 포털
+- 스모크: `scripts/smoke/tag-assist.mjs` (NAI_MOCK 서버 + `danbooru.db`를 데이터 디렉토리에 복사한 throwaway 데이터)
+
 ### 반응형 디자인
 
 - **데스크톱**: 풀 레이아웃, 사이드바 네비게이션 (`/workspace`, `/generate` 진입 시 자동 접힘)
