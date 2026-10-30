@@ -129,7 +129,14 @@ src/
 │   └── settings/
 │       └── index.tsx          # 설정 (NAI API 키, 생성 딜레이, 언어 등)
 ├── components/
-│   ├── ui/                    # shadcn/ui 컴포넌트 (27개)
+│   ├── ui/                    # shadcn/ui 컴포넌트 (28개, resizable 포함)
+│   ├── editor-shell/          # 에디터 공용 레이아웃 (빠른 생성, 워크스페이스)
+│   │   ├── editor-shell.tsx       # 좌(탭+고정 Generate 푸터)/중앙/우 리사이즈·접기 패널, 모바일 Edit/Result/History 전환
+│   │   ├── editor-header.tsx      # 에디터 헤더 (SidebarTrigger, 타이틀, 액션, 패널 토글)
+│   │   ├── editor-left-panel.tsx  # 탭 헤더(배지) + 스크롤 본문 + 푸터
+│   │   ├── history-columns.ts     # 히스토리 폭 → 열 수 계산
+│   │   └── use-editor-persist.ts  # 레이아웃/탭 localStorage 저장 (87studio-editor-layout:*, 87studio-editor-tab:*)
+│   ├── quick-generate/        # 빠른 생성 컴포넌트 (프롬프트/캐릭터 탭, ImageViewer, HistoryStrip, 메타데이터 임포트)
 │   ├── common/                # 공통 컴포넌트
 │   │   ├── confirm-dialog.tsx     # 확인 다이얼로그
 │   │   ├── page-header.tsx        # 페이지 헤더
