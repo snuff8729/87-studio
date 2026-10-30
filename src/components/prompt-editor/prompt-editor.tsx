@@ -20,6 +20,7 @@ import {
   unifiedCompletion,
 } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
+import { refreshVarRefs, varCompletionSource, varRefExtension } from './var-ref'
 import { EditorContextMenu, detectTokenAt } from './editor-context-menu'
 import type { ContextMenuTarget } from './editor-context-menu'
 import type { ViewUpdate } from '@codemirror/view'
@@ -61,6 +62,11 @@ interface PromptEditorProps {
   slotNames?: Array<string>
   /** Offer / accept @{char} and @{outfit} (workspace character prompt only) */
   partsTokens?: boolean
+  /**
+   * Outfit item fragments: names of the item's variables for `@{var:name}`
+   * highlighting / completion (unknown names are flagged).
+   */
+  varNames?: Array<string>
 }
 
 export function PromptEditor({
@@ -71,7 +77,10 @@ export function PromptEditor({
   bundleNames: bundleNamesProp,
   slotNames: slotNamesProp,
   partsTokens = false,
+  varNames,
 }: PromptEditorProps) {
+  const varNamesRef = useRef<Array<string>>(varNames ?? [])
+  varNamesRef.current = varNames ?? []
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
@@ -117,6 +126,11 @@ export function PromptEditor({
     }
   }, [bundleNamesProp])
 
+  const varKey = (varNames ?? []).join('\u0000')
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: refreshVarRefs.of(null) })
+  }, [varKey])
+
   useEffect(() => {
     if (slotNamesProp) {
       setSlotNames(slotNamesProp)
@@ -144,9 +158,13 @@ export function PromptEditor({
         partsTokens ? invalidRefHighlightParts : invalidRefHighlight,
         partsTokens ? invalidRefTooltipParts : invalidRefTooltip,
         bundleTooltip,
+        varRefExtension(() => varNamesRef.current),
         tooltips({ parent: getTooltipHost() }),
         autocompletion({
-          override: [partsTokens ? partsCompletion : unifiedCompletion],
+          override: [
+            partsTokens ? partsCompletion : unifiedCompletion,
+            varCompletionSource(() => varNamesRef.current),
+          ],
           activateOnTyping: true,
         }),
         EditorView.updateListener.of((update) => {

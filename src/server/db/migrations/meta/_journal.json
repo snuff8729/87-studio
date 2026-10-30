@@ -127,6 +127,20 @@
       "when": 1793377552378,
       "tag": "0017_parts_occlusion_gallery",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1793383159419,
+      "tag": "0018_tag_descriptions",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "6",
+      "when": 1793384670410,
+      "tag": "0019_parts_nested_vars_presets",
+      "breakpoints": true
     }
   ]
 }

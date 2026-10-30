@@ -92,6 +92,7 @@ export const Route = createRootRoute({
     detailTag?: string
     detailLibChar?: number
     detailOutfitItem?: number
+    detailPreset?: number
   } => ({
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
     /** Opened from a bundle: prev/next walk that bundle's images */
@@ -105,6 +106,8 @@ export const Route = createRootRoute({
     detailOutfitItem: search.detailOutfitItem
       ? Number(search.detailOutfitItem)
       : undefined,
+    /** Opened from a library preset: prev/next walk the preset's images */
+    detailPreset: search.detailPreset ? Number(search.detailPreset) : undefined,
   }),
   loader: () => ({ sidebarOpen: getSidebarDefaultOpen() }),
   head: () => ({

@@ -108,6 +108,7 @@ export const Route = createFileRoute('/gallery')({
       ? Number(search.libraryCharacter)
       : undefined,
     outfitItem: search.outfitItem ? Number(search.outfitItem) : undefined,
+    outfitPreset: search.outfitPreset ? Number(search.outfitPreset) : undefined,
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
   }),
   loaderDeps: ({ search }) => search,
@@ -123,6 +124,7 @@ export const Route = createFileRoute('/gallery')({
         data: {
           characterIds: deps.libraryCharacter ? [deps.libraryCharacter] : [],
           itemIds: deps.outfitItem ? [deps.outfitItem] : [],
+          presetIds: deps.outfitPreset ? [deps.outfitPreset] : [],
         },
       }),
     ])
@@ -391,6 +393,7 @@ function GalleryLayout() {
             axes={parseAxisParam(search.axis)}
             libraryCharacterId={search.libraryCharacter}
             outfitItemId={search.outfitItem}
+            outfitPresetId={search.outfitPreset}
           />
         )}
 
@@ -520,6 +523,7 @@ function GalleryHeader({
   axes,
   libraryCharacterId,
   outfitItemId,
+  outfitPresetId,
 }: {
   count: number | string
   selectMode: boolean
@@ -539,6 +543,7 @@ function GalleryHeader({
   axes: Array<{ axisId: number; valueId: number }>
   libraryCharacterId: number | undefined
   outfitItemId: number | undefined
+  outfitPresetId: number | undefined
 }) {
   const { t } = useTranslation()
   usePageHeader({ count })
@@ -660,6 +665,7 @@ function GalleryHeader({
             axes={axes}
             libraryCharacterId={libraryCharacterId}
             outfitItemId={outfitItemId}
+            outfitPresetId={outfitPresetId}
           />
         </>
       )}

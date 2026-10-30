@@ -191,7 +191,7 @@ function CharactersPage() {
             presets.map((p) => p.name),
           ),
           description: src.description ?? undefined,
-          itemIds: src.itemIds,
+          itemIds: src.entries,
         },
       })
     },
@@ -327,6 +327,8 @@ function CharactersPage() {
               id: p.id,
               title: p.name,
               subtitle: t('library.itemCount', { count: p.itemIds.length }),
+              hasThumb: true,
+              thumbnailPath: p.thumbnailPath,
             }))
           : globalAxes.map((a) => ({
               id: a.id,
@@ -460,6 +462,7 @@ function CharactersPage() {
             name: i.name,
             projectId: i.projectId,
             areaIds: i.areaIds,
+            variables: i.variables,
           }))}
           areas={areas}
         />

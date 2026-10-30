@@ -1,18 +1,32 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyParts,
+  canSetParent,
   cleanCoverRuleConditions,
   composeParts,
   effectiveAxisValues,
+  extractVarNames,
+  groupAreas,
   matchesCondition,
+  outfitEntriesMatch,
   parseAxisValues,
   parseCoverRules,
   parseIdList,
+  parseOutfitEntries,
+  parseVariables,
   relevantAxes,
+  renameVarInText,
+  resolveVarValues,
+  stringifyOutfitEntries,
+  substituteVars,
   visibleItems,
 } from '../character-parts'
-import type { CoverRule, PartsAxis, PartsFragment, PartsItem  } from '../character-parts'
-
+import type {
+  CoverRule,
+  PartsAxis,
+  PartsFragment,
+  PartsItem,
+} from '../character-parts'
 
 const view: PartsAxis = {
   id: 1,
@@ -152,6 +166,7 @@ describe('composeParts', () => {
       outfit: 'black jacket, zipped up, pleated skirt',
       hiddenItemIds: [],
       hidden: [],
+      partial: [],
       contributingItemIds: [7, 8],
     })
   })
@@ -167,6 +182,7 @@ describe('composeParts', () => {
       outfit: '',
       hiddenItemIds: [],
       hidden: [],
+      partial: [],
       contributingItemIds: [],
     })
     const upper = effectiveAxisValues(axes, [{ '2': 21, '1': 12, '3': 31 }])
@@ -205,6 +221,7 @@ describe('composeParts', () => {
       outfit: '',
       hiddenItemIds: [],
       hidden: [],
+      partial: [],
       contributingItemIds: [],
     })
   })
@@ -365,6 +382,205 @@ describe('visibleItems / occlusion', () => {
     expect(r.contributingItemIds).toEqual([5])
     expect(r.hiddenItemIds).toEqual([1])
     expect(r.hidden).toEqual([{ itemId: 1, coveredBy: [5] }])
+  })
+})
+
+describe('nested areas + fragment areas', () => {
+  const TOP = 1
+  const ARMS = 2
+  const CHEST = 3
+  const areas = [
+    { id: TOP, parentId: null },
+    { id: ARMS, parentId: TOP },
+    { id: CHEST, parentId: TOP },
+  ]
+  const f = (
+    id: number,
+    text: string,
+    areaIds?: Array<number>,
+  ): PartsFragment => ({
+    id,
+    text,
+    conditions: {},
+    areaIds,
+  })
+  const shirt: PartsItem = {
+    id: 1,
+    conditions: {},
+    areaIds: [TOP],
+    fragments: [f(11, 'white shirt'), f(12, 'long sleeves', [ARMS])],
+  }
+  const cover = (areaIds: Array<number>, id = 9): PartsItem => ({
+    id,
+    conditions: {},
+    fragments: [f(id * 10, 'jacket')],
+    coverRules: [{ conditions: {}, areaIds }],
+  })
+
+  it('covering a parent covers its children', () => {
+    const r = visibleItems([shirt, cover([TOP])], {}, axes, areas)
+    expect(r.hidden).toEqual([{ itemId: 1, coveredBy: [9] }])
+    expect(r.items[0].fully).toBe(true)
+  })
+
+  it('covering a child does not cover the parent; fragment-level partial', () => {
+    const r = visibleItems([shirt, cover([ARMS])], {}, axes, areas)
+    expect(r.hidden).toEqual([])
+    expect(r.items[0]).toMatchObject({
+      itemId: 1,
+      hiddenFragmentIds: [12],
+      fully: false,
+      coveredBy: [9],
+    })
+    const c = composeParts({
+      axes,
+      character: null,
+      items: [shirt, cover([ARMS])],
+      values: {},
+      areas,
+    })
+    expect(c.outfit).toBe('white shirt, jacket')
+    expect(c.hiddenItemIds).toEqual([])
+    expect(c.partial).toEqual([
+      {
+        itemId: 1,
+        fragmentIds: [12],
+        coveredBy: [9],
+        details: [{ fragmentId: 12, coveredBy: [9] }],
+      },
+    ])
+    expect(c.contributingItemIds).toEqual([1, 9])
+  })
+
+  it('fragment without own areas inherits the item areas; own areas override', () => {
+    const r = visibleItems([shirt, cover([CHEST])], {}, axes, areas)
+    expect(r.items[0].hiddenFragmentIds).toEqual([])
+    const chestOnly: PartsItem = {
+      ...shirt,
+      fragments: [f(11, 'a', [CHEST]), f(12, 'b')],
+    }
+    const r2 = visibleItems([chestOnly, cover([CHEST])], {}, axes, areas)
+    expect(r2.items[0].hiddenFragmentIds).toEqual([11])
+  })
+
+  it('fragments without effective areas are never hidden; unmatching ones do not count', () => {
+    const free: PartsItem = {
+      id: 1,
+      conditions: {},
+      fragments: [f(11, 'ribbon')],
+    }
+    expect(visibleItems([free, cover([TOP])], {}, axes, areas).hidden).toEqual(
+      [],
+    )
+    const view1: PartsItem = {
+      ...shirt,
+      fragments: [
+        { ...f(11, 'front'), conditions: { '1': [10] } },
+        { ...f(12, 'back'), conditions: { '1': [12] } },
+      ],
+    }
+    const v = effectiveAxisValues(axes, [{ '1': 12 }])
+    expect(
+      visibleItems([view1, cover([TOP])], v, axes, areas).hidden,
+    ).toHaveLength(1)
+  })
+
+  it('an item with no matching fragments is empty, not hidden', () => {
+    const empty: PartsItem = { ...shirt, fragments: [] }
+    const r = visibleItems([empty, cover([TOP])], {}, axes, areas)
+    expect(r.hidden).toEqual([])
+    expect(r.items[0].fully).toBe(false)
+  })
+
+  it('groupAreas / canSetParent enforce one level', () => {
+    expect(
+      groupAreas(areas).map((g) => [g.area.id, g.children.map((c) => c.id)]),
+    ).toEqual([[TOP, [ARMS, CHEST]]])
+    const flat = [...areas, { id: 4, parentId: null }]
+    expect(canSetParent(flat, 4, TOP)).toBe(true)
+    expect(canSetParent(flat, TOP, 4)).toBe(false)
+    expect(canSetParent(flat, 4, ARMS)).toBe(false)
+    expect(canSetParent(flat, 4, 4)).toBe(false)
+    expect(canSetParent(flat, ARMS, null)).toBe(true)
+  })
+})
+
+describe('outfit entries + variables', () => {
+  it('parses legacy number[] and entries tolerantly', () => {
+    expect(parseOutfitEntries('[1,2]')).toEqual([{ id: 1 }, { id: 2 }])
+    expect(
+      parseOutfitEntries([
+        { id: 3, vars: { color: 'red', x: '' } },
+        4,
+        'z',
+        {},
+      ]),
+    ).toEqual([{ id: 3, vars: { color: 'red' } }, { id: 4 }])
+    expect(parseOutfitEntries('bad')).toEqual([])
+    expect(stringifyOutfitEntries([1, { id: 2, vars: { a: 'b' } }])).toBe(
+      '[{"id":1},{"id":2,"vars":{"a":"b"}}]',
+    )
+  })
+
+  it('parseVariables trims, dedupes, defaults to empty string', () => {
+    expect(
+      parseVariables(
+        '[{"name":" color ","default":"white"},{"name":"color"},{"name":"s"}]',
+      ),
+    ).toEqual([
+      { name: 'color', default: 'white' },
+      { name: 's', default: '' },
+    ])
+  })
+
+  it('resolves entry value, else default; unknown var -> empty', () => {
+    const defs = [{ name: 'color', default: 'white' }]
+    expect(resolveVarValues(defs, { color: 'red' })).toEqual({ color: 'red' })
+    expect(resolveVarValues(defs, { color: '' })).toEqual({ color: 'white' })
+    expect(resolveVarValues(defs, undefined)).toEqual({ color: 'white' })
+    expect(
+      substituteVars('@{var:color} shirt, @{var:nope}x', { color: 'red' }),
+    ).toBe('red shirt, x')
+  })
+
+  it('composeParts substitutes in item fragments and strips in character fragments', () => {
+    const item: PartsItem = {
+      id: 1,
+      conditions: {},
+      fragments: [frag(1, '@{var:color} shirt'), frag(2, '@{var:gone}')],
+      varValues: { color: 'red' },
+    }
+    const character = {
+      id: 5,
+      fragments: [frag(9, '1girl, @{var:color}')],
+    }
+    const r = composeParts({ axes, character, items: [item], values: {} })
+    expect(r.outfit).toBe('red shirt')
+    expect(r.char).toBe('1girl')
+    expect(r.contributingItemIds).toEqual([1])
+  })
+
+  it('extract / rename var tokens', () => {
+    expect(extractVarNames('@{var:a}, @{var: b }, @{var:a}')).toEqual([
+      'a',
+      'b',
+    ])
+    expect(renameVarInText('@{var:a} and @{var:ab}', 'a', 'c')).toBe(
+      '@{var:c} and @{var:ab}',
+    )
+  })
+
+  it('preset match: same sequence and same resolved values', () => {
+    const defs = (id: number) =>
+      id === 1 ? [{ name: 'color', default: 'white' }] : undefined
+    const m = (
+      a: Array<{ id: number; vars?: Record<string, string> }>,
+      b: typeof a,
+    ) => outfitEntriesMatch(a, b, defs)
+    expect(m([{ id: 1 }], [{ id: 1, vars: { color: 'white' } }])).toBe(true)
+    expect(m([{ id: 1, vars: { color: 'red' } }], [{ id: 1 }])).toBe(false)
+    expect(m([{ id: 1 }, { id: 2 }], [{ id: 2 }, { id: 1 }])).toBe(false)
+    expect(m([{ id: 1 }], [{ id: 1 }, { id: 2 }])).toBe(false)
   })
 })
 

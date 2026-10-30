@@ -18,6 +18,7 @@ export type GalleryFilters = {
   axis?: string
   libraryCharacter?: number
   outfitItem?: number
+  outfitPreset?: number
 }
 
 export type AxisFilter = { axisId: number; valueId: number }
@@ -74,5 +75,6 @@ export function toImageQuery(f: GalleryFilters) {
     })(),
     libraryCharacterId: f.libraryCharacter,
     outfitItemId: f.outfitItem,
+    outfitPresetId: f.outfitPreset,
   }
 }

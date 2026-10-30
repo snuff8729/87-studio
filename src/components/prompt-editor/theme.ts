@@ -52,6 +52,12 @@ export const darkTheme = EditorView.theme(
       border: '1px solid oklch(0.65 0.12 200 / 30%)',
     },
     // Invalid ref highlight — red wavy underline
+    '.cm-var-highlight': {
+      backgroundColor: 'oklch(0.78 0.14 75 / 14%)',
+      borderRadius: '3px',
+      padding: '1px 0',
+      border: '1px solid oklch(0.78 0.14 75 / 35%)',
+    },
     '.cm-invalid-ref-highlight': {
       textDecoration: 'wavy underline oklch(0.65 0.2 25)',
       textDecorationSkipInk: 'none',

@@ -161,10 +161,12 @@ async function drag(p, handleLoc, targetLoc, below) {
 /** Keyboard reorder: focus handle, Space, N x Arrow, Space. */
 async function kbMove(p, handleLoc, key, n) {
   await handleLoc.focus()
+  await sleep(250)
   await p.keyboard.press('Space')
+  await sleep(250)
   for (let i = 0; i < n; i++) {
     await p.keyboard.press(key)
-    await sleep(120)
+    await sleep(300)
   }
   await p.keyboard.press('Space')
 }
@@ -174,7 +176,17 @@ const valuesOf = (axis) =>
     'select v.name from library_axis_values v where v.axis_id = ? order by v.sort_order, v.id',
     axisId(axis),
   )
-const areasDb = () => names('select name from library_areas order by sort_order, id')
+// Tree order: top-level areas, each followed by its children
+const areasDb = () => {
+  const all = q('select id, name, parent_id from library_areas order by sort_order, id')
+  return all
+    .filter((a) => a.parent_id === null)
+    .flatMap((a) => [a, ...all.filter((c) => c.parent_id === a.id)])
+    .map((a) => a.name)
+    .join('|')
+}
+const topAreas = () =>
+  q('select name from library_areas where parent_id is null order by sort_order, id').map((a) => a.name)
 const handleOf = (row) => row.locator('[data-drag-handle]').first()
 
 await open('/')
@@ -248,14 +260,15 @@ try {
   const rows = page.locator('[data-area-row]')
   const base = areasDb()
   const list = base.split('|')
-  const last = list[list.length - 1]
-  const first = list[0]
+  const tops = topAreas()
+  const last = tops[tops.length - 1]
+  const first = tops[0]
   const r = (n) => rows.filter({ has: page.locator('[data-inline-name]', { hasText: new RegExp(`^${n}$`) }) })
   await shot('lists-areas')
   await drag(page, handleOf(r(last)), r(first), false)
   await until(() => areasDb().startsWith(last), 6000, 'area drag')
-  check(areasDb() === [last, ...list.slice(0, -1)].join('|'), `drag moves "${last}" to the top (${areasDb()})`)
-  await kbMove(page, handleOf(r(last)), 'ArrowDown', list.length - 1)
+  check(areasDb().split('|').join() === [last, ...list.filter((n) => n !== last)].join(), `drag moves top-level "${last}" to the top (${areasDb()})`)
+  await kbMove(page, handleOf(r(last)), 'ArrowDown', tops.length - 1)
   await until(() => areasDb() === base, 6000, 'area kb restore')
   check(areasDb() === base, 'keyboard reorder restores the order')
 } catch (e) {
@@ -306,7 +319,10 @@ try {
   await open(`/workspace/${PROJECT2}`)
   await page.getByRole('tab', { name: /^Chars/ }).click()
   const slot1 = q1('select id from characters where project_id = ? order by slot_index limit 1', PROJECT2)
-  const outfitDb = () => json(q1('select outfit_item_ids o from characters where id = ?', slot1.id).o).join()
+  const outfitDb = () => {
+    const v = json(q1('select outfit_item_ids o from characters where id = ?', slot1.id).o)
+    return v.map((e) => (typeof e === 'number' ? e : e.id)).join()
+  }
   const orows = page.locator('[data-outfit-row]')
   await orows.first().waitFor({ timeout: 10000 })
   const startOutfit = outfitDb()

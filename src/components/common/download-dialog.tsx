@@ -41,6 +41,7 @@ interface DownloadDialogProps {
   /** Gallery library character / outfit filters, applied to filter-based exports */
   libraryCharacterId?: number
   outfitItemId?: number
+  outfitPresetId?: number
 }
 
 export function DownloadDialog({
@@ -54,6 +55,7 @@ export function DownloadDialog({
   axes,
   libraryCharacterId,
   outfitItemId,
+  outfitPresetId,
 }: DownloadDialogProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -148,6 +150,7 @@ export function DownloadDialog({
                   axes: axes?.length ? axes : undefined,
                   libraryCharacterId,
                   outfitItemId,
+                  outfitPresetId,
                 }
               : {
                   projectId,
@@ -160,6 +163,7 @@ export function DownloadDialog({
                   axes: axes?.length ? axes : undefined,
                   libraryCharacterId,
                   outfitItemId,
+                  outfitPresetId,
                 }),
           filenameTemplate: template || undefined,
         },

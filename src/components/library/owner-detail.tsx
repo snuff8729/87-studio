@@ -1,31 +1,33 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon } from '@hugeicons/core-free-icons'
 import { ConditionEditor } from './condition-editor'
+import { ItemVariables } from './item-variables'
 import { FragmentRow } from './fragment-row'
 import { ItemOcclusion } from './item-occlusion'
 import { LibraryImagesSection } from './library-images-section'
 import { LocalAxes } from './local-axes'
 import { useDebouncedSave } from './use-debounced-save'
 import { useSerialSave } from './use-serial-save'
+import type { AreaOption } from './area-chips'
 import type {
   AxisValues,
   Condition,
   CoverRule,
+  ItemVariable,
   PartsAxis,
 } from '@/lib/character-parts'
 import { useSortableOrder } from '@/components/common/sortable-list/use-sortable-order'
 import { SortableList } from '@/components/common/sortable-list/sortable-list'
+import { AddRowButton } from '@/components/common/sortable-list/add-row'
 import {
   composeParts,
   effectiveAxisValues,
   relevantAxes,
+  resolveVarValues,
 } from '@/lib/character-parts'
 import { AxisSegmented } from '@/components/parts/axis-segmented'
 import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -47,12 +49,14 @@ export interface OwnerRow {
   conditions?: Condition
   areaIds?: Array<number>
   coverRules?: Array<CoverRule>
+  variables?: Array<ItemVariable>
   imageCount: number
   thumbnailImageId: number | null
   fragments: Array<{
     id: number
     text: string
     conditions: Condition
+    areaIds?: Array<number>
   }>
 }
 
@@ -66,7 +70,7 @@ export function OwnerDetail({
   kind: 'character' | 'item'
   row: OwnerRow
   axes: Array<PartsAxis>
-  areas: Array<{ id: number; name: string }>
+  areas: Array<AreaOption>
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -189,7 +193,14 @@ export function OwnerDetail({
     character: kind === 'character' ? { id: row.id, fragments } : null,
     items:
       kind === 'item'
-        ? [{ id: row.id, conditions: itemCond.value, fragments }]
+        ? [
+            {
+              id: row.id,
+              conditions: itemCond.value,
+              fragments,
+              varValues: resolveVarValues(row.variables, undefined),
+            },
+          ]
         : [],
     values: effective,
   })
@@ -275,22 +286,14 @@ export function OwnerDetail({
         />
       )}
 
+      {kind === 'item' && (
+        <ItemVariables itemId={row.id} variables={row.variables ?? []} />
+      )}
+
       <section className="space-y-2">
-        <div className="flex items-center justify-between gap-2">
-          <Label className="text-sm text-muted-foreground">
-            {t('library.fragments')}
-          </Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addFragment}
-            data-add-fragment
-          >
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-            {t('library.addFragment')}
-          </Button>
-        </div>
+        <Label className="text-sm text-muted-foreground">
+          {t('library.fragments')}
+        </Label>
         {row.fragments.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {t('library.noFragments')}
@@ -309,6 +312,13 @@ export function OwnerDetail({
                 conditions={f.conditions}
                 axes={relevant}
                 bundleNames={bundleNames}
+                areas={kind === 'item' ? areas : undefined}
+                areaIds={f.areaIds}
+                varNames={
+                  kind === 'item'
+                    ? (row.variables ?? []).map((v) => v.name)
+                    : []
+                }
                 onTextChange={(id, text) =>
                   setDrafts((d) => ({ ...d, [id]: text }))
                 }
@@ -316,6 +326,12 @@ export function OwnerDetail({
             ))}
           </div>
         </SortableList>
+        <AddRowButton
+          label={t('library.addFragment')}
+          data-add-fragment
+          className="max-w-[32rem]"
+          onClick={() => void addFragment()}
+        />
       </section>
 
       <section className="space-y-3 rounded-xl border border-border bg-card/40 p-3">

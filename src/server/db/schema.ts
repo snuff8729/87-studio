@@ -1,13 +1,15 @@
 import {
+  
   index,
   integer,
   primaryKey,
   real,
   sqliteTable,
   text,
-  uniqueIndex,
+  uniqueIndex
 } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
+import type {AnySQLiteColumn} from 'drizzle-orm/sqlite-core';
 
 // ─── Projects ───────────────────────────────────────────────────────────────
 export const projects = sqliteTable('projects', {
@@ -60,6 +62,8 @@ export const outfitItems = sqliteTable(
     areaIds: text('area_ids').default('[]'),
     /** JSON: Array<{ conditions: Condition; areaIds: number[] }> */
     coverRules: text('cover_rules').default('[]'),
+    /** JSON: Array<{ name: string; default: string }> (`@{var:name}` tokens) */
+    variables: text('variables').default('[]'),
     sortOrder: integer('sort_order').default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
@@ -71,6 +75,11 @@ export const outfitItems = sqliteTable(
 export const libraryAreas = sqliteTable('library_areas', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
+  /** One level only: top-level areas have null */
+  parentId: integer('parent_id').references(
+    (): AnySQLiteColumn => libraryAreas.id,
+    { onDelete: 'set null' },
+  ),
   sortOrder: integer('sort_order').default(0),
 })
 
@@ -80,6 +89,7 @@ export const outfitPresets = sqliteTable('outfit_presets', {
   description: text('description'),
   /** JSON: number[] of outfit item ids (ordered) */
   itemIds: text('item_ids').default('[]'),
+  thumbnailImageId: integer('thumbnail_image_id'),
   sortOrder: integer('sort_order').default(0),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
@@ -132,6 +142,8 @@ export const fragments = sqliteTable(
     text: text('text').default(''),
     /** JSON: { [axisId]: number[] } */
     conditions: text('conditions').default('{}'),
+    /** JSON: number[] of library_areas ids (item fragments only; [] = inherit the item's areas) */
+    areaIds: text('area_ids').default('[]'),
     sortOrder: integer('sort_order').default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
@@ -611,3 +623,16 @@ export const settings = sqliteTable('settings', {
   value: text('value').notNull(),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 })
+
+// ─── Tag descriptions (localized, filled by import/translation later) ───────
+export const tagDescriptions = sqliteTable(
+  'tag_descriptions',
+  {
+    tag: text('tag').notNull(),
+    locale: text('locale').notNull(),
+    text: text('text').notNull(),
+    source: text('source'),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [primaryKey({ columns: [table.tag, table.locale] })],
+)

@@ -9,7 +9,7 @@ import {
 } from '../db/schema'
 import { createLogger } from './logger'
 import { loadLibraryData } from './parts'
-import type { AxisValues } from '@/lib/character-parts'
+import type { AxisValues, OutfitEntry } from '@/lib/character-parts'
 import type { PositionSpec } from '@/lib/character-positions'
 import { resolvePlaceholders } from '@/lib/placeholder'
 import {
@@ -17,8 +17,9 @@ import {
   composeParts,
   effectiveAxisValues,
   parseAxisValues,
-  parseIdList,
+  parseOutfitEntries,
   relevantAxes,
+  resolveVarValues,
 } from '@/lib/character-parts'
 import { applyOverride, parsePositionSpec } from '@/lib/character-positions'
 import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
@@ -42,6 +43,15 @@ export interface ResolvedPrompts {
     axisValues?: AxisValues
     /** Outfit items hidden by occlusion in this scene (parts slots only) */
     hiddenItems?: Array<{ itemId: number; coveredBy: Array<number> }>
+    /** Items with some (not all) fragments hidden (parts slots only) */
+    partialItems?: Array<{
+      itemId: number
+      fragmentIds: Array<number>
+      coveredBy: Array<number>
+      details: Array<{ fragmentId: number; coveredBy: Array<number> }>
+    }>
+    /** Effective outfit entries before occlusion (parts slots only) */
+    outfitEntries?: Array<OutfitEntry>
     /** Linked library character (parts slots only) */
     libraryCharacterId?: number
     /** Outfit items that contributed at least one fragment (not hidden) */
@@ -175,17 +185,25 @@ export function synthesizePrompts(
         : null
     // No library character and an empty default outfit: parts are off for
     // this slot entirely (scene overrides included)
-    const defaultOutfitIds = parseIdList(char.outfitItemIds)
+    const defaultOutfit = parseOutfitEntries(char.outfitItemIds)
     const partsActive =
-      char.libraryCharacterId != null || defaultOutfitIds.length > 0
-    const outfitIds = !partsActive
+      char.libraryCharacterId != null || defaultOutfit.length > 0
+    const outfitEntries = !partsActive
       ? []
       : overrideRow?.outfitItemIds != null
-        ? parseIdList(overrideRow.outfitItemIds)
-        : defaultOutfitIds
-    const outfit = outfitIds
-      .map((id) => library.items.find((i) => i.id === id))
-      .filter((i): i is NonNullable<typeof i> => !!i)
+        ? parseOutfitEntries(overrideRow.outfitItemIds)
+        : defaultOutfit
+    const outfit = outfitEntries.flatMap((e) => {
+      const item = library.items.find((i) => i.id === e.id)
+      return item
+        ? [
+            {
+              ...item,
+              varValues: resolveVarValues(item.variables, e.vars),
+            },
+          ]
+        : []
+    })
     const axes = relevantAxes(
       library.axes,
       libChar?.id ?? null,
@@ -201,7 +219,7 @@ export function synthesizePrompts(
       character: libChar,
       items: outfit,
       values,
-      knownAreaIds: library.areas.map((a) => a.id),
+      areas: library.areas,
     })
     const composedPrompt = applyParts(char.charPrompt, parts)
 
@@ -223,6 +241,10 @@ export function synthesizePrompts(
       ...(partsActive && {
         axisValues: values,
         hiddenItems: parts.hidden,
+        partialItems: parts.partial,
+        outfitEntries: outfitEntries.filter((e) =>
+          library.items.some((i) => i.id === e.id),
+        ),
         ...(libChar && { libraryCharacterId: libChar.id }),
         outfitItemIds: parts.contributingItemIds,
       }),
