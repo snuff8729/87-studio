@@ -7,8 +7,8 @@ import {
   ArrowLeft02Icon,
   BookmarkAdd01Icon,
   Cancel01Icon,
-  PinIcon,
   Delete02Icon,
+  PinIcon,
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'

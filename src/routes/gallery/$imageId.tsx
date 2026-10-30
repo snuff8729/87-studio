@@ -18,6 +18,7 @@ import {
   MoreVerticalIcon,
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
+import type { GalleryFilters } from '@/lib/gallery-filters'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,7 +39,6 @@ import { updateProject } from '@/server/functions/projects'
 import { getUcPresetLabel, parseNAIMetadata } from '@/lib/nai-metadata'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toImageQuery } from '@/lib/gallery-filters'
-import type { GalleryFilters } from '@/lib/gallery-filters'
 import { useTranslation } from '@/lib/i18n'
 import {
   HeaderActions,

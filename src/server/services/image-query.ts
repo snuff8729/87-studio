@@ -1,6 +1,6 @@
 import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
-import type { SQL } from 'drizzle-orm'
 import { generatedImages } from '../db/schema'
+import type { SQL } from 'drizzle-orm'
 
 export type ImageSort = 'newest' | 'oldest' | 'rating' | 'favorites'
 

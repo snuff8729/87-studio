@@ -711,7 +711,6 @@ function WorkspacePage() {
         defaultCount: countPerScene,
       }),
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectId, sceneCounts, countPerScene])
   const [generating, setGenerating] = useState(data.activeJobs.length > 0)
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(

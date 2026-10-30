@@ -27,7 +27,7 @@ function TagGalleryPage() {
     setSelectedTag(tag)
     navigate({
       to: '/tags',
-      search: tag ? { tag } : {},
+      search: { tag: tag ?? undefined, imageDetail: undefined },
       // Opening a detail from the mobile list is a real step: phone Back
       // returns to the list. Everything else replaces.
       replace: !(isMobile && tag !== null && selectedTag === null),

@@ -416,9 +416,9 @@ function convertNAIFormat(data: Record<string, unknown>): NAIMetadata {
   if (data.width) metadata.width = Number(data.width)
   if (data.height) metadata.height = Number(data.height)
 
-  if (data.v4_prompt) metadata.v4_prompt = data.v4_prompt as NAIV4Prompt
+  if (data.v4_prompt) metadata.v4_prompt = data.v4_prompt
   if (data.v4_negative_prompt)
-    metadata.v4_negative_prompt = data.v4_negative_prompt as NAIV4Prompt
+    metadata.v4_negative_prompt = data.v4_negative_prompt
 
   // Vibe Transfer
   if (

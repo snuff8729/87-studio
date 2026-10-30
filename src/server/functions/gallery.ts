@@ -16,9 +16,9 @@ import {
   imageOrder,
   sortValues,
 } from '../services/image-query'
-import type { ImageFilters, ImageSort } from '../services/image-query'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
+import type { ImageFilters, ImageSort } from '../services/image-query'
 
 const log = createLogger('fn.gallery')
 

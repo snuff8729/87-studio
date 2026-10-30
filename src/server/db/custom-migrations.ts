@@ -7,8 +7,8 @@
  * Run: npx tsx src/server/db/custom-migrations.ts
  */
 
+import { resolve } from 'node:path'
 import Database from 'better-sqlite3'
-import { resolve } from 'path'
 import { migrateSyntaxV1 } from './migrate-syntax'
 
 interface Migration {

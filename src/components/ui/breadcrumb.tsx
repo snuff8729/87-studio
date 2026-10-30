@@ -1,11 +1,11 @@
 import * as React from 'react'
-import { cn } from '@/lib/utils'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowRight01Icon,
   MoreHorizontalIcon,
 } from '@hugeicons/core-free-icons'
 import { Slot } from 'radix-ui'
+import { cn } from '@/lib/utils'
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<'nav'>) {
   return (

@@ -1,8 +1,6 @@
 import type { Completion } from '@codemirror/autocomplete'
-import {
-  searchDanbooruTags,
-  type DanbooruTag,
-} from '@/server/functions/danbooru'
+import type { DanbooruTag } from '@/server/functions/danbooru'
+import { searchDanbooruTags } from '@/server/functions/danbooru'
 
 const CATEGORY_TYPE: Record<number, string> = {
   0: 'tag-general',

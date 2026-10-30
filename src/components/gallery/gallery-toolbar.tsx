@@ -1,6 +1,7 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import type { GridSize } from '@/lib/use-image-grid-size'
+import type { GalleryFilters, GallerySort } from '@/lib/gallery-filters'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,8 +22,6 @@ import {
 import { Slider } from '@/components/ui/slider'
 import { WIN_RATE_PRESETS } from '@/lib/win-rate'
 import { useTranslation } from '@/lib/i18n'
-
-import type { GalleryFilters, GallerySort } from '@/lib/gallery-filters'
 
 export type { GalleryFilters, GallerySort }
 

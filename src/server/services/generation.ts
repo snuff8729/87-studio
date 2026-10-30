@@ -29,16 +29,27 @@ function persistQueueStopped() {
   const value = queueStopped
     ? JSON.stringify({ state: queueStopped, jobId: stoppedJobId })
     : ''
-  const existing = db.select().from(settings).where(eq(settings.key, 'queue_stopped')).get()
+  const existing = db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, 'queue_stopped'))
+    .get()
   if (existing) {
-    db.update(settings).set({ value, updatedAt: new Date().toISOString() }).where(eq(settings.key, 'queue_stopped')).run()
+    db.update(settings)
+      .set({ value, updatedAt: new Date().toISOString() })
+      .where(eq(settings.key, 'queue_stopped'))
+      .run()
   } else {
     db.insert(settings).values({ key: 'queue_stopped', value }).run()
   }
 }
 
 function restoreQueueStopped() {
-  const row = db.select().from(settings).where(eq(settings.key, 'queue_stopped')).get()
+  const row = db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, 'queue_stopped'))
+    .get()
   if (row?.value) {
     try {
       const parsed = JSON.parse(row.value)
@@ -115,7 +126,11 @@ function updateBatchStatusFromJobs(batchId: number) {
   let newStatus: string
   if (stats.cancelled === stats.total) {
     newStatus = 'cancelled'
-  } else if (stats.completed + stats.cancelled === stats.total && stats.cancelled > 0 && stats.completed > 0) {
+  } else if (
+    stats.completed + stats.cancelled === stats.total &&
+    stats.cancelled > 0 &&
+    stats.completed > 0
+  ) {
     // Mix of completed and cancelled — mark as cancelled (partial cancel)
     newStatus = 'cancelled'
   } else if (stats.completed === stats.total) {
@@ -478,7 +493,6 @@ async function processQueue() {
   log.info('queue.start', 'Queue processing started')
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (!queueStopped) {
       const next = getNextJob()
       if (!next) break
@@ -500,7 +514,6 @@ async function processQueue() {
       updateBatchStatusFromJobs(next.batchId)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (queueStopped) {
       log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
       // Recalculate running batches so UI shows correct state (e.g. paused)

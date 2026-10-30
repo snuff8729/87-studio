@@ -1,6 +1,6 @@
+import { existsSync } from 'node:fs'
 import { createServerFn } from '@tanstack/react-start'
 import Database from 'better-sqlite3'
-import { existsSync } from 'node:fs'
 
 const DB_PATH = './data/danbooru.db'
 
@@ -49,22 +49,24 @@ export const getDanbooruTagDetail = createServerFn({ method: 'GET' })
     const db = getDb()
     if (!db) return null
 
-    const tag = db
-      .prepare('SELECT * FROM tags WHERE name = ?')
-      .get(name) as {
-      id: number
-      name: string
-      post_count: number
-      category: number
-      is_deprecated: number
-    } | undefined
+    const tag = db.prepare('SELECT * FROM tags WHERE name = ?').get(name) as
+      | {
+          id: number
+          name: string
+          post_count: number
+          category: number
+          is_deprecated: number
+        }
+      | undefined
 
     if (!tag) return null
 
     // Wiki page (other names + body)
     const wiki = db
       .prepare('SELECT other_names, body FROM wiki_pages WHERE title = ?')
-      .get(name) as { other_names: string | null; body: string | null } | undefined
+      .get(name) as
+      | { other_names: string | null; body: string | null }
+      | undefined
 
     let otherNames: Array<string> = []
     if (wiki?.other_names) {

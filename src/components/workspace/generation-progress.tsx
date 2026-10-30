@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  NextIcon,
-  PauseIcon,
-  PlayIcon,
-} from '@hugeicons/core-free-icons'
+import { NextIcon, PauseIcon, PlayIcon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -13,14 +9,11 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useTranslation } from '@/lib/i18n'
+import { fetchQueueSummary, listQueueBatches } from '@/server/functions/queue'
 import {
-  fetchQueueSummary,
-  listQueueBatches,
-} from '@/server/functions/queue'
-import {
+  dismissGenerationError,
   pauseGeneration,
   resumeGeneration,
-  dismissGenerationError,
 } from '@/server/functions/generation'
 
 function formatDuration(ms: number): string {
@@ -57,7 +50,7 @@ export function GenerationProgress() {
   const startRef = useRef<number | null>(null)
 
   // Self-polling state
-  const [batches, setBatches] = useState<BatchInfo[]>([])
+  const [batches, setBatches] = useState<Array<BatchInfo>>([])
   const [summary, setSummary] = useState<Awaited<
     ReturnType<typeof fetchQueueSummary>
   > | null>(null)
@@ -330,7 +323,7 @@ export function GenerationProgress() {
               className="text-xs text-primary hover:underline"
               onClick={() => setOpen(false)}
             >
-              {t('queue.viewFullQueue' as any)}
+              {t('queue.viewFullQueue')}
             </Link>
           </div>
 
@@ -357,9 +350,7 @@ export function GenerationProgress() {
                     )}
                     <span
                       className={`text-xs truncate flex-1 min-w-0 ${
-                        isRunning
-                          ? 'text-foreground'
-                          : 'text-muted-foreground'
+                        isRunning ? 'text-foreground' : 'text-muted-foreground'
                       }`}
                     >
                       {batch.label ?? `Batch #${batch.id}`}
