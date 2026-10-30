@@ -100,7 +100,7 @@ import { cn } from '@/lib/utils'
 
 // ── Shared labels ──
 
-export const SORT_LABEL_KEYS: Record<SceneSortBy, TranslationKeys> = {
+const SORT_LABEL_KEYS: Record<SceneSortBy, TranslationKeys> = {
   default: 'scene.sortDefault',
   name_asc: 'scene.sortNameAsc',
   name_desc: 'scene.sortNameDesc',
@@ -110,7 +110,7 @@ export const SORT_LABEL_KEYS: Record<SceneSortBy, TranslationKeys> = {
   created_desc: 'scene.sortCreatedDesc',
 }
 
-export const FILTER_LABEL_KEYS: Record<SceneFilter, TranslationKeys> = {
+const FILTER_LABEL_KEYS: Record<SceneFilter, TranslationKeys> = {
   all: 'sceneRail.filterAll',
   reserved: 'sceneRail.filterReserved',
   noImages: 'sceneRail.filterNoImages',
@@ -146,7 +146,8 @@ export function useRailCompact(projectId: number) {
   const [el, setEl] = useState<HTMLElement | null>(null)
   const [width, setWidth] = useState<number | null>(null)
 
-  useEffect(() => {
+  // Before paint: no 216→56px flash for a saved compact choice
+  useLayoutEffect(() => {
     setPref(parseRailPref(readStorage(key)))
   }, [key])
 
@@ -187,7 +188,8 @@ export function useCollapsedPacks(
   const collapsedRef = useRef(collapsed)
   collapsedRef.current = collapsed
 
-  useEffect(() => {
+  // Before paint: saved collapsed groups do not flash open
+  useLayoutEffect(() => {
     setCollapsed(new Set(parseCollapsedPacks(readStorage(key))))
   }, [key])
 
@@ -241,6 +243,8 @@ export interface SceneRailProps {
   exportDialog?: (sceneIds: Array<number>) => ReactNode
   onOpenBoard: () => void
   onOpenScenePacks: () => void
+  /** Opens the Ctrl/Cmd+K scene palette (header button). */
+  onOpenPalette?: () => void
   /** `rail`: center column (216 / 56px). `sheet`: full width, always expanded. */
   variant?: 'rail' | 'sheet'
   compact?: boolean
@@ -279,6 +283,7 @@ export const SceneRail = memo(function SceneRail({
   exportDialog,
   onOpenBoard,
   onOpenScenePacks,
+  onOpenPalette,
   variant = 'rail',
   compact: compactProp = false,
   railPref = null,
@@ -440,6 +445,13 @@ export const SceneRail = memo(function SceneRail({
       icon={DashboardSquare01Icon}
     />
   )
+  const paletteButton = onOpenPalette ? (
+    <RailIconButton
+      onClick={onOpenPalette}
+      label={t('sceneRail.paletteHint')}
+      icon={Search01Icon}
+    />
+  ) : null
   const compactToggle = onToggleCompact ? (
     <RailIconButton
       onClick={onToggleCompact}
@@ -506,6 +518,7 @@ export const SceneRail = memo(function SceneRail({
               {totalCount}
             </span>
           </div>
+          {paletteButton}
           {boardButton}
           {addButton}
           <DropdownMenu>
@@ -1037,6 +1050,8 @@ function RailList({
       aria-label={t('sceneRail.title')}
       tabIndex={0}
       onKeyDown={(e) => {
+        // React bubbles events from portaled menus through this list
+        if (!e.currentTarget.contains(e.target as Node)) return
         if (isTypingTarget(e.target)) return
         if (e.key === 'ArrowDown') {
           e.preventDefault()

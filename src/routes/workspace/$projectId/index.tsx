@@ -534,6 +534,7 @@ function WorkspacePage() {
   }, [navigate])
 
   const openScenePacks = useCallback(() => setPackDialogOpen(true), [])
+  const openPalette = useCallback(() => setPaletteOpen(true), [])
 
   const selectedScene = useMemo<SceneViewScene | null>(
     () =>
@@ -1047,6 +1048,7 @@ function WorkspacePage() {
           onSelect={handleSceneSelect}
           onOpenBoard={openBoard}
           onOpenScenePacks={openScenePacks}
+          onOpenPalette={openPalette}
           compact={railWidth.compact}
           railPref={railWidth.pref}
           onToggleCompact={railWidth.toggle}
@@ -1270,6 +1272,10 @@ function WorkspacePage() {
             onSelect={handleSheetSelect}
             onOpenBoard={handleSheetOpenBoard}
             onOpenScenePacks={handleSheetOpenScenePacks}
+            onOpenPalette={() => {
+              setScenesSheetOpen(false)
+              setPaletteOpen(true)
+            }}
             onClose={() => setScenesSheetOpen(false)}
             className="min-h-0 flex-1"
           />

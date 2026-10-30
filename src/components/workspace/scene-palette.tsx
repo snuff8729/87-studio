@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Image02Icon } from '@hugeicons/core-free-icons'
+import { defaultFilter } from 'cmdk'
 import { sceneThumbnailUrl } from './scene-card'
 import type { RailPack } from './scene-rail'
 import {
@@ -25,6 +26,15 @@ export interface ScenePaletteProps {
   onSelect: (sceneId: number) => void
 }
 
+/** Fuzzy match on scene + pack names only (never the id-bearing value). */
+function matchNameAndPack(
+  _value: string,
+  search: string,
+  keywords?: Array<string>,
+): number {
+  return defaultFilter((keywords ?? []).join(' '), search)
+}
+
 /** Ctrl/Cmd+K "go to scene": fuzzy search over scene + pack names. */
 export function ScenePalette({
   open,
@@ -46,7 +56,7 @@ export function ScenePalette({
       className="sm:max-w-lg"
     >
       {/* CommandDialog does not render a cmdk root: items need <Command> */}
-      <Command>
+      <Command filter={matchNameAndPack}>
         <CommandInput placeholder={t('sceneRail.palettePlaceholder')} />
         <CommandList className="max-h-[min(24rem,60vh)]">
           <CommandEmpty>{t('sceneRail.paletteEmpty')}</CommandEmpty>
@@ -57,9 +67,9 @@ export function ScenePalette({
                 return (
                   <CommandItem
                     key={scene.id}
-                    // Unique per scene; the id sits behind a separator nobody types
-                    value={`${scene.name}\u001f${scene.id}`}
-                    keywords={[pack.name]}
+                    // Unique key only; matching uses the keywords
+                    value={`scene-${scene.id}`}
+                    keywords={[scene.name, pack.name]}
                     data-checked={scene.id === selectedSceneId}
                     onSelect={() => {
                       onSelect(scene.id)
