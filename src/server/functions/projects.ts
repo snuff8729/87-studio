@@ -14,6 +14,16 @@ import {
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
 
+/** Next free pack order for a project (new packs go to the end). */
+function nextPackSortOrder(projectId: number): number {
+  const row = db
+    .select({ max: max(projectScenePacks.sortOrder) })
+    .from(projectScenePacks)
+    .where(eq(projectScenePacks.projectId, projectId))
+    .get()
+  return (row?.max ?? -1) + 1
+}
+
 const log = createLogger('fn.projects')
 
 export const listProjects = createServerFn({ method: 'GET' }).handler(
@@ -193,6 +203,7 @@ export const assignScenePack = createServerFn({ method: 'POST' })
         projectId: data.projectId,
         scenePackId: data.scenePackId,
         name: pack.name,
+        sortOrder: nextPackSortOrder(data.projectId),
       })
       .returning()
       .get()
@@ -276,6 +287,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
         .values({
           projectId: newProject.id,
           scenePackId: pack.scenePackId,
+          sortOrder: pack.sortOrder,
           name: pack.name,
         })
         .returning()
@@ -334,8 +346,18 @@ export const duplicateProject = createServerFn({ method: 'POST' })
   })
 
 export const removeProjectScenePack = createServerFn({ method: 'POST' })
-  .inputValidator((data: { id: number; deleteFiles?: boolean }) => data)
-  .handler(async ({ data: { id, deleteFiles = false } }) => {
+  .inputValidator(
+    (data: { id: number; projectId?: number; deleteFiles?: boolean }) => data,
+  )
+  .handler(async ({ data: { id, projectId, deleteFiles = false } }) => {
+    if (projectId != null) {
+      const owner = db
+        .select({ projectId: projectScenePacks.projectId })
+        .from(projectScenePacks)
+        .where(eq(projectScenePacks.id, id))
+        .get()
+      if (owner?.projectId !== projectId) throw new Error('Pack not found')
+    }
     // Collect image files for scenes in this pack before cascade delete
     const sceneIds = db
       .select({ id: projectScenes.id })

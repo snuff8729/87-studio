@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { toast } from 'sonner'
 import { defaultAddPackId, isDuplicateSceneName } from './scene-add'
+import { usePackManage } from './project-pack-provider'
 import type { ReactNode } from 'react'
 import type { AddScenePackInfo } from './scene-add'
 import { Button } from '@/components/ui/button'
@@ -16,10 +17,14 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { useTranslation } from '@/lib/i18n'
+import { isNameTaken } from '@/lib/project-packs'
+
+const NEW_PACK = '__new_pack__'
 
 export interface AddSceneInput {
   name: string
@@ -41,6 +46,7 @@ export function AddScenePopover({
   side = 'bottom',
   align = 'start',
   onboarding,
+  defaultPackId,
 }: {
   config: AddSceneConfig
   /** The button that opens the popover (rendered with asChild) */
@@ -49,6 +55,8 @@ export function AddScenePopover({
   align?: 'start' | 'center' | 'end'
   /** Adds the `add-scene-form` onboarding anchor to the popover */
   onboarding?: boolean
+  /** Preselected pack (e.g. the "Add scene" row of an empty pack) */
+  defaultPackId?: number
 }) {
   const { t } = useTranslation()
   const { packs, selectedScene, onAdd } = config
@@ -58,28 +66,64 @@ export function AddScenePopover({
   const [copy, setCopy] = useState(false)
   const [busy, setBusy] = useState(false)
   const [serverDuplicate, setServerDuplicate] = useState(false)
+  const [creatingPack, setCreatingPack] = useState(false)
+  const [newPackName, setNewPackName] = useState('')
+  const [packNameTaken, setPackNameTaken] = useState(false)
+  const { onCreatePack } = usePackManage()
 
   const pack = packs.find((p) => p.id === packId)
   const trimmed = name.trim()
+  const trimmedPack = newPackName.trim()
   const duplicate = serverDuplicate || isDuplicateSceneName(pack, trimmed)
+  const packDuplicate =
+    creatingPack &&
+    trimmedPack !== '' &&
+    (packNameTaken ||
+      isNameTaken(
+        trimmedPack,
+        packs.map((p) => p.name),
+      ))
+  const packInvalid = creatingPack && (trimmedPack === '' || packDuplicate)
 
   function handleOpenChange(next: boolean) {
     setOpen(next)
     if (next) {
       setName('')
-      setPackId(defaultAddPackId(packs, selectedScene?.packId ?? null))
+      setPackId(
+        defaultPackId != null && packs.some((p) => p.id === defaultPackId)
+          ? defaultPackId
+          : defaultAddPackId(packs, selectedScene?.packId ?? null),
+      )
       setCopy(selectedScene != null)
       setServerDuplicate(false)
+      setCreatingPack(false)
+      setNewPackName('')
+      setPackNameTaken(false)
     }
   }
 
   async function submit() {
-    if (!trimmed || duplicate || busy) return
+    if (!trimmed || duplicate || packInvalid || busy) return
     setBusy(true)
     try {
+      let targetPackId = packId
+      if (creatingPack) {
+        try {
+          targetPackId = (await onCreatePack(trimmedPack)).id
+        } catch (err) {
+          if (
+            err instanceof Error &&
+            err.message.includes('DUPLICATE_PACK_NAME')
+          ) {
+            setPackNameTaken(true)
+            return
+          }
+          throw err
+        }
+      }
       await onAdd({
         name: trimmed,
-        packId,
+        packId: targetPackId,
         copyFromSceneId: copy && selectedScene ? selectedScene.id : null,
       })
       setOpen(false)
@@ -142,10 +186,21 @@ export function AddScenePopover({
               {t('scene.addScenePack')}
             </Label>
             <Select
-              value={packId != null ? String(packId) : undefined}
+              value={
+                creatingPack
+                  ? NEW_PACK
+                  : packId != null
+                    ? String(packId)
+                    : undefined
+              }
               onValueChange={(v) => {
-                setPackId(Number(v))
                 setServerDuplicate(false)
+                if (v === NEW_PACK) {
+                  setCreatingPack(true)
+                  return
+                }
+                setCreatingPack(false)
+                setPackId(Number(v))
               }}
             >
               <SelectTrigger size="sm" className="w-full">
@@ -157,8 +212,33 @@ export function AddScenePopover({
                     {p.name}
                   </SelectItem>
                 ))}
+                <SelectSeparator />
+                <SelectItem value={NEW_PACK}>
+                  {t('projectPacks.newPackItem')}
+                </SelectItem>
               </SelectContent>
             </Select>
+            {creatingPack && (
+              <div className="space-y-1 pt-1">
+                <Input
+                  value={newPackName}
+                  onChange={(e) => {
+                    setNewPackName(e.target.value)
+                    setPackNameTaken(false)
+                  }}
+                  placeholder={t('projectPacks.packName')}
+                  aria-label={t('projectPacks.packName')}
+                  aria-invalid={packDuplicate || undefined}
+                  className="h-8 text-sm"
+                  autoFocus
+                />
+                {packDuplicate && (
+                  <p role="alert" className="text-xs text-destructive">
+                    {t('projectPacks.duplicateName')}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         )}
         {selectedScene && (
@@ -180,7 +260,7 @@ export function AddScenePopover({
           <Button
             size="sm"
             onClick={() => void submit()}
-            disabled={!trimmed || duplicate || busy}
+            disabled={!trimmed || duplicate || packInvalid || busy}
           >
             {t('common.add')}
           </Button>

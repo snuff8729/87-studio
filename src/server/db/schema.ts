@@ -88,6 +88,7 @@ export const projectScenePacks = sqliteTable(
       onDelete: 'set null',
     }),
     name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
   },
   (table) => [index('project_scene_packs_project_id_idx').on(table.projectId)],

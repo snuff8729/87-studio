@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
   characterSceneOverrides,
@@ -33,6 +33,7 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
       .select()
       .from(projectScenePacks)
       .where(eq(projectScenePacks.projectId, projectId))
+      .orderBy(asc(projectScenePacks.sortOrder), asc(projectScenePacks.id))
       .all()
 
     // Load all scenes across all packs in one query
@@ -43,7 +44,7 @@ export const getWorkspaceData = createServerFn({ method: 'GET' })
             .select()
             .from(projectScenes)
             .where(inArray(projectScenes.projectScenePackId, packIds))
-            .orderBy(projectScenes.sortOrder)
+            .orderBy(asc(projectScenes.sortOrder), asc(projectScenes.id))
             .all()
         : []
 

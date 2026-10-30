@@ -46,6 +46,7 @@ export interface SceneCardScene {
   id: number
   name: string
   packName: string
+  packId: number
   thumbnailPath: string | null
   imageCount: number
 }
@@ -53,11 +54,13 @@ export interface SceneCardScene {
 export function toSceneCardScene(
   scene: WorkspaceSceneData,
   packName: string,
+  packId: number,
 ): SceneCardScene {
   return {
     id: scene.id,
     name: scene.name,
     packName,
+    packId,
     thumbnailPath: scene.thumbnailPath,
     imageCount: scene.recentImageCount,
   }
@@ -217,12 +220,15 @@ export function SceneMenuItems({
   onDuplicate,
   onDelete,
   onResetCount,
+  children,
 }: {
   onRename?: () => void
   onDuplicate?: () => void
   onDelete?: () => void
   /** Shown only when provided (scene has an explicit count). */
   onResetCount?: () => void
+  /** Extra items after Duplicate (move up/down, move to pack) */
+  children?: ReactNode
 }) {
   const { t } = useTranslation()
   return (
@@ -239,6 +245,7 @@ export function SceneMenuItems({
           {t('scene.duplicateScene')}
         </DropdownMenuItem>
       )}
+      {children}
       {onResetCount && (
         <DropdownMenuItem onSelect={onResetCount}>
           <HugeiconsIcon icon={RotateLeft01Icon} />
