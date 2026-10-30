@@ -289,6 +289,50 @@ describe('naiMetadataToParams', () => {
 
 // ─── Selection ───────────────────────────────────────────────────────────────
 
+describe('UC preset double-apply guard', () => {
+  const heavy =
+    'lowres, artistic error, film grain, scan artifacts, worst quality, bad quality, jpeg artifacts, very displeasing, chromatic aberration, bad anatomy, my custom tag'
+
+  it('imports None when uc already holds preset tags, whatever ucPreset says', async () => {
+    for (const preset of [undefined, 0, 1]) {
+      const md = await parseNAIMetadata(
+        naiPng(
+          'NovelAI Diffusion V5 0ADF9AB7',
+          v4Comment({
+            uc: heavy,
+            v4_negative_prompt: { caption: { base_caption: heavy } },
+            ucPreset: preset,
+          }),
+        ),
+      )
+      const r = naiMetadataToParams(md!)
+      expect(r.parameters.ucPreset).toBe(4)
+      expect(r.ucPresetBaked).toBe(true)
+      // the negative itself is untouched, so the request reproduces exactly
+      expect(naiMetadataToPrompts(md!).negativePrompt).toBe(heavy)
+    }
+  })
+
+  it('keeps the stored preset when uc has no preset tags', async () => {
+    const md = await parseNAIMetadata(
+      naiPng('NovelAI Diffusion V5 0ADF9AB7', v4Comment()),
+    )
+    const r = naiMetadataToParams(md!)
+    expect(r.parameters.ucPreset).toBe(1)
+    expect(r.ucPresetBaked).toBe(false)
+  })
+
+  it('uses None when there is a custom negative and no preset key', async () => {
+    const md = await parseNAIMetadata(
+      naiPng(
+        'NovelAI Diffusion V5 0ADF9AB7',
+        v4Comment({ ucPreset: undefined }),
+      ),
+    )
+    expect(naiMetadataToParams(md!).parameters.ucPreset).toBe(4)
+  })
+})
+
 describe('import selection', () => {
   it('defaults to everything except seed', async () => {
     const md = await parseNAIMetadata(

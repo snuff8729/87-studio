@@ -1011,6 +1011,8 @@ const ko: DeepStringify<typeof en> = {
     modelUnknown:
       '이 이미지에서 모델 정보를 찾지 못했습니다. 현재 모델 설정을 유지합니다.',
     skipped: '가져올 수 없음: {{list}}',
+    ucBaked:
+      '부정 프롬프트에 프리셋 태그가 이미 포함되어 있어, 중복 적용을 막기 위해 프리셋을 없음으로 설정합니다.',
     toggleGroup: '펼치기/접기',
   },
   reference: {

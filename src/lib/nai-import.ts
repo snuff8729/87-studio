@@ -80,6 +80,30 @@ export interface NaiImportParams {
   model: NaiModelDetection | null
   /** Human-readable reasons something was left out. */
   skipped: Array<string>
+  /** The imported negative already contains UC preset tags (preset -> None). */
+  ucPresetBaked: boolean
+}
+
+export const UC_PRESET_NONE = 4
+
+const UC_PRESET_MARKERS = [
+  'lowres',
+  'worst quality',
+  'bad quality',
+  'jpeg artifacts',
+  'very displeasing',
+  'too many watermarks',
+  'scan artifacts',
+  'film grain',
+  'chromatic aberration',
+  'artistic error',
+]
+
+/** True when a negative prompt visibly contains NAI UC preset tags. */
+export function negativeContainsPresetText(negative?: string): boolean {
+  if (!negative) return false
+  const lower = negative.toLowerCase()
+  return UC_PRESET_MARKERS.filter((m) => lower.includes(m)).length >= 4
 }
 
 export function naiMetadataToParams(metadata: NAIMetadata): NaiImportParams {
@@ -109,7 +133,13 @@ export function naiMetadataToParams(metadata: NAIMetadata): NaiImportParams {
       p.scheduler = metadata.scheduler
     else skipped.push(`scheduler:${metadata.scheduler}`)
   }
-  if (metadata.ucPreset != null) p.ucPreset = metadata.ucPreset
+  // NAI clients write the preset tags into `uc` themselves; our generator
+  // sends `ucPreset` to the API as well, so keeping the preset would apply it
+  // twice. When the negative already carries preset text, import "None" (4).
+  const ucBaked = negativeContainsPresetText(metadata.negativePrompt)
+  if (ucBaked) p.ucPreset = UC_PRESET_NONE
+  else if (metadata.ucPreset != null) p.ucPreset = metadata.ucPreset
+  else if (metadata.negativePrompt) p.ucPreset = UC_PRESET_NONE
   if (metadata.seed != null) p.seed = metadata.seed
 
   // SMEA / DYN only exist on the V3 profile
@@ -125,7 +155,7 @@ export function naiMetadataToParams(metadata: NAIMetadata): NaiImportParams {
       p.decrisp = metadata.dynamicThresholding
   }
 
-  return { parameters: p, model, skipped }
+  return { parameters: p, model, skipped, ucPresetBaked: ucBaked }
 }
 
 /** Settings that this metadata actually carries a value for. */

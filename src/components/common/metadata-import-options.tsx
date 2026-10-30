@@ -325,6 +325,10 @@ export function MetadataImportOptions({
                   {model?.confidence === 'low' &&
                     ` · ${t('metadataImport.lowConfidence')}`}
                 </p>
+              ) : k === 'ucPreset' && imported.ucPresetBaked ? (
+                <p className="text-xs text-muted-foreground">
+                  {t('metadataImport.ucBaked')}
+                </p>
               ) : undefined
             }
           />

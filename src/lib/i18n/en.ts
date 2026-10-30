@@ -1005,6 +1005,8 @@ const en = {
     modelUnknown:
       'No model info in this image. Your current model setting is kept.',
     skipped: 'Not importable here: {{list}}',
+    ucBaked:
+      'The negative prompt already contains the preset tags, so the preset is set to None to avoid applying it twice.',
     toggleGroup: 'Show or hide',
   },
   reference: {
