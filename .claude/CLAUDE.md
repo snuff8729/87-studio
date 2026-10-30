@@ -45,7 +45,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 - `I18nProvider` + `useTranslation()` 훅
 - localStorage 저장 (`87studio-locale` 키), `<html lang>` 자동 설정
 - dot-notation 키 경로, `{{param}}` 파라미터 보간 지원
-- 기본 언어: English
+- 기본 언어: 저장된 선택이 없으면 브라우저/OS 언어를 따르며(`navigator.languages`), 지원하지 않는 언어면 English로 폴백
 
 ### 프롬프트 에디터
 

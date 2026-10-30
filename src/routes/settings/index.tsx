@@ -264,6 +264,9 @@ function SettingsPage() {
       try {
         await setSetting({ data: { key: 'nai_api_key', value } })
         toast.success(t('settings.saved'))
+        if (value.trim()) {
+          window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
+        }
       } catch {
         toast.error(t('settings.saveFailed'))
       }
