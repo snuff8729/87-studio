@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Copy01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { toast } from 'sonner'
 import { insertTagIntoLastEditor, useHasPromptEditor } from './editor-registry'
+import { SemanticToggle } from '@/components/semantic/semantic-toggle'
+import { useSemanticRows } from '@/components/semantic/use-semantic-rows'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/lib/i18n'
@@ -100,7 +102,15 @@ export function TagSearchPanel({
     placeholderData: (prev) => prev,
     staleTime: 60_000,
   })
-  const rows = useMemo(() => results.data ?? [], [results.data])
+  const nameRows = useMemo(() => results.data ?? [], [results.data])
+  // Natural-language hits (only while the switch is on and ready) go first
+  const sem = useSemanticRows(debounced, tab)
+  const rows = useMemo(() => {
+    if (sem.rows.length === 0) return nameRows
+    const seen = new Set(sem.rows.map((r) => r.name))
+    return [...sem.rows, ...nameRows.filter((r) => !seen.has(r.name))]
+  }, [sem.rows, nameRows])
+  const semCount = sem.rows.length
 
   useEffect(() => {
     setIndex(0)
@@ -199,6 +209,7 @@ export function TagSearchPanel({
           data-tag-search-input
         />
       </div>
+      <SemanticToggle className="px-3 pt-2" />
       <div
         className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-1 [scrollbar-width:thin]"
         data-tag-tabs
@@ -219,37 +230,60 @@ export function TagSearchPanel({
       >
         {rows.length === 0 && (
           <div className="p-4 text-center text-xs text-muted-foreground">
-            {results.isFetching
+            {results.isFetching || sem.fetching
               ? t('tagAssist.search.loading')
               : t('tagAssist.search.empty')}
           </div>
         )}
         {rows.map((r, i) => (
-          <button
-            key={r.name}
-            type="button"
-            role="option"
-            aria-selected={i === index}
-            data-selected={i === index}
-            data-tag-row={r.name}
-            onClick={() => setIndex(i)}
-            onDoubleClick={() => add(r.name)}
-            className={cn(
-              'flex w-full items-center gap-2 px-3 py-1 text-left text-sm',
-              i === index ? 'bg-accent' : 'hover:bg-accent/50',
+          <Fragment key={r.name}>
+            {semCount > 0 && (i === 0 || i === semCount) && (
+              <div
+                className="bg-muted/30 px-3 py-0.5 text-[10px] tracking-wide text-muted-foreground uppercase"
+                data-semantic-section={i === 0 ? 'meaning' : 'names'}
+              >
+                {i === 0 ? t('semantic.meaning') : t('semantic.names')}
+              </div>
             )}
-          >
-            <span
-              className="min-w-0 flex-1 truncate"
-              style={{ color: danbooruColor(r.category) }}
+            <button
+              type="button"
+              role="option"
+              aria-selected={i === index}
+              data-selected={i === index}
+              data-tag-row={r.name}
+              onClick={() => setIndex(i)}
+              onDoubleClick={() => add(r.name)}
+              className={cn(
+                'flex w-full items-center gap-2 px-3 py-1 text-left text-sm',
+                i === index ? 'bg-accent' : 'hover:bg-accent/50',
+              )}
             >
-              {tagDisplayName(r.name)}
-            </span>
-            <FineBadge fine={r.fine} top={r.top} />
-            <span className="w-10 shrink-0 text-right text-[10px] text-muted-foreground tabular-nums">
-              {formatCount(r.postCount)}
-            </span>
-          </button>
+              <span
+                className="min-w-0 flex-1 truncate"
+                style={{ color: danbooruColor(r.category) }}
+              >
+                {tagDisplayName(r.name)}
+              </span>
+              <FineBadge fine={r.fine} top={r.top} />
+              {'score' in r && (
+                <span
+                  className="h-1 w-8 shrink-0 overflow-hidden rounded-full bg-muted"
+                  title={(r.score as number).toFixed(2)}
+                  data-semantic-score
+                >
+                  <span
+                    className="block h-full bg-primary"
+                    style={{
+                      width: `${Math.round(Math.max(0, Math.min(1, ((r.score as number) - 0.25) / 0.5)) * 100)}%`,
+                    }}
+                  />
+                </span>
+              )}
+              <span className="w-10 shrink-0 text-right text-[10px] text-muted-foreground tabular-nums">
+                {formatCount(r.postCount)}
+              </span>
+            </button>
+          </Fragment>
         ))}
       </div>
       <div

@@ -78,7 +78,10 @@ $npxCmd = Join-Path $NODE_DIR "npx.cmd"
 $nodeExe = Join-Path $NODE_DIR "node.exe"
 
 $lockFile = Join-Path $ROOT_DIR "node_modules\.package-lock.json"
-if (Test-Path $lockFile) {
+# Reinstall when package.json changed since the last install (new dependencies)
+$pkgFile = Join-Path $ROOT_DIR "package.json"
+$depsCurrent = (Test-Path $lockFile) -and ((Get-Item $lockFile).LastWriteTime -ge (Get-Item $pkgFile).LastWriteTime)
+if ($depsCurrent) {
     Write-Host "   [2/6] Dependencies ............ OK"
 } else {
     Write-Host "   [2/6] 의존성 설치 중..."
@@ -90,6 +93,8 @@ if (Test-Path $lockFile) {
         Read-Host "   Enter 키를 누르면 종료합니다"
         exit 1
     }
+    # Mark as installed even when npm left the hidden lockfile untouched
+    if (Test-Path $lockFile) { (Get-Item $lockFile).LastWriteTime = Get-Date }
     Write-Host "         완료!"
 }
 

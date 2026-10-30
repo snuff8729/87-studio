@@ -1332,6 +1332,40 @@ const en = {
       categories: 'Categories',
     },
   },
+  semantic: {
+    section: 'Tag search',
+    title: 'Natural-language tag search',
+    description:
+      'Describe what you want ("sitting on a bench at night") and find matching tags. Runs locally with Google EmbeddingGemma; nothing is loaded until you switch it on.',
+    switchLabel: 'Natural-language search',
+    switchHint:
+      'Downloads the model (about 300 MB) and a tag index (about 13 MB) the first time. Switching off frees the memory it uses (about 1.5 GB while on).',
+    terms: 'By switching it on you accept the Gemma terms of use',
+    termsLink: 'Gemma terms',
+    statusOff: 'Off',
+    statusDownloadingIndex: 'Downloading tag index… {{pct}}%',
+    statusDownloadingModel: 'Downloading model… {{pct}}%',
+    statusLoading: 'Loading…',
+    statusReady: 'Ready',
+    statusError: 'Failed: {{error}}',
+    retry: 'Retry',
+    files: 'Downloaded files',
+    filesValue: 'Model {{model}} · index {{index}} ({{count}} tags)',
+    filesNone: 'Nothing downloaded',
+    dbMismatch:
+      'The index was built from a different Danbooru database version; a few tags may be missing.',
+    deleteFiles: 'Delete downloaded files',
+    deleteConfirmTitle: 'Delete the model and tag index?',
+    deleteConfirmDesc:
+      'Natural-language search is switched off and the files are removed. Switching it on again downloads them again.',
+    deleted: 'Files deleted',
+    toggle: 'Natural',
+    toggleTitle: 'Natural-language search (meaning-based tag search)',
+    meaning: 'By meaning',
+    names: 'By name',
+    searching: 'Searching by meaning…',
+    notReady: 'Natural-language search is starting…',
+  },
 } as const
 
 export default en

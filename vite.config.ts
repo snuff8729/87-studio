@@ -153,7 +153,11 @@ const config = defineConfig({
           handler: './src/server/api/data-files.ts',
         },
       ],
-      rollupConfig: { onwarn: ignoreBuildWarnings },
+      rollupConfig: {
+        onwarn: ignoreBuildWarnings,
+        // native onnxruntime-node must stay a real node_modules dependency
+        external: ["@huggingface/transformers"],
+      },
     }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({

@@ -1336,6 +1336,40 @@ const ko: DeepStringify<typeof en> = {
       categories: '카테고리',
     },
   },
+  semantic: {
+    section: '태그 검색',
+    title: '자연어 태그 검색',
+    description:
+      '원하는 장면을 문장으로 설명하면("밤에 벤치에 앉아 있는") 어울리는 태그를 찾아줍니다. Google EmbeddingGemma를 로컬에서 실행하며, 켜기 전에는 아무것도 로드하지 않습니다.',
+    switchLabel: '자연어 검색',
+    switchHint:
+      '처음 켤 때 모델(약 300MB)과 태그 인덱스(약 13MB)를 내려받습니다. 끄면 사용 중인 메모리(켜진 동안 약 1.5GB)를 해제합니다.',
+    terms: '켜면 Gemma 이용 약관에 동의한 것으로 간주됩니다',
+    termsLink: 'Gemma 이용 약관',
+    statusOff: '꺼짐',
+    statusDownloadingIndex: '태그 인덱스 다운로드 중… {{pct}}%',
+    statusDownloadingModel: '모델 다운로드 중… {{pct}}%',
+    statusLoading: '불러오는 중…',
+    statusReady: '준비됨',
+    statusError: '실패: {{error}}',
+    retry: '다시 시도',
+    files: '내려받은 파일',
+    filesValue: '모델 {{model}} · 인덱스 {{index}} (태그 {{count}}개)',
+    filesNone: '내려받은 파일 없음',
+    dbMismatch:
+      '인덱스가 다른 버전의 Danbooru 데이터베이스로 만들어져 일부 태그가 빠질 수 있습니다.',
+    deleteFiles: '내려받은 파일 삭제',
+    deleteConfirmTitle: '모델과 태그 인덱스를 삭제할까요?',
+    deleteConfirmDesc:
+      '자연어 검색이 꺼지고 파일이 삭제됩니다. 다시 켜면 새로 내려받습니다.',
+    deleted: '파일을 삭제했습니다',
+    toggle: '자연어',
+    toggleTitle: '자연어 검색 (의미 기반 태그 검색)',
+    meaning: '의미 검색',
+    names: '이름 검색',
+    searching: '의미로 검색 중…',
+    notReady: '자연어 검색을 준비하는 중…',
+  },
 }
 
 export default ko
