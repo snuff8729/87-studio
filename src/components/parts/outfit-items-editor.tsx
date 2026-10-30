@@ -2,17 +2,17 @@ import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  Add01Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  BookmarkAdd01Icon,
-  Cancel01Icon,
-  Layers01Icon,
-} from '@hugeicons/core-free-icons'
+import { BookmarkAdd01Icon, Layers01Icon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
+import {
+  DragHandle,
+  RowRemoveButton,
+  SortableList,
+  SortableRow,
+} from '@/components/common/sortable-list/sortable-list'
+import { AddRowButton } from '@/components/common/sortable-list/add-row'
 import {
   Command,
   CommandEmpty,
@@ -66,6 +66,8 @@ interface OutfitItemInfo {
   name: string
   /** null = global library item */
   projectId: number | null
+  /** Body areas the item occupies (shown small in the row) */
+  areaIds?: Array<number>
 }
 
 interface OutfitPresetInfo {
@@ -86,6 +88,8 @@ interface OutfitItemsEditorProps {
   showPresetMenu?: boolean
   /** itemId -> covering item name(s): shown dimmed with a "Covered" badge */
   covered?: Record<number, string>
+  /** Body areas (names for the small area labels) */
+  areas?: Array<{ id: number; name: string }>
   className?: string
 }
 
@@ -98,6 +102,7 @@ export function OutfitItemsEditor({
   projectId,
   showPresetMenu = true,
   covered,
+  areas,
   className,
 }: OutfitItemsEditorProps) {
   const { t } = useTranslation()
@@ -115,13 +120,10 @@ export function OutfitItemsEditor({
   const globalItems = selectable.filter((i) => i.projectId === null)
   const projectItems = selectable.filter((i) => i.projectId !== null)
 
-  const move = (index: number, dir: -1 | 1) => {
-    const next = [...itemIds]
-    const target = index + dir
-    if (target < 0 || target >= next.length) return
-    ;[next[index], next[target]] = [next[target], next[index]]
-    onChange(next)
-  }
+  // Sortable ids: item ids, disambiguated only if an item is listed twice
+  const hasDupes = new Set(itemIds).size !== itemIds.length
+  const rowKeys = itemIds.map((id, i) => (hasDupes ? `${id}-${i}` : String(id)))
+  const areaName = new Map((areas ?? []).map((a) => [a.id, a.name]))
 
   const savePreset = useMutation({
     mutationFn: (name: string) =>
@@ -151,88 +153,79 @@ export function OutfitItemsEditor({
   )
 
   return (
-    <div className={cn('flex flex-col gap-2', className)}>
-      <div className="flex flex-wrap items-center gap-1.5">
-        {itemIds.length === 0 && (
-          <span className="text-xs text-muted-foreground">
-            {t('parts.emptyOutfit')}
-          </span>
-        )}
-        {itemIds.map((id, index) => {
-          const item = byId.get(id)
-          const name = item ? item.name : t('parts.missingItem')
-          return (
-            <span
-              key={`${id}-${index}`}
-              className={cn(
-                'inline-flex h-7 items-center gap-0.5 rounded-lg border border-border bg-input/30 pl-2 text-sm',
-                !item && 'text-muted-foreground line-through',
-              )}
-            >
-              <span
-                className={cn(
-                  'max-w-40 truncate',
-                  covered?.[id] && 'opacity-50',
+    <div className={cn('flex max-w-[32rem] flex-col gap-1.5', className)}>
+      {itemIds.length === 0 ? (
+        <span className="px-1 text-xs text-muted-foreground">
+          {t('parts.emptyOutfit')}
+        </span>
+      ) : (
+        <span className="px-1 text-[11px] text-muted-foreground">
+          {t('parts.outfitOrder')}
+        </span>
+      )}
+      <SortableList
+        ids={rowKeys}
+        onReorder={(keys) =>
+          onChange(keys.map((k) => itemIds[rowKeys.indexOf(String(k))]))
+        }
+      >
+        <div className="flex flex-col gap-1" data-outfit-list>
+          {itemIds.map((id, index) => {
+            const item = byId.get(id)
+            const name = item ? item.name : t('parts.missingItem')
+            const areaNames = (item?.areaIds ?? [])
+              .map((a) => areaName.get(a))
+              .filter(Boolean)
+              .join(', ')
+            return (
+              <SortableRow
+                key={rowKeys[index]}
+                id={rowKeys[index]}
+                data-outfit-row
+                className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-input/20 pr-1 pl-0.5"
+              >
+                <DragHandle />
+                <span
+                  className={cn(
+                    'min-w-0 truncate text-sm',
+                    !item && 'text-muted-foreground line-through',
+                    covered?.[id] && 'opacity-50',
+                  )}
+                  data-covered={covered?.[id] ? '' : undefined}
+                >
+                  {name}
+                </span>
+                {areaNames && (
+                  <span
+                    className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
+                    data-item-areas-label
+                  >
+                    {areaNames}
+                  </span>
                 )}
-                data-covered={covered?.[id] ? '' : undefined}
-              >
-                {name}
-              </span>
-              {covered?.[id] && <CoveredBadge by={covered[id]} />}
-              {item?.projectId != null && (
-                <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
-                  {t('parts.projectOnly')}
-                </Badge>
-              )}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="size-6"
-                disabled={index === 0}
-                onClick={() => move(index, -1)}
-                aria-label={t('parts.moveUp')}
-              >
-                <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="size-6"
-                disabled={index === itemIds.length - 1}
-                onClick={() => move(index, 1)}
-                aria-label={t('parts.moveDown')}
-              >
-                <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-xs"
-                className="size-6"
-                onClick={() => onChange(itemIds.filter((_, i) => i !== index))}
-                aria-label={t('parts.removeItem', { name })}
-              >
-                <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-              </Button>
-            </span>
-          )
-        })}
-      </div>
+                {!areaNames && <span className="flex-1" />}
+                {covered?.[id] && <CoveredBadge by={covered[id]} />}
+                {item?.projectId != null && (
+                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                    {t('parts.projectOnly')}
+                  </Badge>
+                )}
+                <RowRemoveButton
+                  label={t('parts.removeItem', { name })}
+                  onClick={() =>
+                    onChange(itemIds.filter((_, i) => i !== index))
+                  }
+                />
+              </SortableRow>
+            )
+          })}
+        </div>
+      </SortableList>
 
       <div className="flex flex-wrap items-center gap-1.5">
         <Popover open={addOpen} onOpenChange={setAddOpen}>
           <PopoverTrigger asChild>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="text-sm"
-            >
-              <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-              {t('parts.addItem')}
-            </Button>
+            <AddRowButton label={t('parts.addItem')} className="w-auto" />
           </PopoverTrigger>
           <PopoverContent align="start" className="w-64 p-0">
             <Command>

@@ -9,6 +9,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { CharacterPositionField } from './character-position-field'
 import type { PositionSpec } from '@/lib/character-positions'
+import type { SortableId } from '@/components/common/sortable-list/sortable-list'
 import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { LazyPromptEditor } from '@/components/quick-generate/lazy-prompt-editor'
@@ -17,6 +18,11 @@ import {
   useTagGallery,
 } from '@/components/tag-gallery/use-tag-gallery'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import {
+  DragHandle,
+  SortableList,
+  SortableRow,
+} from '@/components/common/sortable-list/sortable-list'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -58,6 +64,8 @@ interface CharactersEditorProps<TId extends string | number> {
   /** Duplicate and resolve with the copy's id */
   onDuplicate: (id: TId) => Promise<TId | undefined> | TId | undefined
   onMove: (id: TId, direction: -1 | 1) => void
+  /** Drag-reorder of the chips; gets the full new id order (may be async) */
+  onReorder?: (ids: Array<TId>) => void | Promise<unknown>
   onDelete: (id: TId) => void | Promise<void>
   /** Workspace: highlight @{slot:..} names in the prompts and list them */
   slots?: boolean
@@ -76,6 +84,7 @@ export function CharactersEditor<TId extends string | number>({
   onNameBlur,
   onDuplicate,
   onMove,
+  onReorder,
   onDelete,
   slots,
   renderParts,
@@ -92,6 +101,23 @@ export function CharactersEditor<TId extends string | number>({
   const [focusTick, setFocusTick] = useState(0)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  // Optimistic chip order while a drag-reorder is being saved
+  const [pendingOrder, setPendingOrder] = useState<Array<TId> | null>(null)
+  const shown = useMemo(() => {
+    if (!pendingOrder) return characters
+    const byId = new Map(characters.map((c) => [c.id, c]))
+    const out = pendingOrder
+      .map((id) => byId.get(id))
+      .filter((c): c is CharacterItem<TId> => !!c)
+    return out.length === characters.length ? out : characters
+  }, [characters, pendingOrder])
+  function handleReorder(ids: Array<SortableId>) {
+    if (!onReorder) return
+    const next = ids as Array<TId>
+    setPendingOrder(next)
+    void Promise.resolve(onReorder(next)).finally(() => setPendingOrder(null))
+  }
 
   const selected = characters.find((c) => c.id === selectedId) ?? null
   const selectedIndex = selected ? characters.indexOf(selected) : -1
@@ -166,23 +192,44 @@ export function CharactersEditor<TId extends string | number>({
         </div>
       ) : (
         <div className="flex flex-wrap items-center gap-1.5">
-          {characters.map((char) => (
-            <button
-              key={char.id}
-              type="button"
-              data-character-chip
-              aria-pressed={char.id === selectedId}
-              onClick={() => setSelectedId(char.id)}
-              className={cn(
-                'h-7 max-w-[10rem] truncate rounded-full border px-3 text-sm transition-colors',
-                char.id === selectedId
-                  ? 'border-primary/50 bg-primary/15 text-foreground'
-                  : 'border-border text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
-              )}
-            >
-              {char.name || t('characters.unnamed')}
-            </button>
-          ))}
+          <SortableList
+            ids={shown.map((c) => c.id)}
+            orientation="horizontal"
+            onReorder={handleReorder}
+            disabled={!onReorder}
+          >
+            {shown.map((char) => (
+              <SortableRow
+                key={char.id}
+                id={char.id}
+                className={cn(
+                  'inline-flex h-7 max-w-[11rem] items-center rounded-full border pr-1 text-sm transition-colors',
+                  onReorder ? 'pl-0.5' : 'pl-1',
+                  char.id === selectedId
+                    ? 'border-primary/50 bg-primary/15 text-foreground'
+                    : 'border-border text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
+                )}
+              >
+                {onReorder && (
+                  <DragHandle
+                    className="size-5 rounded-full"
+                    label={t('characters.dragToReorder', {
+                      name: char.name || t('characters.unnamed'),
+                    })}
+                  />
+                )}
+                <button
+                  type="button"
+                  data-character-chip
+                  aria-pressed={char.id === selectedId}
+                  onClick={() => setSelectedId(char.id)}
+                  className="min-w-0 truncate rounded-full px-2 py-0.5 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                >
+                  {char.name || t('characters.unnamed')}
+                </button>
+              </SortableRow>
+            ))}
+          </SortableList>
           <button
             type="button"
             data-character-add

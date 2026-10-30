@@ -25,6 +25,8 @@ const ko: DeepStringify<typeof en> = {
     deselectAll: '전체 선택 해제',
     selectedCount: '{{count}}개 선택됨',
     copied: '복사됨',
+    dragToReorder: '드래그하여 순서 변경',
+    remove: '제거',
     copy: '복사',
     gridSize: {
       small: 'S',
@@ -758,6 +760,7 @@ const ko: DeepStringify<typeof en> = {
     negative: '네거티브',
     emptyHint: '(비어 있음)',
     unnamed: '이름 없음',
+    dragToReorder: '{{name}} 순서 변경 (드래그)',
   },
   charParts: {
     libraryCharacter: '라이브러리 캐릭터',
@@ -785,6 +788,7 @@ const ko: DeepStringify<typeof en> = {
     inheritScene: '씬 따름',
     inheritDefault: '기본값',
     emptyOutfit: '아이템 없음',
+    outfitOrder: '안쪽 → 바깥쪽',
     addItem: '아이템 추가',
     searchItems: '아이템 검색...',
     noItemsFound: '아이템이 없습니다',
@@ -1277,6 +1281,7 @@ const ko: DeepStringify<typeof en> = {
       '규칙 조건이 맞으면, 의상 목록에서 이 아이템보다 앞(안쪽)에 있는 아이템의 해당 부위가 가려져요.',
     noRules: '가림 규칙 없음',
     addRule: '규칙',
+    addRuleRow: '규칙 추가',
     deleteRule: '규칙 삭제',
     ruleCovers: '가리는 부위',
     noneArea: '부위 없음',

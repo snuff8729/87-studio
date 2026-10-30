@@ -155,6 +155,44 @@ export const moveCharacter = createServerFn({ method: 'POST' })
     })
   })
 
+/** Set the slot order of a project's characters (ids = all of them, new order). */
+export const reorderCharacters = createServerFn({ method: 'POST' })
+  .inputValidator((data: { ids: Array<number> }) => data)
+  .handler(async ({ data }) => {
+    return db.transaction((tx) => {
+      const first = tx
+        .select()
+        .from(characters)
+        .where(eq(characters.id, data.ids[0] ?? -1))
+        .get()
+      if (!first) return { success: false }
+      const siblings = tx
+        .select()
+        .from(characters)
+        .where(eq(characters.projectId, first.projectId))
+        .all()
+      const same =
+        siblings.length === data.ids.length &&
+        new Set(data.ids).size === data.ids.length &&
+        siblings.every((c) => data.ids.includes(c.id))
+      if (!same) throw new Error('Character list is out of date')
+      // UNIQUE(project_id, slot_index): park every row on a temporary index first
+      data.ids.forEach((id, i) => {
+        tx.update(characters)
+          .set({ slotIndex: -(i + 1) })
+          .where(eq(characters.id, id))
+          .run()
+      })
+      data.ids.forEach((id, i) => {
+        tx.update(characters)
+          .set({ slotIndex: i })
+          .where(eq(characters.id, id))
+          .run()
+      })
+      return { success: true }
+    })
+  })
+
 export const duplicateCharacter = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: number; name: string }) => data)
   .handler(async ({ data }) => {

@@ -1,17 +1,15 @@
 import { Suspense, lazy, useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  Delete02Icon,
-} from '@hugeicons/core-free-icons'
 import { ConditionEditor } from './condition-editor'
 import { useDebouncedSave } from './use-debounced-save'
 import { useSerialSave } from './use-serial-save'
 import type { Condition, PartsAxis } from '@/lib/character-parts'
-import { Button } from '@/components/ui/button'
+import {
+  DragHandle,
+  RowRemoveButton,
+  SortableRow,
+} from '@/components/common/sortable-list/sortable-list'
 import { Textarea } from '@/components/ui/textarea'
 import { deleteFragment, updateFragment } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
@@ -27,20 +25,14 @@ export function FragmentRow({
   initialText,
   conditions,
   axes,
-  index,
-  count,
   bundleNames,
-  onMove,
   onTextChange,
 }: {
   id: number
   initialText: string
   conditions: Condition
   axes: Array<PartsAxis>
-  index: number
-  count: number
   bundleNames: Array<{ name: string; content: string }>
-  onMove: (dir: -1 | 1) => void
   onTextChange: (id: number, text: string) => void
 }) {
   const { t } = useTranslation()
@@ -82,70 +74,46 @@ export function FragmentRow({
   }
 
   return (
-    <div
+    <SortableRow
+      id={id}
       data-fragment-row
-      className="space-y-2 rounded-lg border border-border bg-card/40 p-2.5"
+      className="flex items-start gap-1 rounded-lg border border-border bg-card/40 p-2 pl-1"
     >
-      {/* Grows with content (1 line min); scrolls after ~8 lines */}
-      <div className="[&_.cm-scroller]:max-h-[12rem] [&_.cm-scroller]:overflow-y-auto">
-        <Suspense
-          fallback={
-            <Textarea
+      <DragHandle className="mt-1" />
+      <div className="min-w-0 flex-1 space-y-2">
+        {/* Grows with content (1 line min); scrolls after ~8 lines */}
+        <div className="[&_.cm-scroller]:max-h-[12rem] [&_.cm-scroller]:overflow-y-auto">
+          <Suspense
+            fallback={
+              <Textarea
+                value={text}
+                onChange={(e) => handleText(e.target.value)}
+                placeholder={t('library.fragmentPlaceholder')}
+                className="min-h-[2.5rem] font-mono text-base"
+                rows={1}
+              />
+            }
+          >
+            <PromptEditor
               value={text}
-              onChange={(e) => handleText(e.target.value)}
+              onChange={handleText}
               placeholder={t('library.fragmentPlaceholder')}
-              className="min-h-[2.5rem] font-mono text-base"
-              rows={1}
+              bundleNames={bundleNames}
+              minHeight="2.5rem"
             />
-          }
-        >
-          <PromptEditor
-            value={text}
-            onChange={handleText}
-            placeholder={t('library.fragmentPlaceholder')}
-            bundleNames={bundleNames}
-            minHeight="2.5rem"
-          />
-        </Suspense>
-      </div>
-      <div className="flex items-center gap-1.5">
-        <div className="min-w-0 flex-1">
-          <ConditionEditor
-            condition={cond.value}
-            axes={axes}
-            onChange={cond.commit}
-          />
+          </Suspense>
         </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={index === 0}
-          onClick={() => onMove(-1)}
-          aria-label={t('library.moveUp')}
-        >
-          <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          disabled={index === count - 1}
-          onClick={() => onMove(1)}
-          aria-label={t('library.moveDown')}
-        >
-          <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          onClick={handleDelete}
-          aria-label={t('library.deleteFragment')}
-        >
-          <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-        </Button>
+        <ConditionEditor
+          condition={cond.value}
+          axes={axes}
+          onChange={cond.commit}
+        />
       </div>
-    </div>
+      <RowRemoveButton
+        className="mt-1"
+        label={t('library.deleteFragment')}
+        onClick={handleDelete}
+      />
+    </SortableRow>
   )
 }

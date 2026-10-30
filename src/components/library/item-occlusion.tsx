@@ -1,11 +1,10 @@
 import { toast } from 'sonner'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, Delete02Icon } from '@hugeicons/core-free-icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { ConditionEditor } from './condition-editor'
 import { useSerialSave } from './use-serial-save'
 import type { CoverRule, PartsAxis } from '@/lib/character-parts'
-import { Button } from '@/components/ui/button'
+import { RowRemoveButton } from '@/components/common/sortable-list/sortable-list'
+import { AddRowButton } from '@/components/common/sortable-list/add-row'
 import { Label } from '@/components/ui/label'
 import { updateOutfitItem } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
@@ -122,26 +121,9 @@ export function ItemOcclusion({
       </section>
 
       <section className="space-y-2" data-cover-rules>
-        <div className="flex items-center justify-between gap-2">
-          <Label className="text-sm text-muted-foreground">
-            {t('library.covers')}
-          </Label>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            data-add-rule
-            onClick={() =>
-              ruleSave.commit((cur) => [
-                ...cur,
-                { conditions: {}, areaIds: [] },
-              ])
-            }
-          >
-            <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-            {t('library.addRule')}
-          </Button>
-        </div>
+        <Label className="text-sm text-muted-foreground">
+          {t('library.covers')}
+        </Label>
         {rules.length === 0 && (
           <p className="text-sm text-muted-foreground">
             {t('library.noRules')}
@@ -152,7 +134,7 @@ export function ItemOcclusion({
             <div
               key={i}
               data-cover-rule
-              className="space-y-2 rounded-lg border border-border bg-card/40 p-2.5"
+              className="group/row space-y-2 rounded-lg border border-border bg-card/40 p-2.5"
             >
               <div className="flex items-start gap-2">
                 <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2 gap-y-1.5">
@@ -171,18 +153,12 @@ export function ItemOcclusion({
                     {t('library.ruleCovers')}
                   </span>
                 </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  className="size-7 shrink-0 text-muted-foreground hover:text-destructive"
-                  aria-label={t('library.deleteRule')}
+                <RowRemoveButton
+                  label={t('library.deleteRule')}
                   onClick={() =>
                     ruleSave.commit((cur) => cur.filter((_, j) => j !== i))
                   }
-                >
-                  <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-                </Button>
+                />
               </div>
               {areas.length === 0 ? (
                 <p className="text-xs text-muted-foreground">
@@ -204,6 +180,14 @@ export function ItemOcclusion({
             </div>
           ))}
         </div>
+        <AddRowButton
+          label={t('library.addRuleRow')}
+          data-add-rule
+          className="max-w-[32rem]"
+          onClick={() =>
+            ruleSave.commit((cur) => [...cur, { conditions: {}, areaIds: [] }])
+          }
+        />
         <p className="text-xs text-muted-foreground">
           {t('library.coversHint')}
         </p>

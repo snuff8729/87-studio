@@ -219,9 +219,9 @@ const segBtn = (scope, axis, value) =>
 const previewOut = () => page.locator('[data-preview-output]')
 /** Delete-value button of the axis value row named `name` (waits for the UI list to catch up with the DB). */
 async function deleteValueButton(name) {
-  const inputs = page.locator('input[aria-label="Value"]')
+  const inputs = page.locator('[data-value-row] [data-inline-name]')
   const idx = await until(async () => {
-    const vals = await inputs.evaluateAll((els) => els.map((e) => e.value))
+    const vals = await inputs.evaluateAll((els) => els.map((e) => e.textContent))
     const i = vals.lastIndexOf(name)
     return i >= 0 ? i + 1 : 0
   }, 8000, `value row "${name}" rendered`)
@@ -423,6 +423,7 @@ try {
   await open('/characters?tab=axes')
   await page.locator('[data-list-row]').filter({ hasText: /^View/ }).first().click()
   const viewBefore = q('select id from library_axis_values where axis_id = ?', axisId('View')).length
+  await page.getByRole('button', { name: 'Add value' }).click()
   const addInput = page.getByRole('textbox', { name: 'Add value' })
   await addInput.fill('Temp')
   await addInput.press('Enter')
@@ -446,6 +447,7 @@ try {
   await shot('2-axes')
 
   // #6: deleting a value that is a fragment's only allowed value must NOT make it unconditional
+  if (!(await addInput.isVisible())) await page.getByRole('button', { name: 'Add value' }).click()
   await addInput.fill('Tmp')
   await addInput.press('Enter')
   await until(() => !!valueId('View', 'Tmp'), 6000, 'View value Tmp added')
@@ -898,19 +900,23 @@ try {
   await open('/characters?tab=axes')
   await page.locator('[data-areas-entry]').click()
   await page.locator('[data-areas-editor]').waitFor({ timeout: 8000 })
-  const rows = page.locator('[data-area-row] input')
-  const names = await rows.evaluateAll((els) => els.map((e) => e.value))
+  const rows = page.locator('[data-area-row]')
+  const names = await rows.evaluateAll((els) =>
+    els.map((e) => e.querySelector('[data-inline-name]').textContent),
+  )
   check(
     names.join() === 'Top,Bottom,Outerwear,Shoes,Headwear,Accessory',
     `Body areas lists the 6 seeded areas: ${names.join()}`,
   )
-  const nameInput = page.getByRole('textbox', { name: 'New area name' })
+  await page.getByRole('button', { name: 'Add area' }).click()
+  const nameInput = page.getByRole('textbox', { name: 'Add area' })
   await nameInput.fill('Smoke Area')
   await nameInput.press('Enter')
   await until(() => !!areaId('Smoke Area'), 6000, 'area "Smoke Area" created')
   await until(async () => (await rows.count()) === 7, 6000, 'UI shows 7 area rows')
   check(q('select id from library_areas').length === 7, 'area added (DB 7 rows)')
-  const last = rows.nth(6)
+  await rows.nth(6).locator('[data-inline-name]').click()
+  const last = rows.nth(6).locator('[data-inline-name-input]')
   await last.fill('Smoke Area 2')
   await last.press('Enter')
   await until(() => !!areaId('Smoke Area 2'), 6000, 'area renamed')

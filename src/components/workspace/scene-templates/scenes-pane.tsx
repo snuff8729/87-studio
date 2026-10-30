@@ -20,6 +20,11 @@ import {
   parsePlaceholders,
   stepSelection,
 } from '@/lib/scene-templates'
+import {
+  DragHandle,
+  SortableList,
+  SortableRow,
+} from '@/components/common/sortable-list/sortable-list'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
@@ -38,6 +43,7 @@ export interface SceneActions {
   onRename: (scene: SceneItem) => void
   onDuplicate: (scene: SceneItem) => void
   onMove: (scene: SceneItem, direction: 'up' | 'down') => void
+  onReorder: (ids: Array<number>) => void
   onDelete: (scene: SceneItem) => void
 }
 
@@ -169,6 +175,8 @@ export function ScenesPane({
   const visible = useMemo(() => filterByName(scenes, query), [scenes, query])
   const visibleIds = useMemo(() => visible.map((s) => s.id), [visible])
   const selectedScene = scenes.find((s) => s.id === selectedId) ?? null
+  // Dragging needs the whole list in view
+  const canDrag = query.trim() === ''
 
   function entriesFor(scene: SceneItem): Array<MenuEntry> {
     const index = scenes.findIndex((s) => s.id === scene.id)
@@ -280,58 +288,69 @@ export function ScenesPane({
         className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-2 pb-2"
         onKeyDown={handleKeyDown}
       >
-        {visible.map((scene) => {
-          const entries = entriesFor(scene)
-          const selected = scene.id === selectedId
-          const keyCount = Object.keys(
-            parsePlaceholders(scene.placeholders),
-          ).length
-          return (
-            <RowContextMenu key={scene.id} entries={entries}>
-              <div
-                role="option"
-                aria-selected={selected}
-                data-testid="scene-row"
-                data-scene-id={scene.id}
-                data-selected={selected || undefined}
-                tabIndex={
-                  selected || (selectedId == null && scene === visible[0])
-                    ? 0
-                    : -1
-                }
-                onClick={() => onSelect(scene.id)}
-                className={cn(
-                  'group flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-                  selected
-                    ? 'bg-primary/10 text-primary'
-                    : 'hover:bg-secondary/60',
-                )}
-              >
-                <Checkbox
-                  checked={checked.has(scene.id)}
-                  onCheckedChange={(v) => onToggleChecked(scene.id, v === true)}
-                  onClick={(e) => e.stopPropagation()}
-                  aria-label={t('templates.applyToggle')}
-                  tabIndex={-1}
-                />
-                <span className="min-w-0 flex-1 truncate">{scene.name}</span>
-                {keyCount > 0 && (
-                  <span
-                    className="text-xs text-muted-foreground tabular-nums"
-                    title={t('templates.keys', { count: keyCount })}
-                  >
-                    {keyCount}
-                  </span>
-                )}
-                <RowMenuButton
-                  entries={entries}
-                  label={t('templates.sceneActions')}
-                  className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 max-md:opacity-100"
-                />
-              </div>
-            </RowContextMenu>
-          )
-        })}
+        <SortableList
+          ids={visible.map((s) => s.id)}
+          disabled={!canDrag}
+          onReorder={(ids) => actions.onReorder(ids as Array<number>)}
+        >
+          {visible.map((scene) => {
+            const entries = entriesFor(scene)
+            const selected = scene.id === selectedId
+            const keyCount = Object.keys(
+              parsePlaceholders(scene.placeholders),
+            ).length
+            return (
+              <RowContextMenu key={scene.id} entries={entries}>
+                <SortableRow
+                  id={scene.id}
+                  disabled={!canDrag}
+                  role="option"
+                  aria-selected={selected}
+                  data-testid="scene-row"
+                  data-scene-id={scene.id}
+                  data-selected={selected || undefined}
+                  tabIndex={
+                    selected || (selectedId == null && scene === visible[0])
+                      ? 0
+                      : -1
+                  }
+                  onClick={() => onSelect(scene.id)}
+                  className={cn(
+                    'group flex cursor-pointer items-center gap-2 rounded-lg px-1 py-1.5 text-sm transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+                    selected
+                      ? 'bg-primary/10 text-primary'
+                      : 'hover:bg-secondary/60',
+                  )}
+                >
+                  <DragHandle className="-mr-1" />
+                  <Checkbox
+                    checked={checked.has(scene.id)}
+                    onCheckedChange={(v) =>
+                      onToggleChecked(scene.id, v === true)
+                    }
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={t('templates.applyToggle')}
+                    tabIndex={-1}
+                  />
+                  <span className="min-w-0 flex-1 truncate">{scene.name}</span>
+                  {keyCount > 0 && (
+                    <span
+                      className="text-xs text-muted-foreground tabular-nums"
+                      title={t('templates.keys', { count: keyCount })}
+                    >
+                      {keyCount}
+                    </span>
+                  )}
+                  <RowMenuButton
+                    entries={entries}
+                    label={t('templates.sceneActions')}
+                    className="opacity-0 group-hover:opacity-100 focus-visible:opacity-100 data-[state=open]:opacity-100 max-md:opacity-100"
+                  />
+                </SortableRow>
+              </RowContextMenu>
+            )
+          })}
+        </SortableList>
         {scenes.length === 0 && (
           <div className="space-y-3 px-2 py-8 text-center">
             <p className="text-sm text-muted-foreground">

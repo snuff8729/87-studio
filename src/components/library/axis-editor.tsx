@@ -1,20 +1,20 @@
-import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  Add01Icon,
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  Cancel01Icon,
-  Delete02Icon,
-} from '@hugeicons/core-free-icons'
-import { CommitInput } from './commit-input'
+import { Delete02Icon } from '@hugeicons/core-free-icons'
 import type { QueryClient } from '@tanstack/react-query'
 import type { PartsAxis } from '@/lib/character-parts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
+import {
+  DragHandle,
+  RowRemoveButton,
+  SortableList,
+  SortableRow,
+} from '@/components/common/sortable-list/sortable-list'
+import { InlineName } from '@/components/common/sortable-list/inline-name'
+import { AddNameRow } from '@/components/common/sortable-list/add-row'
+import { useSortableOrder } from '@/components/common/sortable-list/use-sortable-order'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
   createAxisValue,
@@ -71,7 +71,6 @@ export function AxisEditor({
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
-  const [newValue, setNewValue] = useState('')
   const refresh = () => qc.invalidateQueries({ queryKey: ['library'] })
   const onError = (e: Error) => toast.error(e.message || t('library.failed'))
 
@@ -83,10 +82,7 @@ export function AxisEditor({
   const addValue = useMutation({
     mutationFn: (name: string) =>
       createAxisValue({ data: { axisId: axis.id, name } }),
-    onSuccess: () => {
-      setNewValue('')
-      return refresh()
-    },
+    onSuccess: refresh,
     onError,
   })
   const renameValue = useMutation({
@@ -100,11 +96,6 @@ export function AxisEditor({
     onSuccess: refresh,
     onError,
   })
-  const reorder = useMutation({
-    mutationFn: (ids: Array<number>) => reorderAxisValues({ data: { ids } }),
-    onSuccess: refresh,
-    onError,
-  })
   const remove = useMutation({
     mutationFn: () => deleteAxis({ data: axis.id }),
     onSuccess: () => {
@@ -114,114 +105,76 @@ export function AxisEditor({
     onError,
   })
 
-  function move(index: number, dir: -1 | 1) {
-    const ids = axis.values.map((v) => v.id)
-    const target = index + dir
-    if (target < 0 || target >= ids.length) return
-    ;[ids[index], ids[target]] = [ids[target], ids[index]]
-    reorder.mutate(ids)
-  }
-
-  function submitNew() {
-    const name = newValue.trim()
-    if (name) addValue.mutate(name)
-  }
+  const order = useSortableOrder(
+    axis.values,
+    (v) => v.id,
+    async (ids) => {
+      await reorderAxisValues({ data: { ids: ids as Array<number> } })
+      await refresh()
+    },
+    () => toast.error(t('library.failed')),
+  )
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" data-axis-editor>
       {!hideName && (
-        <CommitInput
+        <InlineName
           value={axis.name}
           onCommit={(name) => rename.mutate(name)}
-          aria-label={t('library.renameAxis')}
+          ariaLabel={t('library.renameAxis')}
           className="h-8 text-sm font-medium"
         />
       )}
-      <ul className="space-y-1">
-        {axis.values.map((v, i) => (
-          <li key={v.id} className="flex items-center gap-1">
-            <CommitInput
-              value={v.name}
-              onCommit={(name) => renameValue.mutate({ id: v.id, name })}
-              aria-label={t('library.valueName')}
-              className="h-7 min-w-0 flex-1 text-sm"
-            />
-            {i === 0 && (
-              <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
-                {t('library.defaultBadge')}
-              </Badge>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              disabled={i === 0}
-              onClick={() => move(i, -1)}
-              aria-label={t('library.moveUp')}
-            >
-              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              disabled={i === axis.values.length - 1}
-              onClick={() => move(i, 1)}
-              aria-label={t('library.moveDown')}
-            >
-              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
-            </Button>
-            <ConfirmDialog
-              title={t('library.deleteValueTitle', { name: v.name })}
-              description={(() => {
-                const n = countValueRefs(qc, axis.id, v.id)
-                return n > 0
-                  ? t('library.deleteValueDesc', { count: n })
-                  : t('library.deleteValueDescNone')
-              })()}
-              onConfirm={async () => {
-                await removeValue.mutateAsync(v.id)
-              }}
-              trigger={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-xs"
-                  disabled={axis.values.length <= 1}
-                  aria-label={t('library.deleteValue')}
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-                </Button>
-              }
-            />
-          </li>
-        ))}
-      </ul>
-      <div className="flex gap-1.5">
-        <Input
-          value={newValue}
-          onChange={(e) => setNewValue(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              submitNew()
-            }
-          }}
-          placeholder={t('library.addValue')}
-          aria-label={t('library.addValue')}
-          className="h-7 flex-1 text-sm"
+      <div className="max-w-[32rem]">
+        <SortableList ids={order.ids} onReorder={(ids) => order.reorder(ids)}>
+          <ul className="space-y-0.5">
+            {order.items.map((v, i) => (
+              <SortableRow
+                as="li"
+                key={v.id}
+                id={v.id}
+                data-value-row
+                className="flex h-8 items-center gap-1 rounded-lg px-0.5 hover:bg-secondary/30"
+              >
+                <DragHandle label={t('common.dragToReorder')} />
+                <InlineName
+                  value={v.name}
+                  onCommit={(name) => renameValue.mutate({ id: v.id, name })}
+                  ariaLabel={t('library.valueName')}
+                />
+                {i === 0 && (
+                  <Badge variant="outline" className="h-5 px-1.5 text-[10px]">
+                    {t('library.defaultBadge')}
+                  </Badge>
+                )}
+                <ConfirmDialog
+                  title={t('library.deleteValueTitle', { name: v.name })}
+                  description={(() => {
+                    const n = countValueRefs(qc, axis.id, v.id)
+                    return n > 0
+                      ? t('library.deleteValueDesc', { count: n })
+                      : t('library.deleteValueDescNone')
+                  })()}
+                  onConfirm={async () => {
+                    await removeValue.mutateAsync(v.id)
+                  }}
+                  trigger={
+                    <RowRemoveButton
+                      disabled={axis.values.length <= 1}
+                      label={t('library.deleteValue')}
+                    />
+                  }
+                />
+              </SortableRow>
+            ))}
+          </ul>
+        </SortableList>
+        <AddNameRow
+          label={t('library.addValue')}
+          onAdd={(name) => addValue.mutateAsync(name)}
         />
-        <Button
-          type="button"
-          size="sm"
-          variant="outline"
-          disabled={!newValue.trim() || addValue.isPending}
-          onClick={submitNew}
-        >
-          <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
-          {t('common.add')}
-        </Button>
       </div>
+
       <ConfirmDialog
         title={t('library.deleteTitle', { name: axis.name })}
         description={t('library.deleteAxisDesc')}

@@ -16,7 +16,7 @@ import { OwnerDetail } from '@/components/library/owner-detail'
 import { PresetDetail } from '@/components/library/preset-detail'
 import { AreasEditor } from '@/components/library/areas-editor'
 import { AxisEditor } from '@/components/library/axis-editor'
-import { CommitInput } from '@/components/library/commit-input'
+import { InlineName } from '@/components/common/sortable-list/inline-name'
 import { NewAxisForm } from '@/components/library/local-axes'
 import { NameForm } from '@/components/library/name-form'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -459,7 +459,9 @@ function CharactersPage() {
             id: i.id,
             name: i.name,
             projectId: i.projectId,
+            areaIds: i.areaIds,
           }))}
+          areas={areas}
         />
       ) : null
     } else {
@@ -467,13 +469,13 @@ function CharactersPage() {
       detail = axis ? (
         <div className="space-y-4 p-4 md:p-6" key={axis.id}>
           <div>
-            <CommitInput
+            <InlineName
               value={axis.name}
               onCommit={(name) =>
                 rename.mutate({ tab: 'axes', id: axis.id, name })
               }
-              aria-label={t('library.renameAxis')}
-              className="h-10 text-base font-medium"
+              ariaLabel={t('library.renameAxis')}
+              className="-ml-2 h-9 text-lg font-medium"
             />
             <p className="mt-1.5 text-xs text-muted-foreground">
               {t('library.globalAxesHint')}
