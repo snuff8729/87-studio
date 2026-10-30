@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import type { GridSize } from '@/lib/use-image-grid-size'
@@ -20,6 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
+import { PromptTagDialog } from '@/components/gallery/prompt-tag-dialog'
 import { WIN_RATE_PRESETS } from '@/lib/win-rate'
 import { useTranslation } from '@/lib/i18n'
 
@@ -40,6 +42,7 @@ export function activeFilterCount(f: GalleryFilters) {
     f.minRating,
     f.minWinRate,
     f.quick,
+    f.promptTag,
   ].filter(Boolean).length
 }
 
@@ -98,6 +101,7 @@ export function GalleryToolbar({
   onClear: () => void
 }) {
   const { t } = useTranslation()
+  const [promptTagOpen, setPromptTagOpen] = useState(false)
   const projectName = projects.find((p) => p.id === filters.project)?.name
   const sceneName = scenes.find((s) => s.id === filters.projectSceneId)?.name
   const tagName = tags.find((x) => x.id === filters.tag)?.name
@@ -158,6 +162,15 @@ export function GalleryToolbar({
           kind="bundle"
           label={bundleName ?? String(filters.bundle)}
           onRemove={() => onChange({ bundle: undefined })}
+        />
+      )}
+      {filters.promptTag && (
+        <Chip
+          kind="prompttag"
+          label={t('gallery.promptTagChip', {
+            tag: filters.promptTag.replace(/_/g, ' '),
+          })}
+          onRemove={() => onChange({ promptTag: undefined })}
         />
       )}
       {filters.tag && (
@@ -311,6 +324,14 @@ export function GalleryToolbar({
             </DropdownMenuSub>
           )}
 
+          <DropdownMenuItem
+            data-filter-option="prompttag"
+            onSelect={() => setPromptTagOpen(true)}
+          >
+            {t('gallery.filterPromptTag')}
+            {filters.promptTag && <HugeiconsIcon icon={Tick02Icon} />}
+          </DropdownMenuItem>
+
           {tags.length > 0 && (
             <DropdownMenuSub>
               <DropdownMenuSubTrigger>
@@ -333,6 +354,13 @@ export function GalleryToolbar({
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+
+      <PromptTagDialog
+        open={promptTagOpen}
+        onOpenChange={setPromptTagOpen}
+        initial={filters.promptTag}
+        onApply={(tag) => onChange({ promptTag: tag })}
+      />
 
       {chipCount > 0 && (
         <Button

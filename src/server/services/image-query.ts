@@ -1,6 +1,32 @@
 import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
+import { db } from '../db'
 import { generatedImages } from '../db/schema'
 import type { SQL } from 'drizzle-orm'
+import { likeFragments, metadataHasPromptTag } from '@/lib/prompt-tags'
+
+// Exact whole-token match inside SQL, so pagination and prev/next keyset
+// queries stay correct. Registered once on the shared connection.
+const PROMPT_TAG_FN = 'prompt_has_tag'
+let promptTagFnRegistered = false
+function ensurePromptTagFn() {
+  if (promptTagFnRegistered) return
+  db.$client.function(
+    PROMPT_TAG_FN,
+    { deterministic: true },
+    (metadata: unknown, tag: unknown) =>
+      metadataHasPromptTag(
+        typeof metadata === 'string' ? metadata : null,
+        String(tag),
+      )
+        ? 1
+        : 0,
+  )
+  promptTagFnRegistered = true
+}
+
+function escapeLike(s: string) {
+  return s.replace(/[\\%_]/g, (c) => `\\${c}`)
+}
 
 export type ImageSort = 'newest' | 'oldest' | 'rating' | 'favorites'
 
@@ -16,6 +42,8 @@ export interface ImageFilters {
   tagIds?: Array<number>
   bundleId?: number
   quickGenerate?: boolean
+  /** Danbooru tag that must be a whole token of the positive prompts */
+  promptTag?: string
 }
 
 export function buildImageConditions(data: ImageFilters) {
@@ -48,6 +76,23 @@ export function buildImageConditions(data: ImageFilters) {
         sql`, `,
       )}))`,
     )
+  }
+  // Prompt tag: cheap LIKE pre-filter first, then the exact token match
+  const promptTag = data.promptTag?.trim()
+  if (promptTag) {
+    const fragments = likeFragments(promptTag)
+    if (fragments.length > 0) {
+      ensurePromptTagFn()
+      const likes = fragments.map(
+        (f) =>
+          sql`${generatedImages.metadata} LIKE ${`%${escapeLike(f)}%`} ESCAPE '\\'`,
+      )
+      conditions.push(
+        sql`(${sql.join(likes, sql` OR `)}) AND prompt_has_tag(${generatedImages.metadata}, ${promptTag}) = 1`,
+      )
+    } else {
+      conditions.push(sql`0`)
+    }
   }
   return conditions
 }

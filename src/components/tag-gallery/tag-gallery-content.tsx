@@ -19,6 +19,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { PromptTagImages } from '@/components/tag-gallery/prompt-tag-images'
 import { useTranslation } from '@/lib/i18n'
 import {
   addBookmarkImageUpload,
@@ -912,6 +913,13 @@ export function TagGalleryContent({
                   </div>
                 )}
               </div>
+
+              {!embedded && (
+                <>
+                  <Separator />
+                  <PromptTagImages tag={bookmarkDetail.name} />
+                </>
+              )}
 
               <Separator />
 

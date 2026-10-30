@@ -89,6 +89,14 @@ function decode(node) {
       return undefined
   }
 }
+// POST server fns carry the serialized args in the request body
+function bodyArgs(request) {
+  try {
+    return decode(JSON.parse(request.postData() ?? '').t).data
+  } catch {
+    return undefined
+  }
+}
 function argsOf(url) {
   const payload = new URL(url).searchParams.get('payload')
   if (!payload) return undefined
@@ -292,11 +300,28 @@ function handlers(opts) {
       ...(a.imageIds.length > 1 ? [{ tagId: 2, count: 1 }] : []),
     ],
     getSetting: (key) =>
-      ({
-        nai_api_key: 'sk-mock-key-0000',
-        generation_delay: '1500',
-        onboarding_completed: 'true',
-      })[key] ?? null,
+      (opts.onboardingStep1
+        ? { nai_api_key: '', generation_delay: '1500', onboarding_step: '1' }
+        : {
+            nai_api_key: 'sk-mock-key-0000',
+            generation_delay: '1500',
+            onboarding_completed: 'true',
+          })[key] ?? null,
+    // Only for the onboarding check: records the write instead of aborting it
+    ...(opts.settingWrites && {
+      setSetting: (a) => {
+        opts.settingWrites.push(a)
+        return { success: true }
+      },
+    }),
+    listImagesByPromptTag: (a) => ({
+      total: 37,
+      images: IMAGES.slice(0, 24).map(({ id, thumbnailPath, filePath }) => ({
+        id,
+        thumbnailPath,
+        filePath,
+      })),
+    }),
     getStorageStats: () => ({
       totalFiles: 640,
       totalSize: 123456789,
@@ -394,11 +419,11 @@ async function newPage(width, height, opts = { queue: true }) {
   await page.route('**/_serverFn/**', async (route) => {
     const url = route.request().url()
     const name = fnName(url)
-    if (WRITE.test(name)) {
+    const mock = mocks[name]
+    if (WRITE.test(name) && !mock) {
       page.blocked.push(name)
       return route.abort()
     }
-    const mock = mocks[name]
     if (mock) {
       return route.fulfill({
         status: 200,
@@ -406,7 +431,7 @@ async function newPage(width, height, opts = { queue: true }) {
           'content-type': 'application/json',
           'x-tss-serialized': 'true',
         },
-        body: envelope(mock(argsOf(url))),
+        body: envelope(mock(argsOf(url) ?? bodyArgs(route.request()))),
       })
     }
     return route.continue()
@@ -1654,6 +1679,102 @@ for (const [w, h, tag] of [
   await metadataPage(w, h, tag)
   await galleryTools(w, h, tag)
   await bundleImagesTest(w, h, tag)
+  await promptTagTest(w, h, tag)
+  await onboardingKeyTest(w, h, tag)
+}
+
+// ───────── Tag bookmark: images using the tag; gallery prompt-tag filter ─────────
+async function promptTagTest(w, h, tag) {
+  console.log(`== prompt tag ${w}x${h}`)
+  const { ctx, page } = await newPage(w, h)
+  await navTo(page, '/tags')
+  await page.locator('[data-list-row]').first().click()
+  await settle(page, 1200)
+  const section = page.locator('[data-prompt-tag-images]')
+  check(
+    (await section.count()) === 1,
+    `prompt tag ${tag}: "Images with this tag" section`,
+  )
+  check(
+    /37/.test(await page.locator('[data-prompt-tag-count]').innerText()),
+    `prompt tag ${tag}: shows the total count`,
+  )
+  const tiles = page.locator('[data-prompt-tag-image]')
+  check(
+    (await tiles.count()) === 24,
+    `prompt tag ${tag}: 24 thumbnails (${await tiles.count()})`,
+  )
+  const href =
+    (await page.locator('[data-view-in-gallery]').getAttribute('href')) ?? ''
+  check(
+    /promptTag=mock_tag_1/.test(href),
+    `prompt tag ${tag}: "View in gallery" link (${href})`,
+  )
+  await section.scrollIntoViewIfNeeded()
+  await shot(page, `prompt-tag-section-${tag}`)
+  const second = await tiles.nth(1).getAttribute('data-prompt-tag-image')
+  await tiles.nth(1).click()
+  await settle(page, 1500)
+  check(
+    param(page, 'imageDetail') === second &&
+      param(page, 'detailTag') === 'mock_tag_1',
+    `prompt tag ${tag}: thumbnail opens the overlay with detailTag (${param(page, 'detailTag')})`,
+  )
+  await page.keyboard.press('Escape')
+  await settle(page, 800)
+
+  // Gallery: link carries the filter, chip shows, Filter menu dialog sets it
+  await page.locator('[data-view-in-gallery]').click()
+  await settle(page, 1500)
+  const chip = page.locator('[data-filter-chip="prompttag"]')
+  check(
+    param(page, 'promptTag') === 'mock_tag_1' && (await chip.count()) === 1,
+    `prompt tag ${tag}: gallery shows the prompt-tag chip (${(await chip.count()) ? await chip.innerText() : '-'})`,
+  )
+  await chip.locator('button').click()
+  await settle(page, 800)
+  check(
+    param(page, 'promptTag') === null,
+    `prompt tag ${tag}: removing the chip clears the param`,
+  )
+  await page.locator('[data-add-filter]').click()
+  await page.locator('[data-filter-option="prompttag"]').click()
+  await page.locator('[data-prompt-tag-input]').fill('blue hair')
+  await page.keyboard.press('Enter')
+  await settle(page, 1000)
+  check(
+    param(page, 'promptTag') === 'blue_hair',
+    `prompt tag ${tag}: Filter menu sets promptTag (${param(page, 'promptTag')})`,
+  )
+  await shot(page, `prompt-tag-gallery-${tag}`)
+  await ctx.close()
+}
+
+// ───────── Onboarding step 1: saving the API key advances ─────────
+async function onboardingKeyTest(w, h, tag) {
+  console.log(`== onboarding api key ${w}x${h}`)
+  const settingWrites = []
+  const { ctx, page } = await newPage(w, h, {
+    onboardingStep1: true,
+    settingWrites,
+  })
+  await page.goto(BASE + '/settings', { waitUntil: 'networkidle' })
+  await settle(page, 1500)
+  await page.locator('[data-onboarding="api-key-input"]').fill('sk-test-key')
+  await page.getByRole('button', { name: 'Save', exact: true }).first().click()
+  await settle(page, 1500)
+  const stepWrites = settingWrites
+    .filter((a) => a.key === 'onboarding_step')
+    .map((a) => a.value)
+  check(
+    settingWrites.some((a) => a.key === 'nai_api_key'),
+    `onboarding ${tag}: Save writes the API key`,
+  )
+  check(
+    stepWrites.includes('2'),
+    `onboarding ${tag}: Save advances step 1 -> 2 (step writes: ${stepWrites.join(',')})`,
+  )
+  await ctx.close()
 }
 
 console.log(`\nconsole errors: ${consoleErrors}\nfailures: ${failures}`)

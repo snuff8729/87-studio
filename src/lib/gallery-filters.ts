@@ -12,6 +12,8 @@ export type GalleryFilters = {
   minWinRate?: number
   sortBy?: GallerySort
   quick?: boolean
+  /** Danbooru tag that must appear in the positive prompt */
+  promptTag?: string
 }
 
 /** Server-side filter arguments for a gallery URL (listImages / detail prev-next). */
@@ -26,5 +28,6 @@ export function toImageQuery(f: GalleryFilters) {
     bundleId: f.bundle,
     sortBy: f.sortBy,
     quickGenerate: f.quick,
+    promptTag: f.promptTag,
   }
 }
