@@ -129,7 +129,7 @@ src/
 │   └── settings/
 │       └── index.tsx          # 설정 (NAI API 키, 생성 딜레이, 언어 등)
 ├── components/
-│   ├── ui/                    # shadcn/ui 컴포넌트 (28개, resizable 포함)
+│   ├── ui/                    # shadcn/ui 컴포넌트 (29개, resizable·command(cmdk) 포함)
 │   ├── editor-shell/          # 에디터 공용 레이아웃 (빠른 생성, 워크스페이스)
 │   │   ├── editor-shell.tsx       # 좌(탭+고정 Generate 푸터)/중앙/우 리사이즈·접기 패널, 모바일 Edit/Result/History 전환
 │   │   ├── editor-header.tsx      # 에디터 헤더 (SidebarTrigger, 타이틀, 액션, 패널 토글)
@@ -178,11 +178,15 @@ src/
 │   └── workspace/             # 워크스페이스 컴포넌트
 │       ├── workspace-title.tsx    # 헤더 타이틀 (썸네일, 이름 변경, 저장 상태)
 │       ├── prompt-panel.tsx       # 프롬프트 편집 (section: 'prompt' | 'characters')
-│       ├── scenes-tab.tsx         # 씬 탭 (리스트/카드, 팩 필터, 검색, 정렬, 예약 장수, 선택 모드)
-│       ├── scenes-tab-prefs.ts    # 씬 탭 보기/카드 크기 저장 (87studio-scenes-tab:<projectId>)
-│       ├── scene-card.tsx         # SceneCard/SceneRow, ReserveStepper, SceneMenuItems (탭·보드 공용)
+│       ├── scene-rail.tsx         # SceneRail (중앙 좌측 씬 목록: 216px/56px, 검색, 필터 칩, 팩 그룹, 가상 스크롤, 선택 모드) + useRailCompact/useCollapsedPacks
+│       ├── scene-rail-prefs.ts    # 레일 너비 선택(87studio-scene-rail:<id>), shouldCompact(<720px), 접힌 그룹(87studio-scene-groups-collapsed:<id>)
+│       ├── scene-filters.ts       # filterScenes/countByFilter (All·Reserved·No images), sortScenes
+│       ├── scene-palette.tsx      # Ctrl/Cmd+K 씬 팔레트 (cmdk)
+│       ├── scene-palette-shortcut.ts  # Ctrl/Cmd+K 단축키 (macOS는 Cmd만, 다이얼로그 열림 시 무시)
+│       ├── scene-board-prefs.ts   # 보드 카드 크기 (87studio-scene-board-size:<id>)
+│       ├── scene-card.tsx         # SceneCard, ReserveStepper, SceneMenuItems/SceneMenuButton (레일·보드 공용)
 │       ├── reserve-summary.ts     # 예약 합계 (씬 수, 이미지 수)
-│       ├── scene-view.tsx         # SceneView (선택 씬: 헤더, 플레이스홀더, 이미지) + SceneBoard (미선택)
+│       ├── scene-view.tsx         # SceneView (선택 씬) + SceneBoard (보드 모드, 팩 그룹) + SceneEmptyState
 │       ├── scene-detail.tsx       # 씬 이미지 그리드 (정렬, 선택 모드, 일괄 작업)
 │       ├── placeholder-editor.tsx # 플레이스홀더 값 에디터 (800ms 디바운스, 씬 전환 시 flush)
 │       ├── placeholder-save-plan.ts  # 로컬 편집 → 저장 JSON 계산
@@ -268,6 +272,7 @@ public/
 └── danbooru-tags.json         # 단부루 태그 데이터 (자동완성용)
 start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js 자동 다운로드)
 start.bat                      # Windows 간편 실행 스크립트
+scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단)
 LICENSE                        # PolyForm Noncommercial 1.0.0
 ```
 
@@ -452,10 +457,16 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 - `EditorShell` 기반 (빠른 생성과 동일한 리사이즈·접기 3패널, 모바일 Edit/Result/History)
 - 헤더: 프로젝트 썸네일 + 이름(클릭해 변경) + 저장 상태, 씬 템플릿 / Import(SD Studio → 프로젝트에 할당) / Export
-- 좌측 탭: **Scenes**(기본, 씬 수 배지) · Prompt(general/negative) · Chars(캐릭터 프롬프트, 추가/삭제) · Refs(활성 참조 수 배지) · Params
-- Scenes 탭: 팩 필터, 검색, 정렬, 리스트↔카드(크기 슬라이더), "Default ×N", 선택 모드(일괄 장수/내보내기/템플릿/삭제), ↑/↓ 선택 이동, 씬별 예약 스테퍼
+- 좌측 탭 (빠른 생성과 동일): Prompt(general/negative) · Chars(캐릭터 프롬프트, 추가/삭제) · Refs(활성 참조 수 배지) · Params
 - 고정 푸터: 진행률 + "N scenes · M images" + Generate M (Ctrl/Cmd+Enter)
-- 중앙: 선택 씬(`?scene=<id>`) = SceneView (이름 변경, 비교, 토너먼트, 템플릿 변환, 썸네일 초기화, 접이식 플레이스홀더(프로젝트별 저장), 이미지 그리드(`imageSort`)) / 미선택·잘못된 id = SceneBoard (카드 + 예약 스테퍼)
+- 중앙 씬 모드(기본): `[SceneRail | SceneView]`
+  - SceneRail: 헤더(Scenes N, ▦ 보드, ＋ 씬 추가, ⋯ 정렬/선택 모드/씬 템플릿/Default ×N/자동 너비, 너비 토글), 검색(`?q=`), 필터 칩 All·Reserved·No images, 팩 그룹(접기 상태 저장), 행 = 썸네일·이름·예약 스테퍼·메뉴(호버 "…"/우클릭), ↑/↓ 선택 이동(replace), 선택 모드(일괄 장수/내보내기/템플릿/삭제)
+  - 너비: 216px / 56px(compact: 썸네일+장수 배지, 이름 툴팁). 사용자 선택이 없으면 중앙 폭 <720px에서 자동 compact, 명시 선택은 저장되어 우선
+  - SceneView (`?scene=<id>`): 이름 변경, 비교, 토너먼트, 템플릿 변환, 썸네일 초기화, 접이식 플레이스홀더, 이미지 그리드(`imageSort`). 선택 없음·잘못된 id·삭제된 씬 → 레일 순서 첫 씬 자동 선택(replace)
+- 보드 모드 (`?view=board`): 레일 숨김, 팩별 카드 그리드 + 검색/필터 칩/카드 크기 슬라이더/닫기. 카드 클릭 → 해당 씬으로 씬 모드 복귀
+- 씬 0개: 빈 상태(씬 템플릿 / 씬 추가), 레일 숨김
+- Ctrl/Cmd+K: 씬 팔레트 (이름·팩 검색, Enter로 선택; 프롬프트 에디터 안에서도 동작, 다른 다이얼로그가 열려 있으면 무시)
+- 모바일: Result 패널 상단 "Scenes ▾ {현재 씬}" → 하단 Sheet에 전체 레일(선택 시 닫힘, 헤더에서 보드 진입)
 - 우측: 프로젝트 히스토리 (클릭 → 이미지 상세 오버레이), 갤러리 링크
 - 기존 `/workspace/$projectId/scenes/$sceneId`는 `?scene=`로 리다이렉트
 - 이미지 비교 (같은 씬 이미지 나란히 비교)
