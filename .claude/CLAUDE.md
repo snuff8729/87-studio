@@ -258,6 +258,8 @@ src/
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
 │   ├── nai-metadata.ts        # NAI 이미지 메타데이터 파서 (PNG tEXt, Stealth Alpha)
+│   ├── nai-model-detect.ts    # NAI Source/Comment → 모델 ID 감지 (Full 추정 시 assumed 표시)
+│   ├── nai-import.ts          # 메타데이터 → 프롬프트/파라미터 단일 매핑 (naiMetadataToParams, buildImport, mergeImportedParameters)
 │   ├── prompt-tags.ts         # 프롬프트 태그 토큰 매칭 (promptTag 필터, 북마크 이미지)
 │   ├── use-image-grid-size.ts # 갤러리 그리드 크기 훅 (sm/md/lg)
 │   ├── onboarding/            # 온보딩 시스템
@@ -393,6 +395,10 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - SD Studio 프리셋 JSON 파일을 파싱하여 프로젝트/씬으로 변환
 
 ### 이미지 메타데이터 인스펙터 (/metadata)
+
+- 가져오기 대화상자(프로젝트 생성 / Quick Generate 전송 / Quick Generate 드롭)는 `components/common/metadata-import-options.tsx` 공용: Prompts 그룹(긍정/부정/캐릭터) + "모든 생성 설정 동기화" 마스터 토글(기본 ON, 시드 제외) 아래 설정별 체크박스(모델·크기·스텝·CFG·리스케일·샘플러·스케줄·UC 프리셋·SMEA/DYN·VAR+·DECRISP·시드(기본 OFF)), 현재값 → 가져올 값 표시
+- 모델은 PNG `Source` 텍스트(예: "NovelAI Diffusion V4.5 4BDE2A90")에서 버전 토큰으로 매핑, 해시 테이블(`KNOWN_SOURCE_HASHES`)에 없으면 Full 가정 + UI에 "Full assumed" 표시, 모델 정보가 전혀 없으면 현재 모델 유지 안내. 스텔스 알파도 `Source` 키 사용
+- 매핑은 `naiMetadataToParams` 한 곳(V5는 VAR+/DECRISP 제외, SMEA/DYN은 V3 프로파일만, 앱이 편집할 수 없는 샘플러는 건너뜀), 프로젝트 생성은 선택된 키만 `projects.parameters`에 저장(나머지는 기본값)
 
 - NAI 생성 이미지를 드래그 앤 드롭으로 업로드
 - PNG tEXt 청크 또는 Stealth Alpha 방식으로 메타데이터 파싱
@@ -1003,6 +1009,7 @@ src/
 │       ├── bundle.test.ts           # 번들 참조 추출/치환
 │       ├── sd-studio-import.test.ts # SD Studio JSON 파싱
 │       ├── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
+│       ├── nai-import.test.ts       # 모델 감지, 메타데이터 → 파라미터 매핑, 선택 적용
 │       ├── nai-models.test.ts       # 모델 프로파일/기능 판별 (V5 포함)
 │       ├── project-packs.test.ts    # 팩 이름 중복/접미사, 순서 교환
 │       └── prompt-tags.test.ts      # 프롬프트 태그 토큰 매칭 (가중치/중괄호/언더스코어)

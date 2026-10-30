@@ -1,9 +1,8 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  AlertCircleIcon,
   ArrowRight01Icon,
   Cancel01Icon,
   Copy01Icon,
@@ -18,7 +17,6 @@ import { HeaderButton } from '@/components/layout/header-button'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
@@ -30,6 +28,12 @@ import {
 } from '@/components/ui/dialog'
 import { getUcPresetLabel, parseMetadataFromFile } from '@/lib/nai-metadata'
 import { createProjectFromMetadata } from '@/server/functions/inspect'
+import {
+  MetadataImportOptions,
+  useMetadataImport,
+} from '@/components/common/metadata-import-options'
+import { ImportReferenceWarning } from '@/components/quick-generate/import-metadata-dialog'
+import { buildImport } from '@/lib/nai-import'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -610,13 +614,6 @@ function ParamRow({
 
 // ─── Create Project Dialog ──────────────────────────────────────────────────
 
-type ImportField =
-  | 'generalPrompt'
-  | 'negativePrompt'
-  | 'characters'
-  | 'parameters'
-  | 'resolution'
-
 function CreateProjectDialog({
   metadata,
   open,
@@ -631,22 +628,8 @@ function CreateProjectDialog({
   const [projectName, setProjectName] = useState(
     () => `Import ${new Date().toLocaleDateString()}`,
   )
-  const [fields, setFields] = useState<Record<ImportField, boolean>>({
-    generalPrompt: true,
-    negativePrompt: true,
-    characters: true,
-    parameters: true,
-    resolution: true,
-  })
+  const { imported, selection, setSelection } = useMetadataImport(metadata)
   const [creating, setCreating] = useState(false)
-
-  const hasV4Chars =
-    metadata.v4_prompt?.caption?.char_captions &&
-    metadata.v4_prompt.caption.char_captions.length > 0
-
-  function toggleField(field: ImportField) {
-    setFields((prev) => ({ ...prev, [field]: !prev[field] }))
-  }
 
   async function handleCreate() {
     if (!projectName.trim()) {
@@ -656,68 +639,18 @@ function CreateProjectDialog({
 
     setCreating(true)
     try {
-      // Build prompt: for V4, base_caption goes to general, char_captions become characters
-      let generalPrompt = ''
-      let negativePrompt = ''
-
-      if (fields.generalPrompt) {
-        if (metadata.v4_prompt?.caption?.base_caption) {
-          generalPrompt = metadata.v4_prompt.caption.base_caption
-        } else {
-          generalPrompt = metadata.prompt ?? ''
-        }
-      }
-
-      if (fields.negativePrompt) {
-        negativePrompt = metadata.negativePrompt ?? ''
-      }
-
-      // Characters from V4 char_captions
-      const chars: Array<{
-        name: string
-        charPrompt: string
-        charNegative?: string
-      }> = []
-      if (fields.characters && hasV4Chars) {
-        metadata.v4_prompt!.caption!.char_captions!.forEach((cc, i) => {
-          const negChar =
-            metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-          chars.push({
-            name: `Character ${i + 1}`,
-            charPrompt: cc.char_caption,
-            charNegative: negChar?.char_caption ?? '',
-          })
-        })
-      }
-
-      // Parameters
-      const params = fields.parameters
-        ? {
-            steps: metadata.steps,
-            cfg_scale: metadata.cfgScale,
-            cfg_rescale: metadata.cfgRescale,
-            sampler: metadata.sampler,
-            scheduler: metadata.scheduler,
-            smea: metadata.smea,
-            smeaDyn: metadata.smeaDyn,
-            qualityToggle: metadata.qualityToggle,
-            ucPreset: metadata.ucPreset,
-            variety: metadata.variety,
-            ...(fields.resolution
-              ? { width: metadata.width, height: metadata.height }
-              : {}),
-          }
-        : fields.resolution
-          ? { width: metadata.width, height: metadata.height }
-          : undefined
-
+      const out = buildImport(metadata, selection)
       const project = await createProjectFromMetadata({
         data: {
           name: projectName.trim(),
-          generalPrompt,
-          negativePrompt,
-          parameters: params,
-          characters: chars.length > 0 ? chars : undefined,
+          generalPrompt: out.generalPrompt ?? '',
+          negativePrompt: out.negativePrompt ?? '',
+          parameters: out.parameters,
+          characters: out.characters?.map((c) => ({
+            name: c.name,
+            charPrompt: c.prompt,
+            charNegative: c.negative,
+          })),
         },
       })
 
@@ -742,7 +675,7 @@ function CreateProjectDialog({
           <DialogTitle>{t('metadata.createProjectFromMetadata')}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto py-2">
           <div className="space-y-2">
             <Label htmlFor="proj-name">{t('metadata.projectName')}</Label>
             <Input
@@ -755,69 +688,14 @@ function CreateProjectDialog({
 
           <Separator />
 
-          <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">
-              {t('metadata.importFields')}
-            </Label>
-            <div className="space-y-2.5 pt-1">
-              <FieldCheckbox
-                checked={fields.generalPrompt}
-                onCheckedChange={() => toggleField('generalPrompt')}
-                label={t('metadata.generalPrompt')}
-                preview={
-                  metadata.v4_prompt?.caption?.base_caption ||
-                  metadata.prompt ||
-                  undefined
-                }
-              />
-              <FieldCheckbox
-                checked={fields.negativePrompt}
-                onCheckedChange={() => toggleField('negativePrompt')}
-                label={t('metadata.negativePrompt')}
-                preview={metadata.negativePrompt}
-              />
-              {hasV4Chars && (
-                <FieldCheckbox
-                  checked={fields.characters}
-                  onCheckedChange={() => toggleField('characters')}
-                  label={t('metadata.characterPrompts', {
-                    count: metadata.v4_prompt!.caption!.char_captions!.length,
-                  })}
-                  preview={metadata
-                    .v4_prompt!.caption!.char_captions!.map(
-                      (c) => c.char_caption,
-                    )
-                    .join(' | ')}
-                />
-              )}
-              <FieldCheckbox
-                checked={fields.parameters}
-                onCheckedChange={() => toggleField('parameters')}
-                label={t('metadata.generationParameters')}
-                preview={
-                  [
-                    metadata.steps && `Steps: ${metadata.steps}`,
-                    metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
-                    metadata.sampler && `Sampler: ${metadata.sampler}`,
-                  ]
-                    .filter(Boolean)
-                    .join(', ') || undefined
-                }
-              />
-              <FieldCheckbox
-                checked={fields.resolution}
-                onCheckedChange={() => toggleField('resolution')}
-                label={t('metadata.resolution')}
-                preview={
-                  metadata.width && metadata.height
-                    ? `${metadata.width} x ${metadata.height}`
-                    : undefined
-                }
-              />
-            </div>
-          </div>
+          <MetadataImportOptions
+            metadata={metadata}
+            imported={imported}
+            selection={selection}
+            onChange={setSelection}
+          />
 
-          <ReferenceWarningBanner metadata={metadata} />
+          <ImportReferenceWarning metadata={metadata} />
         </div>
 
         <DialogFooter>
@@ -833,44 +711,7 @@ function CreateProjectDialog({
   )
 }
 
-function FieldCheckbox({
-  checked,
-  onCheckedChange,
-  label,
-  preview,
-}: {
-  checked: boolean
-  onCheckedChange: () => void
-  label: string
-  preview?: string
-}) {
-  return (
-    <label className="flex items-start gap-2.5 cursor-pointer group overflow-hidden">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        className="mt-0.5 shrink-0"
-      />
-      <div className="min-w-0 flex-1">
-        <span className="text-sm font-medium">{label}</span>
-        {preview && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 break-all">
-            {preview}
-          </p>
-        )}
-      </div>
-    </label>
-  )
-}
-
 // ─── Quick Generate Dialog ──────────────────────────────────────────────────
-
-type QuickImportField =
-  | 'generalPrompt'
-  | 'negativePrompt'
-  | 'characters'
-  | 'parameters'
-  | 'resolution'
 
 function QuickGenerateDialog({
   metadata,
@@ -883,75 +724,20 @@ function QuickGenerateDialog({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
-  const [fields, setFields] = useState<Record<QuickImportField, boolean>>({
-    generalPrompt: true,
-    negativePrompt: true,
-    characters: true,
-    parameters: true,
-    resolution: true,
-  })
-
-  const hasV4Chars =
-    metadata.v4_prompt?.caption?.char_captions &&
-    metadata.v4_prompt.caption.char_captions.length > 0
-
-  function toggleField(field: QuickImportField) {
-    setFields((prev) => ({ ...prev, [field]: !prev[field] }))
-  }
+  const { imported, selection, setSelection } = useMetadataImport(metadata)
+  const currentParameters = useMemo(readQuickGenerateParameters, [])
 
   function handleApply() {
-    let generalPrompt: string | undefined
-    if (fields.generalPrompt) {
-      generalPrompt =
-        metadata.v4_prompt?.caption?.base_caption ?? metadata.prompt ?? ''
-    }
-
-    let negativePrompt: string | undefined
-    if (fields.negativePrompt) {
-      negativePrompt = metadata.negativePrompt ?? ''
-    }
-
-    let characterPrompts:
-      | Array<{ name: string; prompt: string; negative: string }>
-      | undefined
-    if (fields.characters && hasV4Chars) {
-      characterPrompts = metadata.v4_prompt!.caption!.char_captions!.map(
-        (cc, i) => {
-          const negChar =
-            metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-          return {
-            name: `Character ${i + 1}`,
-            prompt: cc.char_caption,
-            negative: negChar?.char_caption ?? '',
-          }
-        },
-      )
-    }
-
-    const parameters: Record<string, unknown> = {}
-    if (fields.parameters) {
-      if (metadata.steps != null) parameters.steps = metadata.steps
-      if (metadata.cfgScale != null) parameters.scale = metadata.cfgScale
-      if (metadata.cfgRescale != null)
-        parameters.cfgRescale = metadata.cfgRescale
-      if (metadata.sampler) parameters.sampler = metadata.sampler
-      if (metadata.scheduler) parameters.scheduler = metadata.scheduler
-      if (metadata.ucPreset != null) parameters.ucPreset = metadata.ucPreset
-    }
-    if (fields.resolution) {
-      if (metadata.width != null) parameters.width = metadata.width
-      if (metadata.height != null) parameters.height = metadata.height
-    }
-
+    const out = buildImport(metadata, selection)
     onOpenChange(false)
     navigate({
       to: '/generate',
       search: { imageDetail: undefined },
       state: {
-        generalPrompt,
-        negativePrompt,
-        characterPrompts,
-        parameters: Object.keys(parameters).length > 0 ? parameters : undefined,
+        generalPrompt: out.generalPrompt,
+        negativePrompt: out.negativePrompt,
+        characterPrompts: out.characters,
+        parameters: out.parameters,
       } as any,
     })
   }
@@ -963,70 +749,15 @@ function QuickGenerateDialog({
           <DialogTitle>{t('metadata.quickGenerate')}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
-          <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">
-              {t('metadata.importFields')}
-            </Label>
-            <div className="space-y-2.5 pt-1">
-              <FieldCheckbox
-                checked={fields.generalPrompt}
-                onCheckedChange={() => toggleField('generalPrompt')}
-                label={t('metadata.generalPrompt')}
-                preview={
-                  metadata.v4_prompt?.caption?.base_caption ||
-                  metadata.prompt ||
-                  undefined
-                }
-              />
-              <FieldCheckbox
-                checked={fields.negativePrompt}
-                onCheckedChange={() => toggleField('negativePrompt')}
-                label={t('metadata.negativePrompt')}
-                preview={metadata.negativePrompt}
-              />
-              {hasV4Chars && (
-                <FieldCheckbox
-                  checked={fields.characters}
-                  onCheckedChange={() => toggleField('characters')}
-                  label={t('metadata.characterPrompts', {
-                    count: metadata.v4_prompt!.caption!.char_captions!.length,
-                  })}
-                  preview={metadata
-                    .v4_prompt!.caption!.char_captions!.map(
-                      (c) => c.char_caption,
-                    )
-                    .join(' | ')}
-                />
-              )}
-              <FieldCheckbox
-                checked={fields.parameters}
-                onCheckedChange={() => toggleField('parameters')}
-                label={t('metadata.generationParameters')}
-                preview={
-                  [
-                    metadata.steps && `Steps: ${metadata.steps}`,
-                    metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
-                    metadata.sampler && `Sampler: ${metadata.sampler}`,
-                  ]
-                    .filter(Boolean)
-                    .join(', ') || undefined
-                }
-              />
-              <FieldCheckbox
-                checked={fields.resolution}
-                onCheckedChange={() => toggleField('resolution')}
-                label={t('metadata.resolution')}
-                preview={
-                  metadata.width && metadata.height
-                    ? `${metadata.width} x ${metadata.height}`
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-
-          <ReferenceWarningBanner metadata={metadata} />
+        <div className="max-h-[60vh] space-y-3 overflow-y-auto py-2">
+          <MetadataImportOptions
+            metadata={metadata}
+            imported={imported}
+            selection={selection}
+            onChange={setSelection}
+            currentParameters={currentParameters}
+          />
+          <ImportReferenceWarning metadata={metadata} />
         </div>
 
         <DialogFooter>
@@ -1040,49 +771,13 @@ function QuickGenerateDialog({
   )
 }
 
-// ─── Reference Warning Banner ─────────────────────────────────────────────
-
-function ReferenceWarningBanner({ metadata }: { metadata: NAIMetadata }) {
-  const { t } = useTranslation()
-  const hasVibe =
-    metadata.hasVibeTransfer &&
-    metadata.vibeTransferInfo &&
-    metadata.vibeTransferInfo.length > 0
-  const hasPrecise =
-    metadata.hasCharacterReference &&
-    metadata.characterReferenceInfo &&
-    metadata.characterReferenceInfo.length > 0
-
-  if (!hasVibe && !hasPrecise) return null
-
-  let message: string
-  if (hasVibe && hasPrecise) {
-    message = t('reference.importWarningBoth', {
-      vibeCount: String(metadata.vibeTransferInfo!.length),
-      preciseCount: String(metadata.characterReferenceInfo!.length),
-    })
-  } else if (hasVibe) {
-    message = t('reference.importWarningVibe', {
-      count: String(metadata.vibeTransferInfo!.length),
-    })
-  } else {
-    message = t('reference.importWarningPrecise', {
-      count: String(metadata.characterReferenceInfo!.length),
-    })
+/** Quick Generate keeps its state in localStorage; read the current params. */
+function readQuickGenerateParameters(): Record<string, unknown> {
+  try {
+    const stored = localStorage.getItem('87studio-quick-generate')
+    if (stored) return JSON.parse(stored).parameters ?? {}
+  } catch {
+    /* ignore */
   }
-
-  return (
-    <div className="flex gap-2 rounded-md border border-primary/30 bg-primary/10 p-3">
-      <HugeiconsIcon
-        icon={AlertCircleIcon}
-        className="size-4 text-primary shrink-0 mt-0.5"
-      />
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-primary">
-          {t('reference.importWarningTitle')}
-        </p>
-        <p className="text-xs text-primary/80 mt-0.5">{message}</p>
-      </div>
-    </div>
-  )
+  return {}
 }

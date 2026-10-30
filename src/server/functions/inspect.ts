@@ -11,20 +11,8 @@ export const createProjectFromMetadata = createServerFn({ method: 'POST' })
       name: string
       generalPrompt?: string
       negativePrompt?: string
-      parameters?: {
-        steps?: number
-        cfg_scale?: number
-        cfg_rescale?: number
-        sampler?: string
-        scheduler?: string
-        smea?: boolean
-        smeaDyn?: boolean
-        width?: number
-        height?: number
-        qualityToggle?: boolean
-        ucPreset?: number
-        variety?: boolean
-      }
+      /** Output of `buildImport` (src/lib/nai-import.ts); unset keys use defaults. */
+      parameters?: Record<string, unknown>
       characters?: Array<{
         name: string
         charPrompt: string
@@ -33,21 +21,7 @@ export const createProjectFromMetadata = createServerFn({ method: 'POST' })
     }) => data,
   )
   .handler(async ({ data }) => {
-    const params = data.parameters ?? {}
-    const parametersJson = JSON.stringify({
-      steps: params.steps ?? 28,
-      scale: params.cfg_scale ?? 5,
-      cfgRescale: params.cfg_rescale ?? 0,
-      sampler: params.sampler ?? 'k_euler',
-      scheduler: params.scheduler ?? 'native',
-      smea: params.smea ?? false,
-      smeaDyn: params.smeaDyn ?? false,
-      varietyPlus: params.variety ?? false,
-      width: params.width ?? 832,
-      height: params.height ?? 1216,
-      qualityToggle: params.qualityToggle ?? true,
-      ucPreset: params.ucPreset ?? 0,
-    })
+    const parametersJson = JSON.stringify(data.parameters ?? {})
 
     let project!: { id: number; name: string }
 
@@ -83,6 +57,7 @@ export const createProjectFromMetadata = createServerFn({ method: 'POST' })
       projectId: project.id,
       name: data.name,
       characterCount: data.characters?.length ?? 0,
+      parameterKeys: Object.keys(data.parameters ?? {}),
     })
 
     return project

@@ -31,6 +31,7 @@ export interface NAIMetadata {
   prompt?: string
   negativePrompt?: string
 
+  /** Raw NAI `Source` text (e.g. "NovelAI Diffusion V4.5 4BDE2A90"). */
   model?: string
   steps?: number
   cfgScale?: number
@@ -42,6 +43,7 @@ export interface NAIMetadata {
   smea?: boolean
   smeaDyn?: boolean
   variety?: boolean
+  dynamicThresholding?: boolean
   qualityToggle?: boolean
   ucPreset?: number
 
@@ -302,6 +304,13 @@ async function extractStealthMetadata(
     const sourceData = jsonData.Comment || jsonData
     const metadata = convertNAIFormat(sourceData)
     metadata.source = 'stealth_alpha'
+    const sourceText =
+      typeof jsonData.Source === 'string'
+        ? jsonData.Source
+        : typeof sourceData.Source === 'string'
+          ? (sourceData.Source as string)
+          : undefined
+    if (sourceText) metadata.model = sourceText
     return metadata
   } catch (error) {
     console.log('Stealth metadata extraction failed:', error)
@@ -393,28 +402,41 @@ function convertNAIFormat(data: Record<string, unknown>): NAIMetadata {
     metadata.negativePrompt = String(data.undesired_content)
   }
 
-  if (data.steps) metadata.steps = Number(data.steps)
-  if (data.scale) metadata.cfgScale = Number(data.scale)
-  if (data.cfg_rescale) metadata.cfgRescale = Number(data.cfg_rescale)
-  if (data.seed) metadata.seed = Number(data.seed)
+  const num = (v: unknown): number | undefined => {
+    if (v === undefined || v === null || v === '') return undefined
+    const n = Number(v)
+    return Number.isFinite(n) ? n : undefined
+  }
+  const steps = num(data.steps)
+  if (steps !== undefined) metadata.steps = steps
+  const scale = num(data.scale)
+  if (scale !== undefined) metadata.cfgScale = scale
+  const rescale = num(data.cfg_rescale)
+  if (rescale !== undefined) metadata.cfgRescale = rescale
+  const seed = num(data.seed)
+  if (seed !== undefined) metadata.seed = seed
   if (data.sampler) metadata.sampler = String(data.sampler)
   if (data.noise_schedule) metadata.scheduler = String(data.noise_schedule)
 
   if (typeof data.sm === 'boolean') metadata.smea = data.sm
   if (typeof data.sm_dyn === 'boolean') metadata.smeaDyn = data.sm_dyn
-  if (
-    data.skip_cfg_above_sigma !== undefined &&
-    data.skip_cfg_above_sigma !== null
-  ) {
-    metadata.variety = true
+  if (data.skip_cfg_above_sigma !== undefined) {
+    // null / 0 mean "off" (V3 writes 0, V4+ writes null)
+    metadata.variety =
+      typeof data.skip_cfg_above_sigma === 'number' &&
+      data.skip_cfg_above_sigma > 0
   }
+  if (typeof data.dynamic_thresholding === 'boolean')
+    metadata.dynamicThresholding = data.dynamic_thresholding
 
   if (typeof data.qualityToggle === 'boolean')
     metadata.qualityToggle = data.qualityToggle
   if (typeof data.ucPreset === 'number') metadata.ucPreset = data.ucPreset
 
-  if (data.width) metadata.width = Number(data.width)
-  if (data.height) metadata.height = Number(data.height)
+  const width = num(data.width)
+  if (width) metadata.width = width
+  const height = num(data.height)
+  if (height) metadata.height = height
 
   if (data.v4_prompt) metadata.v4_prompt = data.v4_prompt
   if (data.v4_negative_prompt)
