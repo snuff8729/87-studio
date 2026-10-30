@@ -1,3 +1,5 @@
+import { dirname, join } from 'node:path'
+import sharp from 'sharp'
 import {
   existsSync,
   mkdirSync,
@@ -6,9 +8,8 @@ import {
   statSync,
   unlinkSync,
   writeFileSync,
-} from 'node:fs'
-import { dirname, join } from 'node:path'
-import sharp from 'sharp'
+} from '../data-fs'
+import { dataPath } from '../data-dir'
 import { createLogger } from './logger'
 
 /** Normalize path separators to forward slashes (for consistent DB storage across OS) */
@@ -51,7 +52,7 @@ export async function generateThumbnail(
   thumbnailPath: string,
 ): Promise<void> {
   try {
-    await sharp(sourcePath)
+    await sharp(dataPath(sourcePath))
       .resize({
         width: 300,
         height: 300,
@@ -59,7 +60,7 @@ export async function generateThumbnail(
         withoutEnlargement: true,
       })
       .png()
-      .toFile(thumbnailPath)
+      .toFile(dataPath(thumbnailPath))
     log.info('thumbnail', 'Thumbnail generated', { thumbnailPath })
   } catch (error) {
     log.error(

@@ -1,11 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  NextIcon,
-  PauseIcon,
-  PlayIcon,
-} from '@hugeicons/core-free-icons'
+import { NextIcon, PauseIcon, PlayIcon } from '@hugeicons/core-free-icons'
 import { Button } from '@/components/ui/button'
 import {
   Popover,
@@ -13,10 +9,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { useTranslation } from '@/lib/i18n'
-import {
-  fetchQueueSummary,
-  listQueueBatches,
-} from '@/server/functions/queue'
+import { fetchQueueSummary, listQueueBatches } from '@/server/functions/queue'
 import {
   pauseGeneration,
   resumeGeneration,
@@ -97,7 +90,12 @@ export function GenerationProgress() {
   const totalImages = summary?.globalStats.totalImages ?? 0
   const completedImages = summary?.globalStats.completedImages ?? 0
   const totalPending = summary?.globalStats.totalPendingImages ?? 0
-  const hasQueue = totalPending > 0 || (summary?.processing ?? false)
+  // A stopped-on-error queue stays visible even if no pending image is left
+  // (e.g. the failed job was the last one), so it can still be retried/skipped.
+  const hasQueue =
+    totalPending > 0 ||
+    (summary?.processing ?? false) ||
+    summary?.queueStopped === 'error'
 
   const isPaused = summary?.queueStopped === 'paused'
   const isError = summary?.queueStopped === 'error'
@@ -357,9 +355,7 @@ export function GenerationProgress() {
                     )}
                     <span
                       className={`text-xs truncate flex-1 min-w-0 ${
-                        isRunning
-                          ? 'text-foreground'
-                          : 'text-muted-foreground'
+                        isRunning ? 'text-foreground' : 'text-muted-foreground'
                       }`}
                     >
                       {batch.label ?? `Batch #${batch.id}`}

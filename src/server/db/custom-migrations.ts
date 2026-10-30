@@ -7,8 +7,9 @@
  * Run: npx tsx src/server/db/custom-migrations.ts
  */
 
+import { resolve } from 'node:path'
 import Database from 'better-sqlite3'
-import { resolve } from 'path'
+import { dataPath } from '../data-dir'
 import { migrateSyntaxV1 } from './migrate-syntax'
 
 interface Migration {
@@ -61,7 +62,7 @@ function validate() {
 function main() {
   validate()
 
-  const DB_PATH = resolve(process.cwd(), 'data/studio.db')
+  const DB_PATH = resolve(dataPath('./data/studio.db'))
   const db = new Database(DB_PATH)
   db.pragma('journal_mode = WAL')
 

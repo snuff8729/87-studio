@@ -8,6 +8,7 @@ import {
 } from '../db/schema'
 import { db } from '../db'
 import { generateImage } from './nai'
+import { NAI_MOCK } from './nai-mock'
 import { generateThumbnail, saveImage } from './image'
 import { preparePreciseData, prepareVibeData } from './reference'
 import { createLogger } from './logger'
@@ -29,16 +30,27 @@ function persistQueueStopped() {
   const value = queueStopped
     ? JSON.stringify({ state: queueStopped, jobId: stoppedJobId })
     : ''
-  const existing = db.select().from(settings).where(eq(settings.key, 'queue_stopped')).get()
+  const existing = db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, 'queue_stopped'))
+    .get()
   if (existing) {
-    db.update(settings).set({ value, updatedAt: new Date().toISOString() }).where(eq(settings.key, 'queue_stopped')).run()
+    db.update(settings)
+      .set({ value, updatedAt: new Date().toISOString() })
+      .where(eq(settings.key, 'queue_stopped'))
+      .run()
   } else {
     db.insert(settings).values({ key: 'queue_stopped', value }).run()
   }
 }
 
 function restoreQueueStopped() {
-  const row = db.select().from(settings).where(eq(settings.key, 'queue_stopped')).get()
+  const row = db
+    .select()
+    .from(settings)
+    .where(eq(settings.key, 'queue_stopped'))
+    .get()
   if (row?.value) {
     try {
       const parsed = JSON.parse(row.value)
@@ -115,7 +127,11 @@ function updateBatchStatusFromJobs(batchId: number) {
   let newStatus: string
   if (stats.cancelled === stats.total) {
     newStatus = 'cancelled'
-  } else if (stats.completed + stats.cancelled === stats.total && stats.cancelled > 0 && stats.completed > 0) {
+  } else if (
+    stats.completed + stats.cancelled === stats.total &&
+    stats.cancelled > 0 &&
+    stats.completed > 0
+  ) {
     // Mix of completed and cancelled — mark as cancelled (partial cancel)
     newStatus = 'cancelled'
   } else if (stats.completed === stats.total) {
@@ -478,7 +494,6 @@ async function processQueue() {
   log.info('queue.start', 'Queue processing started')
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     while (!queueStopped) {
       const next = getNextJob()
       if (!next) break
@@ -500,7 +515,6 @@ async function processQueue() {
       updateBatchStatusFromJobs(next.batchId)
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (queueStopped) {
       log.info('queue.stopped', 'Queue stopped', { reason: queueStopped })
       // Recalculate running batches so UI shows correct state (e.g. paused)
@@ -551,7 +565,8 @@ async function processJob(jobId: number) {
       .from(settings)
       .where(eq(settings.key, 'nai_api_key'))
       .get()
-    if (!apiKeyRow?.value) {
+    const apiKey = apiKeyRow?.value || (NAI_MOCK ? 'mock' : '')
+    if (!apiKey) {
       log.error('job.noApiKey', 'No API key configured', { jobId })
       db.update(generationJobs)
         .set({
@@ -592,7 +607,7 @@ async function processJob(jobId: number) {
     if (referenceMode === 'vibe') {
       const vibeResult = await prepareVibeData(
         refProjectId,
-        apiKeyRow.value,
+        apiKey,
         resolvedParameters.model ?? 'nai-diffusion-4-5-full',
       )
       if (vibeResult) referenceData = vibeResult
@@ -660,7 +675,7 @@ async function processJob(jobId: number) {
       // Generate image via NAI API (with timing)
       const imageStart = Date.now()
       const { imageData, seed } = await generateImage(
-        apiKeyRow.value,
+        apiKey,
         resolvedPrompts,
         resolvedParameters,
         referenceData,

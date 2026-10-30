@@ -1,6 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import Database from 'better-sqlite3'
-import { existsSync } from 'node:fs'
+import { existsSync } from '../data-fs'
+import { dataPath } from '../data-dir'
 
 const DB_PATH = './data/danbooru.db'
 
@@ -9,7 +10,7 @@ let danbooruDb: Database.Database | null = null
 function getDb(): Database.Database | null {
   if (danbooruDb) return danbooruDb
   if (!existsSync(DB_PATH)) return null
-  danbooruDb = new Database(DB_PATH, { readonly: true })
+  danbooruDb = new Database(dataPath(DB_PATH), { readonly: true })
   danbooruDb.pragma('journal_mode = WAL')
   return danbooruDb
 }
@@ -49,22 +50,24 @@ export const getDanbooruTagDetail = createServerFn({ method: 'GET' })
     const db = getDb()
     if (!db) return null
 
-    const tag = db
-      .prepare('SELECT * FROM tags WHERE name = ?')
-      .get(name) as {
-      id: number
-      name: string
-      post_count: number
-      category: number
-      is_deprecated: number
-    } | undefined
+    const tag = db.prepare('SELECT * FROM tags WHERE name = ?').get(name) as
+      | {
+          id: number
+          name: string
+          post_count: number
+          category: number
+          is_deprecated: number
+        }
+      | undefined
 
     if (!tag) return null
 
     // Wiki page (other names + body)
     const wiki = db
       .prepare('SELECT other_names, body FROM wiki_pages WHERE title = ?')
-      .get(name) as { other_names: string | null; body: string | null } | undefined
+      .get(name) as
+      | { other_names: string | null; body: string | null }
+      | undefined
 
     let otherNames: Array<string> = []
     if (wiki?.other_names) {

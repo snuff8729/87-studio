@@ -1,6 +1,7 @@
 import { extname, normalize, resolve, sep } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 import { defineHandler } from 'nitro/h3'
+import { dataPath } from '../data-dir'
 
 const CONTENT_TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -21,19 +22,19 @@ export default defineHandler((event) => {
   let relativePath: string | null = null
 
   if (pathname.startsWith('/api/images/')) {
-    basePath = resolve('./data/images')
+    basePath = resolve(dataPath('./data/images'))
     relativePath = pathname.slice('/api/images/'.length)
   } else if (pathname.startsWith('/api/thumbnails/')) {
-    basePath = resolve('./data/thumbnails')
+    basePath = resolve(dataPath('./data/thumbnails'))
     relativePath = pathname.slice('/api/thumbnails/'.length)
   } else if (pathname.startsWith('/api/tag-images/')) {
-    basePath = resolve('./data/tag-images')
+    basePath = resolve(dataPath('./data/tag-images'))
     relativePath = pathname.slice('/api/tag-images/'.length)
   } else if (pathname.startsWith('/api/references/')) {
-    basePath = resolve('./data/references')
+    basePath = resolve(dataPath('./data/references'))
     relativePath = pathname.slice('/api/references/'.length)
   } else if (pathname.startsWith('/api/downloads/')) {
-    basePath = resolve('./data/downloads')
+    basePath = resolve(dataPath('./data/downloads'))
     relativePath = pathname.slice('/api/downloads/'.length)
   }
 

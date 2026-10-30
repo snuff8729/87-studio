@@ -1,14 +1,14 @@
+import { dirname, join } from 'node:path'
 import { createServerFn } from '@tanstack/react-start'
 import { asc, eq, inArray, notInArray, sql } from 'drizzle-orm'
-import { mkdirSync, unlinkSync, existsSync, writeFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from '../data-fs'
 import { db } from '../db'
 import {
+  generatedImages,
   tagBookmarkImages,
   tagBookmarkTagAssignments,
   tagBookmarkTags,
   tagBookmarks,
-  generatedImages,
 } from '../db/schema'
 import { generateThumbnail } from '../services/image'
 import { createLogger } from '../services/logger'

@@ -1,6 +1,6 @@
-import { existsSync, readdirSync, rmSync, unlinkSync } from 'node:fs'
 import { dirname } from 'node:path'
 import { createServerFn } from '@tanstack/react-start'
+import { existsSync, readdirSync, rmSync, unlinkSync } from '../data-fs'
 import { db } from '../db'
 import { generatedImages } from '../db/schema'
 import { createLogger } from '../services/logger'

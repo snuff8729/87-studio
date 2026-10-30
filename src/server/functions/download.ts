@@ -1,15 +1,16 @@
+import { resolve } from 'node:path'
+import { randomUUID } from 'node:crypto'
+import { createServerFn } from '@tanstack/react-start'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
+import { zipSync } from 'fflate'
+import { dataPath } from '../data-dir'
 import {
   existsSync,
   mkdirSync,
   readFileSync,
   unlinkSync,
   writeFileSync,
-} from 'node:fs'
-import { resolve } from 'node:path'
-import { randomUUID } from 'node:crypto'
-import { createServerFn } from '@tanstack/react-start'
-import { and, desc, eq, inArray, sql } from 'drizzle-orm'
-import { zipSync } from 'fflate'
+} from '../data-fs'
 import { db } from '../db'
 import { generatedImages, projectScenes, projects } from '../db/schema'
 import { createLogger } from '../services/logger'
@@ -21,7 +22,7 @@ import type { FilenameVars } from '../services/download'
 
 const log = createLogger('fn.download')
 
-const DOWNLOADS_DIR = resolve('./data/downloads')
+const DOWNLOADS_DIR = resolve(dataPath('./data/downloads'))
 const AUTO_DELETE_MS = 5 * 60 * 1000 // 5 minutes
 
 export const prepareDownload = createServerFn({ method: 'POST' })
@@ -129,7 +130,7 @@ export const prepareDownload = createServerFn({ method: 'POST' })
 
     for (let i = 0; i < images.length; i++) {
       const img = images[i]
-      const filePath = resolve(img.filePath)
+      const filePath = resolve(dataPath(img.filePath))
       if (!existsSync(filePath)) {
         log.warn('prepareDownload', 'File not found, skipping', { filePath })
         continue

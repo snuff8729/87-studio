@@ -1,7 +1,8 @@
-import { mkdirSync } from 'node:fs'
 import { dirname } from 'node:path'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { dataPath } from '../data-dir'
+import { mkdirSync } from '../data-fs'
 import { createLogger, initLogDirectory } from '../services/logger'
 import * as schema from './schema'
 
@@ -12,7 +13,7 @@ const DB_PATH = './data/studio.db'
 initLogDirectory()
 mkdirSync(dirname(DB_PATH), { recursive: true })
 
-const sqlite = new Database(DB_PATH)
+const sqlite = new Database(dataPath(DB_PATH))
 sqlite.pragma('journal_mode = WAL')
 sqlite.pragma('foreign_keys = ON')
 

@@ -224,3 +224,6 @@ package-lock.json
 
 # Demo data (scripts/demo/seed.mjs)
 /demo/
+
+# Mock-mode test data (scripts/demo/seed.mjs --out demo-mock)
+/demo-mock*/

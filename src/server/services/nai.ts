@@ -1,5 +1,6 @@
 import { unzipSync } from 'fflate'
 import { createLogger } from './logger'
+import { NAI_MOCK, mockGenerateImage } from './nai-mock'
 import type { ResolvedPrompts } from './prompt'
 
 const log = createLogger('nai')
@@ -43,6 +44,8 @@ export async function generateImage(
   referenceData?: ReferenceData,
 ): Promise<{ imageData: Uint8Array; seed: number }> {
   const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
+
+  if (NAI_MOCK) return mockGenerateImage(prompts, params, seed)
 
   // Build v4_prompt char_captions from character prompts
   const charCaptions = prompts.characterPrompts.map((cp) => ({

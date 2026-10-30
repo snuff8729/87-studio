@@ -1,4 +1,5 @@
 import { Link, useRouterState } from '@tanstack/react-router'
+import { useQuery } from '@tanstack/react-query'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { getActiveNavItem, navItems } from './nav-items'
 import type { NavItem } from './nav-items'
@@ -21,6 +22,7 @@ import {
   useQueueSummary,
 } from '@/components/queue/queue-status-widget'
 import { useTranslation } from '@/lib/i18n'
+import { getAppInfo } from '@/server/functions/settings'
 
 function NavMenuItem({
   item,
@@ -78,6 +80,11 @@ export function AppSidebar() {
   const activeTo = getActiveNavItem(pathname)?.to
   const { data: queueSummary } = useQueueSummary()
   const pendingImages = queueSummary?.globalStats.totalPendingImages ?? 0
+  const { data: appInfo } = useQuery({
+    queryKey: ['app-info'],
+    queryFn: () => getAppInfo(),
+    staleTime: Infinity,
+  })
 
   const renderGroup = (group: NavItem['group']) =>
     navItems
@@ -122,6 +129,15 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
+        {appInfo?.naiMock && (
+          <div
+            data-testid="mock-badge"
+            title="NAI_MOCK=1: no real NovelAI requests, images are fake"
+            className="rounded-md border border-amber-500/40 bg-amber-500/10 px-2 py-1 text-center text-[10px] font-bold tracking-widest text-amber-400 group-data-[collapsible=icon]:hidden"
+          >
+            MOCK
+          </div>
+        )}
         {(isMobile || state !== 'collapsed') && <QueueStatusWidget />}
         <SidebarMenu>{renderGroup('footer')}</SidebarMenu>
       </SidebarFooter>

@@ -6,8 +6,9 @@ import {
   unlinkSync,
 } from 'node:fs'
 import { join } from 'node:path'
+import { dataPath } from '../data-dir'
 
-const LOGS_DIR = './data/logs'
+const LOGS_DIR = dataPath('./data/logs')
 const LOG_FILE = 'app.log'
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5MB
 const MAX_FILES = 5 // app.log + app.1.log ~ app.4.log

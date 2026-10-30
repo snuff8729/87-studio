@@ -53,6 +53,8 @@ import {
   retryBatch,
 } from '@/server/functions/queue'
 import {
+  dismissGenerationError,
+  getJobStatus,
   pauseGeneration,
   resumeGeneration,
 } from '@/server/functions/generation'
@@ -838,6 +840,53 @@ function NowGeneratingCard({
   )
 }
 
+// ---- QueueErrorBanner ----
+
+/** The queue stopped on a failed job: show why, offer retry / skip. */
+function QueueErrorBanner({
+  jobId,
+  onRetry,
+  onSkip,
+}: {
+  jobId: number | null | undefined
+  onRetry: () => void
+  onSkip: () => void
+}) {
+  const { t } = useTranslation()
+  const { data: job } = useQuery({
+    queryKey: ['stopped-job', jobId],
+    queryFn: () => getJobStatus({ data: jobId! }),
+    enabled: jobId != null,
+  })
+  return (
+    <div
+      data-queue-error
+      className="flex items-start gap-3 rounded-xl border border-destructive/40 bg-destructive/10 p-3"
+    >
+      <HugeiconsIcon
+        icon={AlertCircleIcon}
+        className="mt-0.5 size-5 shrink-0 text-destructive"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-destructive">
+          {t('queue.error')}
+        </p>
+        {job?.errorMessage && (
+          <p className="mt-0.5 line-clamp-3 break-all text-xs text-destructive/80">
+            {job.errorMessage}
+          </p>
+        )}
+      </div>
+      <Button variant="secondary" size="sm" onClick={onRetry}>
+        {t('generation.retry')}
+      </Button>
+      <Button variant="secondary" size="sm" onClick={onSkip}>
+        {t('generation.skip')}
+      </Button>
+    </div>
+  )
+}
+
 // ---- QueuePage ----
 
 function QueuePage() {
@@ -888,6 +937,15 @@ function QueuePage() {
   const retryBatchMutation = useMutation({
     mutationFn: (batchId: number) => retryBatch({ data: batchId }),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['queue-batches'] })
+      queryClient.invalidateQueries({ queryKey: ['recent-batches'] })
+    },
+  })
+
+  const skipErrorMutation = useMutation({
+    mutationFn: () => dismissGenerationError(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['queue-summary'] })
       queryClient.invalidateQueries({ queryKey: ['queue-batches'] })
       queryClient.invalidateQueries({ queryKey: ['recent-batches'] })
     },
@@ -968,6 +1026,14 @@ function QueuePage() {
             </HeaderButton>
           )}
         </HeaderActions>
+      )}
+
+      {isError && (
+        <QueueErrorBanner
+          jobId={summary?.stoppedJobId}
+          onRetry={() => resumeMutation.mutate()}
+          onSkip={() => skipErrorMutation.mutate()}
+        />
       )}
 
       {/* Empty state */}

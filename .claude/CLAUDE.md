@@ -72,6 +72,9 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 - **이미지 서빙**: Vite 커스텀 플러그인 (`serveDataFiles()` in `vite.config.ts`)
   - `/api/images/`, `/api/thumbnails/`, `/api/downloads/`, `/api/references/` 경로 매핑
   - 프로덕션은 Nitro가 정적 파일 서빙 처리
+- **데이터 디렉토리** (`STUDIO_DATA_DIR`, 기본 `./data`): DB·로그·이미지·썸네일·참조·다운로드·tag-images 위치
+  - DB에는 항상 논리 경로(`data/images/...`)가 저장되고, 디스크 접근 시 `src/server/data-dir.ts`(`dataPath()`)와 `src/server/data-fs.ts`(node:fs 래퍼)가 `STUDIO_DATA_DIR`로 매핑. 환경변수가 없으면 경로를 그대로 사용(동작 변화 없음)
+  - 데모/테스트 서버를 실제 `./data`와 분리하는 용도 (vite dev의 cwd는 레포 루트여야 하므로 cwd 방식 대신 사용)
 
 ### 로깅
 
@@ -283,7 +286,8 @@ start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js
 start.bat                      # Windows 간편 실행 스크립트
 scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
-scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 실행). `npm run demo`, `npm run demo:seed`
+scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
+scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
 LICENSE                        # PolyForm Noncommercial 1.0.0
 ```
 
@@ -880,6 +884,25 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 ## 프로젝트 삭제 정책
 
 - 프로젝트 삭제 시 **생성된 이미지 파일은 보존** (DB 레코드만 CASCADE 삭제, 파일 유지)
+- **씬 삭제** (레일/보드 메뉴의 단일 삭제, 선택 모드의 일괄 삭제): 확인 다이얼로그의 체크박스 "이미지 파일도 디스크에서 삭제 (N장)"로 선택
+  - 기본값은 **해제 = 파일 보존**. 서버 함수 `deleteProjectScene({ id, deleteFiles })` / `bulkDeleteProjectScenes({ ids, deleteFiles })`의 `deleteFiles` 기본값은 `false`
+  - 보존된 파일은 DB에 없는 고아 파일이 되며 설정 › 스토리지의 고아 파일 정리로 나중에 삭제 가능 (다이얼로그 힌트에 안내)
+  - 단일 이미지 삭제(갤러리/상세)는 기존대로 파일도 삭제
+
+## NAI Mock 모드 (유료 API 없이 큐 테스트)
+
+- 환경변수 `NAI_MOCK=1`을 **서버 시작 시** 지정한 경우에만 활성 (미설정이면 동작 변화 없음). 시작 시 경고 로그/콘솔 출력, 사이드바에 `MOCK` 배지(`data-testid="mock-badge"`, `getAppInfo` server fn의 `naiMock`)
+- `src/server/services/nai-mock.ts`: novelai.net으로 **어떤 네트워크 요청도 보내지 않음** (이미지 생성 + Vibe 인코딩 모두). `NAI_MOCK_DELAY_MS`(기본 1500) 후 sharp로 만든 그라디언트 + "MOCK seed {seed}" PNG를 ZIP에 담아 실제 응답과 같은 형태로 반환
+- API 키 없이도 동작 (생성 시 키 검사 생략, `getSetting('nai_api_key')`는 mock일 때 `'mock'` 반환, 키 검증은 항상 valid)
+- 실패 주입: 프롬프트(일반/네거티브/캐릭터)에 `__mock_fail__` → 매번 실패(`NAI API error 500 ... Mock failure`), `__mock_fail_once__` → 같은 프롬프트의 첫 호출만 실패(재시도 테스트용)
+- 큐 UI 보강: 큐가 에러로 멈추면 큐 페이지 상단에 에러 배너(`data-queue-error`: 오류 메시지 + Retry/Skip). 마지막 남은 작업이 실패해도 진행 위젯/사이드바 위젯이 에러 상태로 계속 표시됨
+- 실행: `scripts/demo/start-demo.bat`은 `NAI_MOCK=1`, `NAI_MOCK_DELAY_MS=1500`, `STUDIO_DATA_DIR=demo/data`로 :3001 실행. 개발 서버 테스트(실제 `./data`와 분리):
+  ```bash
+  runtime/node/node.exe scripts/demo/seed.mjs --out demo-mock        # /demo-mock/ 은 .gitignore
+  NAI_MOCK=1 NAI_MOCK_DELAY_MS=1500 STUDIO_DATA_DIR=$PWD/demo-mock/data     runtime/node/node.exe node_modules/vite/bin/vite.js dev --port 3100 --strictPort
+  PW_CORE=<playwright-core> runtime/node/node.exe scripts/smoke/queue.mjs http://127.0.0.1:3100 demo-mock/data/studio.db
+  ```
+- `scripts/smoke/queue.mjs`는 MOCK 배지가 없거나 큐가 idle이 아니면 **실행을 거부**(exit 2). 큐 상태(일시정지/에러)는 서버 메모리에 남으므로 중단된 실행 뒤에는 서버를 재시작하고 다시 seed
 
 ## 주요 사용 플로우
 

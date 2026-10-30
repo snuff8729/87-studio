@@ -1,4 +1,8 @@
 import { randomUUID } from 'node:crypto'
+import { dirname, join } from 'node:path'
+import sharp from 'sharp'
+import { and, asc, eq, isNull } from 'drizzle-orm'
+import { dataPath } from '../data-dir'
 import {
   existsSync,
   mkdirSync,
@@ -7,13 +11,11 @@ import {
   rmSync,
   unlinkSync,
   writeFileSync,
-} from 'node:fs'
-import { dirname, join } from 'node:path'
-import sharp from 'sharp'
-import { and, asc, eq, isNull } from 'drizzle-orm'
+} from '../data-fs'
 import { db } from '../db'
 import { referenceImages } from '../db/schema'
 import { createLogger } from './logger'
+import { NAI_MOCK, mockEncodeVibe } from './nai-mock'
 
 const log = createLogger('reference')
 const REFERENCES_DIR = './data/references'
@@ -79,7 +81,7 @@ export async function generateReferenceThumbnail(
   thumbnailPath: string,
 ): Promise<void> {
   try {
-    await sharp(sourcePath)
+    await sharp(dataPath(sourcePath))
       .resize({
         width: 256,
         height: 256,
@@ -87,7 +89,7 @@ export async function generateReferenceThumbnail(
         withoutEnlargement: true,
       })
       .png()
-      .toFile(thumbnailPath)
+      .toFile(dataPath(thumbnailPath))
     log.info('thumbnail', 'Reference thumbnail generated', { thumbnailPath })
   } catch (error) {
     log.error(
@@ -111,7 +113,7 @@ const PRECISE_DIMENSIONS = [
 export async function processDirectorImage(filePath: string): Promise<string> {
   const processedPath = filePath.replace(/\.[^.]+$/, '_processed.png')
 
-  const metadata = await sharp(filePath).metadata()
+  const metadata = await sharp(dataPath(filePath)).metadata()
   const srcW = metadata.width || 1024
   const srcH = metadata.height || 1024
   const srcAspect = srcW / srcH
@@ -127,13 +129,13 @@ export async function processDirectorImage(filePath: string): Promise<string> {
     }
   }
 
-  await sharp(filePath)
+  await sharp(dataPath(filePath))
     .resize(best.w, best.h, {
       fit: 'contain',
       background: { r: 0, g: 0, b: 0 },
     })
     .png()
-    .toFile(processedPath)
+    .toFile(dataPath(processedPath))
 
   log.info('process', 'Director image processed', {
     filePath,
@@ -155,6 +157,15 @@ export async function encodeVibeImage(
   model: string,
   informationExtracted: number,
 ): Promise<string> {
+  const encodedPath = filePath.replace(/\.[^.]+$/, '_vibe.bin')
+
+  if (NAI_MOCK) {
+    const mockData = await mockEncodeVibe()
+    mkdirSync(dirname(encodedPath), { recursive: true })
+    writeFileSync(encodedPath, mockData)
+    return normalizePath(encodedPath)
+  }
+
   const imageBuffer = readFileSync(filePath)
   const imageBase64 = imageBuffer.toString('base64')
 
@@ -181,8 +192,6 @@ export async function encodeVibeImage(
   }
 
   const encodedData = new Uint8Array(await response.arrayBuffer())
-  const encodedPath = filePath.replace(/\.[^.]+$/, '_vibe.bin')
-
   mkdirSync(dirname(encodedPath), { recursive: true })
   writeFileSync(encodedPath, encodedData)
 

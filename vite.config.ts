@@ -8,6 +8,7 @@ import viteReact from '@vitejs/plugin-react'
 import viteTsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
+import { dataPath } from './src/server/data-dir'
 import type { Plugin } from 'vite'
 
 const CONTENT_TYPES: Record<string, string> = {
@@ -34,19 +35,19 @@ function serveDataFiles(): Plugin {
         let relativePath: string | null = null
 
         if (pathname.startsWith('/api/images/')) {
-          basePath = resolve('./data/images')
+          basePath = resolve(dataPath('./data/images'))
           relativePath = pathname.slice('/api/images/'.length)
         } else if (pathname.startsWith('/api/thumbnails/')) {
-          basePath = resolve('./data/thumbnails')
+          basePath = resolve(dataPath('./data/thumbnails'))
           relativePath = pathname.slice('/api/thumbnails/'.length)
         } else if (pathname.startsWith('/api/tag-images/')) {
-          basePath = resolve('./data/tag-images')
+          basePath = resolve(dataPath('./data/tag-images'))
           relativePath = pathname.slice('/api/tag-images/'.length)
         } else if (pathname.startsWith('/api/references/')) {
-          basePath = resolve('./data/references')
+          basePath = resolve(dataPath('./data/references'))
           relativePath = pathname.slice('/api/references/'.length)
         } else if (pathname.startsWith('/api/downloads/')) {
-          basePath = resolve('./data/downloads')
+          basePath = resolve(dataPath('./data/downloads'))
           relativePath = pathname.slice('/api/downloads/'.length)
         }
 

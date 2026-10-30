@@ -1,7 +1,10 @@
 // Demo data seeder. Recreates ./demo/ (git-ignored) with data/studio.db and
 // generated placeholder PNGs. Never touches ./data/. No NAI API key is stored.
 //
-// Usage: runtime/node/node.exe scripts/demo/seed.mjs
+// Usage: runtime/node/node.exe scripts/demo/seed.mjs [--out <dir>]
+//   --out  target dir (default ./demo; must be named demo* and live inside the repo).
+//          The DB/files go to <dir>/data, i.e. run a server with
+//          STUDIO_DATA_DIR=<dir>/data (or cwd=<dir>) to use them.
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -9,7 +12,16 @@ import Database from 'better-sqlite3'
 import sharp from 'sharp'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
-const DEMO = path.join(ROOT, 'demo')
+const outArg = process.argv.indexOf('--out')
+const DEMO =
+  outArg > 0 ? path.resolve(process.argv[outArg + 1]) : path.join(ROOT, 'demo')
+if (
+  !DEMO.startsWith(ROOT + path.sep) ||
+  !path.basename(DEMO).startsWith('demo')
+) {
+  console.error('--out must be a demo* directory inside the repo: ' + DEMO)
+  process.exit(1)
+}
 const DATA = path.join(DEMO, 'data')
 
 // ── deterministic RNG ──
