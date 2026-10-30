@@ -11,7 +11,7 @@ import {
   Upload01Icon,
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
-import { PageHeader } from '@/components/common/page-header'
+import { HeaderActions } from '@/components/layout/breadcrumb-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -184,54 +184,54 @@ function InspectPage() {
       {/* Image + Metadata view */}
       {imageUrl && (
         <div className="space-y-6">
-          <PageHeader
-            title={t('metadata.title')}
-            description={t('metadata.description')}
-            actions={
-              <div className="flex items-center gap-2">
-                {metadata && (
-                  <>
-                    <Button size="sm" onClick={() => setShowCreateDialog(true)}>
-                      <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        className="size-4 mr-1.5"
-                      />
+          <HeaderActions>
+            <>
+              {metadata && (
+                <>
+                  <Button size="sm" onClick={() => setShowCreateDialog(true)}>
+                    <HugeiconsIcon
+                      icon={ArrowRight01Icon}
+                      className="size-4 sm:mr-1.5"
+                    />
+                    <span className="hidden sm:inline">
                       {t('metadata.createProject')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowQuickDialog(true)}
-                    >
-                      <HugeiconsIcon
-                        icon={MagicWand01Icon}
-                        className="size-4 mr-1.5"
-                      />
+                    </span>
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setShowQuickDialog(true)}
+                  >
+                    <HugeiconsIcon
+                      icon={MagicWand01Icon}
+                      className="size-4 sm:mr-1.5"
+                    />
+                    <span className="hidden sm:inline">
                       {t('metadata.quickGenerate')}
-                    </Button>
-                  </>
-                )}
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <HugeiconsIcon
-                    icon={Upload01Icon}
-                    className="size-4 mr-1.5"
-                  />
-                  {t('common.replace')}
-                </Button>
-                <Button size="sm" variant="outline" onClick={handleClear}>
-                  <HugeiconsIcon
-                    icon={Cancel01Icon}
-                    className="size-4 mr-1.5"
-                  />
-                  {t('common.clear')}
-                </Button>
-              </div>
-            }
-          />
+                    </span>
+                  </Button>
+                </>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <HugeiconsIcon
+                  icon={Upload01Icon}
+                  className="size-4 sm:mr-1.5"
+                />
+                <span className="hidden sm:inline">{t('common.replace')}</span>
+              </Button>
+              <Button size="sm" variant="outline" onClick={handleClear}>
+                <HugeiconsIcon
+                  icon={Cancel01Icon}
+                  className="size-4 sm:mr-1.5"
+                />
+                <span className="hidden sm:inline">{t('common.clear')}</span>
+              </Button>
+            </>
+          </HeaderActions>
 
           {/* File info badge */}
           <div className="flex items-center gap-2">
@@ -881,7 +881,11 @@ function QuickGenerateDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t('metadata.quickGenerate')}</DialogTitle>
+          <DialogTitle>
+            <span className="hidden sm:inline">
+              {t('metadata.quickGenerate')}
+            </span>
+          </DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
@@ -954,7 +958,11 @@ function QuickGenerateDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {t('common.cancel')}
           </Button>
-          <Button onClick={handleApply}>{t('metadata.quickGenerate')}</Button>
+          <Button onClick={handleApply}>
+            <span className="hidden sm:inline">
+              {t('metadata.quickGenerate')}
+            </span>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

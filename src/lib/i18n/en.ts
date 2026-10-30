@@ -17,6 +17,10 @@ const en = {
     saving: 'Saving...',
     saveFailed: 'Save failed',
     replace: 'Replace',
+    exitSelectMode: 'Exit selection',
+    selectAll: 'Select all',
+    deselectAll: 'Deselect all',
+    selectedCount: '{{count}} selected',
     copied: 'Copied',
     gridSize: {
       small: 'S',

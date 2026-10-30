@@ -20,6 +20,10 @@ const ko: DeepStringify<typeof en> = {
     saving: '저장 중...',
     saveFailed: '저장 실패',
     replace: '교체',
+    exitSelectMode: '선택 종료',
+    selectAll: '전체 선택',
+    deselectAll: '전체 선택 해제',
+    selectedCount: '{{count}}개 선택됨',
     copied: '복사됨',
     gridSize: {
       small: 'S',

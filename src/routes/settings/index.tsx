@@ -2,7 +2,6 @@ import { createFileRoute } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import type { Locale } from '@/lib/i18n'
-import { PageHeader } from '@/components/common/page-header'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -21,14 +20,6 @@ import { useOnboardingMaybe } from '@/lib/onboarding'
 function PendingComponent() {
   return (
     <div>
-      {/* PageHeader */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="space-y-1.5">
-          <Skeleton className="h-6 w-16" />
-          <Skeleton className="h-4 w-44" />
-        </div>
-      </div>
-
       <div className="max-w-2xl space-y-6">
         {Array.from({ length: 3 }).map((_, i) => (
           <div key={i} className="rounded-xl border border-border">
@@ -207,11 +198,6 @@ function SettingsPage() {
 
   return (
     <div>
-      <PageHeader
-        title={t('settings.title')}
-        description={t('settings.description')}
-      />
-
       <div className="max-w-2xl space-y-6">
         <Card data-onboarding="api-key-section">
           <CardHeader>
