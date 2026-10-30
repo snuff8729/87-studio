@@ -31,8 +31,8 @@ export const KNOWN_SOURCE_HASHES: Readonly<
 > = {
   // "Stable Diffusion XL C1E1DE52" = NAI Diffusion Anime V3
   C1E1DE52: { id: 'nai-diffusion-3', assumed: null },
-  // "NovelAI Diffusion V5 0ADF9AB7": V5 confirmed from user samples, Full unverified
-  '0ADF9AB7': { id: 'nai-diffusion-5-full', assumed: 'full' },
+  // "NovelAI Diffusion V5 0ADF9AB7": V5 Full (NAID5F), confirmed by the user
+  '0ADF9AB7': { id: 'nai-diffusion-5-full', assumed: null },
 }
 
 function result(

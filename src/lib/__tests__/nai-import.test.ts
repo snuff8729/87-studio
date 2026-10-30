@@ -156,11 +156,11 @@ describe('detectNaiModel', () => {
     })
   })
 
-  it('maps the real V5 sample hash with Full still assumed', () => {
+  it('maps the real V5 sample hash to V5 Full', () => {
     expect(detectNaiModel('NovelAI Diffusion V5 0ADF9AB7')).toMatchObject({
       id: 'nai-diffusion-5-full',
       basis: 'source-hash',
-      assumed: 'full',
+      assumed: null,
     })
   })
 
