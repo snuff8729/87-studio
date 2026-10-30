@@ -10,6 +10,7 @@ import {
   RotateLeft01Icon,
 } from '@hugeicons/core-free-icons'
 import { ReserveStepper } from './scene-card'
+import { MoveToPackSub } from './project-pack-provider'
 import { selectAllState } from './scene-selection'
 import type { ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
@@ -47,6 +48,7 @@ export function SceneSelectionHeader({
   onApplyCount,
   onResetCount,
   onSaveTemplate,
+  onMoveToPack,
   onDelete,
   deleteImageCount,
   renderExport,
@@ -63,6 +65,8 @@ export function SceneSelectionHeader({
   onApplyCount: (count: number) => void
   onResetCount: () => void
   onSaveTemplate: () => void
+  /** Moves the checked scenes to the end of a pack */
+  onMoveToPack: (packId: number) => void
   onDelete: (deleteFiles: boolean) => Promise<void> | void
   /** Images of the checked scenes (shown in the delete dialog) */
   deleteImageCount: number
@@ -181,6 +185,7 @@ export function SceneSelectionHeader({
             <HugeiconsIcon icon={FileExportIcon} />
             {t('scene.convertToTemplate')}
           </DropdownMenuItem>
+          <MoveToPackSub onPick={onMoveToPack} />
           <DropdownMenuItem onSelect={onResetCount}>
             <HugeiconsIcon icon={RotateLeft01Icon} />
             {t('scene.resetCount')}

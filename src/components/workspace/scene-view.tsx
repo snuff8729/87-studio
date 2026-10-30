@@ -11,6 +11,7 @@ import {
   Exchange01Icon,
   FileExportIcon,
   Film02Icon,
+  FolderAddIcon,
   GridIcon,
   Image02Icon,
   ImageRemove01Icon,
@@ -23,7 +24,13 @@ import { PlaceholderEditor } from './placeholder-editor'
 import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
-import { SceneCard } from './scene-card'
+import { SceneCard, SceneMenuButton, SceneMenuItems } from './scene-card'
+import {
+  PackMenuItems,
+  PackRenameInput,
+  SceneMoveMenuItems,
+  usePackManage,
+} from './project-pack-provider'
 import { effectiveCollapsed } from './scene-rail'
 import { AddScenePopover } from './add-scene-popover'
 import { SceneSearchFilter } from './scene-search-filter'
@@ -604,6 +611,7 @@ export function SceneBoard({
   renderSelectionHeader,
 }: SceneBoardProps) {
   const { t } = useTranslation()
+  const { openNewPack } = usePackManage()
   // The selection grid (no close button) defaults to smaller cards
   const [size, setSize] = useSceneCardSize(
     projectId,
@@ -672,6 +680,17 @@ export function SceneBoard({
             <HugeiconsIcon icon={Tick02Icon} className="size-4" />
             <span className="hidden sm:inline">{t('scene.selectMode')}</span>
           </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => openNewPack()}
+            title={t('projectPacks.newPackItem')}
+          >
+            <HugeiconsIcon icon={FolderAddIcon} className="size-4" />
+            <span className="hidden sm:inline">
+              {t('projectPacks.newPackItem')}
+            </span>
+          </Button>
           <AddScenePopover
             config={addScene}
             align="end"
@@ -718,6 +737,7 @@ export function SceneBoard({
         ) : (
           <BoardGrid
             packs={packs}
+            addScene={addScene}
             collapsed={shownCollapsed}
             onToggleCollapsed={onToggleCollapsed}
             size={size}
@@ -784,6 +804,66 @@ function ScrollFade({
   )
 }
 
+function BoardPackHeader({
+  pack,
+  collapsed,
+  onToggle,
+}: {
+  pack: RailPack
+  collapsed: boolean
+  onToggle: (packId: number) => void
+}) {
+  const { renamingPackId } = usePackManage()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const renaming = renamingPackId === pack.id
+  return (
+    <div
+      data-pack-header={pack.id}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        setMenuOpen(true)
+      }}
+      className="group/pack flex h-7 max-w-full items-center gap-1"
+    >
+      {renaming ? (
+        <PackRenameInput
+          packId={pack.id}
+          initial={pack.name}
+          className="h-6 w-56 px-1.5 text-xs"
+        />
+      ) : (
+        <button
+          type="button"
+          onClick={() => onToggle(pack.id)}
+          aria-expanded={!collapsed}
+          className="flex h-7 min-w-0 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <HugeiconsIcon
+            icon={collapsed ? ArrowRight01Icon : ArrowDown01Icon}
+            className="size-3.5 shrink-0"
+          />
+          <span className="truncate">{pack.name}</span>
+          <span className="shrink-0 font-normal text-muted-foreground/70 tabular-nums">
+            · {pack.scenes.length}
+          </span>
+        </button>
+      )}
+      {!renaming && (
+        <SceneMenuButton
+          menu={<PackMenuItems packId={pack.id} />}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          className={cn(
+            'p-0.5',
+            !menuOpen &&
+              'opacity-0 group-hover/pack:opacity-100 focus-visible:opacity-100',
+          )}
+        />
+      )}
+    </div>
+  )
+}
+
 // ── BoardGrid (virtualized: pack headers + rows of cards) ──
 
 const BOARD_PADDING = 16
@@ -793,9 +873,11 @@ const BOARD_HEADER_HEIGHT = 28
 type BoardRow =
   | { kind: 'header'; key: string; pack: RailPack; collapsed: boolean }
   | { kind: 'cards'; key: string; scenes: Array<RailPack['scenes'][number]> }
+  | { kind: 'empty'; key: string; pack: RailPack }
 
 interface BoardGridProps {
   packs: Array<RailPack>
+  addScene: AddSceneConfig
   collapsed: ReadonlySet<number>
   onToggleCollapsed: (packId: number) => void
   size: SceneCardSize
@@ -811,6 +893,7 @@ interface BoardGridProps {
 
 function BoardGrid({
   packs,
+  addScene,
   collapsed,
   onToggleCollapsed,
   size,
@@ -823,6 +906,7 @@ function BoardGrid({
   checkedIds,
   onCheckedChange,
 }: BoardGridProps) {
+  const { t } = useTranslation()
   const scrollRef = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
 
@@ -854,6 +938,10 @@ function BoardGrid({
         collapsed: isCollapsed,
       })
       if (isCollapsed) continue
+      if (pack.scenes.length === 0) {
+        out.push({ kind: 'empty', key: `e${pack.id}`, pack })
+        continue
+      }
       for (let i = 0; i < pack.scenes.length; i += columns) {
         out.push({
           kind: 'cards',
@@ -925,21 +1013,36 @@ function BoardGrid({
                   ref={virtualizer.measureElement}
                   style={style}
                 >
-                  <button
-                    type="button"
-                    onClick={() => onToggleCollapsed(row.pack.id)}
-                    aria-expanded={!row.collapsed}
-                    className="flex h-7 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
-                  >
-                    <HugeiconsIcon
-                      icon={row.collapsed ? ArrowRight01Icon : ArrowDown01Icon}
-                      className="size-3.5"
-                    />
-                    {row.pack.name}
-                    <span className="font-normal text-muted-foreground/70 tabular-nums">
-                      · {row.pack.scenes.length}
-                    </span>
-                  </button>
+                  <BoardPackHeader
+                    pack={row.pack}
+                    collapsed={row.collapsed}
+                    onToggle={onToggleCollapsed}
+                  />
+                </div>
+              )
+            }
+            if (row.kind === 'empty') {
+              return (
+                <div
+                  key={v.key}
+                  data-index={v.index}
+                  ref={virtualizer.measureElement}
+                  style={style}
+                  className="pb-3"
+                >
+                  <AddScenePopover
+                    config={addScene}
+                    defaultPackId={row.pack.id}
+                    trigger={
+                      <button
+                        type="button"
+                        className="flex h-16 w-full items-center justify-center gap-1.5 rounded-lg border border-dashed text-sm text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                      >
+                        <HugeiconsIcon icon={Add01Icon} className="size-4" />
+                        {t('scene.addScene')}
+                      </button>
+                    }
+                  />
                 </div>
               )
             }
@@ -967,6 +1070,14 @@ function BoardGrid({
                       selected={scene.id === selectedSceneId}
                       onSelect={onSelect}
                       size={size}
+                      menu={
+                        <SceneMenuItems>
+                          <SceneMoveMenuItems
+                            sceneId={scene.id}
+                            packId={scene.packId}
+                          />
+                        </SceneMenuItems>
+                      }
                       selectMode={selectMode}
                       checked={checkedIds.has(scene.id)}
                       onCheckedChange={onCheckedChange}

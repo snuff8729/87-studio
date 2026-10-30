@@ -17,6 +17,7 @@ import {
   Cancel01Icon,
   DashboardSquare01Icon,
   Film02Icon,
+  FolderAddIcon,
   Image02Icon,
   MoreVerticalIcon,
   Search01Icon,
@@ -25,6 +26,12 @@ import {
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
 import { AddScenePopover } from './add-scene-popover'
+import {
+  PackMenuItems,
+  PackRenameInput,
+  SceneMoveMenuItems,
+  usePackManage,
+} from './project-pack-provider'
 import { CompactSelectionHeader } from './scene-selection-header'
 import { SceneSearchFilter } from './scene-search-filter'
 import {
@@ -268,7 +275,7 @@ export const SceneRail = memo(function SceneRail({
 
   const compact = compactProp && !isSheet
 
-  const visibleScenes = useMemo(() => packs.flatMap((p) => p.scenes), [packs])
+  const { openNewPack } = usePackManage()
 
   // ── Rename / delete (one dialog each, opened from item menus) ──
   const [renameTarget, setRenameTarget] = useState<SceneCardScene | null>(null)
@@ -322,7 +329,9 @@ export const SceneRail = memo(function SceneRail({
             setDeleteTarget(scene)
           }, 0)
         }
-      />
+      >
+        <SceneMoveMenuItems sceneId={scene.id} packId={scene.packId} />
+      </SceneMenuItems>
     ),
     [onDuplicateScene, onSceneCountChange],
   )
@@ -497,6 +506,12 @@ export const SceneRail = memo(function SceneRail({
                 <HugeiconsIcon icon={Film02Icon} />
                 {t('templates.title')}
               </DropdownMenuItem>
+              <DropdownMenuItem
+                onSelect={() => setTimeout(() => openNewPack(), 0)}
+              >
+                <HugeiconsIcon icon={FolderAddIcon} />
+                {t('projectPacks.newPackItem')}
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <div
                 className="flex items-center justify-between gap-3 px-2 py-1.5 text-sm"
@@ -537,7 +552,7 @@ export const SceneRail = memo(function SceneRail({
 
       {/* ── List ── */}
       <div className="min-h-0 flex-1">
-        {visibleScenes.length === 0 ? (
+        {packs.length === 0 ? (
           compact ? null : (
             <div className="flex h-full flex-col items-center justify-center gap-2 px-4 py-8 text-center">
               <HugeiconsIcon
@@ -561,6 +576,7 @@ export const SceneRail = memo(function SceneRail({
             collapsedPacks={shownCollapsed}
             onToggleCollapsed={onToggleCollapsed}
             compact={compact}
+            addScene={addScene}
             sceneCounts={sceneCounts}
             defaultCount={defaultCount}
             onSceneCountChange={onSceneCountChange}
@@ -666,6 +682,7 @@ interface RailListProps {
   collapsedPacks: ReadonlySet<number>
   onToggleCollapsed: (packId: number) => void
   compact: boolean
+  addScene: AddSceneConfig
   sceneCounts: Record<number, number>
   defaultCount: number
   onSceneCountChange: (sceneId: number, count: number | null) => void
@@ -682,10 +699,12 @@ interface RailListProps {
 type ListEntry =
   | { kind: 'header'; pack: RailPack; collapsed: boolean }
   | { kind: 'scene'; scene: SceneCardScene }
+  | { kind: 'empty'; pack: RailPack }
 
 const HEADER_HEIGHT = 28
 const HEADER_HEIGHT_COMPACT = 18
 const ROW_HEIGHT = 44
+const EMPTY_ROW_HEIGHT = 32
 
 function isTypingTarget(target: EventTarget | null): boolean {
   if (!(target instanceof HTMLElement)) return false
@@ -701,6 +720,7 @@ function RailList({
   collapsedPacks,
   onToggleCollapsed,
   compact,
+  addScene,
   sceneCounts,
   defaultCount,
   onSceneCountChange,
@@ -722,20 +742,33 @@ function RailList({
       out.push({ kind: 'header', pack, collapsed })
       if (!collapsed) {
         for (const scene of pack.scenes) out.push({ kind: 'scene', scene })
+        if (pack.scenes.length === 0 && !compact) {
+          out.push({ kind: 'empty', pack })
+        }
       }
     }
     return out
-  }, [packs, collapsedPacks])
+  }, [packs, collapsedPacks, compact])
 
   const headerHeight = compact ? HEADER_HEIGHT_COMPACT : HEADER_HEIGHT
   const virtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: (i) =>
-      entries[i].kind === 'header' ? headerHeight : ROW_HEIGHT,
+    estimateSize: (i) => {
+      const kind = entries[i].kind
+      return kind === 'header'
+        ? headerHeight
+        : kind === 'empty'
+          ? EMPTY_ROW_HEIGHT
+          : ROW_HEIGHT
+    },
     getItemKey: (i) => {
       const e = entries[i]
-      return e.kind === 'header' ? `p${e.pack.id}` : `s${e.scene.id}`
+      return e.kind === 'header'
+        ? `p${e.pack.id}`
+        : e.kind === 'empty'
+          ? `e${e.pack.id}`
+          : `s${e.scene.id}`
     },
     overscan: 8,
   })
@@ -802,6 +835,25 @@ function RailList({
               </div>
             )
           }
+          if (entry.kind === 'empty') {
+            return (
+              <div key={v.key} style={style} className="pb-0.5">
+                <AddScenePopover
+                  config={addScene}
+                  defaultPackId={entry.pack.id}
+                  trigger={
+                    <button
+                      type="button"
+                      className="flex h-full w-full items-center gap-1.5 rounded-md border border-dashed px-2 text-xs text-muted-foreground transition-colors hover:border-foreground/30 hover:text-foreground"
+                    >
+                      <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+                      {t('scene.addScene')}
+                    </button>
+                  }
+                />
+              </div>
+            )
+          }
           const { scene } = entry
           const override = sceneCounts[scene.id] as number | undefined
           const Row = compact ? CompactRailRow : RailRow
@@ -839,20 +891,40 @@ function PackHeader({
   onToggle: (packId: number) => void
 }) {
   const icon = collapsed ? ArrowRight01Icon : ArrowDown01Icon
+  const { renamingPackId } = usePackManage()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const renaming = renamingPackId === pack.id
+  const menu = <PackMenuItems packId={pack.id} />
+  const onContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault()
+    setMenuOpen(true)
+  }
   if (compact) {
     return (
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={() => onToggle(pack.id)}
-            aria-expanded={!collapsed}
-            aria-label={pack.name}
-            className="flex h-full w-full items-center gap-0.5 px-1 text-muted-foreground/70 hover:text-foreground"
+          <div
+            onContextMenu={onContextMenu}
+            data-pack-header={pack.id}
+            className="relative h-full w-full"
           >
-            <HugeiconsIcon icon={icon} className="size-3 shrink-0" />
-            <span className="h-px flex-1 bg-border" />
-          </button>
+            <button
+              type="button"
+              onClick={() => onToggle(pack.id)}
+              aria-expanded={!collapsed}
+              aria-label={pack.name}
+              className="flex h-full w-full items-center gap-0.5 px-1 text-muted-foreground/70 hover:text-foreground"
+            >
+              <HugeiconsIcon icon={icon} className="size-3 shrink-0" />
+              <span className="h-px flex-1 bg-border" />
+            </button>
+            <SceneMenuButton
+              menu={menu}
+              open={menuOpen}
+              onOpenChange={setMenuOpen}
+              className="pointer-events-none absolute inset-0 opacity-0"
+            />
+          </div>
         </TooltipTrigger>
         <TooltipContent side="right">
           {pack.name} · {pack.scenes.length}
@@ -861,18 +933,39 @@ function PackHeader({
     )
   }
   return (
-    <button
-      type="button"
-      onClick={() => onToggle(pack.id)}
-      aria-expanded={!collapsed}
-      className="flex h-full w-full items-center gap-1 rounded px-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+    <div
+      onContextMenu={onContextMenu}
+      data-pack-header={pack.id}
+      className="group/pack flex h-full w-full items-center rounded"
     >
-      <HugeiconsIcon icon={icon} className="size-3.5 shrink-0" />
-      <span className="truncate">{pack.name}</span>
-      <span className="shrink-0 font-normal text-muted-foreground/70 tabular-nums">
-        · {pack.scenes.length}
-      </span>
-    </button>
+      {renaming ? (
+        <PackRenameInput packId={pack.id} initial={pack.name} />
+      ) : (
+        <button
+          type="button"
+          onClick={() => onToggle(pack.id)}
+          aria-expanded={!collapsed}
+          className="flex h-full min-w-0 flex-1 items-center gap-1 px-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <HugeiconsIcon icon={icon} className="size-3.5 shrink-0" />
+          <span className="truncate">{pack.name}</span>
+          <span className="shrink-0 font-normal text-muted-foreground/70 tabular-nums">
+            · {pack.scenes.length}
+          </span>
+        </button>
+      )}
+      {!renaming && (
+        <SceneMenuButton
+          menu={menu}
+          open={menuOpen}
+          onOpenChange={setMenuOpen}
+          className={cn(
+            'p-0.5',
+            !menuOpen && 'hidden group-hover/pack:block focus-visible:block',
+          )}
+        />
+      )}
+    </div>
   )
 }
 

@@ -22,6 +22,7 @@ import type {
   SceneSortBy,
 } from '@/components/workspace/scene-filters'
 import type { RailPack } from '@/components/workspace/scene-rail'
+import type { PackInfo } from '@/components/workspace/project-pack-provider'
 import type {
   AddSceneConfig,
   AddSceneInput,
@@ -41,7 +42,18 @@ import {
   getWorkspaceData,
   listProjectJobs,
 } from '@/server/functions/workspace'
-import { assignScenePack, updateProject } from '@/server/functions/projects'
+import {
+  assignScenePack,
+  removeProjectScenePack,
+  updateProject,
+} from '@/server/functions/projects'
+import {
+  createProjectScenePack,
+  moveProjectScene,
+  moveProjectScenes,
+  renameProjectScenePack,
+  reorderProjectScenePack,
+} from '@/server/functions/project-scene-packs'
 import { createGenerationJob } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import {
@@ -88,6 +100,7 @@ import {
 } from '@/components/workspace/scene-filters'
 import { toSceneCardScene } from '@/components/workspace/scene-card'
 import { SceneSelectionHeader } from '@/components/workspace/scene-selection-header'
+import { ProjectPackProvider } from '@/components/workspace/project-pack-provider'
 import { ConvertToTemplateDialog } from '@/components/workspace/convert-to-template-dialog'
 import {
   selectAllState,
@@ -760,7 +773,7 @@ function WorkspacePage() {
         id: pack.id,
         name: pack.name,
         scenes: sortScenes(
-          pack.scenes.map((s) => toSceneCardScene(s, pack.name)),
+          pack.scenes.map((s) => toSceneCardScene(s, pack.name, pack.id)),
           sceneSortBy,
         ),
       })),
@@ -771,6 +784,8 @@ function WorkspacePage() {
     [sortedPacks],
   )
 
+  // Empty packs are groups of their own, unless a search / filter is active
+  const filtersActive = sceneFilter !== 'all' || sceneSearch.trim() !== ''
   const visiblePacks = useMemo<Array<RailPack>>(
     () =>
       sortedPacks
@@ -783,8 +798,15 @@ function WorkspacePage() {
             countPerScene,
           ),
         }))
-        .filter((pack) => pack.scenes.length > 0),
-    [sortedPacks, sceneSearch, sceneFilter, sceneCounts, countPerScene],
+        .filter((pack) => pack.scenes.length > 0 || !filtersActive),
+    [
+      sortedPacks,
+      sceneSearch,
+      sceneFilter,
+      sceneCounts,
+      countPerScene,
+      filtersActive,
+    ],
   )
 
   const filterCounts = useMemo(
@@ -935,6 +957,103 @@ function WorkspacePage() {
     [handleBulkDeleteScenes, checkedVisibleIds, exitSelectMode],
   )
 
+  // ── Project scene pack management ──
+  const packInfos = useMemo<Array<PackInfo>>(
+    () =>
+      scenePacks.map((pack) => ({
+        id: pack.id,
+        name: pack.name,
+        sceneIds: pack.scenes.map((s) => s.id),
+        sceneNames: pack.scenes.map((s) => s.name),
+        imageCount: pack.scenes.reduce((n, s) => n + s.recentImageCount, 0),
+      })),
+    [scenePacks],
+  )
+
+  const handleCreatePack = useCallback(
+    async (name: string) => {
+      const pack = await createProjectScenePack({ data: { projectId, name } })
+      await router.invalidate()
+      return { id: pack.id }
+    },
+    [projectId, router],
+  )
+  const handleRenamePack = useCallback(
+    async (id: number, name: string) => {
+      await renameProjectScenePack({ data: { projectId, id, name } })
+      await router.invalidate()
+    },
+    [projectId, router],
+  )
+  const handleMovePack = useCallback(
+    async (id: number, direction: 'up' | 'down') => {
+      try {
+        await reorderProjectScenePack({ data: { projectId, id, direction } })
+        await router.invalidate()
+      } catch {
+        toast.error(t('projectPacks.reorderFailed'))
+      }
+    },
+    [projectId, router, t],
+  )
+  const handleSavePackAsTemplate = useCallback(
+    (id: number) => {
+      const pack = scenePacks.find((p) => p.id === id)
+      if (pack) setConvertIds(pack.scenes.map((s) => s.id))
+    },
+    [scenePacks],
+  )
+  const handleDeletePack = useCallback(
+    async (id: number, deleteFiles: boolean) => {
+      const pack = scenePacks.find((p) => p.id === id)
+      for (const s of pack?.scenes ?? []) pendingSaves.discard(`scene:${s.id}`)
+      await removeProjectScenePack({ data: { id, projectId, deleteFiles } })
+      toast.success(t('projectPacks.deleted'))
+      await router.invalidate()
+    },
+    [scenePacks, pendingSaves, projectId, router, t],
+  )
+  const handleMoveScene = useCallback(
+    async (id: number, direction: 'up' | 'down') => {
+      try {
+        await moveProjectScene({ data: { projectId, id, direction } })
+        await router.invalidate()
+      } catch {
+        toast.error(t('projectPacks.reorderFailed'))
+      }
+    },
+    [projectId, router, t],
+  )
+  const handleMoveScenes = useCallback(
+    async (ids: Array<number>, packId: number) => {
+      // Appended in rail order
+      const order = new Map(allSceneIds.map((sid, i) => [sid, i]))
+      const sceneIds = [...ids].sort(
+        (a, b) => (order.get(a) ?? 0) - (order.get(b) ?? 0),
+      )
+      try {
+        const result = await moveProjectScenes({
+          data: { projectId, sceneIds, targetPackId: packId },
+        })
+        await router.invalidate()
+        if (collapsedPacks.has(packId)) toggleCollapsedPack(packId)
+        if (result.moved > 0) {
+          toast.success(
+            result.renamed > 0
+              ? t('projectPacks.movedRenamed', {
+                  count: result.moved,
+                  renamed: result.renamed,
+                })
+              : t('projectPacks.moved', { count: result.moved }),
+          )
+        }
+      } catch {
+        toast.error(t('projectPacks.moveFailed'))
+      }
+    },
+    [projectId, router, allSceneIds, collapsedPacks, toggleCollapsedPack, t],
+  )
+
   const renderSelectionHeader = useCallback(
     (end?: ReactNode) => (
       <SceneSelectionHeader
@@ -949,6 +1068,9 @@ function WorkspacePage() {
           for (const id of checkedVisibleIds) handleSceneCountChange(id, null)
         }}
         onSaveTemplate={() => setConvertIds(checkedVisibleIds)}
+        onMoveToPack={(packId) =>
+          void handleMoveScenes(checkedVisibleIds, packId)
+        }
         onDelete={handleBulkDelete}
         deleteImageCount={checkedImageCount}
         renderExport={(trigger) => (
@@ -969,6 +1091,7 @@ function WorkspacePage() {
       toggleAllChecked,
       handleSceneCountChange,
       handleBulkDelete,
+      handleMoveScenes,
       projectId,
       data.project.name,
     ],
@@ -1201,7 +1324,7 @@ function WorkspacePage() {
   }
 
   let center: ReactNode
-  if (railOrderScenes.length === 0) {
+  if (railOrderScenes.length === 0 && scenePacks.length === 0) {
     center = (
       <SceneEmptyState
         addScene={addSceneConfig}
@@ -1327,6 +1450,11 @@ function WorkspacePage() {
               imageSortBy={imageSortBy}
               onImageSortByChange={setImageSortBy}
             />
+          ) : railOrderScenes.length === 0 ? (
+            <SceneEmptyState
+              addScene={addSceneConfig}
+              onOpenScenePacks={openScenePacks}
+            />
           ) : null}
         </div>
       </div>
@@ -1335,228 +1463,243 @@ function WorkspacePage() {
 
   return (
     <PendingSavesProvider value={pendingSaves}>
-      <EditorShell
-        id="workspace"
-        mobilePane={mobilePane}
-        onMobilePaneChange={setMobilePane}
-        header={
-          <EditorHeader
-            title={
-              <WorkspaceTitle
-                projectId={projectId}
-                projectName={data.project.name}
-                thumbnailPath={data.projectThumbnailPath}
-                saveStatus={saveStatus}
-              />
-            }
-            actions={
-              <>
-                <ScenePackDialog
-                  projectId={projectId}
-                  open={packDialogOpen}
-                  onOpenChange={setPackDialogOpen}
-                />
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setImportOpen(true)}
-                  title={t('import.title')}
-                >
-                  <HugeiconsIcon icon={FileImportIcon} className="size-5" />
-                  <span className="hidden sm:inline">
-                    {t('workspace.importPreset')}
-                  </span>
-                </Button>
-                <DownloadDialog
-                  trigger={
-                    <Button variant="ghost" size="sm">
-                      <HugeiconsIcon icon={Download04Icon} className="size-5" />
-                      <span className="hidden sm:inline">
-                        {t('export.export')}
-                      </span>
-                    </Button>
-                  }
+      <ProjectPackProvider
+        packs={packInfos}
+        manualOrder={sceneSortBy === 'default'}
+        onCreatePack={handleCreatePack}
+        onRenamePack={handleRenamePack}
+        onMovePack={handleMovePack}
+        onSavePackAsTemplate={handleSavePackAsTemplate}
+        onDeletePack={handleDeletePack}
+        onMoveScene={handleMoveScene}
+        onMoveScenes={handleMoveScenes}
+      >
+        <EditorShell
+          id="workspace"
+          mobilePane={mobilePane}
+          onMobilePaneChange={setMobilePane}
+          header={
+            <EditorHeader
+              title={
+                <WorkspaceTitle
                   projectId={projectId}
                   projectName={data.project.name}
-                  availableScenes={availableScenes}
-                  filenameTemplate={
-                    params.filenameTemplate as string | undefined
+                  thumbnailPath={data.projectThumbnailPath}
+                  saveStatus={saveStatus}
+                />
+              }
+              actions={
+                <>
+                  <ScenePackDialog
+                    projectId={projectId}
+                    open={packDialogOpen}
+                    onOpenChange={setPackDialogOpen}
+                  />
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setImportOpen(true)}
+                    title={t('import.title')}
+                  >
+                    <HugeiconsIcon icon={FileImportIcon} className="size-5" />
+                    <span className="hidden sm:inline">
+                      {t('workspace.importPreset')}
+                    </span>
+                  </Button>
+                  <DownloadDialog
+                    trigger={
+                      <Button variant="ghost" size="sm">
+                        <HugeiconsIcon
+                          icon={Download04Icon}
+                          className="size-5"
+                        />
+                        <span className="hidden sm:inline">
+                          {t('export.export')}
+                        </span>
+                      </Button>
+                    }
+                    projectId={projectId}
+                    projectName={data.project.name}
+                    availableScenes={availableScenes}
+                    filenameTemplate={
+                      params.filenameTemplate as string | undefined
+                    }
+                  />
+                </>
+              }
+            />
+          }
+          tabs={[
+            {
+              id: 'prompt',
+              label: t('editor.tabPrompt'),
+              onboarding: 'prompt-tab',
+              content: (
+                <PromptPanel
+                  generalPrompt={generalPrompt}
+                  negativePrompt={negativePrompt}
+                  onGeneralPromptChange={handleGeneralPromptChange}
+                  onNegativePromptChange={handleNegativePromptChange}
+                />
+              ),
+            },
+            {
+              id: 'chars',
+              label: t('editor.tabCharacters'),
+              badge: data.characters.length,
+              content: (
+                <CharactersPanel
+                  projectId={projectId}
+                  characters={data.characters}
+                />
+              ),
+            },
+            {
+              id: 'refs',
+              label: t('editor.tabReferences'),
+              badge: enabledRefCount,
+              content: (
+                <ReferencePanel
+                  projectId={projectId}
+                  className="border-t-0 p-0"
+                  referenceMode={
+                    (params.referenceMode as 'none' | 'vibe' | 'precise') ??
+                    'none'
+                  }
+                  currentModel={
+                    (params.model as string) ?? 'nai-diffusion-4-5-full'
+                  }
+                  onReferenceModeChange={(mode) =>
+                    setParam('referenceMode', mode)
                   }
                 />
-              </>
-            }
-          />
-        }
-        tabs={[
-          {
-            id: 'prompt',
-            label: t('editor.tabPrompt'),
-            onboarding: 'prompt-tab',
-            content: (
-              <PromptPanel
-                generalPrompt={generalPrompt}
-                negativePrompt={negativePrompt}
-                onGeneralPromptChange={handleGeneralPromptChange}
-                onNegativePromptChange={handleNegativePromptChange}
-              />
-            ),
-          },
-          {
-            id: 'chars',
-            label: t('editor.tabCharacters'),
-            badge: data.characters.length,
-            content: (
-              <CharactersPanel
-                projectId={projectId}
-                characters={data.characters}
-              />
-            ),
-          },
-          {
-            id: 'refs',
-            label: t('editor.tabReferences'),
-            badge: enabledRefCount,
-            content: (
-              <ReferencePanel
-                projectId={projectId}
-                className="border-t-0 p-0"
-                referenceMode={
-                  (params.referenceMode as 'none' | 'vibe' | 'precise') ??
-                  'none'
-                }
-                currentModel={
-                  (params.model as string) ?? 'nai-diffusion-4-5-full'
-                }
-                onReferenceModeChange={(mode) =>
-                  setParam('referenceMode', mode)
-                }
-              />
-            ),
-          },
-          {
-            id: 'params',
-            label: t('editor.tabParameters'),
-            content: <ParameterForm localParams={params} set={setParam} />,
-          },
-        ]}
-        footer={
-          <div className="flex flex-col gap-2">
-            <GenerationProgress />
-            <div
-              className="flex items-center gap-2"
-              data-onboarding="generation-controls"
-            >
-              <div className="min-w-0 flex-1 truncate text-xs text-muted-foreground tabular-nums">
-                {t('workspace.reserveSummary', {
-                  scenes: summary.scenes,
-                  images: summary.images,
-                  sceneLabel: t(
-                    summary.scenes === 1
-                      ? 'workspace.sceneOne'
-                      : 'workspace.sceneMany',
-                  ),
-                  imageLabel: t(
-                    summary.images === 1
-                      ? 'workspace.imageOne'
-                      : 'workspace.imageMany',
-                  ),
-                })}
+              ),
+            },
+            {
+              id: 'params',
+              label: t('editor.tabParameters'),
+              content: <ParameterForm localParams={params} set={setParam} />,
+            },
+          ]}
+          footer={
+            <div className="flex flex-col gap-2">
+              <GenerationProgress />
+              <div
+                className="flex items-center gap-2"
+                data-onboarding="generation-controls"
+              >
+                <div className="min-w-0 flex-1 truncate text-xs text-muted-foreground tabular-nums">
+                  {t('workspace.reserveSummary', {
+                    scenes: summary.scenes,
+                    images: summary.images,
+                    sceneLabel: t(
+                      summary.scenes === 1
+                        ? 'workspace.sceneOne'
+                        : 'workspace.sceneMany',
+                    ),
+                    imageLabel: t(
+                      summary.images === 1
+                        ? 'workspace.imageOne'
+                        : 'workspace.imageMany',
+                    ),
+                  })}
+                </div>
+                <Button
+                  variant="brand"
+                  onClick={handleGenerateClick}
+                  disabled={!canGenerate || cooldown}
+                  title={t('workspace.generateShortcut')}
+                  className="shrink-0"
+                >
+                  <HugeiconsIcon icon={PlayIcon} className="size-5" />
+                  {t('generation.generateCount', { count: summary.images })}
+                </Button>
               </div>
-              <Button
-                variant="brand"
-                onClick={handleGenerateClick}
-                disabled={!canGenerate || cooldown}
-                title={t('workspace.generateShortcut')}
-                className="shrink-0"
-              >
-                <HugeiconsIcon icon={PlayIcon} className="size-5" />
-                {t('generation.generateCount', { count: summary.images })}
-              </Button>
             </div>
-          </div>
-        }
-        center={center}
-        rightTitle={
-          liveImages.length > 0
-            ? `${t('history.title')} · ${liveImages.length}`
-            : t('history.title')
-        }
-        right={
-          <HistoryStrip
-            images={liveImages}
-            selectedImageId={null}
-            onSelect={openImageDetail}
-            footer={
-              <Link
-                to="/gallery"
-                search={{ project: projectId, imageDetail: undefined }}
-                className="flex min-w-0 items-center gap-1 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:text-primary"
-              >
-                <span className="truncate">
-                  {t('quickGenerate.viewInGallery')}
-                </span>
-                <HugeiconsIcon
-                  icon={ArrowRight01Icon}
-                  className="size-4 shrink-0"
-                />
-              </Link>
-            }
-          />
-        }
-      />
-      <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={handleImported}
-      />
-      <Sheet open={scenesSheetOpen} onOpenChange={setScenesSheetOpen}>
-        <SheetContent
-          side="bottom"
-          showCloseButton={false}
-          className="gap-0 overflow-hidden rounded-t-xl p-0 data-[side=bottom]:h-[85dvh]"
-        >
-          <SheetHeader className="sr-only">
-            <SheetTitle>{t('sceneRail.title')}</SheetTitle>
-            <SheetDescription>{t('sceneRail.openScenes')}</SheetDescription>
-          </SheetHeader>
-          <SceneRail
-            {...railProps}
-            addScene={sheetAddSceneConfig}
-            variant="sheet"
-            onSelect={handleSheetSelect}
-            onOpenBoard={handleSheetOpenBoard}
-            onOpenScenePacks={handleSheetOpenScenePacks}
-            onOpenPalette={() => {
-              setScenesSheetOpen(false)
-              setPaletteOpen(true)
-            }}
-            onClose={() => setScenesSheetOpen(false)}
-            className="min-h-0 flex-1"
-          />
-        </SheetContent>
-      </Sheet>
-      <ScenePalette
-        open={paletteOpen}
-        onOpenChange={setPaletteOpen}
-        packs={sortedPacks}
-        sceneCounts={sceneCounts}
-        defaultCount={countPerScene}
-        selectedSceneId={selectedSceneId}
-        onSelect={(id) => {
-          exitSelectMode()
-          handleSceneSelect(id)
-        }}
-      />
-      <ConvertToTemplateDialog
-        open={convertIds !== null}
-        onOpenChange={(open) => {
-          if (!open) setConvertIds(null)
-        }}
-        scenes={(convertIds ?? []).map((id) => ({
-          id,
-          name: allScenes.find((sc) => sc.id === id)?.name ?? '',
-        }))}
-      />
+          }
+          center={center}
+          rightTitle={
+            liveImages.length > 0
+              ? `${t('history.title')} · ${liveImages.length}`
+              : t('history.title')
+          }
+          right={
+            <HistoryStrip
+              images={liveImages}
+              selectedImageId={null}
+              onSelect={openImageDetail}
+              footer={
+                <Link
+                  to="/gallery"
+                  search={{ project: projectId, imageDetail: undefined }}
+                  className="flex min-w-0 items-center gap-1 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:text-primary"
+                >
+                  <span className="truncate">
+                    {t('quickGenerate.viewInGallery')}
+                  </span>
+                  <HugeiconsIcon
+                    icon={ArrowRight01Icon}
+                    className="size-4 shrink-0"
+                  />
+                </Link>
+              }
+            />
+          }
+        />
+        <ImportDialog
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          onImported={handleImported}
+        />
+        <Sheet open={scenesSheetOpen} onOpenChange={setScenesSheetOpen}>
+          <SheetContent
+            side="bottom"
+            showCloseButton={false}
+            className="gap-0 overflow-hidden rounded-t-xl p-0 data-[side=bottom]:h-[85dvh]"
+          >
+            <SheetHeader className="sr-only">
+              <SheetTitle>{t('sceneRail.title')}</SheetTitle>
+              <SheetDescription>{t('sceneRail.openScenes')}</SheetDescription>
+            </SheetHeader>
+            <SceneRail
+              {...railProps}
+              addScene={sheetAddSceneConfig}
+              variant="sheet"
+              onSelect={handleSheetSelect}
+              onOpenBoard={handleSheetOpenBoard}
+              onOpenScenePacks={handleSheetOpenScenePacks}
+              onOpenPalette={() => {
+                setScenesSheetOpen(false)
+                setPaletteOpen(true)
+              }}
+              onClose={() => setScenesSheetOpen(false)}
+              className="min-h-0 flex-1"
+            />
+          </SheetContent>
+        </Sheet>
+        <ScenePalette
+          open={paletteOpen}
+          onOpenChange={setPaletteOpen}
+          packs={sortedPacks}
+          sceneCounts={sceneCounts}
+          defaultCount={countPerScene}
+          selectedSceneId={selectedSceneId}
+          onSelect={(id) => {
+            exitSelectMode()
+            handleSceneSelect(id)
+          }}
+        />
+        <ConvertToTemplateDialog
+          open={convertIds !== null}
+          onOpenChange={(open) => {
+            if (!open) setConvertIds(null)
+          }}
+          scenes={(convertIds ?? []).map((id) => ({
+            id,
+            name: allScenes.find((sc) => sc.id === id)?.name ?? '',
+          }))}
+        />
+      </ProjectPackProvider>
     </PendingSavesProvider>
   )
 }

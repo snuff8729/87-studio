@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
   characterSceneOverrides,
@@ -16,6 +16,7 @@ export const listProjectScenePacks = createServerFn({ method: 'GET' })
       .select()
       .from(projectScenePacks)
       .where(eq(projectScenePacks.projectId, projectId))
+      .orderBy(asc(projectScenePacks.sortOrder), asc(projectScenePacks.id))
       .all()
 
     const result = []
@@ -24,7 +25,7 @@ export const listProjectScenePacks = createServerFn({ method: 'GET' })
         .select()
         .from(projectScenes)
         .where(eq(projectScenes.projectScenePackId, pack.id))
-        .orderBy(projectScenes.sortOrder)
+        .orderBy(asc(projectScenes.sortOrder), asc(projectScenes.id))
         .all()
       result.push({ ...pack, scenes: sceneList })
     }
@@ -108,6 +109,10 @@ export const addProjectScene = createServerFn({ method: 'POST' })
             .select()
             .from(projectScenePacks)
             .where(eq(projectScenePacks.projectId, data.projectId))
+            .orderBy(
+              asc(projectScenePacks.sortOrder),
+              asc(projectScenePacks.id),
+            )
             .get()
       if (pack && pack.projectId !== data.projectId) {
         throw new Error('Pack not found')
@@ -200,12 +205,6 @@ export const addProjectScene = createServerFn({ method: 'POST' })
 export const deleteProjectScene = createServerFn({ method: 'POST' })
   .inputValidator((data: { id: number; deleteFiles?: boolean }) => data)
   .handler(async ({ data: { id: projectSceneId, deleteFiles = false } }) => {
-    const scene = db
-      .select({ projectScenePackId: projectScenes.projectScenePackId })
-      .from(projectScenes)
-      .where(eq(projectScenes.id, projectSceneId))
-      .get()
-
     // Collect file paths before cascade delete
     const files = db
       .select({
@@ -219,21 +218,6 @@ export const deleteProjectScene = createServerFn({ method: 'POST' })
     db.delete(projectScenes).where(eq(projectScenes.id, projectSceneId)).run()
     // Kept files become orphans (cleaned up via Settings > Storage)
     if (deleteFiles) deleteImageFiles(files)
-
-    // If parent pack has no remaining scenes, delete it too
-    if (scene) {
-      const remaining = db
-        .select({ count: sql<number>`count(*)` })
-        .from(projectScenes)
-        .where(eq(projectScenes.projectScenePackId, scene.projectScenePackId))
-        .get()
-
-      if ((remaining?.count ?? 0) === 0) {
-        db.delete(projectScenePacks)
-          .where(eq(projectScenePacks.id, scene.projectScenePackId))
-          .run()
-      }
-    }
 
     return { success: true }
   })
@@ -347,19 +331,6 @@ export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })
       db.delete(projectScenes).where(eq(projectScenes.id, sceneId)).run()
       if (deleteFiles) deleteImageFiles(files)
       deletedCount++
-
-      // If parent pack has no remaining scenes, delete it too
-      const remaining = db
-        .select({ count: sql<number>`count(*)` })
-        .from(projectScenes)
-        .where(eq(projectScenes.projectScenePackId, scene.projectScenePackId))
-        .get()
-
-      if ((remaining?.count ?? 0) === 0) {
-        db.delete(projectScenePacks)
-          .where(eq(projectScenePacks.id, scene.projectScenePackId))
-          .run()
-      }
     }
 
     return { success: true, deletedCount }
