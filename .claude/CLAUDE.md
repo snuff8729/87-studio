@@ -168,25 +168,32 @@ src/
 │   │   ├── placeholder-highlight.ts  # @{slot:name} 하이라이팅
 │   │   ├── weight-highlight.ts    # 가중치 구문 하이라이팅
 │   │   ├── editor-context-menu.tsx   # 우클릭 컨텍스트 메뉴
-│   │   ├── expanded-editor-dialog.tsx  # 전체 화면 편집 다이얼로그
+│   │   ├── expanded-editor-dialog.tsx  # 전체 화면 편집 다이얼로그 (에디터가 본문 높이를 채움, 빈 영역 클릭 → 포커스, 헤더에 태그 갤러리 버튼)
 │   │   └── theme.ts               # 커스텀 다크 테마
 │   ├── tag-gallery/           # 태그 갤러리 컴포넌트
 │   │   ├── tag-gallery-content.tsx  # 태그 갤러리 콘텐츠
-│   │   └── tag-gallery-dialog.tsx   # 태그 갤러리 다이얼로그
+│   │   ├── tag-gallery-dialog.tsx   # 태그 갤러리 다이얼로그 (container 지정 시 Radix 다이얼로그 내부에 렌더)
+│   │   └── use-tag-gallery.tsx      # useTagGallery() 훅 + appendTag (모든 프롬프트 입력의 태그 버튼 공용)
 │   ├── queue/                 # 큐 컴포넌트
 │   │   └── queue-status-widget.tsx  # 큐 상태 위젯
 │   └── workspace/             # 워크스페이스 컴포넌트
 │       ├── workspace-title.tsx    # 헤더 타이틀 (썸네일, 이름 변경, 저장 상태)
-│       ├── prompt-panel.tsx       # 프롬프트 편집 (section: 'prompt' | 'characters')
-│       ├── scene-rail.tsx         # SceneRail (중앙 좌측 씬 목록: 216px/56px, 검색, 필터 칩, 팩 그룹, 가상 스크롤, 선택 모드) + useRailCompact/useCollapsedPacks
-│       ├── scene-rail-prefs.ts    # 레일 너비 선택(87studio-scene-rail:<id>), shouldCompact(<720px), 접힌 그룹(87studio-scene-groups-collapsed:<id>)
+│       ├── prompt-panel.tsx       # 프로젝트 프롬프트 편집 (general/negative)
+│       ├── characters-panel.tsx   # Chars 탭: 로컬 draft + 디바운스 저장 + pending-saves 등록 (공용 CharactersEditor 사용)
+│       ├── scene-rail.tsx         # SceneRail (중앙 좌측 씬 목록: 216px/56px, 검색+필터, 팩 그룹, 가상 스크롤) + useRailCompact/useCollapsedPacks. 선택 상태는 라우트가 소유
+│       ├── scene-rail-prefs.ts    # 레일 너비 수동 토글(87studio-scene-rail:<id>, 기본 expanded), 접힌 그룹(87studio-scene-groups-collapsed:<id>)
+│       ├── scene-search-filter.tsx # 검색 입력 + 입력 안 필터 버튼/칩/드롭다운 (레일·보드 공용)
+│       ├── add-scene-popover.tsx  # ＋ 씬 추가 Popover (이름, 팩, 현재 씬 값 복사) — 레일/보드/빈 상태/모바일 시트 공용
+│       ├── scene-add.ts           # defaultAddPackId, isDuplicateSceneName
+│       ├── scene-selection.ts     # setChecked, visibleChecked, selectAllState (순수)
+│       ├── scene-selection-header.tsx # 선택 헤더(✕·전체선택·n selected·장수/내보내기/⋯) + CompactSelectionHeader
 │       ├── scene-filters.ts       # filterScenes/countByFilter (All·Reserved·No images), sortScenes
 │       ├── scene-palette.tsx      # Ctrl/Cmd+K 씬 팔레트 (cmdk)
 │       ├── scene-palette-shortcut.ts  # Ctrl/Cmd+K 단축키 (macOS는 Cmd만, 다이얼로그 열림 시 무시)
 │       ├── scene-board-prefs.ts   # 보드 카드 크기 (87studio-scene-board-size:<id>)
 │       ├── scene-card.tsx         # SceneCard, ReserveStepper, SceneMenuItems/SceneMenuButton (레일·보드 공용)
 │       ├── reserve-summary.ts     # 예약 합계 (씬 수, 이미지 수)
-│       ├── scene-view.tsx         # SceneView (선택 씬) + SceneBoard (보드 모드, 팩 그룹) + SceneEmptyState
+│       ├── scene-view.tsx         # SceneView (선택 씬) + SceneBoard (보드 모드 / 씬 모드 선택 그리드, 팩 그룹) + SceneEmptyState
 │       ├── scene-detail.tsx       # 씬 이미지 그리드 (정렬, 선택 모드, 일괄 작업)
 │       ├── placeholder-editor.tsx # 플레이스홀더 값 에디터 (800ms 디바운스, 씬 전환 시 flush)
 │       ├── placeholder-save-plan.ts  # 로컬 편집 → 저장 JSON 계산
@@ -214,7 +221,7 @@ src/
 │   └── functions/             # Server Functions (20개)
 │       ├── settings.ts        # API 키, 딜레이 설정
 │       ├── projects.ts        # 프로젝트 CRUD
-│       ├── characters.ts      # 캐릭터 관리
+│       ├── characters.ts      # 캐릭터 관리 (생성/수정/삭제/복제/순서 이동)
 │       ├── scene-packs.ts     # 글로벌 씬 팩 관리
 │       ├── scenes.ts          # 글로벌 씬 관리
 │       ├── project-scenes.ts  # 프로젝트별 씬 스냅샷
@@ -460,10 +467,12 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 좌측 탭 (빠른 생성과 동일): Prompt(general/negative) · Chars(캐릭터 프롬프트, 추가/삭제) · Refs(활성 참조 수 배지) · Params
 - 고정 푸터: 진행률 + "N scenes · M images" + Generate M (Ctrl/Cmd+Enter)
 - 중앙 씬 모드(기본): `[SceneRail | SceneView]`
-  - SceneRail: 헤더(Scenes N, ▦ 보드, ＋ 씬 추가, ⋯ 정렬/선택 모드/씬 템플릿/Default ×N/자동 너비, 너비 토글), 검색(`?q=`), 필터 칩 All·Reserved·No images, 팩 그룹(접기 상태 저장), 행 = 썸네일·이름·예약 스테퍼·메뉴(호버 "…"/우클릭), ↑/↓ 선택 이동(replace), 선택 모드(일괄 장수/내보내기/템플릿/삭제)
-  - 너비: 216px / 56px(compact: 썸네일+장수 배지, 이름 툴팁). 사용자 선택이 없으면 중앙 폭 <720px에서 자동 compact, 명시 선택은 저장되어 우선
+  - SceneRail: 헤더(Scenes N, ▦ 보드, ＋ 씬 추가, ⋯ 정렬/선택 모드/씬 템플릿/Default ×N, 너비 토글), 검색(`?q=`) 입력 안에 필터 버튼(All=아이콘만, 활성=라벨 칩 Reserved/No images, 클릭 → All·Reserved·No images 드롭다운 + 개수), 팩 그룹(접기 상태 저장), 행 = 썸네일·이름·예약 스테퍼·메뉴(호버 "…"/우클릭), ↑/↓ 선택 이동(replace)
+  - ＋ 씬 추가: Popover(이름 · 팩 Select(기본=선택 씬의 팩) · "현재 씬 값 복사" 체크(플레이스홀더+캐릭터 오버라이드) · Cancel/Add). 같은 팩에 중복 이름이면 인라인 에러. 추가 후 새 씬 선택(`?scene=`, push)·레일 스크롤·접힌 팩 펼침·필터 해제. `addProjectScene`이 `packId`/`copyFromSceneId`/중복 검사(`DUPLICATE_SCENE_NAME`) 지원
+  - 선택 모드: 선택 상태(`checkedIds`)는 워크스페이스 라우트가 소유해 레일·보드가 공유. 켜면 레일 헤더가 선택 헤더(✕ · 전체선택 체크박스 · "n selected" · 장수 설정 Popover · 내보내기 · ⋯ 템플릿/기본 장수로/삭제(확인))로 바뀌고(한 줄 유지, n=0이면 액션 비활성), 씬 모드 중앙은 SceneView 대신 **선택 그리드**(보드 카드 그리드 + 체크박스, 레일 검색·필터 반영, 카드 크기 슬라이더, 같은 선택 헤더)가 표시된다. 종료하면 선택한 씬의 SceneView로 복귀. compact 레일은 ✕+개수 배지만(액션은 중앙 헤더)
+  - 너비: 216px / 56px(compact: 썸네일+장수 배지, 이름 툴팁). **수동 토글만**(자동 compact 없음), 선택은 프로젝트별 저장(`87studio-scene-rail:<id>`), 기본 expanded
   - SceneView (`?scene=<id>`): 이름 변경, 비교, 토너먼트, 템플릿 변환, 썸네일 초기화, 접이식 플레이스홀더, 이미지 그리드(`imageSort`). 선택 없음·잘못된 id·삭제된 씬 → 레일 순서 첫 씬 자동 선택(replace)
-- 보드 모드 (`?view=board`): 레일 숨김, 팩별 카드 그리드 + 검색/필터 칩/카드 크기 슬라이더/닫기. 카드 클릭 → 해당 씬으로 씬 모드 복귀
+- 보드 모드 (`?view=board`): 레일 숨김, 팩별 카드 그리드 + 검색+필터(레일과 같은 컴포넌트)/카드 크기 슬라이더/선택/＋ 씬 추가/닫기. 카드 클릭 → 해당 씬으로 씬 모드 복귀. 선택 모드에서는 툴바가 선택 헤더로 대체되고 카드 클릭은 체크 토글
 - 씬 0개: 빈 상태(씬 템플릿 / 씬 추가), 레일 숨김
 - Ctrl/Cmd+K: 씬 팔레트 (이름·팩 검색, Enter로 선택; 프롬프트 에디터 안에서도 동작, 다른 다이얼로그가 열려 있으면 무시)
 - 모바일: Result 패널 상단 "Scenes ▾ {현재 씬}" → 하단 Sheet에 전체 레일(선택 시 닫힘, 헤더에서 보드 진입)
@@ -511,6 +520,13 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 태그 북마크 컬렉션 관리
 - 북마크별 참고 이미지 갤러리
 
+### 캐릭터 편집 (Quick Generate Chars 탭 / 워크스페이스 Chars 탭 공용 `CharactersEditor`)
+
+- 헤더 "Characters n", 칩 탭(캐릭터당 1개, 선택=primary 소프트) + "＋ Add" 칩 + 선택 캐릭터 ⋯ 메뉴(Rename·Duplicate·Move left/right·Delete 확인). Add는 이름 입력 없이 "Character N"을 즉시 만들고 선택 + 이름 필드 포커스
+- 본문: Name 입력, Prompt(태그 갤러리 + 확장) 에디터(최소 ~8줄), Negative는 접이식(비어 있으면 기본 접힘 + "(empty)")
+- 0개: 안내 문구 + Add 버튼
+- 워크스페이스: `characters-panel.tsx`가 debounced 저장·pending-saves flush·삭제/방금 추가 안전 처리를 유지하고, 순서 이동은 `moveCharacter`(UNIQUE(project_id, slot_index)를 임시 인덱스로 우회, 한 트랜잭션), 복제는 `duplicateCharacter`(프롬프트/네거티브 + character_scene_overrides 복사). Quick Generate는 로컬 배열(`src/lib/characters.ts`의 moveItem/nextCharacterName/duplicateName)
+
 ### 프롬프트 에디터 (CodeMirror 6)
 
 - 단부루(Danbooru) 태그 자동완성 (`/danbooru-tags.json`)
@@ -519,7 +535,8 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 존재하지 않는 참조 경고 하이라이팅
 - 가중치 구문 하이라이팅
 - 우클릭 컨텍스트 메뉴 (태그 정보, 복사, 삭제, Danbooru 페이지)
-- 전체 화면 확장 편집
+- 전체 화면 확장 편집 (에디터가 다이얼로그 본문 높이를 채움, 헤더에 태그 갤러리 버튼)
+- 모든 프롬프트 입력(Quick Generate prompt/negative/캐릭터, 워크스페이스 prompt/negative/캐릭터, 플레이스홀더)에 태그 갤러리 버튼 (`useTagGallery`)
 - general_prompt, negative_prompt, char_prompt, char_negative 모두에 적용
 
 ### 반응형 디자인
