@@ -2,6 +2,8 @@ import { createServerFn } from '@tanstack/react-start'
 import { db } from '../db'
 import { characters, projects } from '../db/schema'
 import { createLogger } from '../services/logger'
+import type { PositionSpec } from '@/lib/character-positions'
+import { encodePosition } from '@/lib/character-positions'
 
 const log = createLogger('fn.inspect')
 
@@ -17,6 +19,7 @@ export const createProjectFromMetadata = createServerFn({ method: 'POST' })
         name: string
         charPrompt: string
         charNegative?: string
+        position?: PositionSpec
       }>
     }) => data,
   )
@@ -47,6 +50,7 @@ export const createProjectFromMetadata = createServerFn({ method: 'POST' })
               name: char.name,
               charPrompt: char.charPrompt,
               charNegative: char.charNegative ?? '',
+              position: encodePosition(char.position, true),
             })
             .run()
         }

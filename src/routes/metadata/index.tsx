@@ -650,6 +650,7 @@ function CreateProjectDialog({
             name: c.name,
             charPrompt: c.prompt,
             charNegative: c.negative,
+            position: c.position,
           })),
         },
       })

@@ -33,9 +33,11 @@ import type {
   SceneViewScene,
 } from '@/components/workspace/scene-view'
 import type { SaveStatus } from '@/components/workspace/workspace-title'
+import type { ScenePositionSpec } from '@/lib/character-positions'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
+import { positionCanvas } from '@/lib/character-positions'
 import { DEFAULT_NAI_MODEL } from '@/lib/nai-models'
 import {
   getRecentImages,
@@ -64,6 +66,7 @@ import {
   duplicateProjectScene,
   getAllCharacterOverrides,
   renameProjectScene,
+  setCharacterPositionOverride,
   updateProjectScene,
 } from '@/server/functions/project-scenes'
 import { EditorShell } from '@/components/editor-shell/editor-shell'
@@ -493,6 +496,7 @@ function WorkspacePage() {
           projectSceneId: o.projectSceneId,
           characterId: o.characterId,
           placeholders: o.placeholders ?? '{}',
+          position: o.position,
         })
       }
       setCharacterOverrides(grouped)
@@ -1066,6 +1070,51 @@ function WorkspacePage() {
     [projectId, router, allSceneIds, collapsedPacks, toggleCollapsedPack, t],
   )
 
+  const positionCanvasConfig = positionCanvas(params)
+  const bulkPositions = useMemo(
+    () =>
+      positionCanvasConfig && data.characters.length > 0
+        ? {
+            characters: data.characters.map((c) => ({
+              id: c.id,
+              name: c.name,
+              position: c.position,
+            })),
+            aspect: positionCanvasConfig.aspect,
+            onApply: async (
+              characterId: number,
+              position: ScenePositionSpec,
+            ) => {
+              try {
+                await setCharacterPositionOverride({
+                  data: {
+                    projectSceneIds: checkedVisibleIds,
+                    characterId,
+                    position: position.mode === 'inherit' ? null : position,
+                  },
+                })
+                toast.success(
+                  t('positions.bulkSuccess', {
+                    count: checkedVisibleIds.length,
+                  }),
+                )
+                await loadCharacterOverrides()
+              } catch (err) {
+                toast.error(t('positions.saveFailed'))
+                throw err
+              }
+            },
+          }
+        : undefined,
+    [
+      positionCanvasConfig && positionCanvasConfig.aspect,
+      data.characters,
+      checkedVisibleIds,
+      loadCharacterOverrides,
+      t,
+    ],
+  )
+
   const renderSelectionHeader = useCallback(
     (end?: ReactNode) => (
       <SceneSelectionHeader
@@ -1085,6 +1134,7 @@ function WorkspacePage() {
         }
         onDelete={handleBulkDelete}
         deleteImageCount={checkedImageCount}
+        positions={bulkPositions}
         renderExport={(trigger) => (
           <DownloadDialog
             trigger={trigger}
@@ -1452,6 +1502,7 @@ function WorkspacePage() {
               }
               generalPlaceholderKeys={stableGeneralKeys}
               characterPlaceholderKeys={characterPlaceholderKeys}
+              positions={positionCanvas(params)}
               getPrompts={getPrompts}
               onPlaceholdersChange={handlePlaceholdersChange}
               onRenameScene={handleRenameScene}
@@ -1564,6 +1615,7 @@ function WorkspacePage() {
                 <CharactersPanel
                   projectId={projectId}
                   characters={data.characters}
+                  positions={positionCanvas(params)}
                 />
               ),
             },

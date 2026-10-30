@@ -1,3 +1,5 @@
+import { DEFAULT_NAI_MODEL, getModelProfile } from './nai-models'
+
 export type PositionMode = 'ai' | 'random' | 'fixed'
 
 export interface PositionSpec {
@@ -180,4 +182,16 @@ export function encodePosition(
   if (!spec || spec.mode === 'inherit') return null
   if (nullAi && spec.mode === 'ai') return null
   return JSON.stringify(normalizePositionSpec(spec))
+}
+
+/** Canvas config for the pickers; false when the model has no character positions (V3) */
+export function positionCanvas(params: {
+  model?: string
+  width?: number
+  height?: number
+}): { aspect: number } | false {
+  if (getModelProfile(params.model ?? DEFAULT_NAI_MODEL) === 'v3') return false
+  const w = params.width && params.width > 0 ? params.width : 832
+  const h = params.height && params.height > 0 ? params.height : 1216
+  return { aspect: w / h }
 }

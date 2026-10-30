@@ -1,8 +1,12 @@
+import type { PositionSpec } from '@/lib/character-positions'
+
 export interface CharacterEntry {
   id: string
   name: string
   prompt: string
   negative: string
+  /** Absent = ai */
+  position?: PositionSpec
 }
 
 export interface QuickGenerateState {

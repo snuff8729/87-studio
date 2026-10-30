@@ -48,6 +48,7 @@ export function ImportMetadataDialog({
         name: c.name,
         prompt: c.prompt,
         negative: c.negative,
+        position: c.position,
       })),
       parameters: out.parameters,
     })

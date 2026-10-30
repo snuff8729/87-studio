@@ -38,6 +38,7 @@ import { useTranslation } from '@/lib/i18n'
 import { duplicateName, moveItem, nextCharacterName } from '@/lib/characters'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
 import { mergeImportedParameters } from '@/lib/nai-import'
+import { parsePositionSpec, positionCanvas } from '@/lib/character-positions'
 import { DEFAULT_NAI_MODEL } from '@/lib/nai-models'
 import {
   createQuickGenerationJob,
@@ -216,6 +217,7 @@ function QuickGeneratePage() {
               name: c.name || `Character ${i + 1}`,
               prompt: c.prompt || c.charPrompt || '',
               negative: c.negative || c.charNegative || '',
+              position: parsePositionSpec(c.position) ?? undefined,
             }),
           )
         }
@@ -327,6 +329,7 @@ function QuickGeneratePage() {
             name: c.name,
             prompt: c.prompt,
             negative: c.negative,
+            position: c.position,
           })),
           parameters: state.parameters,
           count: state.count,
@@ -567,6 +570,7 @@ function QuickGeneratePage() {
                 moveCharacter={moveCharacter}
                 removeCharacter={removeCharacter}
                 updateCharacter={updateCharacter}
+                positions={positionCanvas(state.parameters)}
               />
             ),
           },

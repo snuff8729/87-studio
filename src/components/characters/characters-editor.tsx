@@ -7,6 +7,8 @@ import {
   BookmarkCheck01Icon,
   MoreVerticalIcon,
 } from '@hugeicons/core-free-icons'
+import { CharacterPositionField } from './character-position-field'
+import type { PositionSpec } from '@/lib/character-positions'
 import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { LazyPromptEditor } from '@/components/quick-generate/lazy-prompt-editor'
@@ -36,12 +38,14 @@ export interface CharacterItem<TId extends string | number> {
   name: string
   prompt: string
   negative: string
+  position: PositionSpec
 }
 
 export interface CharacterPatch {
   name?: string
   prompt?: string
   negative?: string
+  position?: PositionSpec
 }
 
 interface CharactersEditorProps<TId extends string | number> {
@@ -57,6 +61,8 @@ interface CharactersEditorProps<TId extends string | number> {
   onDelete: (id: TId) => void | Promise<void>
   /** Workspace: highlight @{slot:..} names in the prompts and list them */
   slots?: boolean
+  /** Show the position row (false for V3 models); aspect = width / height of the canvas */
+  positions?: { aspect: number } | false
 }
 
 export function CharactersEditor<TId extends string | number>({
@@ -68,6 +74,7 @@ export function CharactersEditor<TId extends string | number>({
   onMove,
   onDelete,
   slots,
+  positions,
 }: CharactersEditorProps<TId>) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState<TId | null>(
@@ -237,6 +244,8 @@ export function CharactersEditor<TId extends string | number>({
           onUpdate={(patch) => onUpdate(selected.id, patch)}
           onNameBlur={() => onNameBlur?.(selected.id)}
           slots={slots}
+          positions={positions}
+          index={selectedIndex + 1}
         />
       )}
 
@@ -261,12 +270,16 @@ function CharacterBody<TId extends string | number>({
   onUpdate,
   onNameBlur,
   slots,
+  positions,
+  index,
 }: {
   character: CharacterItem<TId>
   nameInputRef: React.RefObject<HTMLInputElement | null>
   onUpdate: (patch: CharacterPatch) => void
   onNameBlur?: () => void
   slots?: boolean
+  positions?: { aspect: number } | false
+  index: number
 }) {
   const { t } = useTranslation()
   const bundleNames = useBundleNames()
@@ -304,6 +317,16 @@ function CharacterBody<TId extends string | number>({
           className="h-8 text-sm"
         />
       </div>
+
+      {positions && (
+        <CharacterPositionField
+          name={name}
+          index={index}
+          position={character.position}
+          aspect={positions.aspect}
+          onChange={(position) => onUpdate({ position })}
+        />
+      )}
 
       <div className="space-y-1.5">
         <PromptEditorHeader
