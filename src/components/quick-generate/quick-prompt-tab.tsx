@@ -1,13 +1,14 @@
 import { useState } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowExpand01Icon } from '@hugeicons/core-free-icons'
 import { LazyPromptEditor } from './lazy-prompt-editor'
 import type { QuickGenerateState } from './types'
-import { Button } from '@/components/ui/button'
-import { Label } from '@/components/ui/label'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
+import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
+import {
+  appendTag,
+  useTagGallery,
+} from '@/components/tag-gallery/use-tag-gallery'
 
 export function QuickPromptTab({
   state,
@@ -18,6 +19,7 @@ export function QuickPromptTab({
 }) {
   const { t } = useTranslation()
   const bundleNames = useBundleNames()
+  const tagGallery = useTagGallery()
   const [expand, setExpand] = useState<'general' | 'negative' | null>(null)
 
   const expandValue =
@@ -38,19 +40,19 @@ export function QuickPromptTab({
     <div className="space-y-3">
       {/* General Prompt */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('quickGenerate.prompt')}
-          </Label>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setExpand('general')}
-            title={t('workspace.expandEditor')}
-          >
-            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-          </Button>
-        </div>
+        <PromptEditorHeader
+          label={t('quickGenerate.prompt')}
+          uppercase
+          onExpand={() => setExpand('general')}
+          onOpenTagGallery={() =>
+            tagGallery.openFor((tag) =>
+              setState((prev) => ({
+                ...prev,
+                generalPrompt: appendTag(prev.generalPrompt, tag),
+              })),
+            )
+          }
+        />
         <LazyPromptEditor
           value={state.generalPrompt}
           onChange={(v) => setState((prev) => ({ ...prev, generalPrompt: v }))}
@@ -62,19 +64,19 @@ export function QuickPromptTab({
 
       {/* Negative Prompt */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('quickGenerate.negativePrompt')}
-          </Label>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => setExpand('negative')}
-            title={t('workspace.expandEditor')}
-          >
-            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-          </Button>
-        </div>
+        <PromptEditorHeader
+          label={t('quickGenerate.negativePrompt')}
+          uppercase
+          onExpand={() => setExpand('negative')}
+          onOpenTagGallery={() =>
+            tagGallery.openFor((tag) =>
+              setState((prev) => ({
+                ...prev,
+                negativePrompt: appendTag(prev.negativePrompt, tag),
+              })),
+            )
+          }
+        />
         <LazyPromptEditor
           value={state.negativePrompt}
           onChange={(v) => setState((prev) => ({ ...prev, negativePrompt: v }))}
@@ -100,6 +102,7 @@ export function QuickPromptTab({
         onChange={expandOnChange}
         bundleNames={bundleNames}
       />
+      {tagGallery.dialog}
     </div>
   )
 }

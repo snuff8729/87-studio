@@ -529,6 +529,8 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
   // ── Prompt Preview (throttled) ──
   const [previewOpen, setPreviewOpen] = useState(false)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const previewScrolledRef = useRef(false)
   const [resolvedPrompts, setResolvedPrompts] = useState<{
     general: string
     negative: string
@@ -628,6 +630,22 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     const interval = setInterval(compute, 2000)
     return () => clearInterval(interval)
   }, [previewOpen, getPrompts])
+
+  // Scroll the preview fully into view once, after its content first renders
+  useEffect(() => {
+    if (!previewOpen) {
+      previewScrolledRef.current = false
+      return
+    }
+    if (!resolvedPrompts || previewScrolledRef.current) return
+    previewScrolledRef.current = true
+    requestAnimationFrame(() => {
+      previewRef.current?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      })
+    })
+  }, [previewOpen, resolvedPrompts])
 
   const hasPromptKeys =
     generalPlaceholderKeys.length > 0 ||
@@ -1204,7 +1222,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       {getPrompts && (
         <>
           <div className="border-t border-border/50 my-1" />
-          <div>
+          <div ref={previewRef}>
             <button
               onClick={() => setPreviewOpen(!previewOpen)}
               className="w-full flex items-center justify-between text-left py-1"
