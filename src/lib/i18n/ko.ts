@@ -36,9 +36,12 @@ const ko: DeepStringify<typeof en> = {
     bundles: '번들',
     tags: '태그',
     settings: '설정',
-    groupCreate: '생성',
+    groupCreate: '만들기',
     groupLibrary: '라이브러리',
     mainNavigation: '메인 내비게이션',
+    toggleSidebar: '사이드바 토글',
+    sidebarTitle: '내비게이션',
+    sidebarDescription: '앱 내비게이션을 표시합니다.',
   },
   error: {
     occurred: '오류가 발생했습니다',

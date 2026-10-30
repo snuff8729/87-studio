@@ -2,9 +2,7 @@ import * as React from 'react'
 import { useRouterState } from '@tanstack/react-router'
 import { shouldAutoCollapse } from './nav-items'
 import { useSidebar } from '@/components/ui/sidebar'
-
-/** Must match MOBILE_BREAKPOINT in hooks/use-mobile.ts */
-const MOBILE_BREAKPOINT = 768
+import { MOBILE_BREAKPOINT } from '@/hooks/use-mobile'
 
 /**
  * Collapses the desktop sidebar once when entering an editor route and closes

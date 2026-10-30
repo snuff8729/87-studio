@@ -32,6 +32,7 @@ function NavMenuItem({
   badge?: number
 }) {
   const { t } = useTranslation()
+  const { isMobile, setOpenMobile } = useSidebar()
   const label = t(item.key)
   const hasBadge = badge != null && badge > 0
   return (
@@ -45,6 +46,9 @@ function NavMenuItem({
           to={item.to}
           search={{ imageDetail: undefined }}
           aria-current={isActive ? 'page' : undefined}
+          onClick={() => {
+            if (isMobile) setOpenMobile(false)
+          }}
         >
           <HugeiconsIcon icon={item.icon} />
           <span>{label}</span>

@@ -31,7 +31,8 @@ export const darkTheme = EditorView.theme(
       backgroundColor: 'var(--accent)',
     },
     '.cm-selectionBackground': {
-      backgroundColor: 'color-mix(in oklab, var(--primary) 20%, transparent) !important',
+      backgroundColor:
+        'color-mix(in oklab, var(--primary) 20%, transparent) !important',
     },
     '.cm-line': {
       padding: '0 8px',
@@ -82,15 +83,29 @@ export const darkTheme = EditorView.theme(
     // Hide completion icons, color labels by type
     '.cm-completionIcon': { display: 'none' },
     // Slot — brand
-    '.cm-completionIcon-property + .cm-completionLabel': { color: '#ffb3c2' },
+    '.cm-completionIcon-property + .cm-completionLabel': {
+      color: 'var(--chart-4)',
+    },
     // Bundle — teal
-    '.cm-completionIcon-variable + .cm-completionLabel': { color: 'oklch(0.75 0.08 200)' },
+    '.cm-completionIcon-variable + .cm-completionLabel': {
+      color: 'oklch(0.75 0.08 200)',
+    },
     // Danbooru categories
-    '.cm-completionIcon-tag-general + .cm-completionLabel': { color: 'oklch(0.75 0.08 250)' },
-    '.cm-completionIcon-tag-artist + .cm-completionLabel': { color: 'oklch(0.75 0.12 25)' },
-    '.cm-completionIcon-tag-copyright + .cm-completionLabel': { color: 'oklch(0.75 0.12 310)' },
-    '.cm-completionIcon-tag-character + .cm-completionLabel': { color: 'oklch(0.75 0.12 145)' },
-    '.cm-completionIcon-tag-meta + .cm-completionLabel': { color: '#c9c9cf' },
+    '.cm-completionIcon-tag-general + .cm-completionLabel': {
+      color: 'oklch(0.75 0.08 250)',
+    },
+    '.cm-completionIcon-tag-artist + .cm-completionLabel': {
+      color: 'oklch(0.75 0.12 25)',
+    },
+    '.cm-completionIcon-tag-copyright + .cm-completionLabel': {
+      color: 'oklch(0.75 0.12 310)',
+    },
+    '.cm-completionIcon-tag-character + .cm-completionLabel': {
+      color: 'oklch(0.75 0.12 145)',
+    },
+    '.cm-completionIcon-tag-meta + .cm-completionLabel': {
+      color: 'var(--secondary-foreground)',
+    },
     // Bundle hover tooltip — compact card
     '.cm-tooltip-bundle-preview': {
       backgroundColor: 'var(--popover)',

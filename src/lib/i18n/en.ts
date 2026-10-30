@@ -36,6 +36,9 @@ const en = {
     groupCreate: 'Create',
     groupLibrary: 'Library',
     mainNavigation: 'Main navigation',
+    toggleSidebar: 'Toggle sidebar',
+    sidebarTitle: 'Navigation',
+    sidebarDescription: 'Displays the app navigation.',
   },
   error: {
     occurred: 'An error occurred',

@@ -104,7 +104,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 ```
 src/
 ├── routes/                    # TanStack Router 파일 기반 라우팅
-│   ├── __root.tsx             # 루트 레이아웃 (사이드바, 하단 네비게이션, I18nProvider)
+│   ├── __root.tsx             # 루트 레이아웃 (SidebarProvider 앱 셸, 브레드크럼 헤더, I18nProvider)
 │   ├── index.tsx              # 대시보드 (프로젝트 목록, 진행 상태)
 │   ├── workspace/
 │   │   └── $projectId/
