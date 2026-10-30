@@ -151,7 +151,16 @@ export function ScenePositionsSection({
     return run
   }, [])
 
-  usePendingSave({ flush, key: `scene-positions:${sceneId}` })
+  // Scene deletion discards via discard('scene:<id>') without a stray save
+  usePendingSave({
+    flush,
+    key: `scene:${sceneId}`,
+    discard: () => {
+      clearTimeout(timerRef.current)
+      timerRef.current = undefined
+      pendingRef.current.clear()
+    },
+  })
 
   useEffect(() => {
     return () => {

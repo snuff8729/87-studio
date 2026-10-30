@@ -112,7 +112,6 @@ function getNextJob(): { jobId: number; batchId: number } | null {
   return row ? { jobId: row.jobId, batchId: row.batchId } : null
 }
 
-/** Get next max queue_order for batches */
 /** Positions for one image; undefined for models without character prompts support */
 function resolveImagePositions(
   prompts: ResolvedPrompts,
@@ -126,6 +125,7 @@ function resolveImagePositions(
   )
 }
 
+/** Get next max queue_order for batches */
 export function getNextBatchOrder(): number {
   const row = db
     .select({

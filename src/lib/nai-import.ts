@@ -186,7 +186,8 @@ export interface NaiImportPrompts {
 
 /** use_coords true → Fixed at the caption center; otherwise AI */
 function importedPosition(metadata: NAIMetadata, index: number): PositionSpec {
-  const center = metadata.v4_prompt?.caption?.char_captions?.[index]?.centers[0]
+  const center =
+    metadata.v4_prompt?.caption?.char_captions?.[index]?.centers?.[0]
   if (metadata.v4_prompt?.use_coords !== true || !center) return { mode: 'ai' }
   return normalizePositionSpec({ mode: 'fixed', x: center.x, y: center.y })
 }
