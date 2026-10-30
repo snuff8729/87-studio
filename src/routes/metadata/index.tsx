@@ -7,9 +7,11 @@ import {
   ArrowRight01Icon,
   Cancel01Icon,
   Copy01Icon,
+  ImageUploadIcon,
   MagicWand01Icon,
   Upload01Icon,
 } from '@hugeicons/core-free-icons'
+import type { ReactNode } from 'react'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import { HeaderActions } from '@/components/layout/breadcrumb-context'
 import { HeaderButton } from '@/components/layout/header-button'
@@ -18,7 +20,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   Dialog,
   DialogContent,
@@ -29,15 +31,27 @@ import {
 import { getUcPresetLabel, parseMetadataFromFile } from '@/lib/nai-metadata'
 import { createProjectFromMetadata } from '@/server/functions/inspect'
 import { useTranslation } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 
 export const Route = createFileRoute('/metadata/')({
   component: InspectPage,
 })
 
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
 function InspectPage() {
   const [metadata, setMetadata] = useState<NAIMetadata | null>(null)
   const [imageUrl, setImageUrl] = useState<string | null>(null)
   const [fileName, setFileName] = useState<string | null>(null)
+  const [fileSize, setFileSize] = useState(0)
+  const [naturalSize, setNaturalSize] = useState<{
+    w: number
+    h: number
+  } | null>(null)
   const [parsing, setParsing] = useState(false)
   const [dragging, setDragging] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
@@ -55,7 +69,9 @@ function InspectPage() {
 
       setParsing(true)
       setMetadata(null)
+      setNaturalSize(null)
       setFileName(file.name)
+      setFileSize(file.size)
 
       // Create preview URL
       if (imageUrl) URL.revokeObjectURL(imageUrl)
@@ -118,12 +134,16 @@ function InspectPage() {
   function handleClear() {
     setMetadata(null)
     setFileName(null)
+    setNaturalSize(null)
     if (imageUrl) {
       URL.revokeObjectURL(imageUrl)
       setImageUrl(null)
     }
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  const width = metadata?.width ?? naturalSize?.w
+  const height = metadata?.height ?? naturalSize?.h
 
   return (
     <div>
@@ -157,34 +177,34 @@ function InspectPage() {
         }}
       />
 
-      {/* Empty state — centered in viewport */}
+      {/* Empty state: a drop zone filling the content area */}
       {!imageUrl && (
-        <div className="flex flex-col items-center justify-center min-h-[60vh]">
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className="flex flex-col items-center justify-center gap-4 p-16 w-full max-w-lg border-2 border-dashed rounded-xl cursor-pointer transition-colors border-border hover:border-muted-foreground/50 hover:bg-accent/30"
-          >
-            <div className="size-14 rounded-2xl bg-muted flex items-center justify-center">
-              <HugeiconsIcon
-                icon={Upload01Icon}
-                className="size-7 text-muted-foreground"
-              />
-            </div>
-            <div className="text-center">
-              <p className="text-base font-medium">
-                {t('metadata.dropOrClick')}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t('metadata.supportsNai')}
-              </p>
-            </div>
+        <button
+          type="button"
+          data-metadata-dropzone
+          onClick={() => fileInputRef.current?.click()}
+          className="flex min-h-[calc(100svh-8rem)] w-full cursor-pointer flex-col items-center justify-center gap-4 rounded-xl border-2 border-dashed border-border p-8 transition-colors hover:border-primary/50 hover:bg-accent/30 focus-visible:border-primary focus-visible:outline-none"
+        >
+          <div className="flex size-16 items-center justify-center rounded-2xl bg-muted">
+            <HugeiconsIcon
+              icon={ImageUploadIcon}
+              className="size-8 text-muted-foreground"
+            />
           </div>
-        </div>
+          <div className="text-center">
+            <p className="text-base font-medium">
+              {t('metadata.dropOrChoose')}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('metadata.supportsNai')}
+            </p>
+          </div>
+        </button>
       )}
 
       {/* Image + Metadata view */}
       {imageUrl && (
-        <div className="space-y-6">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
           <HeaderActions>
             <>
               {metadata && (
@@ -218,17 +238,6 @@ function InspectPage() {
               )}
               <HeaderButton
                 variant="outline"
-                aria-label={t('common.replace')}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <HugeiconsIcon
-                  icon={Upload01Icon}
-                  className="size-4 sm:mr-1.5"
-                />
-                <span className="hidden sm:inline">{t('common.replace')}</span>
-              </HeaderButton>
-              <HeaderButton
-                variant="outline"
                 aria-label={t('common.clear')}
                 onClick={handleClear}
               >
@@ -241,54 +250,76 @@ function InspectPage() {
             </>
           </HeaderActions>
 
-          {/* File info badge */}
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground truncate">
-              {fileName}
-            </span>
-            {metadata?.source && (
-              <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground shrink-0">
-                {metadata.source === 'text_chunk'
-                  ? 'tEXt Chunk'
-                  : 'Stealth Alpha'}
-              </span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-            {/* Image preview */}
-            <div className="bg-black/20 rounded-xl flex items-center justify-center p-4 min-h-64 max-h-[70vh]">
+          {/* Image preview */}
+          <div
+            data-metadata-preview
+            className="flex min-w-0 flex-col gap-3 lg:sticky lg:top-[72px] lg:self-start"
+          >
+            <div className="flex max-h-[40vh] items-center justify-center overflow-hidden rounded-xl border bg-background p-3 lg:max-h-[calc(100svh-15rem)]">
               <img
                 src={imageUrl}
-                alt=""
+                alt={fileName ?? ''}
                 draggable={false}
-                className="max-h-full max-w-full object-contain rounded"
+                onLoad={(e) =>
+                  setNaturalSize({
+                    w: e.currentTarget.naturalWidth,
+                    h: e.currentTarget.naturalHeight,
+                  })
+                }
+                className="max-h-[calc(40vh-1.5rem)] max-w-full rounded object-contain lg:max-h-[calc(100svh-17.5rem)]"
               />
             </div>
-
-            {/* Metadata panel */}
-            <div className="space-y-4 overflow-y-auto max-h-[70vh] pr-1">
-              {parsing && (
-                <div className="flex items-center gap-3 p-6">
-                  <div className="size-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-sm text-muted-foreground">
-                    {t('metadata.parsingMetadata')}
-                  </span>
-                </div>
-              )}
-
-              {!parsing && !metadata && (
-                <Card>
-                  <CardContent className="py-8 text-center">
-                    <p className="text-sm text-muted-foreground">
-                      {t('metadata.noMetadataFound')}
-                    </p>
-                  </CardContent>
-                </Card>
-              )}
-
-              {metadata && <MetadataViewer metadata={metadata} />}
+            <div className="flex items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p
+                  className="truncate text-sm font-medium"
+                  title={fileName ?? ''}
+                >
+                  {fileName}
+                </p>
+                <p className="text-xs text-muted-foreground tabular-nums">
+                  {formatFileSize(fileSize)}
+                  {width != null && height != null && ` · ${width} × ${height}`}
+                  {metadata?.source &&
+                    ` · ${
+                      metadata.source === 'text_chunk'
+                        ? 'tEXt Chunk'
+                        : 'Stealth Alpha'
+                    }`}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                data-metadata-replace
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <HugeiconsIcon icon={Upload01Icon} className="size-4" />
+                {t('common.replace')}
+              </Button>
             </div>
+          </div>
+
+          {/* Metadata panel */}
+          <div className="min-w-0">
+            {parsing && (
+              <div className="flex items-center gap-3 p-6">
+                <div className="size-5 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
+                <span className="text-sm text-muted-foreground">
+                  {t('metadata.parsingMetadata')}
+                </span>
+              </div>
+            )}
+
+            {!parsing && !metadata && (
+              <div className="rounded-xl border border-dashed py-12 text-center">
+                <p className="text-sm text-muted-foreground">
+                  {t('metadata.noMetadataFound')}
+                </p>
+              </div>
+            )}
+
+            {metadata && <MetadataViewer key={fileName} metadata={metadata} />}
           </div>
         </div>
       )}
@@ -313,36 +344,45 @@ function InspectPage() {
 
 // ─── Metadata Viewer ──────────────────────────────────────────────────────
 
+function CopyButton({ text, label }: { text: string; label: string }) {
+  const { t } = useTranslation()
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={() => {
+        navigator.clipboard.writeText(text)
+        toast.success(t('common.copied'))
+      }}
+      className="shrink-0 rounded p-1 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+    >
+      <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
+    </button>
+  )
+}
+
 function PromptBlock({
   label,
   text,
-  maxHeight = 'max-h-40',
+  maxHeight = 'max-h-64',
 }: {
   label: string
   text: string
   maxHeight?: string
 }) {
   const { t } = useTranslation()
-
-  function handleCopy() {
-    navigator.clipboard.writeText(text)
-    toast.success(t('common.copied'))
-  }
-
   return (
     <div>
-      <div className="flex items-center justify-between mb-1">
+      <div className="mb-1 flex items-center justify-between">
         <Label className="text-xs text-muted-foreground">{label}</Label>
-        <button
-          type="button"
-          onClick={handleCopy}
-          className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
-        >
-          <HugeiconsIcon icon={Copy01Icon} className="size-3.5" />
-        </button>
+        <CopyButton text={text} label={`${t('common.copy')}: ${label}`} />
       </div>
       <p
-        className={`text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md ${maxHeight} overflow-y-auto`}
+        className={cn(
+          'overflow-y-auto whitespace-pre-wrap rounded-md border bg-secondary/30 p-3 font-mono text-[13px] leading-relaxed text-foreground/85',
+          maxHeight,
+        )}
       >
         {text}
       </p>
@@ -351,188 +391,219 @@ function PromptBlock({
 }
 
 function MetadataViewer({ metadata }: { metadata: NAIMetadata }) {
-  const hasV4Chars =
-    metadata.v4_prompt?.caption?.char_captions &&
-    metadata.v4_prompt.caption.char_captions.length > 0
+  const { t } = useTranslation()
+  const chars = metadata.v4_prompt?.caption?.char_captions ?? []
+  const hasChars = chars.length > 0
+  const hasRefs = !!(metadata.hasVibeTransfer || metadata.hasCharacterReference)
+  const rawJson = metadata.raw ? JSON.stringify(metadata.raw, null, 2) : ''
 
   return (
-    <div className="space-y-4">
-      {/* Model & Basic */}
-      {metadata.model && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Model</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm font-mono text-foreground/80">
-              {metadata.model}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+    <Tabs defaultValue="prompt" data-metadata-tabs className="gap-4">
+      <TabsList className="h-auto max-w-full flex-wrap justify-start">
+        <TabsTrigger value="prompt">{t('metadata.tabPrompt')}</TabsTrigger>
+        {hasChars && (
+          <TabsTrigger value="characters">
+            {t('metadata.tabCharacters')}
+            <span className="ml-1 text-xs tabular-nums text-muted-foreground">
+              {chars.length}
+            </span>
+          </TabsTrigger>
+        )}
+        <TabsTrigger value="parameters">
+          {t('metadata.tabParameters')}
+        </TabsTrigger>
+        {hasRefs && (
+          <TabsTrigger value="references">
+            {t('metadata.tabReferences')}
+          </TabsTrigger>
+        )}
+        {rawJson && (
+          <TabsTrigger value="raw">{t('metadata.tabRaw')}</TabsTrigger>
+        )}
+      </TabsList>
 
-      {/* Prompts */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Prompts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {metadata.prompt && (
-            <PromptBlock label="Positive" text={metadata.prompt} />
-          )}
-          {metadata.negativePrompt && (
-            <PromptBlock
-              label="Negative"
-              text={metadata.negativePrompt}
-              maxHeight="max-h-32"
-            />
-          )}
-        </CardContent>
-      </Card>
+      <TabsContent value="prompt" className="space-y-4">
+        {metadata.prompt ? (
+          <PromptBlock label={t('metadata.positive')} text={metadata.prompt} />
+        ) : null}
+        {metadata.negativePrompt ? (
+          <PromptBlock
+            label={t('metadata.negative')}
+            text={metadata.negativePrompt}
+            maxHeight="max-h-48"
+          />
+        ) : null}
+        {!metadata.prompt && !metadata.negativePrompt && (
+          <p className="text-sm text-muted-foreground">
+            {t('metadata.noPrompt')}
+          </p>
+        )}
+      </TabsContent>
 
-      {/* V4 Character Captions */}
-      {hasV4Chars && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Character Prompts (V4)</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {metadata.v4_prompt!.caption!.char_captions!.map((char, i) => {
-              const negChar =
-                metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-              return (
-                <div key={i} className="space-y-2">
+      {hasChars && (
+        <TabsContent value="characters" className="space-y-5">
+          {chars.map((char, i) => {
+            const negChar =
+              metadata.v4_negative_prompt?.caption?.char_captions?.[i]
+            return (
+              <div key={i} className="space-y-2">
+                <PromptBlock
+                  label={`${t('metadata.character')} ${i + 1}${char.centers.length > 0 ? ` (${char.centers.map((c) => `${c.x.toFixed(2)}, ${c.y.toFixed(2)}`).join(' | ')})` : ''}`}
+                  text={char.char_caption}
+                  maxHeight="max-h-40"
+                />
+                {negChar?.char_caption && (
                   <PromptBlock
-                    label={`Character ${i + 1}${char.centers.length > 0 ? ` (${char.centers.map((c) => `${c.x.toFixed(2)}, ${c.y.toFixed(2)}`).join(' | ')})` : ''}`}
-                    text={char.char_caption}
+                    label={`${t('metadata.character')} ${i + 1} ${t('metadata.negative')}`}
+                    text={negChar.char_caption}
                     maxHeight="max-h-32"
                   />
-                  {negChar?.char_caption && (
-                    <PromptBlock
-                      label={`Character ${i + 1} Negative`}
-                      text={negChar.char_caption}
-                      maxHeight="max-h-24"
-                    />
-                  )}
-                </div>
-              )
-            })}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Generation Parameters */}
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-sm">Parameters</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-sm">
-            {metadata.width != null && metadata.height != null && (
-              <ParamRow
-                label="Resolution"
-                value={`${metadata.width} x ${metadata.height}`}
-              />
-            )}
-            {metadata.steps != null && (
-              <ParamRow label="Steps" value={metadata.steps} />
-            )}
-            {metadata.cfgScale != null && (
-              <ParamRow label="CFG Scale" value={metadata.cfgScale} />
-            )}
-            {metadata.cfgRescale != null && metadata.cfgRescale > 0 && (
-              <ParamRow label="CFG Rescale" value={metadata.cfgRescale} />
-            )}
-            {metadata.seed != null && (
-              <ParamRow label="Seed" value={metadata.seed} />
-            )}
-            {metadata.sampler && (
-              <ParamRow label="Sampler" value={metadata.sampler} />
-            )}
-            {metadata.scheduler && (
-              <ParamRow label="Scheduler" value={metadata.scheduler} />
-            )}
-            {metadata.smea != null && (
-              <ParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />
-            )}
-            {metadata.smeaDyn != null && (
-              <ParamRow
-                label="SMEA DYN"
-                value={metadata.smeaDyn ? 'On' : 'Off'}
-              />
-            )}
-            {metadata.variety != null && (
-              <ParamRow
-                label="Variety+"
-                value={metadata.variety ? 'On' : 'Off'}
-              />
-            )}
-            {metadata.qualityToggle != null && (
-              <ParamRow
-                label="Quality Tags"
-                value={metadata.qualityToggle ? 'On' : 'Off'}
-              />
-            )}
-            {metadata.ucPreset != null && (
-              <ParamRow
-                label="UC Preset"
-                value={getUcPresetLabel(metadata.ucPreset)}
-              />
-            )}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Reference Images */}
-      {(metadata.hasVibeTransfer || metadata.hasCharacterReference) && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">Reference Images</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {metadata.hasVibeTransfer && metadata.vibeTransferInfo && (
-              <div>
-                <Label className="text-xs text-muted-foreground">
-                  Vibe Transfer
-                </Label>
-                <div className="space-y-1 mt-1">
-                  {metadata.vibeTransferInfo.map((vt, i) => (
-                    <div key={i} className="text-sm text-foreground/80">
-                      Image {i + 1}: Strength {vt.strength.toFixed(2)}, Info
-                      Extracted {vt.informationExtracted.toFixed(2)}
-                    </div>
-                  ))}
-                </div>
+                )}
               </div>
-            )}
-            {metadata.hasCharacterReference &&
-              metadata.characterReferenceInfo && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">
-                    Character Reference
-                  </Label>
-                  <div className="space-y-1 mt-1">
-                    {metadata.characterReferenceInfo.map((cr, i) => (
-                      <div key={i} className="text-sm text-foreground/80">
-                        Ref {i + 1}: Strength {cr.strength.toFixed(2)}, Info
-                        Extracted {cr.informationExtracted.toFixed(2)}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-          </CardContent>
-        </Card>
+            )
+          })}
+        </TabsContent>
       )}
+
+      <TabsContent value="parameters">
+        <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-6 gap-y-2 rounded-xl border p-4 text-sm">
+          {metadata.model && <ParamRow label="Model" value={metadata.model} />}
+          {metadata.width != null && metadata.height != null && (
+            <ParamRow
+              label={t('metadata.resolution')}
+              value={`${metadata.width} × ${metadata.height}`}
+            />
+          )}
+          {metadata.steps != null && (
+            <ParamRow label="Steps" value={metadata.steps} />
+          )}
+          {metadata.cfgScale != null && (
+            <ParamRow label="CFG Scale" value={metadata.cfgScale} />
+          )}
+          {metadata.cfgRescale != null && metadata.cfgRescale > 0 && (
+            <ParamRow label="CFG Rescale" value={metadata.cfgRescale} />
+          )}
+          {metadata.sampler && (
+            <ParamRow label="Sampler" value={metadata.sampler} />
+          )}
+          {metadata.scheduler && (
+            <ParamRow label="Scheduler" value={metadata.scheduler} />
+          )}
+          {metadata.seed != null && (
+            <ParamRow
+              label="Seed"
+              value={metadata.seed}
+              copy={String(metadata.seed)}
+            />
+          )}
+          {metadata.smea != null && (
+            <ParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />
+          )}
+          {metadata.smeaDyn != null && (
+            <ParamRow
+              label="SMEA DYN"
+              value={metadata.smeaDyn ? 'On' : 'Off'}
+            />
+          )}
+          {metadata.variety != null && (
+            <ParamRow
+              label="Variety+"
+              value={metadata.variety ? 'On' : 'Off'}
+            />
+          )}
+          {metadata.qualityToggle != null && (
+            <ParamRow
+              label="Quality Tags"
+              value={metadata.qualityToggle ? 'On' : 'Off'}
+            />
+          )}
+          {metadata.ucPreset != null && (
+            <ParamRow
+              label="UC Preset"
+              value={getUcPresetLabel(metadata.ucPreset)}
+            />
+          )}
+        </dl>
+      </TabsContent>
+
+      {hasRefs && (
+        <TabsContent value="references" className="space-y-4">
+          {metadata.hasVibeTransfer && metadata.vibeTransferInfo && (
+            <RefList
+              title={t('metadata.vibeTransfer')}
+              prefix="Image"
+              items={metadata.vibeTransferInfo}
+            />
+          )}
+          {metadata.hasCharacterReference &&
+            metadata.characterReferenceInfo && (
+              <RefList
+                title={t('metadata.characterReference')}
+                prefix="Ref"
+                items={metadata.characterReferenceInfo}
+              />
+            )}
+        </TabsContent>
+      )}
+
+      {rawJson && (
+        <TabsContent value="raw">
+          <div className="mb-1 flex items-center justify-between">
+            <Label className="text-xs text-muted-foreground">JSON</Label>
+            <CopyButton text={rawJson} label={`${t('common.copy')}: JSON`} />
+          </div>
+          <pre className="max-h-[60vh] overflow-auto rounded-md border bg-secondary/30 p-3 font-mono text-xs leading-relaxed text-foreground/85">
+            {rawJson}
+          </pre>
+        </TabsContent>
+      )}
+    </Tabs>
+  )
+}
+
+function RefList({
+  title,
+  prefix,
+  items,
+}: {
+  title: string
+  prefix: string
+  items: NonNullable<NAIMetadata['vibeTransferInfo']>
+}) {
+  return (
+    <div className="rounded-xl border p-4">
+      <Label className="text-xs text-muted-foreground">{title}</Label>
+      <div className="mt-2 space-y-1">
+        {items.map((it, i) => (
+          <div key={i} className="text-sm text-foreground/80">
+            {prefix} {i + 1}: Strength {it.strength.toFixed(2)}, Info Extracted{' '}
+            {it.informationExtracted.toFixed(2)}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function ParamRow({ label, value }: { label: string; value: string | number }) {
+function ParamRow({
+  label,
+  value,
+  copy,
+}: {
+  label: string
+  value: string | number
+  copy?: string
+}): ReactNode {
+  const { t } = useTranslation()
   return (
     <>
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-foreground/80 font-mono">{value}</span>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="flex min-w-0 items-center gap-1 font-mono text-foreground/85">
+        <span className="min-w-0 break-words">{value}</span>
+        {copy && (
+          <CopyButton text={copy} label={`${t('common.copy')}: ${label}`} />
+        )}
+      </dd>
     </>
   )
 }
