@@ -1104,12 +1104,12 @@ async function settingsPage(w, h, tag) {
   )
   const control = desktop ? nav : chips
   check(
-    (await control.locator('button').count()) === 5,
-    `settings ${tag}: 5 sections in the nav`,
+    (await control.locator('button').count()) === 6,
+    `settings ${tag}: 6 sections in the nav`,
   )
   check(
-    (await page.locator('section[id^="settings-"]').count()) === 5,
-    `settings ${tag}: 5 section cards`,
+    (await page.locator('section[id^="settings-"]').count()) === 6,
+    `settings ${tag}: 6 section cards`,
   )
   if (!desktop) {
     const top = await chips.evaluate((el) => el.getBoundingClientRect().top)
