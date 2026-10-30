@@ -141,13 +141,17 @@ export function ScenePackDialog({
     return result
   }, [])
 
-  const openPack = useCallback(async (id: number, advance = false) => {
-    const detail = await getScenePack({ data: id })
-    setPack(detail)
-    setChecked(new Set(detail.scenes.map((s) => s.id)))
-    setSelectedSceneId(detail.scenes.at(0)?.id ?? null)
-    if (advance) setStep('scenes')
-  }, [])
+  const openPack = useCallback(
+    async (id: number, advance = false, isCancelled?: () => boolean) => {
+      const detail = await getScenePack({ data: id })
+      if (isCancelled?.()) return
+      setPack(detail)
+      setChecked(new Set(detail.scenes.map((s) => s.id)))
+      setSelectedSceneId(detail.scenes.at(0)?.id ?? null)
+      if (advance) setStep('scenes')
+    },
+    [],
+  )
 
   // Load on open: select the first pack
   useEffect(() => {
@@ -158,9 +162,12 @@ export function ScenePackDialog({
     setSelectedSceneId(null)
     ;(async () => {
       try {
+        // A save started by closing the dialog must land before we read
+        await settleSaves()
+        if (cancelled) return
         const list = await loadPacks()
         if (cancelled || list.length === 0) return
-        await openPack(list[0].id)
+        await openPack(list[0].id, false, () => cancelled)
       } catch {
         if (!cancelled) toast.error(t('templates.actionFailed'))
       }

@@ -6,6 +6,7 @@ import {
   getModelProfile,
   pickRandomResolution,
   resolveDynamicThresholding,
+  resolveReferenceMode,
   resolveSkipCfgAboveSigma,
   resolveSmea,
   supportsPrecise,
@@ -112,5 +113,48 @@ describe('nai-models', () => {
       height: 1024,
     })
     expect(pickRandomResolution(() => 1)).toEqual({ width: 1024, height: 1024 })
+  })
+})
+
+describe('resolveReferenceMode', () => {
+  const none = { vibe: 0, precise: 0 }
+  it('treats unsupported modes without enabled references as none', () => {
+    expect(resolveReferenceMode('vibe', 'nai-diffusion-5-full', none)).toBe(
+      'none',
+    )
+    expect(resolveReferenceMode('precise', 'nai-diffusion-4-full', none)).toBe(
+      'none',
+    )
+  })
+  it('fails only when enabled references exist on an unsupported model', () => {
+    expect(() =>
+      resolveReferenceMode('vibe', 'nai-diffusion-5-full', {
+        vibe: 1,
+        precise: 0,
+      }),
+    ).toThrow()
+    expect(() =>
+      resolveReferenceMode('precise', 'nai-diffusion-4-full', {
+        vibe: 0,
+        precise: 2,
+      }),
+    ).toThrow()
+  })
+  it('keeps supported modes', () => {
+    expect(
+      resolveReferenceMode('vibe', 'nai-diffusion-4-5-full', {
+        vibe: 1,
+        precise: 0,
+      }),
+    ).toBe('vibe')
+    expect(
+      resolveReferenceMode('precise', 'nai-diffusion-4-5-full', {
+        vibe: 0,
+        precise: 1,
+      }),
+    ).toBe('precise')
+    expect(resolveReferenceMode('none', 'nai-diffusion-4-5-full', none)).toBe(
+      'none',
+    )
   })
 })

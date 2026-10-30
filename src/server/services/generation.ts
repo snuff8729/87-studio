@@ -10,14 +10,17 @@ import { db } from '../db'
 import { generateImage } from './nai'
 import { NAI_MOCK } from './nai-mock'
 import { generateThumbnail, saveImage } from './image'
-import { preparePreciseData, prepareVibeData } from './reference'
+import {
+  getEnabledReferences,
+  preparePreciseData,
+  prepareVibeData,
+} from './reference'
 import { createLogger } from './logger'
 import type { ReferenceData } from './nai'
 import {
   DEFAULT_NAI_MODEL,
   pickRandomResolution,
-  supportsPrecise,
-  supportsVibe,
+  resolveReferenceMode,
 } from '@/lib/nai-models'
 
 const log = createLogger('generation')
@@ -607,20 +610,21 @@ async function processJob(jobId: number) {
     const totalCount = job.totalCount ?? 1
 
     // Prepare reference data (once per job, reused for all images)
-    const referenceMode = resolvedParameters.referenceMode ?? 'none'
     const refProjectId = job.projectId ?? null
-    let referenceData: ReferenceData | undefined
     const refModel: string = resolvedParameters.model ?? DEFAULT_NAI_MODEL
+    const referenceMode = resolveReferenceMode(
+      resolvedParameters.referenceMode ?? 'none',
+      refModel,
+      {
+        vibe: getEnabledReferences(refProjectId, 'vibe').length,
+        precise: getEnabledReferences(refProjectId, 'precise').length,
+      },
+    )
+    let referenceData: ReferenceData | undefined
     if (referenceMode === 'vibe') {
-      if (!supportsVibe(refModel)) {
-        throw new Error('Vibe Transfer is not supported with V5 models')
-      }
       const vibeResult = await prepareVibeData(refProjectId, apiKey, refModel)
       if (vibeResult) referenceData = vibeResult
     } else if (referenceMode === 'precise') {
-      if (!supportsPrecise(refModel)) {
-        throw new Error('Precise Reference requires V4.5 model')
-      }
       const preciseResult = await preparePreciseData(refProjectId)
       if (preciseResult) referenceData = preciseResult
     }
@@ -683,6 +687,8 @@ async function processJob(jobId: number) {
       const imageParameters = resolvedParameters.randomResolution
         ? { ...resolvedParameters, ...pickRandomResolution() }
         : resolvedParameters
+      // Saved metadata keeps the actual width/height, not the random flag
+      const { randomResolution: _random, ...savedParameters } = imageParameters
       const { imageData, seed } = await generateImage(
         apiKey,
         resolvedPrompts,
@@ -726,7 +732,7 @@ async function processJob(jobId: number) {
           seed,
           metadata: JSON.stringify({
             prompts: resolvedPrompts,
-            parameters: imageParameters,
+            parameters: savedParameters,
             ...(referenceMode !== 'none' &&
               referenceData && {
                 referenceMode,

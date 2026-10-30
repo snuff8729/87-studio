@@ -40,13 +40,13 @@ export const createProjectFromMetadata = createServerFn({ method: 'POST' })
       cfgRescale: params.cfg_rescale ?? 0,
       sampler: params.sampler ?? 'k_euler',
       scheduler: params.scheduler ?? 'native',
-      sm: params.smea ?? false,
-      sm_dyn: params.smeaDyn ?? false,
+      smea: params.smea ?? false,
+      smeaDyn: params.smeaDyn ?? false,
+      varietyPlus: params.variety ?? false,
       width: params.width ?? 832,
       height: params.height ?? 1216,
       qualityToggle: params.qualityToggle ?? true,
       ucPreset: params.ucPreset ?? 0,
-      skip_cfg_above_sigma: params.variety ? 19 : null,
     })
 
     let project!: { id: number; name: string }

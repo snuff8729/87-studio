@@ -155,3 +155,30 @@ export function pickRandomResolution(rng: () => number = Math.random): {
   )
   return { ...RANDOM_RESOLUTIONS[i] }
 }
+
+/**
+ * Effective reference mode for a job. Unsupported modes only fail when the
+ * project actually has enabled references of that type; otherwise they are
+ * treated as 'none'.
+ */
+export function resolveReferenceMode(
+  mode: string,
+  model: string,
+  enabled: { vibe: number; precise: number },
+): 'vibe' | 'precise' | 'none' {
+  if (mode === 'vibe') {
+    if (enabled.vibe === 0) return 'none'
+    if (!supportsVibe(model)) {
+      throw new Error('Vibe Transfer is not supported with V5 models')
+    }
+    return 'vibe'
+  }
+  if (mode === 'precise') {
+    if (enabled.precise === 0) return 'none'
+    if (!supportsPrecise(model)) {
+      throw new Error('Precise Reference requires V4.5 model')
+    }
+    return 'precise'
+  }
+  return 'none'
+}

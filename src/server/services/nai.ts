@@ -127,7 +127,7 @@ export async function generateImage(
     smeaDyn: params.smeaDyn,
     sampler: params.sampler ?? 'k_euler_ancestral',
   })
-  if (smea) Object.assign(body.parameters, smea)
+  if (smea && (smea.sm || smea.sm_dyn)) Object.assign(body.parameters, smea)
 
   // Inject Vibe Transfer parameters
   if (referenceData?.vibes && referenceData.vibes.length > 0) {
