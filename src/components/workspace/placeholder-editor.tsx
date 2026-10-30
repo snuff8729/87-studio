@@ -71,7 +71,7 @@ function StatusDot({
     )
   if (template)
     return (
-      <span className="inline-block size-1.5 rounded-full shrink-0 bg-amber-500" />
+      <span className="inline-block size-1.5 rounded-full shrink-0 bg-primary" />
     )
   return (
     <span className="inline-block size-1.5 rounded-full shrink-0 bg-emerald-500" />
@@ -673,7 +673,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           <span className="text-xs text-muted-foreground tabular-nums">
             {filledCounts.total - filledCounts.filled > 0 ? (
               <>
-                <span className="text-amber-500">
+                <span className="text-primary">
                   {t('placeholder.unfilledCount', {
                     unfilled: filledCounts.total - filledCounts.filled,
                     total: filledCounts.total,
@@ -759,7 +759,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       {/* ── Unfilled Section ── */}
       {classifiedKeys.totalUnfilled > 0 && (
         <div className="space-y-2.5">
-          <span className="text-xs font-medium text-amber-500/80 uppercase tracking-wider">
+          <span className="text-xs font-medium text-primary/80 uppercase tracking-wider">
             {t('placeholder.unfilled', { count: classifiedKeys.totalUnfilled })}
           </span>
 
@@ -987,7 +987,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                   {`@{slot:${key}}`}
                                 </span>
                                 {isTemplate && (
-                                  <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5">
+                                  <span className="text-[10px] text-primary/80 bg-primary/10 rounded px-1 py-0.5">
                                     {t('placeholder.defaultValue')}
                                   </span>
                                 )}

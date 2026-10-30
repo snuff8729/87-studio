@@ -503,7 +503,7 @@ export function SceneDetail({
                             <label className="text-sm font-mono text-muted-foreground flex items-center gap-1.5">
                               {`@{slot:${key}}`}
                               {isInherited && (
-                                <span className="text-[10px] text-amber-500/80 bg-amber-500/10 rounded px-1 py-0.5 font-sans">
+                                <span className="text-[10px] text-primary/80 bg-primary/10 rounded px-1 py-0.5 font-sans">
                                   {t('placeholder.defaultValue')}
                                 </span>
                               )}

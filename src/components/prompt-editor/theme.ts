@@ -3,45 +3,45 @@ import { EditorView } from '@codemirror/view'
 export const darkTheme = EditorView.theme(
   {
     '&': {
-      backgroundColor: 'oklch(0.18 0.006 70)',
-      color: 'oklch(0.93 0.01 80)',
+      backgroundColor: 'var(--card)',
+      color: 'var(--foreground)',
       borderRadius: '0.5rem',
-      border: '1px solid oklch(1 0.03 70 / 8%)',
+      border: '1px solid var(--border)',
       fontSize: '13px',
     },
     '.cm-content': {
       fontFamily:
         'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
       padding: '8px 0',
-      caretColor: 'oklch(0.93 0.01 80)',
+      caretColor: 'var(--foreground)',
     },
     '.cm-cursor': {
-      borderLeftColor: 'oklch(0.93 0.01 80)',
+      borderLeftColor: 'var(--foreground)',
     },
     '&.cm-focused': {
-      outline: '2px solid oklch(0.72 0.14 70 / 50%)',
+      outline: '2px solid var(--ring)',
       outlineOffset: '-1px',
     },
     '.cm-gutters': {
-      backgroundColor: 'oklch(0.18 0.006 70)',
-      color: 'oklch(0.55 0.02 70)',
+      backgroundColor: 'var(--card)',
+      color: 'var(--muted-foreground)',
       border: 'none',
     },
     '.cm-activeLine': {
-      backgroundColor: 'oklch(1 0.03 70 / 8%)',
+      backgroundColor: 'var(--accent)',
     },
     '.cm-selectionBackground': {
-      backgroundColor: 'oklch(0.72 0.14 70 / 20%) !important',
+      backgroundColor: 'color-mix(in oklab, var(--primary) 20%, transparent) !important',
     },
     '.cm-line': {
       padding: '0 8px',
     },
-    // Placeholder highlight — amber signature
+    // Placeholder highlight — brand signature
     '.cm-placeholder-highlight': {
-      backgroundColor: 'oklch(0.72 0.14 70 / 15%)',
+      backgroundColor: 'color-mix(in oklab, var(--primary) 15%, transparent)',
       borderRadius: '3px',
       padding: '1px 0',
-      border: '1px solid oklch(0.72 0.14 70 / 30%)',
+      border: '1px solid color-mix(in oklab, var(--primary) 30%, transparent)',
     },
     // Bundle highlight — teal/cyan signature
     '.cm-bundle-highlight': {
@@ -59,8 +59,8 @@ export const darkTheme = EditorView.theme(
     },
     // Autocomplete styling
     '.cm-tooltip-autocomplete': {
-      backgroundColor: 'oklch(0.20 0.008 70)',
-      border: '1px solid oklch(1 0.03 70 / 8%)',
+      backgroundColor: 'var(--popover)',
+      border: '1px solid var(--border)',
       borderRadius: '0.5rem',
       maxHeight: '180px',
       overflowY: 'auto',
@@ -69,20 +69,20 @@ export const darkTheme = EditorView.theme(
       padding: '4px 8px',
     },
     '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: 'oklch(0.26 0.012 70)',
+      backgroundColor: 'var(--accent)',
     },
     '.cm-completionLabel': {
-      color: 'oklch(0.93 0.01 80)',
+      color: 'var(--foreground)',
     },
     '.cm-completionDetail': {
-      color: 'oklch(0.55 0.02 70)',
+      color: 'var(--muted-foreground)',
       fontStyle: 'normal',
       marginLeft: '8px',
     },
     // Hide completion icons, color labels by type
     '.cm-completionIcon': { display: 'none' },
-    // Slot — amber
-    '.cm-completionIcon-property + .cm-completionLabel': { color: 'oklch(0.82 0.1 70)' },
+    // Slot — brand
+    '.cm-completionIcon-property + .cm-completionLabel': { color: '#ffb3c2' },
     // Bundle — teal
     '.cm-completionIcon-variable + .cm-completionLabel': { color: 'oklch(0.75 0.08 200)' },
     // Danbooru categories
@@ -90,11 +90,11 @@ export const darkTheme = EditorView.theme(
     '.cm-completionIcon-tag-artist + .cm-completionLabel': { color: 'oklch(0.75 0.12 25)' },
     '.cm-completionIcon-tag-copyright + .cm-completionLabel': { color: 'oklch(0.75 0.12 310)' },
     '.cm-completionIcon-tag-character + .cm-completionLabel': { color: 'oklch(0.75 0.12 145)' },
-    '.cm-completionIcon-tag-meta + .cm-completionLabel': { color: 'oklch(0.75 0.08 70)' },
+    '.cm-completionIcon-tag-meta + .cm-completionLabel': { color: '#c9c9cf' },
     // Bundle hover tooltip — compact card
     '.cm-tooltip-bundle-preview': {
-      backgroundColor: 'oklch(0.20 0.008 70)',
-      border: '1px solid oklch(1 0.03 70 / 12%)',
+      backgroundColor: 'var(--popover)',
+      border: '1px solid var(--border)',
       borderRadius: '8px',
       padding: '8px 10px',
       maxWidth: '320px',
@@ -126,127 +126,4 @@ export const darkTheme = EditorView.theme(
     },
   },
   { dark: true },
-)
-
-export const lightTheme = EditorView.theme(
-  {
-    '&': {
-      backgroundColor: 'oklch(0.985 0 0)',
-      color: 'oklch(0.205 0 0)',
-      borderRadius: '0.5rem',
-      border: '1px solid oklch(0.922 0 0)',
-      fontSize: '13px',
-    },
-    '.cm-content': {
-      fontFamily:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-      padding: '8px 0',
-      caretColor: 'oklch(0.205 0 0)',
-    },
-    '.cm-cursor': {
-      borderLeftColor: 'oklch(0.205 0 0)',
-    },
-    '&.cm-focused': {
-      outline: '2px solid oklch(0.45 0.12 70 / 50%)',
-      outlineOffset: '-1px',
-    },
-    '.cm-gutters': {
-      backgroundColor: 'oklch(0.985 0 0)',
-      color: 'oklch(0.556 0 0)',
-      border: 'none',
-    },
-    '.cm-activeLine': {
-      backgroundColor: 'oklch(0.45 0.12 70 / 8%)',
-    },
-    '.cm-selectionBackground': {
-      backgroundColor: 'oklch(0.45 0.12 70 / 20%) !important',
-    },
-    '.cm-line': {
-      padding: '0 8px',
-    },
-    '.cm-placeholder-highlight': {
-      backgroundColor: 'oklch(0.45 0.12 70 / 12%)',
-      borderRadius: '3px',
-      padding: '1px 0',
-      border: '1px solid oklch(0.45 0.12 70 / 25%)',
-    },
-    '.cm-bundle-highlight': {
-      backgroundColor: 'oklch(0.45 0.12 200 / 12%)',
-      borderRadius: '3px',
-      padding: '1px 0',
-      border: '1px solid oklch(0.45 0.12 200 / 25%)',
-    },
-    '.cm-invalid-ref-highlight': {
-      textDecoration: 'wavy underline oklch(0.55 0.2 25)',
-      textDecorationSkipInk: 'none',
-      backgroundColor: 'oklch(0.55 0.2 25 / 8%)',
-      borderRadius: '3px',
-    },
-    '.cm-tooltip-autocomplete': {
-      backgroundColor: 'oklch(0.985 0 0)',
-      border: '1px solid oklch(0.922 0 0)',
-      borderRadius: '0.5rem',
-      maxHeight: '180px',
-      overflowY: 'auto',
-    },
-    '.cm-tooltip-autocomplete ul li': {
-      padding: '4px 8px',
-    },
-    '.cm-tooltip-autocomplete ul li[aria-selected]': {
-      backgroundColor: 'oklch(0.97 0 0)',
-    },
-    '.cm-completionLabel': {
-      color: 'oklch(0.205 0 0)',
-    },
-    '.cm-completionDetail': {
-      color: 'oklch(0.556 0 0)',
-      fontStyle: 'normal',
-      marginLeft: '8px',
-    },
-    // Hide completion icons, color labels by type
-    '.cm-completionIcon': { display: 'none' },
-    // Slot — amber
-    '.cm-completionIcon-property + .cm-completionLabel': { color: 'oklch(0.4 0.12 70)' },
-    // Bundle — teal
-    '.cm-completionIcon-variable + .cm-completionLabel': { color: 'oklch(0.35 0.1 200)' },
-    // Danbooru categories
-    '.cm-completionIcon-tag-general + .cm-completionLabel': { color: 'oklch(0.4 0.08 250)' },
-    '.cm-completionIcon-tag-artist + .cm-completionLabel': { color: 'oklch(0.4 0.12 25)' },
-    '.cm-completionIcon-tag-copyright + .cm-completionLabel': { color: 'oklch(0.4 0.12 310)' },
-    '.cm-completionIcon-tag-character + .cm-completionLabel': { color: 'oklch(0.4 0.12 145)' },
-    '.cm-completionIcon-tag-meta + .cm-completionLabel': { color: 'oklch(0.4 0.08 70)' },
-    '.cm-tooltip-bundle-preview': {
-      backgroundColor: 'oklch(0.985 0 0)',
-      border: '1px solid oklch(0.922 0 0)',
-      borderRadius: '8px',
-      padding: '8px 10px',
-      maxWidth: '320px',
-      fontSize: '11px',
-      lineHeight: '1.5',
-      boxShadow: '0 4px 12px oklch(0 0 0 / 10%)',
-    },
-    '.cm-tooltip-invalid-ref': {
-      color: 'oklch(0.45 0.18 25)',
-      fontSize: '11px',
-      padding: '4px 8px',
-    },
-    '.cm-tooltip-bundle-name': {
-      color: 'oklch(0.45 0.12 200)',
-      fontWeight: '600',
-      fontSize: '12px',
-    },
-    '.cm-tooltip-bundle-sep': {
-      height: '1px',
-      backgroundColor: 'oklch(0 0 0 / 8%)',
-      margin: '5px 0',
-    },
-    '.cm-tooltip-bundle-content': {
-      color: 'oklch(0.35 0.01 80)',
-      whiteSpace: 'pre-wrap',
-      wordBreak: 'break-word',
-      fontFamily:
-        'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-    },
-  },
-  { dark: false },
 )

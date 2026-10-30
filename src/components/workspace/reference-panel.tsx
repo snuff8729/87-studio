@@ -180,7 +180,7 @@ export function ReferencePanel({
 
       {/* V4.5 warning for precise */}
       {referenceMode === 'precise' && !isV45 && (
-        <div className="flex items-center gap-1.5 text-xs text-amber-500 bg-amber-500/10 rounded-md px-2 py-1.5">
+        <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1.5">
           <HugeiconsIcon icon={AlertCircleIcon} className="size-3.5 shrink-0" />
           {t('reference.v45Only')}
         </div>
@@ -289,7 +289,7 @@ function ReferenceImageCard({
         <div className="flex-1 min-w-0 space-y-1">
           {/* Status badges */}
           {vibeNeedsReencode && (
-            <span className="text-[10px] text-amber-500 leading-tight block">
+            <span className="text-[10px] text-primary leading-tight block">
               {t('reference.encodingMismatch')}
             </span>
           )}

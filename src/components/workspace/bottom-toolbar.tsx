@@ -26,6 +26,7 @@ function GenerateButton({
 
   return (
     <Button
+      variant="brand"
       size="sm"
       onClick={handleClick}
       disabled={totalImages === 0 || cooldown}

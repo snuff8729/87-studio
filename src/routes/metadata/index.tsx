@@ -993,16 +993,16 @@ function ReferenceWarningBanner({ metadata }: { metadata: NAIMetadata }) {
   }
 
   return (
-    <div className="flex gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3">
+    <div className="flex gap-2 rounded-md border border-primary/30 bg-primary/10 p-3">
       <HugeiconsIcon
         icon={AlertCircleIcon}
-        className="size-4 text-amber-500 shrink-0 mt-0.5"
+        className="size-4 text-primary shrink-0 mt-0.5"
       />
       <div className="min-w-0">
-        <p className="text-sm font-medium text-amber-500">
+        <p className="text-sm font-medium text-primary">
           {t('reference.importWarningTitle')}
         </p>
-        <p className="text-xs text-amber-500/80 mt-0.5">{message}</p>
+        <p className="text-xs text-primary/80 mt-0.5">{message}</p>
       </div>
     </div>
   )
