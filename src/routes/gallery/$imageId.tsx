@@ -33,6 +33,7 @@ import { updateProject } from '@/server/functions/projects'
 import { getUcPresetLabel, parseNAIMetadata } from '@/lib/nai-metadata'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
+import { useBreadcrumb } from '@/components/layout/breadcrumb-context'
 
 function PendingComponent() {
   return (
@@ -126,6 +127,11 @@ function ImageDetailPage() {
   const navigate = useNavigate()
   const router = useRouter()
   const { t } = useTranslation()
+  const { imageId } = Route.useParams()
+  useBreadcrumb([
+    { label: t('nav.gallery'), to: '/gallery' },
+    { label: `#${imageId}` },
+  ])
 
   function goBack() {
     if (window.history.length > 1) {

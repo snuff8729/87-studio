@@ -26,7 +26,7 @@ export type NavItem = {
   group: 'create' | 'library' | 'footer'
 }
 
-export const navItems: readonly NavItem[] = [
+export const navItems: ReadonlyArray<NavItem> = [
   { to: '/', key: 'nav.projects', icon: Home03Icon, group: 'create' },
   {
     to: '/generate',

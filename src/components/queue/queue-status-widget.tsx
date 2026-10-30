@@ -11,14 +11,19 @@ function formatDuration(ms: number): string {
   return sec > 0 ? `${min}m ${sec}s` : `${min}m`
 }
 
-export function QueueStatusWidget() {
-  const { t } = useTranslation()
-
-  const { data: summary } = useQuery({
+/** Shared queue summary query (polled every 2s); used by the widget and the sidebar badge. */
+export function useQueueSummary() {
+  return useQuery({
     queryKey: ['queue-summary'],
     queryFn: () => fetchQueueSummary(),
     refetchInterval: 2000,
   })
+}
+
+export function QueueStatusWidget() {
+  const { t } = useTranslation()
+
+  const { data: summary } = useQueueSummary()
 
   if (!summary) return null
 

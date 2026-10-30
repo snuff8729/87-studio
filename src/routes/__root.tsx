@@ -8,8 +8,13 @@ import {
   useSearch,
 } from '@tanstack/react-router'
 import appCss from '../styles.css?url'
-import { Sidebar } from '@/components/layout/sidebar'
-import { BottomNav } from '@/components/layout/bottom-nav'
+import { AppSidebar } from '@/components/layout/app-sidebar'
+import { AppHeader } from '@/components/layout/app-header'
+import { BreadcrumbProvider } from '@/components/layout/breadcrumb-context'
+import { SidebarRouteSync } from '@/components/layout/sidebar-route-sync'
+import { isEditorRoute } from '@/components/layout/nav-items'
+import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
+import { getSidebarDefaultOpen } from '@/lib/sidebar-state'
 import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider, useTranslation } from '@/lib/i18n'
@@ -82,6 +87,7 @@ export const Route = createRootRoute({
   validateSearch: (search: Record<string, unknown>) => ({
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
   }),
+  loader: () => ({ sidebarOpen: getSidebarDefaultOpen() }),
   head: () => ({
     meta: [
       { charSet: 'utf-8' },
@@ -117,39 +123,45 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 }
 
 function RootComponent() {
-  const routerState = useRouterState()
-  const { pathname } = routerState.location
-  const isWorkspace = pathname.startsWith('/workspace')
-  const isGenerate = pathname.startsWith('/generate')
+  const pathname = useRouterState({ select: (s) => s.location.pathname })
+  const isEditor = isEditorRoute(pathname)
   const isGallery = pathname.startsWith('/gallery')
+  const { sidebarOpen } = Route.useLoaderData()
   // Global image detail overlay (for non-gallery pages)
   const { imageDetail } = useSearch({ from: '__root__' })
   return (
     <I18nProvider>
       <OnboardingProvider>
-        {isWorkspace || isGenerate ? (
-          <TooltipProvider delayDuration={300}>
-            <Outlet />
-            <Toaster richColors position="top-center" />
-          </TooltipProvider>
-        ) : (
-          <TooltipProvider delayDuration={300}>
-            <Sidebar />
-            <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
-              <div className="p-4 lg:p-6">
-                <div className="animate-in fade-in-0 duration-150">
-                  <Outlet />
-                </div>
-              </div>
-            </main>
-            <BottomNav />
-            <Toaster richColors position="bottom-right" />
-          </TooltipProvider>
-        )}
-        {imageDetail && !isGallery && (
-          <ImageDetailOverlay imageId={imageDetail} />
-        )}
-        <OnboardingOverlay />
+        <TooltipProvider delayDuration={300}>
+          <SidebarProvider defaultOpen={sidebarOpen}>
+            <BreadcrumbProvider>
+              <SidebarRouteSync />
+              <AppSidebar />
+              <SidebarInset>
+                {isEditor ? (
+                  <>
+                    <div className="h-svh overflow-hidden">
+                      <Outlet />
+                    </div>
+                    <Toaster richColors position="top-center" />
+                  </>
+                ) : (
+                  <>
+                    <AppHeader />
+                    <div className="p-4 lg:p-6 animate-in fade-in-0 duration-150">
+                      <Outlet />
+                    </div>
+                    <Toaster richColors position="bottom-right" />
+                  </>
+                )}
+              </SidebarInset>
+            </BreadcrumbProvider>
+          </SidebarProvider>
+          {imageDetail && !isGallery && (
+            <ImageDetailOverlay imageId={imageDetail} />
+          )}
+          <OnboardingOverlay />
+        </TooltipProvider>
       </OnboardingProvider>
     </I18nProvider>
   )
