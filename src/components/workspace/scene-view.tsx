@@ -21,6 +21,7 @@ import {
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
 import { PlaceholderEditor } from './placeholder-editor'
+import { ScenePartsSection, slotHasParts } from './scene-parts-section'
 import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
@@ -69,6 +70,10 @@ export interface SceneViewCharacter {
   name: string
   charPrompt: string
   charNegative: string
+  /** Raw `characters` row fields (character parts) */
+  libraryCharacterId?: number | null
+  outfitItemIds?: string | null
+  axisValues?: string | null
 }
 
 /** One row of the route's `characterOverrides[sceneId]` array. */
@@ -76,6 +81,8 @@ export interface SceneViewCharacterOverride {
   projectSceneId: number
   characterId: number
   placeholders: string
+  axisValues?: string | null
+  outfitItemIds?: string | null
 }
 
 export interface CharacterPlaceholderKeyEntry {
@@ -91,6 +98,8 @@ export interface SceneViewScene {
   packName: string
   /** Raw JSON string from `project_scenes.placeholders`. */
   placeholders: string | null
+  /** Raw JSON string from `project_scenes.axis_values`. */
+  axisValues?: string | null
   thumbnailImageId: number | null
   thumbnailPath: string | null
   /** `recentImageCount` (live-updated during generation). */
@@ -123,6 +132,30 @@ export interface SceneViewProps {
 
 function thumbUrl(path: string) {
   return `/api/thumbnails/${path.replace('data/thumbnails/', '')}`
+}
+
+/** Collapse state persisted in localStorage (default open, SSR-safe). */
+function usePersistedOpen(storageKey: string) {
+  const [open, setOpenState] = useState(true)
+  useEffect(() => {
+    try {
+      setOpenState(localStorage.getItem(storageKey) !== '0')
+    } catch {
+      setOpenState(true)
+    }
+  }, [storageKey])
+  const setOpen = useCallback(
+    (value: boolean) => {
+      setOpenState(value)
+      try {
+        localStorage.setItem(storageKey, value ? '1' : '0')
+      } catch {
+        // ignore
+      }
+    },
+    [storageKey],
+  )
+  return [open, setOpen] as const
 }
 
 // ── Placeholders collapse state (per project, SSR-safe) ──
@@ -182,6 +215,13 @@ export function SceneView({
   // Onboarding step 7 targets the placeholder editor — never hide it then
   // (the collapse toggle is disabled meanwhile).
   const forcedOpen = !!onboarding?.state.active
+  const partsSlots = useMemo(
+    () => characters.filter(slotHasParts),
+    [characters],
+  )
+  const [partsOpen, setPartsOpen] = usePersistedOpen(
+    `87studio-scene-parts-open:${projectId}`,
+  )
   const showPlaceholders = placeholdersOpen || forcedOpen
 
   const parsedPlaceholders = useMemo<Record<string, string>>(
@@ -390,6 +430,45 @@ export function SceneView({
           )}
         </div>
       </div>
+
+      {/* ── Parts (view/framing, per-character axes and outfit) ── */}
+      {partsSlots.length > 0 && (
+        <section
+          className={cn(
+            'flex shrink-0 flex-col border-b',
+            partsOpen && 'max-h-[min(40%,26rem)]',
+          )}
+          data-testid="scene-parts-section"
+        >
+          <button
+            onClick={() => setPartsOpen(!partsOpen)}
+            aria-expanded={partsOpen}
+            className="flex h-9 shrink-0 items-center gap-1.5 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              className={cn(
+                'size-4 transition-transform',
+                !partsOpen && '-rotate-90',
+              )}
+            />
+            {t('sceneParts.title')}
+          </button>
+          {partsOpen && (
+            <div className="min-h-0 overflow-y-auto px-3 pb-4 sm:px-4">
+              <ScenePartsSection
+                key={sceneId}
+                projectId={projectId}
+                sceneId={sceneId}
+                sceneAxisValues={scene.axisValues}
+                slots={partsSlots}
+                overrides={characterOverrides}
+                onSaved={onPlaceholdersChange}
+              />
+            </div>
+          )}
+        </section>
+      )}
 
       {/* ── Placeholders (collapsible, max 45% of the panel when open) ── */}
       <section

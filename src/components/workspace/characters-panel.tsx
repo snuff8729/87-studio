@@ -2,6 +2,11 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { usePendingSave } from './pending-saves'
+import {
+  CharacterPartsPanel,
+  PartsPromptHint,
+  slotHasParts,
+} from './character-parts-panel'
 import type { CharacterPatch } from '@/components/characters/characters-editor'
 import { CharactersEditor } from '@/components/characters/characters-editor'
 import { duplicateName, nextCharacterName } from '@/lib/characters'
@@ -20,6 +25,9 @@ interface ProjectCharacter {
   charPrompt: string
   charNegative: string
   slotIndex: number | null
+  libraryCharacterId: number | null
+  outfitItemIds: string | null
+  axisValues: string | null
 }
 
 interface Draft {
@@ -244,6 +252,21 @@ export function CharactersPanel({
       onMove={handleMove}
       onDelete={handleDelete}
       slots
+      renderParts={(c) => {
+        const slot = characters.find((x) => x.id === c.id)
+        return slot ? (
+          <CharacterPartsPanel
+            projectId={projectId}
+            slotId={slot.id}
+            slotName={c.name}
+            slot={slot}
+          />
+        ) : null
+      }}
+      renderPromptHint={(c) => {
+        const slot = characters.find((x) => x.id === c.id)
+        return slot && slotHasParts(slot) ? <PartsPromptHint /> : null
+      }}
     />
   )
 }

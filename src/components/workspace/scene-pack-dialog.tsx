@@ -300,6 +300,9 @@ export function ScenePackDialog({
           scenePackId: pack.id,
           name,
           placeholders: source?.placeholders ?? undefined,
+          axisValues: source
+            ? JSON.parse(source.axisValues || '{}')
+            : undefined,
         },
       })
       setPack((prev) =>
@@ -404,6 +407,10 @@ export function ScenePackDialog({
     patchScene(sceneId, { placeholders: json })
   }
 
+  function handleAxisValuesChange(sceneId: number, json: string) {
+    patchScene(sceneId, { axisValues: json })
+  }
+
   // ── Apply ──
   function toggleChecked(id: number, next: boolean) {
     setChecked((prev) => {
@@ -506,6 +513,7 @@ export function ScenePackDialog({
       slotNames={slotNames}
       onRename={renameScene}
       onValuesChange={handleValuesChange}
+      onAxisValuesChange={handleAxisValuesChange}
       onDuplicate={handleDuplicateScene}
       onDelete={sceneActions.onDelete}
       flushRef={editorFlushRef}

@@ -7,6 +7,7 @@ import {
   Package01Icon,
   Settings02Icon,
   TimeQuarter02Icon,
+  UserGroupIcon,
 } from '@hugeicons/core-free-icons'
 import type { IconSvgElement } from '@hugeicons/react'
 import type { TranslationKeys } from '@/lib/i18n'
@@ -18,6 +19,7 @@ export type NavItem = {
     | '/queue'
     | '/gallery'
     | '/bundles'
+    | '/characters'
     | '/tags'
     | '/metadata'
     | '/settings'
@@ -37,6 +39,12 @@ export const navItems: ReadonlyArray<NavItem> = [
   { to: '/queue', key: 'nav.queue', icon: TimeQuarter02Icon, group: 'create' },
   { to: '/gallery', key: 'nav.gallery', icon: Image02Icon, group: 'library' },
   { to: '/bundles', key: 'nav.bundles', icon: Package01Icon, group: 'library' },
+  {
+    to: '/characters',
+    key: 'library.nav',
+    icon: UserGroupIcon,
+    group: 'library',
+  },
   { to: '/tags', key: 'nav.tags', icon: BookmarkCheck01Icon, group: 'library' },
   {
     to: '/metadata',

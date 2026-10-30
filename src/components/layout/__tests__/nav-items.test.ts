@@ -12,6 +12,7 @@ describe('getActiveNavItem', () => {
   })
   it('matches nested paths by prefix', () => {
     expect(getActiveNavItem('/gallery/12')?.to).toBe('/gallery')
+    expect(getActiveNavItem('/characters')?.to).toBe('/characters')
   })
   it('does not match partial segments', () => {
     expect(getActiveNavItem('/generate')?.to).toBe('/generate')

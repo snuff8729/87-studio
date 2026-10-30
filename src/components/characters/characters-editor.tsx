@@ -57,6 +57,10 @@ interface CharactersEditorProps<TId extends string | number> {
   onDelete: (id: TId) => void | Promise<void>
   /** Workspace: highlight @{slot:..} names in the prompts and list them */
   slots?: boolean
+  /** Workspace: library parts UI shown above the prompt editor */
+  renderParts?: (character: CharacterItem<TId>) => React.ReactNode
+  /** Workspace: hint shown right under the prompt editor */
+  renderPromptHint?: (character: CharacterItem<TId>) => React.ReactNode
 }
 
 export function CharactersEditor<TId extends string | number>({
@@ -68,6 +72,8 @@ export function CharactersEditor<TId extends string | number>({
   onMove,
   onDelete,
   slots,
+  renderParts,
+  renderPromptHint,
 }: CharactersEditorProps<TId>) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState<TId | null>(
@@ -237,6 +243,8 @@ export function CharactersEditor<TId extends string | number>({
           onUpdate={(patch) => onUpdate(selected.id, patch)}
           onNameBlur={() => onNameBlur?.(selected.id)}
           slots={slots}
+          partsSlot={renderParts?.(selected)}
+          promptHint={renderPromptHint?.(selected)}
         />
       )}
 
@@ -261,7 +269,11 @@ function CharacterBody<TId extends string | number>({
   onUpdate,
   onNameBlur,
   slots,
+  partsSlot,
+  promptHint,
 }: {
+  partsSlot?: React.ReactNode
+  promptHint?: React.ReactNode
   character: CharacterItem<TId>
   nameInputRef: React.RefObject<HTMLInputElement | null>
   onUpdate: (patch: CharacterPatch) => void
@@ -305,6 +317,8 @@ function CharacterBody<TId extends string | number>({
         />
       </div>
 
+      {partsSlot}
+
       <div className="space-y-1.5">
         <PromptEditorHeader
           label={t('characters.prompt')}
@@ -324,6 +338,7 @@ function CharacterBody<TId extends string | number>({
           bundleNames={bundleNames}
           slotNames={slotNames}
         />
+        {promptHint}
         <SlotBadges names={promptSlots} />
       </div>
 

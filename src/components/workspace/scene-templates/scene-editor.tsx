@@ -9,7 +9,12 @@ import {
   MoreHorizontalIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
+import { useQuery } from '@tanstack/react-query'
 import type { SceneItem } from './scenes-pane'
+import type { AxisValues } from '@/lib/character-parts'
+import { AxisSegmented } from '@/components/parts/axis-segmented'
+import { parseAxisValues } from '@/lib/character-parts'
+import { getLibrary } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
 import {
@@ -189,6 +194,7 @@ export function SceneEditor({
   slotNames,
   onRename,
   onValuesChange,
+  onAxisValuesChange,
   onDuplicate,
   onDelete,
   flushRef: externalFlushRef,
@@ -202,6 +208,8 @@ export function SceneEditor({
   onRename: (scene: SceneItem, name: string) => Promise<boolean>
   /** Optimistic parent update with the latest placeholders JSON */
   onValuesChange: (sceneId: number, json: string) => void
+  /** Optimistic parent update with the latest axisValues JSON */
+  onAxisValuesChange: (sceneId: number, json: string) => void
   onDuplicate: (scene: SceneItem) => void
   onDelete: (scene: SceneItem) => void
   /** Lets the dialog flush this editor's pending save (before Apply) */
@@ -214,6 +222,21 @@ export function SceneEditor({
   const sceneId = scene.id
   const [values, setValues] = useState(() =>
     parsePlaceholders(scene.placeholders),
+  )
+  const [axisValues, setAxisValues] = useState<AxisValues>(() =>
+    parseAxisValues(scene.axisValues),
+  )
+  const axisValuesRef = useRef(axisValues)
+  const libraryQuery = useQuery({
+    queryKey: ['library', null],
+    queryFn: () => getLibrary({ data: {} }),
+  })
+  const globalAxes = useMemo(
+    () =>
+      (libraryQuery.data?.axes ?? []).filter(
+        (a) => a.ownerCharacterId === null && a.ownerItemId === null,
+      ),
+    [libraryQuery.data],
   )
   const [status, setStatus] = useState<'idle' | 'saving' | 'saved'>('idle')
   const [renamingName, setRenamingNameState] = useState<string | null>(null)
@@ -243,15 +266,22 @@ export function SceneEditor({
   const mountedRef = useRef(true)
   const onValuesChangeRef = useRef(onValuesChange)
   onValuesChangeRef.current = onValuesChange
+  const onAxisValuesChangeRef = useRef(onAxisValuesChange)
+  onAxisValuesChangeRef.current = onAxisValuesChange
 
   function flush(): Promise<void> {
     clearTimeout(timerRef.current)
     if (!dirtyRef.current) return chainRef.current
     dirtyRef.current = false
     const json = JSON.stringify(valuesRef.current)
+    const axes = axisValuesRef.current
     if (mountedRef.current) setStatus('saving')
     chainRef.current = chainRef.current
-      .then(() => updateScene({ data: { id: sceneId, placeholders: json } }))
+      .then(() =>
+        updateScene({
+          data: { id: sceneId, placeholders: json, axisValues: axes },
+        }),
+      )
       .then(() => {
         if (!mountedRef.current) return
         setStatus('saved')
@@ -286,6 +316,20 @@ export function SceneEditor({
     dirtyRef.current = true
     setValues(next)
     onValuesChangeRef.current(sceneId, JSON.stringify(next))
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(
+      () => void flushRef.current(),
+      SAVE_DEBOUNCE_MS,
+    )
+  }
+
+  function setAxisValue(axisId: number, valueId: number | null) {
+    if (valueId === null) return
+    const next = { ...axisValuesRef.current, [String(axisId)]: valueId }
+    axisValuesRef.current = next
+    dirtyRef.current = true
+    setAxisValues(next)
+    onAxisValuesChangeRef.current(sceneId, JSON.stringify(next))
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(
       () => void flushRef.current(),
@@ -417,6 +461,27 @@ export function SceneEditor({
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
+        {globalAxes.length > 0 && (
+          <div
+            className="space-y-2 rounded-md border border-border/60 bg-secondary/20 p-3"
+            data-testid="scene-axes"
+          >
+            <div className="text-xs font-medium text-muted-foreground">
+              {t('sceneParts.templateAxes')}
+            </div>
+            {globalAxes.map((axis) => (
+              <AxisSegmented
+                key={axis.id}
+                axis={axis}
+                value={
+                  axisValues[String(axis.id)] ?? axis.values[0]?.id ?? null
+                }
+                onChange={(v) => setAxisValue(axis.id, v)}
+                defaultBadge
+              />
+            ))}
+          </div>
+        )}
         {keys.length === 0 && (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {t('templates.noKeysYet')}

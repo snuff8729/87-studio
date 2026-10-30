@@ -8,6 +8,7 @@ import {
   Layers01Icon,
   MoreVerticalIcon,
   RotateLeft01Icon,
+  ViewIcon,
 } from '@hugeicons/core-free-icons'
 import { ReserveStepper } from './scene-card'
 import { MoveToPackSub } from './project-pack-provider'
@@ -48,6 +49,7 @@ export function SceneSelectionHeader({
   onApplyCount,
   onResetCount,
   onSaveTemplate,
+  onSetAxes,
   onMoveToPack,
   onDelete,
   deleteImageCount,
@@ -65,6 +67,8 @@ export function SceneSelectionHeader({
   onApplyCount: (count: number) => void
   onResetCount: () => void
   onSaveTemplate: () => void
+  /** Opens the view/framing dialog for the checked scenes */
+  onSetAxes?: () => void
   /** Moves the checked scenes to the end of a pack */
   onMoveToPack: (packId: number) => void
   onDelete: (deleteFiles: boolean) => Promise<void> | void
@@ -185,6 +189,12 @@ export function SceneSelectionHeader({
             <HugeiconsIcon icon={FileExportIcon} />
             {t('scene.convertToTemplate')}
           </DropdownMenuItem>
+          {onSetAxes && (
+            <DropdownMenuItem onSelect={() => setTimeout(onSetAxes, 0)}>
+              <HugeiconsIcon icon={ViewIcon} />
+              {t('sceneParts.setAxesMenu')}
+            </DropdownMenuItem>
+          )}
           <MoveToPackSub onPick={onMoveToPack} />
           <DropdownMenuItem onSelect={onResetCount}>
             <HugeiconsIcon icon={RotateLeft01Icon} />

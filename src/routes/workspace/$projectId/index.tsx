@@ -103,6 +103,7 @@ import { toSceneCardScene } from '@/components/workspace/scene-card'
 import { SceneSelectionHeader } from '@/components/workspace/scene-selection-header'
 import { ProjectPackProvider } from '@/components/workspace/project-pack-provider'
 import { ConvertToTemplateDialog } from '@/components/workspace/convert-to-template-dialog'
+import { SceneAxesDialog } from '@/components/workspace/scene-axes-dialog'
 import {
   selectAllState,
   setChecked,
@@ -493,6 +494,8 @@ function WorkspacePage() {
           projectSceneId: o.projectSceneId,
           characterId: o.characterId,
           placeholders: o.placeholders ?? '{}',
+          axisValues: o.axisValues,
+          outfitItemIds: o.outfitItemIds,
         })
       }
       setCharacterOverrides(grouped)
@@ -597,6 +600,7 @@ function WorkspacePage() {
             name: selectedSceneEntry.name,
             packName: selectedSceneEntry.packName,
             placeholders: selectedSceneEntry.placeholders,
+            axisValues: selectedSceneEntry.axisValues,
             thumbnailImageId: selectedSceneEntry.thumbnailImageId,
             thumbnailPath: selectedSceneEntry.thumbnailPath,
             imageCount: selectedSceneEntry.recentImageCount,
@@ -910,6 +914,7 @@ function WorkspacePage() {
     () => new Set(),
   )
   const [convertIds, setConvertIds] = useState<Array<number> | null>(null)
+  const [axesOpen, setAxesOpen] = useState(false)
 
   // Scenes in collapsed groups are hidden: select-all / bulk actions skip them
   const shownCollapsed = effectiveCollapsed(collapsedPacks, sceneSearch)
@@ -1080,6 +1085,7 @@ function WorkspacePage() {
           for (const id of checkedVisibleIds) handleSceneCountChange(id, null)
         }}
         onSaveTemplate={() => setConvertIds(checkedVisibleIds)}
+        onSetAxes={() => setAxesOpen(true)}
         onMoveToPack={(packId) =>
           void handleMoveScenes(checkedVisibleIds, packId)
         }
@@ -1709,6 +1715,13 @@ function WorkspacePage() {
             exitSelectMode()
             handleSceneSelect(id)
           }}
+        />
+        <SceneAxesDialog
+          open={axesOpen}
+          onOpenChange={setAxesOpen}
+          projectId={projectId}
+          sceneIds={checkedVisibleIds}
+          onApplied={handlePlaceholdersChange}
         />
         <ConvertToTemplateDialog
           open={convertIds !== null}

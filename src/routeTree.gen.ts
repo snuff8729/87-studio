@@ -17,6 +17,7 @@ import { Route as QueueIndexRouteImport } from './routes/queue/index'
 import { Route as MetadataIndexRouteImport } from './routes/metadata/index'
 import { Route as GenerateIndexRouteImport } from './routes/generate/index'
 import { Route as GalleryIndexRouteImport } from './routes/gallery/index'
+import { Route as CharactersIndexRouteImport } from './routes/characters/index'
 import { Route as BundlesIndexRouteImport } from './routes/bundles/index'
 import { Route as GalleryImageIdRouteImport } from './routes/gallery/$imageId'
 import { Route as WorkspaceProjectIdRouteRouteImport } from './routes/workspace/$projectId/route'
@@ -63,6 +64,11 @@ const GalleryIndexRoute = GalleryIndexRouteImport.update({
   path: '/',
   getParentRoute: () => GalleryRouteRoute,
 } as any)
+const CharactersIndexRoute = CharactersIndexRouteImport.update({
+  id: '/characters/',
+  path: '/characters/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BundlesIndexRoute = BundlesIndexRouteImport.update({
   id: '/bundles/',
   path: '/bundles/',
@@ -96,6 +102,7 @@ export interface FileRoutesByFullPath {
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/bundles/': typeof BundlesIndexRoute
+  '/characters/': typeof CharactersIndexRoute
   '/gallery/': typeof GalleryIndexRoute
   '/generate/': typeof GenerateIndexRoute
   '/metadata/': typeof MetadataIndexRoute
@@ -109,6 +116,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/bundles': typeof BundlesIndexRoute
+  '/characters': typeof CharactersIndexRoute
   '/gallery': typeof GalleryIndexRoute
   '/generate': typeof GenerateIndexRoute
   '/metadata': typeof MetadataIndexRoute
@@ -125,6 +133,7 @@ export interface FileRoutesById {
   '/workspace/$projectId': typeof WorkspaceProjectIdRouteRouteWithChildren
   '/gallery/$imageId': typeof GalleryImageIdRoute
   '/bundles/': typeof BundlesIndexRoute
+  '/characters/': typeof CharactersIndexRoute
   '/gallery/': typeof GalleryIndexRoute
   '/generate/': typeof GenerateIndexRoute
   '/metadata/': typeof MetadataIndexRoute
@@ -142,6 +151,7 @@ export interface FileRouteTypes {
     | '/workspace/$projectId'
     | '/gallery/$imageId'
     | '/bundles/'
+    | '/characters/'
     | '/gallery/'
     | '/generate/'
     | '/metadata/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gallery/$imageId'
     | '/bundles'
+    | '/characters'
     | '/gallery'
     | '/generate'
     | '/metadata'
@@ -170,6 +181,7 @@ export interface FileRouteTypes {
     | '/workspace/$projectId'
     | '/gallery/$imageId'
     | '/bundles/'
+    | '/characters/'
     | '/gallery/'
     | '/generate/'
     | '/metadata/'
@@ -185,6 +197,7 @@ export interface RootRouteChildren {
   GalleryRouteRoute: typeof GalleryRouteRouteWithChildren
   WorkspaceProjectIdRouteRoute: typeof WorkspaceProjectIdRouteRouteWithChildren
   BundlesIndexRoute: typeof BundlesIndexRoute
+  CharactersIndexRoute: typeof CharactersIndexRoute
   GenerateIndexRoute: typeof GenerateIndexRoute
   MetadataIndexRoute: typeof MetadataIndexRoute
   QueueIndexRoute: typeof QueueIndexRoute
@@ -249,6 +262,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/gallery/'
       preLoaderRoute: typeof GalleryIndexRouteImport
       parentRoute: typeof GalleryRouteRoute
+    }
+    '/characters/': {
+      id: '/characters/'
+      path: '/characters'
+      fullPath: '/characters/'
+      preLoaderRoute: typeof CharactersIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/bundles/': {
       id: '/bundles/'
@@ -323,6 +343,7 @@ const rootRouteChildren: RootRouteChildren = {
   GalleryRouteRoute: GalleryRouteRouteWithChildren,
   WorkspaceProjectIdRouteRoute: WorkspaceProjectIdRouteRouteWithChildren,
   BundlesIndexRoute: BundlesIndexRoute,
+  CharactersIndexRoute: CharactersIndexRoute,
   GenerateIndexRoute: GenerateIndexRoute,
   MetadataIndexRoute: MetadataIndexRoute,
   QueueIndexRoute: QueueIndexRoute,
