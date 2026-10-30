@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useVirtualizer } from '@tanstack/react-virtual'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
@@ -688,55 +689,218 @@ export function SceneBoard({
             )}
           </div>
         ) : (
-          <div className="space-y-4 p-4">
-            {packs.map((pack) => {
-              const collapsed = shownCollapsed.has(pack.id)
+          <BoardGrid
+            packs={packs}
+            collapsed={shownCollapsed}
+            onToggleCollapsed={onToggleCollapsed}
+            size={size}
+            sceneCounts={sceneCounts}
+            defaultCount={defaultCount}
+            onSceneCountChange={onSceneCountChange}
+            selectedSceneId={selectedSceneId}
+            onSelect={onSelect}
+            selectMode={selectMode}
+            checkedIds={checkedIds}
+            onCheckedChange={onCheckedChange}
+          />
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ── BoardGrid (virtualized: pack headers + rows of cards) ──
+
+const BOARD_PADDING = 16
+const BOARD_GAP = 12
+const BOARD_HEADER_HEIGHT = 28
+
+type BoardRow =
+  | { kind: 'header'; key: string; pack: RailPack; collapsed: boolean }
+  | { kind: 'cards'; key: string; scenes: Array<RailPack['scenes'][number]> }
+
+interface BoardGridProps {
+  packs: Array<RailPack>
+  collapsed: ReadonlySet<number>
+  onToggleCollapsed: (packId: number) => void
+  size: SceneCardSize
+  sceneCounts: Record<number, number>
+  defaultCount: number
+  onSceneCountChange: (sceneId: number, count: number | null) => void
+  selectedSceneId: number | null
+  onSelect: (sceneId: number) => void
+  selectMode: boolean
+  checkedIds: ReadonlySet<number>
+  onCheckedChange: (sceneId: number, checked: boolean) => void
+}
+
+function BoardGrid({
+  packs,
+  collapsed,
+  onToggleCollapsed,
+  size,
+  sceneCounts,
+  defaultCount,
+  onSceneCountChange,
+  selectedSceneId,
+  onSelect,
+  selectMode,
+  checkedIds,
+  onCheckedChange,
+}: BoardGridProps) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    setWidth(el.clientWidth)
+    const observer = new ResizeObserver(() => setWidth(el.clientWidth))
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
+  const minWidth = SCENE_CARD_MIN_WIDTH[size]
+  const columns = Math.max(
+    1,
+    Math.floor(
+      (width - BOARD_PADDING * 2 + BOARD_GAP) / (minWidth + BOARD_GAP),
+    ),
+  )
+
+  const rows = useMemo<Array<BoardRow>>(() => {
+    const out: Array<BoardRow> = []
+    for (const pack of packs) {
+      const isCollapsed = collapsed.has(pack.id)
+      out.push({
+        kind: 'header',
+        key: `p${pack.id}`,
+        pack,
+        collapsed: isCollapsed,
+      })
+      if (isCollapsed) continue
+      for (let i = 0; i < pack.scenes.length; i += columns) {
+        out.push({
+          kind: 'cards',
+          key: `c${pack.id}:${pack.scenes[i].id}`,
+          scenes: pack.scenes.slice(i, i + columns),
+        })
+      }
+    }
+    return out
+  }, [packs, collapsed, columns])
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: (i) =>
+      rows[i].kind === 'header'
+        ? BOARD_HEADER_HEIGHT
+        : Math.round(
+            ((width - BOARD_PADDING * 2 - BOARD_GAP * (columns - 1)) /
+              columns) *
+              (4 / 3),
+          ) + 64,
+    getItemKey: (i) => rows[i].key,
+    overscan: 4,
+    paddingStart: BOARD_PADDING,
+    paddingEnd: BOARD_PADDING,
+  })
+
+  // Re-measure when the card geometry changes (size slider, resize)
+  useEffect(() => {
+    virtualizer.measure()
+  }, [columns, size, virtualizer])
+
+  // Keep the selection visible on mount / selection change
+  useEffect(() => {
+    if (selectedSceneId == null || width === 0) return
+    const idx = rows.findIndex(
+      (r) =>
+        r.kind === 'cards' && r.scenes.some((s) => s.id === selectedSceneId),
+    )
+    if (idx >= 0) virtualizer.scrollToIndex(idx, { align: 'auto' })
+    // only when the selection changes
+  }, [selectedSceneId, width === 0])
+
+  return (
+    <div ref={scrollRef} className="h-full overflow-y-auto">
+      <div
+        style={{
+          height: `${virtualizer.getTotalSize()}px`,
+          position: 'relative',
+          width: '100%',
+        }}
+      >
+        {width > 0 &&
+          virtualizer.getVirtualItems().map((v) => {
+            const row = rows[v.index]
+            const style = {
+              position: 'absolute' as const,
+              top: 0,
+              left: BOARD_PADDING,
+              width: `calc(100% - ${BOARD_PADDING * 2}px)`,
+              transform: `translateY(${v.start}px)`,
+            }
+            if (row.kind === 'header') {
               return (
-                <section key={pack.id}>
+                <div
+                  key={v.key}
+                  data-index={v.index}
+                  ref={virtualizer.measureElement}
+                  style={style}
+                >
                   <button
                     type="button"
-                    onClick={() => onToggleCollapsed(pack.id)}
-                    aria-expanded={!collapsed}
-                    className="mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                    onClick={() => onToggleCollapsed(row.pack.id)}
+                    aria-expanded={!row.collapsed}
+                    className="flex h-7 items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <HugeiconsIcon
-                      icon={collapsed ? ArrowRight01Icon : ArrowDown01Icon}
+                      icon={row.collapsed ? ArrowRight01Icon : ArrowDown01Icon}
                       className="size-3.5"
                     />
-                    {pack.name}
+                    {row.pack.name}
                     <span className="font-normal text-muted-foreground/70 tabular-nums">
-                      · {pack.scenes.length}
+                      · {row.pack.scenes.length}
                     </span>
                   </button>
-                  {!collapsed && (
-                    <div
-                      className="grid gap-3"
-                      style={{
-                        gridTemplateColumns: `repeat(auto-fill, minmax(${SCENE_CARD_MIN_WIDTH[size]}px, 1fr))`,
-                      }}
-                    >
-                      {pack.scenes.map((scene) => (
-                        <SceneCard
-                          key={scene.id}
-                          scene={scene}
-                          count={sceneCounts[scene.id] ?? null}
-                          defaultCount={defaultCount}
-                          onCountChange={onSceneCountChange}
-                          selected={scene.id === selectedSceneId}
-                          onSelect={onSelect}
-                          size={size}
-                          selectMode={selectMode}
-                          checked={checkedIds.has(scene.id)}
-                          onCheckedChange={onCheckedChange}
-                        />
-                      ))}
-                    </div>
-                  )}
-                </section>
+                </div>
               )
-            })}
-          </div>
-        )}
+            }
+            return (
+              <div
+                key={v.key}
+                data-index={v.index}
+                ref={virtualizer.measureElement}
+                style={style}
+                className="pb-3"
+              >
+                <div
+                  className="grid gap-3"
+                  style={{
+                    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+                  }}
+                >
+                  {row.scenes.map((scene) => (
+                    <SceneCard
+                      key={scene.id}
+                      scene={scene}
+                      count={sceneCounts[scene.id] ?? null}
+                      defaultCount={defaultCount}
+                      onCountChange={onSceneCountChange}
+                      selected={scene.id === selectedSceneId}
+                      onSelect={onSelect}
+                      size={size}
+                      selectMode={selectMode}
+                      checked={checkedIds.has(scene.id)}
+                      onCheckedChange={onCheckedChange}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
       </div>
     </div>
   )
