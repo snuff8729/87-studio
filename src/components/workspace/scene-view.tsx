@@ -388,6 +388,7 @@ export function SceneView({
         {showPlaceholders && (
           <div className="min-h-0 overflow-y-auto px-3 pb-3 sm:px-4">
             <PlaceholderEditor
+              key={sceneId}
               sceneId={sceneId}
               scenePlaceholders={parsedPlaceholders}
               characterOverrides={parsedCharOverrides}

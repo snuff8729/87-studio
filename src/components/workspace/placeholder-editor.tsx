@@ -153,6 +153,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   }
 
   // ── Local editing state with debounced save ──
+  // NOTE: callers should key this component by scene (`key={sceneId}`) so a
+  // scene switch remounts it: the overlay and the editors' internal docs
+  // never carry over to another scene.
   const [localValues, setLocalValues] = useState<Record<string, string>>({})
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
@@ -267,7 +270,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     key: string,
     value: string,
   ) {
-    setLocalValues((prev) => ({ ...prev, [cellKey(context, key)]: value }))
+    const ck = cellKey(context, key)
+    // Editors echo external value syncs as changes; equal to the saved
+    // value with no pending edit → nothing to save.
+    if (!(ck in localValues) && value === getCellValue(key, context)) return
+    setLocalValues((prev) => ({ ...prev, [ck]: value }))
     scheduleSave()
   }
 
