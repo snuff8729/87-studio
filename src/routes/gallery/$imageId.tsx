@@ -10,6 +10,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowExpand01Icon,
   ArrowLeft02Icon,
+  BookmarkAdd01Icon,
   Cancel01Icon,
   Delete02Icon,
   Download04Icon,
@@ -24,6 +25,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
 import {
   addTag,
   bulkUpdateImages,
@@ -370,6 +372,20 @@ function ImageDetailPage() {
             className={`size-4 ${detail.isFavorite ? 'fill-destructive text-destructive' : ''}`}
           />
         </button>
+        <AddToBookmarkPopover
+          imageIds={[detail.id]}
+          trigger={
+            <button
+              type="button"
+              className={SELECTION_ICON_BUTTON}
+              data-detail-bookmark
+              title={t('gallery.addToBookmark')}
+              aria-label={t('gallery.addToBookmark')}
+            >
+              <HugeiconsIcon icon={BookmarkAdd01Icon} className="size-4" />
+            </button>
+          }
+        />
         <a
           href={imageSrc}
           download

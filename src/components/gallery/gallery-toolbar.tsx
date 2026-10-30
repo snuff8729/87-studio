@@ -19,6 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
+import { WIN_RATE_PRESETS } from '@/lib/win-rate'
 import { useTranslation } from '@/lib/i18n'
 
 export type GallerySort = 'newest' | 'oldest' | 'rating' | 'favorites'
@@ -29,6 +30,8 @@ export type GalleryFilters = {
   tag?: number
   favorite?: boolean
   minRating?: number
+  /** Percent; images without tournament matches never pass */
+  minWinRate?: number
   sortBy?: GallerySort
   quick?: boolean
 }
@@ -45,6 +48,7 @@ export function activeFilterCount(f: GalleryFilters) {
     f.tag,
     f.favorite,
     f.minRating,
+    f.minWinRate,
     f.quick,
   ].filter(Boolean).length
 }
@@ -149,6 +153,13 @@ export function GalleryToolbar({
           onRemove={() => onChange({ minRating: undefined })}
         />
       )}
+      {filters.minWinRate && (
+        <Chip
+          kind="winrate"
+          label={t('gallery.winRatePlus', { count: filters.minWinRate })}
+          onRemove={() => onChange({ minWinRate: undefined })}
+        />
+      )}
       {filters.tag && (
         <Chip
           kind="tag"
@@ -251,6 +262,26 @@ export function GalleryToolbar({
                 >
                   {t('gallery.starsPlus', { count: r })}
                   {filters.minRating === r && (
+                    <HugeiconsIcon icon={Tick02Icon} />
+                  )}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
+
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger data-filter-menu="winrate">
+              {t('gallery.filterWinRate')}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {WIN_RATE_PRESETS.map((p) => (
+                <DropdownMenuItem
+                  key={p}
+                  data-filter-option={`winrate-${p}`}
+                  onSelect={() => onChange({ minWinRate: p })}
+                >
+                  {t('gallery.winRatePlus', { count: p })}
+                  {filters.minWinRate === p && (
                     <HugeiconsIcon icon={Tick02Icon} />
                   )}
                 </DropdownMenuItem>

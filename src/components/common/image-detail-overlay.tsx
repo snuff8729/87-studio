@@ -5,6 +5,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowExpand01Icon,
   ArrowLeft02Icon,
+  BookmarkAdd01Icon,
   Cancel01Icon,
   Delete02Icon,
 } from '@hugeicons/core-free-icons'
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
 import {
   addTag,
   bulkUpdateImages,
@@ -593,6 +595,23 @@ function ImageDetailContent({
             </div>
           )}
         </div>
+
+        {/* Add to tag bookmark */}
+        <AddToBookmarkPopover
+          imageIds={[detail.id]}
+          align="start"
+          trigger={
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              data-detail-bookmark
+            >
+              <HugeiconsIcon icon={BookmarkAdd01Icon} className="size-4" />
+              {t('gallery.addToBookmark')}
+            </Button>
+          }
+        />
 
         {/* Download + Delete */}
         <div className="flex gap-2">

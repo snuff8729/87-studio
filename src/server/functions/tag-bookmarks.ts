@@ -24,8 +24,7 @@ function normalizePath(p: string): string {
 
 export const listTagBookmarks = createServerFn({ method: 'GET' })
   .inputValidator(
-    (data: { search?: string; tags?: Array<string> } | undefined) =>
-      data ?? {},
+    (data: { search?: string; tags?: Array<string> } | undefined) => data ?? {},
   )
   .handler(async ({ data }) => {
     const allBookmarks = db
@@ -187,10 +186,48 @@ export const addBookmarkImageFromGallery = createServerFn({ method: 'POST' })
     return result
   })
 
+/** Adds gallery images to a bookmark, skipping ones it already holds. */
+export const addBookmarkImagesFromGallery = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: { bookmarkId: number; galleryImageIds: Array<number> }) => data,
+  )
+  .handler(async ({ data }) => {
+    const existing = new Set(
+      db
+        .select({ id: tagBookmarkImages.galleryImageId })
+        .from(tagBookmarkImages)
+        .where(eq(tagBookmarkImages.bookmarkId, data.bookmarkId))
+        .all()
+        .map((r) => r.id),
+    )
+    const imgs =
+      data.galleryImageIds.length > 0
+        ? db
+            .select()
+            .from(generatedImages)
+            .where(inArray(generatedImages.id, data.galleryImageIds))
+            .all()
+        : []
+    let added = 0
+    for (const img of imgs) {
+      if (existing.has(img.id)) continue
+      db.insert(tagBookmarkImages)
+        .values({
+          bookmarkId: data.bookmarkId,
+          source: 'gallery',
+          galleryImageId: img.id,
+          filePath: img.filePath,
+          thumbnailPath: img.thumbnailPath,
+        })
+        .run()
+      added++
+    }
+    return { added, skipped: imgs.length - added }
+  })
+
 export const addBookmarkImageUpload = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { bookmarkId: number; imageData: string; filename: string }) =>
-      data,
+    (data: { bookmarkId: number; imageData: string; filename: string }) => data,
   )
   .handler(async ({ data }) => {
     const buffer = Buffer.from(data.imageData, 'base64')
@@ -244,9 +281,7 @@ export const removeBookmarkImage = createServerFn({ method: 'POST' })
   })
 
 export const setBookmarkThumbnail = createServerFn({ method: 'POST' })
-  .inputValidator(
-    (data: { bookmarkId: number; imageId: number }) => data,
-  )
+  .inputValidator((data: { bookmarkId: number; imageId: number }) => data)
   .handler(async ({ data }) => {
     db.update(tagBookmarks)
       .set({
@@ -278,9 +313,7 @@ export const setBookmarkTags = createServerFn({ method: 'POST' })
     const { bookmarkId, tagNames } = data
     const uniqueNames = [
       ...new Set(
-        tagNames
-          .map((n) => n.trim().toLowerCase())
-          .filter((n) => n.length > 0),
+        tagNames.map((n) => n.trim().toLowerCase()).filter((n) => n.length > 0),
       ),
     ]
 
@@ -290,10 +323,7 @@ export const setBookmarkTags = createServerFn({ method: 'POST' })
 
     if (uniqueNames.length > 0) {
       for (const name of uniqueNames) {
-        db.insert(tagBookmarkTags)
-          .values({ name })
-          .onConflictDoNothing()
-          .run()
+        db.insert(tagBookmarkTags).values({ name }).onConflictDoNothing().run()
       }
 
       const tagRows = db

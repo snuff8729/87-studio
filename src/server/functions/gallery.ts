@@ -25,6 +25,8 @@ export const listImages = createServerFn({ method: 'GET' })
       sourceSceneId?: number
       isFavorite?: boolean
       minRating?: number
+      /** Percent; only images with at least one tournament match qualify */
+      minWinRate?: number
       tagIds?: Array<number>
       sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
       quickGenerate?: boolean
@@ -46,6 +48,12 @@ export const listImages = createServerFn({ method: 'GET' })
     if (data.isFavorite) conditions.push(eq(generatedImages.isFavorite, 1))
     if (data.minRating)
       conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
+
+    if (data.minWinRate) {
+      conditions.push(
+        sql`(${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) > 0 AND CAST(${generatedImages.tournamentWins} AS REAL) / (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) * 100 >= ${data.minWinRate}`,
+      )
+    }
 
     // Tag filter as SQL subquery (not post-filter)
     if (data.tagIds && data.tagIds.length > 0) {
@@ -194,6 +202,67 @@ export const removeTag = createServerFn({ method: 'POST' })
       )
       .run()
     return { success: true }
+  })
+
+/** For each tag on any of the images: how many of them carry it. */
+export const getImageTagCounts = createServerFn({ method: 'GET' })
+  .inputValidator((data: { imageIds: Array<number> }) => data)
+  .handler(async ({ data }) => {
+    if (data.imageIds.length === 0) return []
+    return db
+      .select({
+        tagId: imageTags.tagId,
+        count: sql<number>`count(*)`,
+      })
+      .from(imageTags)
+      .where(inArray(imageTags.imageId, data.imageIds))
+      .groupBy(imageTags.tagId)
+      .all()
+  })
+
+/** Adds (creating missing tags by name) and/or removes tags on many images. */
+export const bulkUpdateImageTags = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      imageIds: Array<number>
+      addTagNames?: Array<string>
+      addTagIds?: Array<number>
+      removeTagIds?: Array<number>
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    if (data.imageIds.length === 0) return { tags: [] }
+    const addIds = new Set(data.addTagIds ?? [])
+    const created: Array<{ id: number; name: string }> = []
+    for (const raw of data.addTagNames ?? []) {
+      const name = raw.trim().toLowerCase()
+      if (!name) continue
+      let tag = db.select().from(tags).where(eq(tags.name, name)).get()
+      if (!tag) {
+        tag = db.insert(tags).values({ name }).returning().get()
+      }
+      created.push(tag)
+      addIds.add(tag.id)
+    }
+    for (const tagId of addIds) {
+      for (const imageId of data.imageIds) {
+        db.insert(imageTags)
+          .values({ imageId, tagId })
+          .onConflictDoNothing()
+          .run()
+      }
+    }
+    if (data.removeTagIds && data.removeTagIds.length > 0) {
+      db.delete(imageTags)
+        .where(
+          and(
+            inArray(imageTags.imageId, data.imageIds),
+            inArray(imageTags.tagId, data.removeTagIds),
+          ),
+        )
+        .run()
+    }
+    return { tags: created }
   })
 
 export const listTags = createServerFn({ method: 'GET' }).handler(async () => {

@@ -9,12 +9,14 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  BookmarkAdd01Icon,
   CheckListIcon,
   Delete02Icon,
   Download04Icon,
   FavouriteIcon,
   Image02Icon,
   StarIcon,
+  Tag01Icon,
 } from '@hugeicons/core-free-icons'
 import type { GridSize } from '@/lib/use-image-grid-size'
 import type { GalleryFilters } from '@/components/gallery/gallery-toolbar'
@@ -45,6 +47,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
 import { DownloadDialog } from '@/components/common/download-dialog'
+import { BulkTagPopover } from '@/components/gallery/bulk-tag-popover'
+import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
 import { useImageGridSize } from '@/lib/use-image-grid-size'
 
 function PendingComponent() {
@@ -83,6 +87,7 @@ export const Route = createFileRoute('/gallery')({
     favorite:
       search.favorite === true || search.favorite === 'true' ? true : undefined,
     minRating: search.minRating ? Number(search.minRating) : undefined,
+    minWinRate: search.minWinRate ? Number(search.minWinRate) : undefined,
     sortBy: (search.sortBy as SearchParams['sortBy']) || undefined,
     quick: search.quick === true || search.quick === 'true' ? true : undefined,
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
@@ -98,6 +103,7 @@ export const Route = createFileRoute('/gallery')({
           projectSceneId: deps.projectSceneId,
           isFavorite: deps.favorite,
           minRating: deps.minRating,
+          minWinRate: deps.minWinRate,
           tagIds: deps.tag ? [deps.tag] : undefined,
           sortBy: deps.sortBy,
           quickGenerate: deps.quick,
@@ -129,7 +135,11 @@ function columnsFor(width: number, gridSize: GridSize) {
 }
 
 function GalleryLayout() {
-  const { initialImages, allTags, allProjects } = Route.useLoaderData()
+  const {
+    initialImages,
+    allTags: loadedTags,
+    allProjects,
+  } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
   const { t } = useTranslation()
@@ -139,6 +149,7 @@ function GalleryLayout() {
   const isDetailOpen = /^\/gallery\/\d+/.test(routerState.location.pathname)
 
   const [images, setImages] = useState(initialImages)
+  const [allTags, setAllTags] = useState(loadedTags)
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(initialImages.length >= 40)
@@ -160,6 +171,8 @@ function GalleryLayout() {
   const [gridWidth, setGridWidth] = useState(0)
   const [scrollMargin, setScrollMargin] = useState(0)
   const cols = columnsFor(gridWidth, gridSize)
+
+  useEffect(() => setAllTags(loadedTags), [loadedTags])
 
   useEffect(() => {
     setImages(initialImages)
@@ -232,6 +245,7 @@ function GalleryLayout() {
         projectSceneId: search.projectSceneId,
         isFavorite: search.favorite,
         minRating: search.minRating,
+        minWinRate: search.minWinRate,
         tagIds: search.tag ? [search.tag] : undefined,
         sortBy: search.sortBy,
         quickGenerate: search.quick,
@@ -349,6 +363,15 @@ function GalleryLayout() {
             onFavorite={handleBulkFavorite}
             onDelete={handleBulkDelete}
             selectedIds={selectedList}
+            tags={allTags}
+            onTagsCreated={(created) =>
+              setAllTags((prev) =>
+                [
+                  ...prev,
+                  ...created.filter((c) => !prev.some((p) => p.id === c.id)),
+                ].sort((a, b) => a.name.localeCompare(b.name)),
+              )
+            }
             projectId={search.project}
             projectName={allProjects.find((p) => p.id === search.project)?.name}
             scenes={projectScenes}
@@ -470,6 +493,8 @@ function GalleryHeader({
   onFavorite,
   onDelete,
   selectedIds,
+  tags,
+  onTagsCreated,
   projectId,
   projectName,
   scenes,
@@ -484,6 +509,8 @@ function GalleryHeader({
   onFavorite: () => void
   onDelete: () => void
   selectedIds: ReadonlyArray<number>
+  tags: Array<{ id: number; name: string }>
+  onTagsCreated: (created: Array<{ id: number; name: string }>) => void
   projectId: number | undefined
   projectName: string | undefined
   scenes: Array<{ id: number; name: string }>
@@ -513,6 +540,38 @@ function GalleryHeader({
           >
             <HugeiconsIcon icon={FavouriteIcon} className="size-4" />
           </button>
+          <BulkTagPopover
+            imageIds={selectedIds}
+            tags={tags}
+            onTagsCreated={onTagsCreated}
+            trigger={
+              <button
+                type="button"
+                className={SELECTION_ICON_BUTTON}
+                disabled={empty}
+                data-gallery-bulk-tag
+                title={t('gallery.tagImages')}
+                aria-label={t('gallery.tagImages')}
+              >
+                <HugeiconsIcon icon={Tag01Icon} className="size-4" />
+              </button>
+            }
+          />
+          <AddToBookmarkPopover
+            imageIds={selectedIds}
+            trigger={
+              <button
+                type="button"
+                className={SELECTION_ICON_BUTTON}
+                disabled={empty}
+                data-gallery-bulk-bookmark
+                title={t('gallery.addToBookmark')}
+                aria-label={t('gallery.addToBookmark')}
+              >
+                <HugeiconsIcon icon={BookmarkAdd01Icon} className="size-4" />
+              </button>
+            }
+          />
           <DownloadDialog
             trigger={
               <button
