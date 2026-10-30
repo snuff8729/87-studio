@@ -513,6 +513,15 @@ const en = {
     importApply: 'Apply',
     imported: 'Settings imported from image',
   },
+  editor: {
+    edit: 'Edit',
+    result: 'Result',
+    history: 'History',
+    showLeftPanel: 'Show left panel',
+    hideLeftPanel: 'Hide left panel',
+    showRightPanel: 'Show right panel',
+    hideRightPanel: 'Hide right panel',
+  },
   history: {
     title: 'History',
     noImagesYet: 'No images yet',

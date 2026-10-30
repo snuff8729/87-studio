@@ -521,6 +521,15 @@ const ko: DeepStringify<typeof en> = {
     importApply: '적용',
     imported: '이미지에서 설정을 가져왔습니다',
   },
+  editor: {
+    edit: '편집',
+    result: '결과',
+    history: '히스토리',
+    showLeftPanel: '왼쪽 패널 표시',
+    hideLeftPanel: '왼쪽 패널 숨기기',
+    showRightPanel: '오른쪽 패널 표시',
+    hideRightPanel: '오른쪽 패널 숨기기',
+  },
   history: {
     title: '히스토리',
     noImagesYet: '아직 이미지가 없습니다',
