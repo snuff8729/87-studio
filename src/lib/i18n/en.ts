@@ -748,8 +748,22 @@ const en = {
     ucPreset: 'UC Preset',
     ucPresetHelp: 'Undesired Content preset',
     seed: 'Seed',
-    seedHelp: 'Fixed seed for reproducible generation. Leave off for random.',
+    seedHelp:
+      'Fixed seed. When on, every image uses the same seed, which is useful for comparing scenes or prompts. When off, each image gets a random seed.',
     seedFixed: 'Fixed Seed',
+    smeaHelp:
+      'SMEA. V3-only sampling correction that reduces composition breakdown at high resolutions. Slightly slower.',
+    smeaDynHelp:
+      'DYN (SMEA+DYN). A variant of SMEA that preserves more detail and consistency. Turning it on also turns SMEA on. V3 only.',
+    varietyPlusHelp:
+      'Variety+. Skips CFG during the early high-noise steps to increase variety in composition and pose. Turn off to follow the prompt more strictly.',
+    decrispHelp:
+      'Dynamic Thresholding. Reduces oversaturated, jittery colors caused by high CFG (Prompt Guidance). Turn on when using a high CFG.',
+    randomResolution: 'Random Resolution',
+    randomResolutionNote:
+      'Each image uses a random size: 832×1216, 1216×832 or 1024×1024.',
+    randomResolutionHelp:
+      'Random resolution. Each image randomly uses portrait (832×1216), landscape (1216×832) or square (1024×1024).',
     seedRandom: 'Random',
     width: 'Width',
     height: 'Height',
@@ -948,6 +962,7 @@ const en = {
     modeStyle: 'Style',
     modeCharacterStyle: 'Character & Style',
     v45Only: 'V4.5 models only',
+    vibeNotV5: 'Vibe Transfer is not supported on V5 models',
     enabled: 'Enabled',
     disabled: 'Disabled',
     encodingPending: 'Will encode on next generation',

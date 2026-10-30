@@ -127,7 +127,8 @@ fi
 # =============================================================
 #  Step 5: Build Application
 # =============================================================
-if [ -f ".output/server/index.mjs" ]; then
+# Rebuild when any source/config file is newer than the existing build
+if [ -f ".output/server/index.mjs" ] && [ -z "$(find src public package.json vite.config.ts tsconfig.json -type f -newer .output/server/index.mjs 2>/dev/null | head -n 1)" ]; then
     echo "  [5/6] Build ................... OK"
 else
     echo "  [5/6] 애플리케이션 빌드 중..."

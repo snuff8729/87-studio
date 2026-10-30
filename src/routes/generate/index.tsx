@@ -37,6 +37,7 @@ import { ImportMetadataDialog } from '@/components/quick-generate/import-metadat
 import { useTranslation } from '@/lib/i18n'
 import { duplicateName, moveItem, nextCharacterName } from '@/lib/characters'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
+import { DEFAULT_NAI_MODEL } from '@/lib/nai-models'
 import {
   createQuickGenerationJob,
   listQuickImages,
@@ -575,7 +576,7 @@ function QuickGeneratePage() {
                     | 'precise') ?? 'none'
                 }
                 currentModel={
-                  (state.parameters.model as string) ?? 'nai-diffusion-4-5-full'
+                  (state.parameters.model as string) ?? DEFAULT_NAI_MODEL
                 }
                 onReferenceModeChange={(mode) => {
                   setState((prev) => ({

@@ -35,6 +35,7 @@ import type { SaveStatus } from '@/components/workspace/workspace-title'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
+import { DEFAULT_NAI_MODEL } from '@/lib/nai-models'
 import {
   getRecentImages,
   getSceneImageCounts,
@@ -1437,7 +1438,7 @@ function WorkspacePage() {
                   'none'
                 }
                 currentModel={
-                  (params.model as string) ?? 'nai-diffusion-4-5-full'
+                  (params.model as string) ?? DEFAULT_NAI_MODEL
                 }
                 onReferenceModeChange={(mode) =>
                   setParam('referenceMode', mode)

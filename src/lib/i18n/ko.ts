@@ -754,8 +754,22 @@ const ko: DeepStringify<typeof en> = {
     ucPreset: 'UC 프리셋',
     ucPresetHelp: '언디자이어드 콘텐츠 프리셋',
     seed: '시드',
-    seedHelp: '재현 가능한 생성을 위한 고정 시드. 끄면 랜덤.',
+    seedHelp:
+      '시드 고정. 켜면 모든 이미지가 같은 시드로 생성되어 씬·프롬프트만 바꿔 비교할 때 유용합니다. 끄면 이미지마다 무작위 시드.',
     seedFixed: '시드 고정',
+    smeaHelp:
+      '고해상도에서 구도 붕괴를 줄이는 V3 전용 샘플링 보정. 큰 해상도에서 유용하지만 생성이 약간 느려집니다.',
+    smeaDynHelp:
+      'SMEA의 변형(SMEA+DYN). 디테일과 일관성을 더 보존합니다. 켜면 SMEA도 함께 켜집니다. V3 전용.',
+    varietyPlusHelp:
+      'Variety+. 초반 고노이즈 구간에서 CFG를 건너뛰어 구도·포즈의 다양성을 높입니다. 끄면 프롬프트를 더 엄격히 따릅니다.',
+    decrispHelp:
+      'Dynamic Thresholding. 높은 CFG(Prompt Guidance)에서 생기는 과포화·지글거리는 색감을 완화합니다. CFG를 높게 쓸 때 켜세요.',
+    randomResolution: '랜덤 해상도',
+    randomResolutionNote:
+      '이미지마다 832×1216, 1216×832, 1024×1024 중 무작위 크기를 사용합니다.',
+    randomResolutionHelp:
+      '랜덤 해상도. 이미지마다 세로(832×1216)·가로(1216×832)·정사각(1024×1024) 중 하나를 무작위로 사용합니다.',
     seedRandom: '랜덤',
     width: '너비',
     height: '높이',
@@ -954,6 +968,7 @@ const ko: DeepStringify<typeof en> = {
     modeStyle: '스타일',
     modeCharacterStyle: '캐릭터 & 스타일',
     v45Only: 'V4.5 모델 전용',
+    vibeNotV5: 'V5 모델에서는 Vibe Transfer를 사용할 수 없습니다',
     enabled: '활성',
     disabled: '비활성',
     encodingPending: '다음 생성 시 인코딩됨',

@@ -16,19 +16,16 @@ import {
 } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
+import {
+  DEFAULT_NAI_MODEL,
+  NAI_MODELS,
+  isDdimSampler,
+  isVarietyPlusOn,
+  supportsDecrisp,
+  supportsSmea,
+  supportsVarietyPlus,
+} from '@/lib/nai-models'
 import { DEFAULT_FILENAME_TEMPLATE } from '@/server/services/download'
-
-// --- Model presets ---
-const AVAILABLE_MODELS = [
-  { id: 'nai-diffusion-4-5-curated', name: 'NAI Diffusion V4.5 Curated' },
-  { id: 'nai-diffusion-4-5-full', name: 'NAI Diffusion V4.5 Full' },
-  { id: 'nai-diffusion-4-curated-preview', name: 'NAI Diffusion V4 Curated' },
-  { id: 'nai-diffusion-4-full', name: 'NAI Diffusion V4 Full' },
-  { id: 'nai-diffusion-3', name: 'NAI Diffusion V3 (Anime)' },
-  { id: 'nai-diffusion-furry-3', name: 'NAI Diffusion Furry V3' },
-] as const
-
-const DEFAULT_MODEL = 'nai-diffusion-4-5-full'
 
 // --- Resolution presets ---
 const RESOLUTION_PRESETS = [
@@ -50,6 +47,11 @@ const PARAM_HELP: Record<string, string> = {
   scheduler: 'params.schedulerHelp',
   ucPreset: 'params.ucPresetHelp',
   seed: 'params.seedHelp',
+  smea: 'params.smeaHelp',
+  smeaDyn: 'params.smeaDynHelp',
+  varietyPlus: 'params.varietyPlusHelp',
+  decrisp: 'params.decrispHelp',
+  randomResolution: 'params.randomResolutionHelp',
 }
 
 function ParamLabel({
@@ -90,6 +92,34 @@ function ParamLabel({
   return labelEl
 }
 
+function ToggleRow({
+  id,
+  name,
+  label,
+  checked,
+  disabled,
+  onChange,
+}: {
+  id: string
+  name: string
+  label: string
+  checked: boolean
+  disabled?: boolean
+  onChange: (value: boolean) => void
+}) {
+  return (
+    <div className={cn('flex items-center gap-2', disabled && 'opacity-50')}>
+      <Checkbox
+        id={id}
+        checked={checked}
+        disabled={disabled}
+        onCheckedChange={(v) => onChange(v === true)}
+      />
+      <ParamLabel name={name} label={label} />
+    </div>
+  )
+}
+
 // --- Shared form ---
 export interface ParameterFormProps {
   localParams: Record<string, unknown>
@@ -104,6 +134,22 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
   const scale = Number(localParams.scale ?? 5)
   const cfgRescale = Number(localParams.cfgRescale ?? 0)
 
+  const model = String(localParams.model ?? DEFAULT_NAI_MODEL)
+  const sampler = String(localParams.sampler ?? 'k_euler_ancestral')
+  const randomRes = localParams.randomResolution === true
+  const showSmea = supportsSmea(model)
+  const ddim = isDdimSampler(sampler)
+  const smeaDyn = localParams.smeaDyn === true
+  const smea = localParams.smea === true || smeaDyn
+  const showVarPlus = supportsVarietyPlus(model)
+  const varPlus = isVarietyPlusOn(
+    model,
+    typeof localParams.varietyPlus === 'boolean'
+      ? localParams.varietyPlus
+      : undefined,
+  )
+  const showDecrisp = supportsDecrisp(model)
+
   const activePreset = RESOLUTION_PRESETS.find((p) => p.w === w && p.h === h)
 
   return (
@@ -112,14 +158,14 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
       <section className="space-y-1.5">
         <ParamLabel name="model" label={t('params.model')} />
         <Select
-          value={String(localParams.model ?? DEFAULT_MODEL)}
+          value={String(localParams.model ?? DEFAULT_NAI_MODEL)}
           onValueChange={(v) => set('model', v)}
         >
           <SelectTrigger className="h-8 text-sm">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {AVAILABLE_MODELS.map((m) => (
+            {NAI_MODELS.map((m) => (
               <SelectItem key={m.id} value={m.id}>
                 {m.name}
               </SelectItem>
@@ -142,12 +188,13 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
             <button
               key={p.key}
               type="button"
+              disabled={randomRes}
               onClick={() => {
                 set('width', p.w)
                 set('height', p.h)
               }}
               className={cn(
-                'px-2.5 py-1 rounded-md text-xs font-medium transition-colors',
+                'px-2.5 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none',
                 activePreset?.key === p.key
                   ? 'bg-primary text-primary-foreground'
                   : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary',
@@ -168,6 +215,7 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
               max={1856}
               step={64}
               value={String(w)}
+              disabled={randomRes}
               onChange={(e) => set('width', Number(e.target.value))}
               className="h-8 text-sm tabular-nums"
             />
@@ -182,11 +230,24 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
               max={2624}
               step={64}
               value={String(h)}
+              disabled={randomRes}
               onChange={(e) => set('height', Number(e.target.value))}
               className="h-8 text-sm tabular-nums"
             />
           </div>
         </div>
+        <ToggleRow
+          id="random-resolution"
+          name="randomResolution"
+          label={t('params.randomResolution')}
+          checked={randomRes}
+          onChange={(v) => set('randomResolution', v)}
+        />
+        {randomRes && (
+          <p className="text-xs text-muted-foreground">
+            {t('params.randomResolutionNote')}
+          </p>
+        )}
       </section>
 
       <hr className="border-border" />
@@ -292,6 +353,60 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
       </section>
 
       <hr className="border-border" />
+
+      {/* Generation options */}
+      {(showSmea || showVarPlus || showDecrisp) && (
+        <>
+          <section className="space-y-2">
+            {showSmea && (
+              <>
+                <ToggleRow
+                  id="opt-smea"
+                  name="smea"
+                  label="SMEA"
+                  checked={!ddim && smea}
+                  disabled={ddim}
+                  onChange={(v) => {
+                    set('smea', v)
+                    if (!v) set('smeaDyn', false)
+                  }}
+                />
+                <ToggleRow
+                  id="opt-smea-dyn"
+                  name="smeaDyn"
+                  label="DYN"
+                  checked={!ddim && smeaDyn}
+                  disabled={ddim}
+                  onChange={(v) => {
+                    set('smeaDyn', v)
+                    if (v) set('smea', true)
+                  }}
+                />
+              </>
+            )}
+            {showVarPlus && (
+              <ToggleRow
+                id="opt-variety-plus"
+                name="varietyPlus"
+                label="VAR+"
+                checked={varPlus}
+                onChange={(v) => set('varietyPlus', v)}
+              />
+            )}
+            {showDecrisp && (
+              <ToggleRow
+                id="opt-decrisp"
+                name="decrisp"
+                label="DECRISP"
+                checked={localParams.decrisp === true}
+                onChange={(v) => set('decrisp', v)}
+              />
+            )}
+          </section>
+
+          <hr className="border-border" />
+        </>
+      )}
 
       {/* Seed */}
       <section className="space-y-2">

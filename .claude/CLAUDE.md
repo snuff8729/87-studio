@@ -438,7 +438,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 ## 이미지 생성 (비동기)
 
 - NAI API를 직접 호출하여 이미지를 생성
-- **모델 선택 가능**: V4.5 Curated/Full, V4 Curated/Full, V3 Anime, Furry V3 (기본: `nai-diffusion-4-5-full`)
+- **모델 선택 가능**: V5 Curated/Full, V4.5 Curated/Full, V4 Curated/Full, V3 Anime, Furry V3 (기본: `nai-diffusion-4-5-full`)
 - 배치 생성 지원: "프로젝트A × 웃음 × 20장" 형태
 - **여러 씬을 한번에 선택하여 배치 생성 가능** (예: 프로젝트A × [웃음, 슬픔, 화남] × 각 10장)
 - 프로젝트 내 여러 캐릭터는 **한 이미지에 포함되는 캐릭터들**임 (캐릭터별 독립 생성이 아님)
@@ -598,12 +598,23 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 | 모델 ID                         | 이름                             |
 | ------------------------------- | -------------------------------- |
+| nai-diffusion-5-full            | NAI Diffusion V5 Full            |
+| nai-diffusion-5-curated         | NAI Diffusion V5 Curated         |
 | nai-diffusion-4-5-curated       | NAI Diffusion V4.5 Curated       |
 | nai-diffusion-4-5-full          | NAI Diffusion V4.5 Full (기본값) |
 | nai-diffusion-4-curated-preview | NAI Diffusion V4 Curated         |
 | nai-diffusion-4-full            | NAI Diffusion V4 Full            |
 | nai-diffusion-3                 | NAI Diffusion V3 (Anime)         |
 | nai-diffusion-furry-3           | NAI Diffusion Furry V3           |
+
+- 모델 메타데이터·기능 판별은 `src/lib/nai-models.ts` (`NAI_MODELS`, `supportsVibe/supportsPrecise/usesMultipartRequest/defaultSkipCfgAboveSigma`)
+- **생성 옵션** (`parameters` JSON, 파라미터 패널 `ParameterForm`, 순수 로직은 `nai-models.ts`):
+  - SMEA `smea` / DYN `smeaDyn` → `sm` / `sm_dyn` (V3 프로파일만 표시·전송, `sm = smea || smeaDyn`, ddim 샘플러면 둘 다 false + UI 비활성)
+  - VAR+ `varietyPlus` → `skip_cfg_above_sigma` (미설정 기본: v4/v4.5 on, v3 off. on: v4.5=58, v4/v3=19. off: v4/v4.5=null, v3=0. V5 생략, Precise 사용 시 null)
+  - DECRISP `decrisp` → `dynamic_thresholding` (V5는 항상 false, 토글 숨김)
+  - Seed Fix: `seed != null`
+  - Rnd Res `randomResolution` → 이미지마다 832×1216 / 1216×832 / 1024×1024 중 무작위(`pickRandomResolution`, `generation.ts` 루프), 실제 width/height가 이미지 metadata.parameters에 저장됨
+- **V5**: 요청이 JSON 본문이 아니라 `multipart/form-data`의 `request` 파트(JSON Blob, filename `blob`)로 전송됨 (Content-Type 헤더 수동 지정 금지, `buildNaiRequestInit` in `nai-request.ts`). `skip_cfg_above_sigma` 키 생략 (V4.5=58, V4=19, V3=0). 응답은 동일한 ZIP. **Vibe Transfer / Precise Reference 미지원** (Precise는 V4.5 전용, V5에서 vibe 선택 시 job 실패)
 
 ### 인증
 
@@ -987,11 +998,13 @@ src/
 │       ├── bundle.test.ts           # 번들 참조 추출/치환
 │       ├── sd-studio-import.test.ts # SD Studio JSON 파싱
 │       ├── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
-│       └── prompt-tags.test.ts      # 프롬프트 태그 토큰 매칭 (가중치/중괄호/언더스코어)
+│       ├── prompt-tags.test.ts      # 프롬프트 태그 토큰 매칭 (가중치/중괄호/언더스코어)
+│       └── nai-models.test.ts       # 모델 프로파일/기능 판별 (V5 포함)
 └── server/
     └── services/
         └── __tests__/
-            └── download.test.ts     # 파일명 템플릿 치환
+            ├── download.test.ts     # 파일명 템플릿 치환
+            └── nai-request.test.ts  # NAI 요청 빌더 (V5 multipart vs JSON)
 ```
 
 ### 테스트 대상 모듈

@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useTranslation } from '@/lib/i18n'
+import { supportsPrecise, supportsVibe } from '@/lib/nai-models'
 import { cn } from '@/lib/utils'
 import {
   deleteReference,
@@ -84,7 +85,8 @@ export function ReferencePanel({
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isV45 = currentModel.includes('4-5')
+  const preciseOk = supportsPrecise(currentModel)
+  const vibeOk = supportsVibe(currentModel)
 
   // Load references
   const queryClient = useQueryClient()
@@ -196,7 +198,13 @@ export function ReferencePanel({
       </div>
 
       {/* V4.5 warning for precise */}
-      {referenceMode === 'precise' && !isV45 && (
+      {referenceMode === 'vibe' && !vibeOk && (
+        <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1.5">
+          <HugeiconsIcon icon={AlertCircleIcon} className="size-3.5 shrink-0" />
+          {t('reference.vibeNotV5')}
+        </div>
+      )}
+      {referenceMode === 'precise' && !preciseOk && (
         <div className="flex items-center gap-1.5 text-xs text-primary bg-primary/10 rounded-md px-2 py-1.5">
           <HugeiconsIcon icon={AlertCircleIcon} className="size-3.5 shrink-0" />
           {t('reference.v45Only')}

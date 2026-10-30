@@ -1,16 +1,17 @@
 import { unzipSync } from 'fflate'
 import { createLogger } from './logger'
 import { NAI_MOCK, mockGenerateImage } from './nai-mock'
+import { buildNaiRequestInit } from './nai-request'
 import type { ResolvedPrompts } from './prompt'
+import {
+  DEFAULT_NAI_MODEL,
+  resolveDynamicThresholding,
+  resolveSkipCfgAboveSigma,
+  resolveSmea,
+} from '@/lib/nai-models'
 
 const log = createLogger('nai')
 const NAI_API_URL = 'https://image.novelai.net/ai/generate-image'
-
-function getDefaultSkipCfgAboveSigma(model: string): number {
-  if (model.startsWith('nai-diffusion-4-5')) return 58
-  if (model.startsWith('nai-diffusion-4')) return 19
-  return 0
-}
 
 interface GenerationParams {
   model?: string
@@ -25,6 +26,10 @@ interface GenerationParams {
   ucPreset?: number
   imageFormat?: string
   referenceMode?: string
+  smea?: boolean
+  smeaDyn?: boolean
+  varietyPlus?: boolean
+  decrisp?: boolean
 }
 
 export interface ReferenceData {
@@ -58,9 +63,10 @@ export async function generateImage(
     centers: [{ x: 0.5, y: 0.5 }],
   }))
 
+  const model = params.model ?? DEFAULT_NAI_MODEL
   const body = {
     input: prompts.generalPrompt,
-    model: params.model ?? 'nai-diffusion-4-5-full',
+    model,
     action: 'generate',
     parameters: {
       add_original_image: true,
@@ -74,7 +80,7 @@ export async function generateImage(
       })),
       controlnet_strength: 1,
       deliberate_euler_ancestral_bug: false,
-      dynamic_thresholding: false,
+      dynamic_thresholding: resolveDynamicThresholding(model, params.decrisp),
       width: params.width ?? 832,
       height: params.height ?? 1216,
       image_format: params.imageFormat ?? 'png',
@@ -92,9 +98,6 @@ export async function generateImage(
       sampler: params.sampler ?? 'k_euler_ancestral',
       scale: params.scale ?? 5,
       seed: seed,
-      skip_cfg_above_sigma: getDefaultSkipCfgAboveSigma(
-        params.model ?? 'nai-diffusion-4-5-full',
-      ),
       steps: params.steps ?? 28,
       ucPreset: params.ucPreset ?? 0,
       use_coords: false,
@@ -115,6 +118,16 @@ export async function generateImage(
       },
     } as Record<string, unknown>,
   }
+
+  const skipCfg = resolveSkipCfgAboveSigma(model, params.varietyPlus)
+  if (skipCfg !== undefined) body.parameters.skip_cfg_above_sigma = skipCfg
+
+  const smea = resolveSmea(model, {
+    smea: params.smea,
+    smeaDyn: params.smeaDyn,
+    sampler: params.sampler ?? 'k_euler_ancestral',
+  })
+  if (smea) Object.assign(body.parameters, smea)
 
   // Inject Vibe Transfer parameters
   if (referenceData?.vibes && referenceData.vibes.length > 0) {
@@ -160,13 +173,11 @@ export async function generateImage(
 
   let response: Response
   try {
+    const init = buildNaiRequestInit(apiKey, body)
     response = await fetch(NAI_API_URL, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(body),
+      headers: init.headers,
+      body: init.body,
       signal: controller.signal,
     })
   } catch (err) {

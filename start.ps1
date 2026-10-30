@@ -163,7 +163,16 @@ if ($needDanbooruDownload) {
 #  Step 5: Build Application
 # ============================================================
 $outputIndex = Join-Path $ROOT_DIR ".output\server\index.mjs"
+# Rebuild when any source/config file is newer than the existing build
+$buildIsStale = $true
 if (Test-Path $outputIndex) {
+    $builtAt = (Get-Item $outputIndex).LastWriteTime
+    $sources = @(Get-ChildItem -Path (Join-Path $ROOT_DIR "src"), (Join-Path $ROOT_DIR "public") -Recurse -File -ErrorAction SilentlyContinue)
+    $sources += @(Get-ChildItem -Path (Join-Path $ROOT_DIR "*") -File -Include "package.json", "vite.config.ts", "tsconfig.json" -ErrorAction SilentlyContinue)
+    $newer = $sources | Where-Object { $_.LastWriteTime -gt $builtAt } | Select-Object -First 1
+    $buildIsStale = [bool]$newer
+}
+if (-not $buildIsStale) {
     Write-Host "   [5/6] Build ................... OK"
 } else {
     Write-Host "   [5/6] 애플리케이션 빌드 중..."

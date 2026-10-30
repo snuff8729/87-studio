@@ -13,6 +13,12 @@ import { generateThumbnail, saveImage } from './image'
 import { preparePreciseData, prepareVibeData } from './reference'
 import { createLogger } from './logger'
 import type { ReferenceData } from './nai'
+import {
+  DEFAULT_NAI_MODEL,
+  pickRandomResolution,
+  supportsPrecise,
+  supportsVibe,
+} from '@/lib/nai-models'
 
 const log = createLogger('generation')
 
@@ -604,16 +610,15 @@ async function processJob(jobId: number) {
     const referenceMode = resolvedParameters.referenceMode ?? 'none'
     const refProjectId = job.projectId ?? null
     let referenceData: ReferenceData | undefined
+    const refModel: string = resolvedParameters.model ?? DEFAULT_NAI_MODEL
     if (referenceMode === 'vibe') {
-      const vibeResult = await prepareVibeData(
-        refProjectId,
-        apiKey,
-        resolvedParameters.model ?? 'nai-diffusion-4-5-full',
-      )
+      if (!supportsVibe(refModel)) {
+        throw new Error('Vibe Transfer is not supported with V5 models')
+      }
+      const vibeResult = await prepareVibeData(refProjectId, apiKey, refModel)
       if (vibeResult) referenceData = vibeResult
     } else if (referenceMode === 'precise') {
-      const model = resolvedParameters.model ?? 'nai-diffusion-4-5-full'
-      if (!model.includes('4-5')) {
+      if (!supportsPrecise(refModel)) {
         throw new Error('Precise Reference requires V4.5 model')
       }
       const preciseResult = await preparePreciseData(refProjectId)
@@ -674,10 +679,14 @@ async function processJob(jobId: number) {
 
       // Generate image via NAI API (with timing)
       const imageStart = Date.now()
+      // Random resolution: pick per image; the actual size is what gets stored
+      const imageParameters = resolvedParameters.randomResolution
+        ? { ...resolvedParameters, ...pickRandomResolution() }
+        : resolvedParameters
       const { imageData, seed } = await generateImage(
         apiKey,
         resolvedPrompts,
-        resolvedParameters,
+        imageParameters,
         referenceData,
       )
       const imageDuration = Date.now() - imageStart
@@ -717,7 +726,7 @@ async function processJob(jobId: number) {
           seed,
           metadata: JSON.stringify({
             prompts: resolvedPrompts,
-            parameters: resolvedParameters,
+            parameters: imageParameters,
             ...(referenceMode !== 'none' &&
               referenceData && {
                 referenceMode,
