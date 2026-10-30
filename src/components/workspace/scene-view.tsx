@@ -18,11 +18,11 @@ import { PlaceholderEditor } from './placeholder-editor'
 import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
+import { SceneCard } from './scene-card'
 import type { ReactNode } from 'react'
 import type { SceneImageSortBy } from './scene-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { NumberStepper } from '@/components/ui/number-stepper'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 import { cn } from '@/lib/utils'
@@ -148,8 +148,10 @@ export function SceneView({
 
   // ── Placeholders section ──
   const [placeholdersOpen, setPlaceholdersOpen] = usePlaceholdersOpen(projectId)
-  // Onboarding step 7 targets the placeholder editor — never hide it then.
-  const showPlaceholders = placeholdersOpen || !!onboarding?.state.active
+  // Onboarding step 7 targets the placeholder editor — never hide it then
+  // (the collapse toggle is disabled meanwhile).
+  const forcedOpen = !!onboarding?.state.active
+  const showPlaceholders = placeholdersOpen || forcedOpen
 
   const parsedPlaceholders = useMemo<Record<string, string>>(
     () => JSON.parse(scene.placeholders || '{}'),
@@ -362,17 +364,20 @@ export function SceneView({
       >
         <button
           onClick={() => setPlaceholdersOpen(!placeholdersOpen)}
+          disabled={forcedOpen}
           aria-expanded={showPlaceholders}
           title={t('sceneView.togglePlaceholders')}
-          className="flex h-9 shrink-0 items-center gap-1.5 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground"
+          className="flex h-9 shrink-0 items-center gap-1.5 px-3 text-xs font-medium uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground disabled:pointer-events-none"
         >
-          <HugeiconsIcon
-            icon={ArrowDown01Icon}
-            className={cn(
-              'size-4 transition-transform',
-              !showPlaceholders && '-rotate-90',
-            )}
-          />
+          {!forcedOpen && (
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              className={cn(
+                'size-4 transition-transform',
+                !showPlaceholders && '-rotate-90',
+              )}
+            />
+          )}
           {t('sceneView.placeholders')}
           {placeholderCount > 0 && (
             <span className="tabular-nums text-muted-foreground/60">
@@ -402,6 +407,7 @@ export function SceneView({
           bar anchors to this panel's root) ── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         <SceneDetail
+          key={sceneId}
           sceneId={sceneId}
           characters={characters}
           generalPlaceholderKeys={generalPlaceholderKeys}
@@ -513,103 +519,19 @@ export function SceneBoard({
         {scenePackDialog}
         <AddSceneInline onAddScene={onAddScene} />
       </div>
-      {/* TODO(task3): use SceneCard */}
       <div className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3 p-4">
         {scenes.map((scene) => (
-          <BoardCard
+          <SceneCard
             key={scene.id}
             scene={scene}
             count={sceneCounts[scene.id] ?? null}
             defaultCount={defaultCount}
-            onCountChange={(v) => onSceneCountChange(scene.id, v)}
-            onSelect={() => onSelect(scene.id)}
+            onCountChange={onSceneCountChange}
+            selected={false}
+            onSelect={onSelect}
+            size="lg"
           />
         ))}
-      </div>
-    </div>
-  )
-}
-
-function BoardCard({
-  scene,
-  count,
-  defaultCount,
-  onCountChange,
-  onSelect,
-}: {
-  scene: SceneBoardScene
-  count: number | null
-  defaultCount: number
-  onCountChange: (count: number | null) => void
-  onSelect: () => void
-}) {
-  const { t } = useTranslation()
-  const effective = count ?? defaultCount
-
-  return (
-    <div
-      className={cn(
-        'group/card overflow-hidden rounded-lg border transition-colors',
-        effective > 0
-          ? 'border-primary/30 bg-primary/5'
-          : 'border-border bg-secondary/10',
-      )}
-    >
-      <button
-        onClick={onSelect}
-        className="relative block w-full cursor-pointer text-left"
-      >
-        <div className="aspect-[3/4] bg-secondary/40">
-          {scene.thumbnailPath ? (
-            <img
-              src={thumbUrl(scene.thumbnailPath)}
-              alt=""
-              className="h-full w-full object-cover transition-opacity group-hover/card:opacity-90"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center">
-              <HugeiconsIcon
-                icon={Image02Icon}
-                className="size-6 text-muted-foreground/20"
-              />
-            </div>
-          )}
-        </div>
-        {scene.imageCount > 0 && (
-          <span className="absolute right-1.5 top-1.5 inline-flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-xs tabular-nums text-white/80 backdrop-blur-sm">
-            <HugeiconsIcon icon={Image02Icon} className="size-2.5" />
-            {scene.imageCount}
-          </span>
-        )}
-        <div className="px-2.5 pt-2">
-          <div className="truncate text-sm font-medium">{scene.name}</div>
-          <div className="truncate text-xs text-muted-foreground">
-            {scene.packName}
-          </div>
-        </div>
-      </button>
-      <div
-        className="flex items-center gap-1 px-2.5 pb-2.5 pt-2"
-        title={t('sceneView.reserveCount')}
-      >
-        <NumberStepper
-          value={count}
-          onChange={onCountChange}
-          min={0}
-          max={100}
-          placeholder={String(defaultCount)}
-        />
-        {count != null && (
-          <button
-            onClick={() => onCountChange(null)}
-            className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-            title={t('sceneView.resetCount')}
-            aria-label={t('sceneView.resetCount')}
-          >
-            &times;
-          </button>
-        )}
       </div>
     </div>
   )

@@ -9,6 +9,11 @@ export interface OnboardingStepDef {
   target: string
   /** Secondary target that takes priority when present in DOM (e.g., dialog opened by button click) */
   activeTarget?: string
+  /**
+   * Highlighted when `target` exists but is not visible (e.g. inside an
+   * inactive editor tab), typically the tab trigger the user must open.
+   */
+  fallbackTarget?: string
   titleKey: string
   descriptionKey: string
   navigateTo?: string

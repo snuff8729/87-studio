@@ -16,6 +16,7 @@ import {
   useEditorShell,
 } from '@/components/editor-shell/editor-shell'
 import { EditorHeader } from '@/components/editor-shell/editor-header'
+import { useGenerateShortcut } from '@/components/editor-shell/use-generate-shortcut'
 import { Button } from '@/components/ui/button'
 import { NumberStepper } from '@/components/ui/number-stepper'
 import { ParameterForm } from '@/components/workspace/parameter-popover'
@@ -338,6 +339,8 @@ function QuickGeneratePage() {
       setGenerating(false)
     }
   }
+
+  useGenerateShortcut(handleGenerate, !!state.generalPrompt.trim())
 
   function addCharacter() {
     setState((prev) => ({

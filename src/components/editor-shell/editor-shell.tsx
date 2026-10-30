@@ -40,6 +40,13 @@ export type EditorTab = {
   label: string
   badge?: number
   content: ReactNode
+  /**
+   * The content manages its own scrolling and fills the tab body (no outer
+   * ScrollArea / padding), e.g. a virtualized list with a pinned bar.
+   */
+  fill?: boolean
+  /** `data-onboarding` anchor on the tab trigger. */
+  onboarding?: string
 }
 
 export type MobilePane = 'edit' | 'result' | 'history'

@@ -9,6 +9,18 @@ import { ONBOARDING_STEPS, TOTAL_STEPS } from '@/lib/onboarding/steps'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 
+/** Rendered and not inside a hidden (display:none) subtree. */
+function isVisible(el: Element): boolean {
+  return el.getClientRects().length > 0
+}
+
+/** First visible match of `selector`, else the first match (or null). */
+function queryPreferVisible(selector: string): Element | null {
+  const all = document.querySelectorAll(selector)
+  for (const el of all) if (isVisible(el)) return el
+  return all.length > 0 ? all[0] : null
+}
+
 function checkCondition(check: string): boolean {
   if (check === 'prompt-has-placeholder') {
     const el = document.querySelector('[data-onboarding="prompt-editor"]')
@@ -63,15 +75,24 @@ function OnboardingActiveOverlay() {
     const activeSelector = stepDef.activeTarget
       ? `[data-onboarding="${stepDef.activeTarget}"]`
       : null
+    const fallbackSelector = stepDef.fallbackTarget
+      ? `[data-onboarding="${stepDef.fallbackTarget}"]`
+      : null
 
     let hasScrolled = false
 
     function findAndTrack() {
       // Prefer activeTarget (e.g., dialog/form opened by button click)
-      const el =
-        (activeSelector && document.querySelector(activeSelector)) ||
-        document.querySelector(selector)
+      let el =
+        (activeSelector && queryPreferVisible(activeSelector)) ||
+        queryPreferVisible(selector)
+      // Target hidden (e.g. in an inactive tab) → point at its tab trigger.
+      if ((!el || !isVisible(el)) && fallbackSelector) {
+        const fallback = queryPreferVisible(fallbackSelector)
+        if (fallback && isVisible(fallback)) el = fallback
+      }
       if (el) {
+        if (el !== targetElRef.current) hasScrolled = false
         targetElRef.current = el
         setTargetRect(el.getBoundingClientRect())
         if (!hasScrolled) {

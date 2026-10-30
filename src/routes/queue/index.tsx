@@ -416,12 +416,11 @@ function SortableJobRow({ job }: { job: JobData }) {
 
         {job.projectId && job.projectSceneId && (
           <Link
-            to="/workspace/$projectId/scenes/$sceneId"
+            to="/workspace/$projectId"
             params={{
               projectId: String(job.projectId),
-              sceneId: String(job.projectSceneId),
             }}
-            search={{ imageDetail: undefined }}
+            search={{ scene: job.projectSceneId, imageDetail: undefined }}
             className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
             onClick={(e) => e.stopPropagation()}
           >
@@ -478,12 +477,11 @@ function RecentJobRow({ job }: { job: JobData }) {
         </button>
         {job.projectId && job.projectSceneId && (
           <Link
-            to="/workspace/$projectId/scenes/$sceneId"
+            to="/workspace/$projectId"
             params={{
               projectId: String(job.projectId),
-              sceneId: String(job.projectSceneId),
             }}
-            search={{ imageDetail: undefined }}
+            search={{ scene: job.projectSceneId, imageDetail: undefined }}
             className="text-muted-foreground/40 hover:text-primary shrink-0 transition-colors"
           >
             <HugeiconsIcon icon={ArrowUpRight} className="size-3" />

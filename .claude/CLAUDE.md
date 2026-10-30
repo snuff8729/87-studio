@@ -109,9 +109,9 @@ src/
 │   ├── workspace/
 │   │   └── $projectId/
 │   │       ├── route.tsx      # 워크스페이스 레이아웃
-│   │       ├── index.tsx      # 프로젝트 워크스페이스 (프롬프트 편집, 씬 관리, 생성)
+│   │       ├── index.tsx      # 프로젝트 워크스페이스 (EditorShell: 씬 탭 + 선택 씬 뷰 + 히스토리, ?scene=)
 │   │       └── scenes/
-│   │           └── $sceneId.tsx  # 씬 상세 (플레이스홀더 편집)
+│   │           └── $sceneId.tsx  # 레거시 URL → /workspace/$projectId?scene=$sceneId 리다이렉트
 │   ├── gallery/
 │   │   ├── route.tsx          # 갤러리 레이아웃
 │   │   ├── index.tsx          # 갤러리 (필터링, 즐겨찾기, 다운로드)
@@ -133,8 +133,9 @@ src/
 │   ├── editor-shell/          # 에디터 공용 레이아웃 (빠른 생성, 워크스페이스)
 │   │   ├── editor-shell.tsx       # 좌(탭+고정 Generate 푸터)/중앙/우 리사이즈·접기 패널, 모바일 Edit/Result/History 전환
 │   │   ├── editor-header.tsx      # 에디터 헤더 (SidebarTrigger, 타이틀, 액션, 패널 토글)
-│   │   ├── editor-left-panel.tsx  # 탭 헤더(배지) + 스크롤 본문 + 푸터
+│   │   ├── editor-left-panel.tsx  # 탭 헤더(배지) + 스크롤 본문 + 푸터 (fill 탭은 자체 스크롤)
 │   │   ├── history-columns.ts     # 히스토리 폭 → 열 수 계산
+│   │   ├── use-generate-shortcut.ts  # Ctrl/Cmd+Enter → Generate (에디터 입력 중에도, 다이얼로그 열림/비활성 시 무시)
 │   │   └── use-editor-persist.ts  # 레이아웃/탭 localStorage 저장 (87studio-editor-layout:*, 87studio-editor-tab:*)
 │   ├── quick-generate/        # 빠른 생성 컴포넌트 (프롬프트/캐릭터 탭, ImageViewer, HistoryStrip, 메타데이터 임포트)
 │   ├── common/                # 공통 컴포넌트
@@ -174,23 +175,23 @@ src/
 │   │   └── tag-gallery-dialog.tsx   # 태그 갤러리 다이얼로그
 │   ├── queue/                 # 큐 컴포넌트
 │   │   └── queue-status-widget.tsx  # 큐 상태 위젯
-│   └── workspace/             # 워크스페이스 컴포넌트 (18개)
-│       ├── workspace-layout.tsx   # 메인 레이아웃
-│       ├── workspace-header.tsx   # 헤더
-│       ├── prompt-panel.tsx       # 프롬프트 편집 패널
-│       ├── scene-panel.tsx        # 씬 관리 패널
-│       ├── scene-matrix.tsx       # 씬 그리드 매트릭스
-│       ├── scene-detail.tsx       # 씬 상세 편집
-│       ├── scene-placeholder-panel.tsx  # 플레이스홀더 편집
-│       ├── placeholder-editor.tsx # 플레이스홀더 값 에디터
+│   └── workspace/             # 워크스페이스 컴포넌트
+│       ├── workspace-title.tsx    # 헤더 타이틀 (썸네일, 이름 변경, 저장 상태)
+│       ├── prompt-panel.tsx       # 프롬프트 편집 (section: 'prompt' | 'characters')
+│       ├── scenes-tab.tsx         # 씬 탭 (리스트/카드, 팩 필터, 검색, 정렬, 예약 장수, 선택 모드)
+│       ├── scenes-tab-prefs.ts    # 씬 탭 보기/카드 크기 저장 (87studio-scenes-tab:<projectId>)
+│       ├── scene-card.tsx         # SceneCard/SceneRow, ReserveStepper, SceneMenuItems (탭·보드 공용)
+│       ├── reserve-summary.ts     # 예약 합계 (씬 수, 이미지 수)
+│       ├── scene-view.tsx         # SceneView (선택 씬: 헤더, 플레이스홀더, 이미지) + SceneBoard (미선택)
+│       ├── scene-detail.tsx       # 씬 이미지 그리드 (정렬, 선택 모드, 일괄 작업)
+│       ├── placeholder-editor.tsx # 플레이스홀더 값 에디터 (800ms 디바운스, 씬 전환 시 flush)
+│       ├── placeholder-save-plan.ts  # 로컬 편집 → 저장 JSON 계산
 │       ├── scene-pack-dialog.tsx  # 씬 팩 선택 다이얼로그
 │       ├── compare-dialog.tsx     # 이미지 비교 다이얼로그
 │       ├── convert-to-template-dialog.tsx  # 프로젝트 씬 → 글로벌 씬 팩 변환
 │       ├── parameter-popover.tsx  # 생성 파라미터 설정 (모델 선택 포함)
 │       ├── reference-panel.tsx    # 참조 이미지 관리 (Vibe Transfer, Precise Control)
-│       ├── bottom-toolbar.tsx     # 생성 컨트롤
 │       ├── generation-progress.tsx  # 진행률 표시
-│       ├── history-panel.tsx      # 생성 이력
 │       ├── import-dialog.tsx      # SD Studio JSON 임포트
 │       └── tournament-dialog.tsx  # 이상형 월드컵 (토너먼트)
 ├── server/
@@ -386,7 +387,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 ### 온보딩 시스템
 
 - 처음 사용자를 위한 단계별 가이드 튜토리얼 (9단계: 환영 → API 키 설정 → 프로젝트 생성 → 워크스페이스 진입 → 프롬프트 작성 → 씬 추가 → 씬 편집 → 플레이스홀더 입력 → 이미지 생성)
-- Spotlight 하이라이트 + 안내 툴팁으로 UI 요소 강조
+- Spotlight 하이라이트 + 안내 툴팁으로 UI 요소 강조 (대상이 비활성 탭 안에 있으면 `fallbackTarget` = 해당 탭 트리거 강조)
 - 이벤트/라우트/조건 기반 자동 진행, 수동 진행, 건너뛰기 지원
 - localStorage에 진행 상태 저장
 
@@ -449,12 +450,14 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ### 워크스페이스 (/workspace/$projectId)
 
-- 프롬프트 편집 패널 (general_prompt, negative_prompt, 캐릭터별 char_prompt/char_negative)
-- 씬 관리 패널 (매트릭스 뷰)
-- 씬 상세 편집 (플레이스홀더, 캐릭터별 오버라이드)
-- 참조 이미지 관리 패널 (Vibe Transfer, Precise Control)
-- 생성 파라미터 설정 (parameter-popover, 모델 선택 포함)
-- 이미지 생성 진행률 및 이력
+- `EditorShell` 기반 (빠른 생성과 동일한 리사이즈·접기 3패널, 모바일 Edit/Result/History)
+- 헤더: 프로젝트 썸네일 + 이름(클릭해 변경) + 저장 상태, 씬 템플릿 / Import(SD Studio → 프로젝트에 할당) / Export
+- 좌측 탭: **Scenes**(기본, 씬 수 배지) · Prompt(general/negative) · Chars(캐릭터 프롬프트, 추가/삭제) · Refs(활성 참조 수 배지) · Params
+- Scenes 탭: 팩 필터, 검색, 정렬, 리스트↔카드(크기 슬라이더), "Default ×N", 선택 모드(일괄 장수/내보내기/템플릿/삭제), ↑/↓ 선택 이동, 씬별 예약 스테퍼
+- 고정 푸터: 진행률 + "N scenes · M images" + Generate M (Ctrl/Cmd+Enter)
+- 중앙: 선택 씬(`?scene=<id>`) = SceneView (이름 변경, 비교, 토너먼트, 템플릿 변환, 썸네일 초기화, 접이식 플레이스홀더(프로젝트별 저장), 이미지 그리드(`imageSort`)) / 미선택·잘못된 id = SceneBoard (카드 + 예약 스테퍼)
+- 우측: 프로젝트 히스토리 (클릭 → 이미지 상세 오버레이), 갤러리 링크
+- 기존 `/workspace/$projectId/scenes/$sceneId`는 `?scene=`로 리다이렉트
 - 이미지 비교 (같은 씬 이미지 나란히 비교)
 - 씬 팩 변환 (프로젝트 씬 → 글로벌 템플릿)
 - SD Studio JSON 임포트
@@ -484,6 +487,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 - 프로젝트/씬 설정 없이 직접 이미지 생성
 - 참조 이미지 지원
+- Ctrl/Cmd+Enter로 생성
 
 ### 큐 (/queue)
 

@@ -332,12 +332,14 @@ function ImageDetailContent({
                     </span>
                     {detail.projectId && detail.projectSceneId ? (
                       <Link
-                        to="/workspace/$projectId/scenes/$sceneId"
+                        to="/workspace/$projectId"
                         params={{
                           projectId: String(detail.projectId),
-                          sceneId: String(detail.projectSceneId),
                         }}
-                        search={{ imageDetail: undefined }}
+                        search={{
+                          scene: detail.projectSceneId,
+                          imageDetail: undefined,
+                        }}
                         className="text-sm text-primary hover:underline"
                       >
                         {detail.projectSceneName}

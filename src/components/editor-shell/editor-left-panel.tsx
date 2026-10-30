@@ -20,6 +20,7 @@ export function EditorLeftPanel({
   footer,
   className,
 }: EditorLeftPanelProps) {
+  const activeFills = tabs.some((tab) => tab.id === activeTab && tab.fill)
   return (
     <div className={cn('flex h-full min-h-0 flex-col', className)}>
       <Tabs
@@ -35,6 +36,7 @@ export function EditorLeftPanel({
             <TabsTrigger
               key={tab.id}
               value={tab.id}
+              data-onboarding={tab.onboarding}
               className="h-full flex-none px-2.5 text-xs after:bg-primary group-data-horizontal/tabs:after:bottom-0"
             >
               {tab.label}
@@ -46,18 +48,37 @@ export function EditorLeftPanel({
             </TabsTrigger>
           ))}
         </TabsList>
-        <ScrollArea className="min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!">
-          {tabs.map((tab) => (
+        <ScrollArea
+          className={cn(
+            'min-h-0 flex-1 [&_[data-slot=scroll-area-viewport]>div]:block!',
+            activeFills && 'hidden',
+          )}
+        >
+          {tabs
+            .filter((tab) => !tab.fill)
+            .map((tab) => (
+              <TabsContent
+                key={tab.id}
+                value={tab.id}
+                forceMount
+                className="p-3 data-[state=inactive]:hidden"
+              >
+                {tab.content}
+              </TabsContent>
+            ))}
+        </ScrollArea>
+        {tabs
+          .filter((tab) => tab.fill)
+          .map((tab) => (
             <TabsContent
               key={tab.id}
               value={tab.id}
               forceMount
-              className="p-3 data-[state=inactive]:hidden"
+              className="min-h-0 flex-1 data-[state=inactive]:hidden"
             >
               {tab.content}
             </TabsContent>
           ))}
-        </ScrollArea>
       </Tabs>
       {footer ? (
         <div className="shrink-0 border-t bg-background p-3">{footer}</div>

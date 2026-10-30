@@ -28,6 +28,7 @@ import { resolvePlaceholders } from '@/lib/placeholder'
 import { resolveBundles } from '@/lib/bundle'
 import { useBundleMap, useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
+import { planPlaceholderSaves } from './placeholder-save-plan'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -155,18 +156,64 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   const [localValues, setLocalValues] = useState<Record<string, string>>({})
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  // Reset local values when scene changes
+  // Last committed inputs of a save. Updated in an effect (not during render)
+  // so that the [sceneId] cleanup below still sees the PREVIOUS scene's
+  // values and save callbacks when the scene changes.
+  const saveInputsRef = useRef({
+    localValues,
+    scenePlaceholders,
+    characterOverrides,
+    onSaveGeneral,
+    onSaveCharOverride,
+    onPlaceholdersChange,
+    t,
+  })
+  useEffect(() => {
+    saveInputsRef.current = {
+      localValues,
+      scenePlaceholders,
+      characterOverrides,
+      onSaveGeneral,
+      onSaveCharOverride,
+      onPlaceholdersChange,
+      t,
+    }
+  })
+
+  /** Saves the overlay of the last committed render (debounce target). */
+  const flushSave = useCallback(() => {
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = undefined
+    const inputs = saveInputsRef.current
+    const plan = planPlaceholderSaves(
+      inputs.localValues,
+      inputs.scenePlaceholders,
+      inputs.characterOverrides,
+    )
+    if (plan.general !== null) {
+      inputs
+        .onSaveGeneral(plan.general)
+        .then(() => inputs.onPlaceholdersChange?.())
+        .catch(() => toast.error(inputs.t('placeholder.failedToSave')))
+    }
+    for (const { charId, json } of plan.characters) {
+      inputs
+        .onSaveCharOverride(charId, json)
+        .then(() => inputs.onPlaceholdersChange?.())
+        .catch(() => toast.error(inputs.t('placeholder.failedToSaveOverride')))
+    }
+    // The overlay is kept until the props catch up (see effect below).
+  }, [])
+
+  // Scene change / unmount: flush a pending debounced save for the scene
+  // being left (uses the previous scene's inputs), then reset the overlay.
   useEffect(() => {
     setLocalValues({})
     pinnedCellRef.current = null
-  }, [sceneId])
-
-  useEffect(
-    () => () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    },
-    [],
-  )
+    return () => {
+      if (saveTimerRef.current) flushSave()
+    }
+  }, [sceneId, flushSave])
 
   // Clear local overlays once server props reflect the saved values
   useEffect(() => {
@@ -237,51 +284,6 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       }
     })
   }
-
-  const flushSave = useCallback(async () => {
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-
-    setLocalValues((currentLocal) => {
-      if (Object.keys(currentLocal).length === 0) return currentLocal
-
-      const generalChanges: Record<string, string> = {}
-      const charChanges = new Map<number, Record<string, string>>()
-
-      for (const [k, v] of Object.entries(currentLocal)) {
-        const parts = k.split(':')
-        if (parts[0] === 'g') {
-          generalChanges[parts[1]] = v
-        } else {
-          const charId = Number(parts[1])
-          const placeholder = parts[2]
-          if (!charChanges.has(charId)) charChanges.set(charId, {})
-          charChanges.get(charId)![placeholder] = v
-        }
-      }
-
-      if (Object.keys(generalChanges).length > 0) {
-        const merged = { ...scenePlaceholders, ...generalChanges }
-        onSaveGeneral(JSON.stringify(merged))
-          .then(() => onPlaceholdersChange?.())
-          .catch(() => toast.error(t('placeholder.failedToSave')))
-      }
-
-      for (const [charId, changes] of charChanges) {
-        const existing = characterOverrides[charId] ?? {}
-        onSaveCharOverride(charId, JSON.stringify({ ...existing, ...changes }))
-          .then(() => onPlaceholdersChange?.())
-          .catch(() => toast.error(t('placeholder.failedToSaveOverride')))
-      }
-
-      return currentLocal // keep overlay until props catch up
-    })
-  }, [
-    scenePlaceholders,
-    characterOverrides,
-    onSaveGeneral,
-    onSaveCharOverride,
-    onPlaceholdersChange,
-  ])
 
   // ── Scene Data key management ──
   async function handleAddSceneDataKey() {
@@ -789,15 +791,23 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                         title={t('tagGallery.panelTitle')}
                       >
-                        <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-3.5" />
+                        <HugeiconsIcon
+                          icon={BookmarkCheck01Icon}
+                          className="size-3.5"
+                        />
                       </button>
                       <button
                         type="button"
-                        onClick={() => setExpandTarget({ key, owner: 'general' })}
+                        onClick={() =>
+                          setExpandTarget({ key, owner: 'general' })
+                        }
                         className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                         title={t('workspace.expandEditor')}
                       >
-                        <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                        <HugeiconsIcon
+                          icon={ArrowExpand01Icon}
+                          className="size-3.5"
+                        />
                       </button>
                     </div>
                   </div>
@@ -844,7 +854,10 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                         title={t('tagGallery.panelTitle')}
                       >
-                        <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-3.5" />
+                        <HugeiconsIcon
+                          icon={BookmarkCheck01Icon}
+                          className="size-3.5"
+                        />
                       </button>
                       <button
                         type="button"
@@ -852,7 +865,10 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                         className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                         title={t('workspace.expandEditor')}
                       >
-                        <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                        <HugeiconsIcon
+                          icon={ArrowExpand01Icon}
+                          className="size-3.5"
+                        />
                       </button>
                     </div>
                   </div>
@@ -1002,7 +1018,10 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                   className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                                   title={t('tagGallery.panelTitle')}
                                 >
-                                  <HugeiconsIcon icon={BookmarkCheck01Icon} className="size-3.5" />
+                                  <HugeiconsIcon
+                                    icon={BookmarkCheck01Icon}
+                                    className="size-3.5"
+                                  />
                                 </button>
                                 <button
                                   type="button"
@@ -1012,7 +1031,10 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                                   className="text-muted-foreground hover:text-foreground p-0.5 rounded transition-colors"
                                   title={t('workspace.expandEditor')}
                                 >
-                                  <HugeiconsIcon icon={ArrowExpand01Icon} className="size-3.5" />
+                                  <HugeiconsIcon
+                                    icon={ArrowExpand01Icon}
+                                    className="size-3.5"
+                                  />
                                 </button>
                               </div>
                             </div>
@@ -1029,7 +1051,9 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
                             >
                               <PlaceholderPromptEditor
                                 value={getEffectiveCharValue(key, charId)}
-                                onChange={(v) => handleCellChange(charId, key, v)}
+                                onChange={(v) =>
+                                  handleCellChange(charId, key, v)
+                                }
                                 placeholder={`${charName}: ${key}`}
                                 bundleNames={bundleNamesForEditor}
                               />

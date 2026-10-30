@@ -237,6 +237,9 @@ const en = {
   },
   workspace: {
     projects: 'Projects',
+    reserveSummary: '{{scenes}} scenes · {{images}} images',
+    importPreset: 'Import',
+    generateShortcut: 'Generate (Ctrl/Cmd+Enter)',
     gallery: 'Gallery',
     saving: 'Saving...',
     saved: 'Saved',
@@ -277,8 +280,6 @@ const en = {
     boardHint: 'Pick a scene to edit its placeholders and see its images.',
     emptyTitle: 'No scenes yet',
     emptyDesc: 'Add a scene pack or create a scene to get started.',
-    reserveCount: 'Images to generate',
-    resetCount: 'Reset to default',
   },
   scene: {
     reserve: 'Reserve',
@@ -552,6 +553,7 @@ const en = {
     hideLeftPanel: 'Hide left panel',
     showRightPanel: 'Show right panel',
     hideRightPanel: 'Hide right panel',
+    tabScenes: 'Scenes',
     tabPrompt: 'Prompt',
     tabCharacters: 'Chars',
     tabReferences: 'Refs',
@@ -726,7 +728,7 @@ const en = {
     step6: {
       title: 'Edit a Scene',
       description:
-        'Switch to Edit mode and select a scene to edit its placeholder values.',
+        'Open the Scenes tab and select a scene to edit its placeholder values.',
     },
     step7: {
       title: 'Fill Placeholders',

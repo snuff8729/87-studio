@@ -77,6 +77,12 @@ interface PromptPanelProps {
   onGeneralPromptChange: (value: string) => void
   onNegativePromptChange: (value: string) => void
   projectId: number
+  /**
+   * Render only one part: 'prompt' = general prompt + negative,
+   * 'characters' = character prompts (+ add/remove). Omitted = both with a
+   * General/Character toggle.
+   */
+  section?: 'prompt' | 'characters'
 }
 
 export function PromptPanel({
@@ -86,6 +92,7 @@ export function PromptPanel({
   onGeneralPromptChange,
   onNegativePromptChange,
   projectId,
+  section,
 }: PromptPanelProps) {
   const router = useRouter()
   const { t } = useTranslation()
@@ -93,7 +100,9 @@ export function PromptPanel({
   // 'general' = General tab, 'character' = Character tab (no chars), number = specific character
   const [activeContext, setActiveContext] = useState<
     'general' | 'character' | number
-  >('general')
+  >(() =>
+    section === 'characters' ? (characters[0]?.id ?? 'character') : 'general',
+  )
   const isCharacterTab = activeContext !== 'general'
 
   // Character-local editing state
@@ -300,31 +309,33 @@ export function PromptPanel({
   }
 
   return (
-    <div className="p-3 space-y-3">
+    <div className={section ? 'space-y-3' : 'p-3 space-y-3'}>
       {/* Top-level tabs: General / Character(n) */}
-      <div className="flex items-center bg-muted rounded-lg p-[3px] h-9 min-w-0">
-        <button
-          onClick={switchToGeneral}
-          className={`flex-1 h-full rounded-md text-sm font-medium transition-all ${
-            !isCharacterTab
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('workspace.general')}
-        </button>
-        <button
-          onClick={switchToCharacterTab}
-          className={`flex-1 h-full rounded-md text-sm font-medium transition-all ${
-            isCharacterTab
-              ? 'bg-background text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          }`}
-        >
-          {t('workspace.character')}
-          {characters.length > 0 ? ` (${characters.length})` : ''}
-        </button>
-      </div>
+      {!section && (
+        <div className="flex items-center bg-muted rounded-lg p-[3px] h-9 min-w-0">
+          <button
+            onClick={switchToGeneral}
+            className={`flex-1 h-full rounded-md text-sm font-medium transition-all ${
+              !isCharacterTab
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t('workspace.general')}
+          </button>
+          <button
+            onClick={switchToCharacterTab}
+            className={`flex-1 h-full rounded-md text-sm font-medium transition-all ${
+              isCharacterTab
+                ? 'bg-background text-foreground shadow-sm'
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            {t('workspace.character')}
+            {characters.length > 0 ? ` (${characters.length})` : ''}
+          </button>
+        </div>
+      )}
 
       {/* Character sub-bar: selector + add + delete (only when characters exist) */}
       {isCharacterTab && characters.length > 0 && (
@@ -471,7 +482,11 @@ export function PromptPanel({
                 setTagGalleryOpen(true)
               }}
             />
-            <div data-onboarding="prompt-editor">
+            <div
+              data-onboarding={
+                activeContext === 'general' ? 'prompt-editor' : undefined
+              }
+            >
               <LazyPromptEditor
                 key={`prompt-${activeContext}`}
                 value={displayPrompt}

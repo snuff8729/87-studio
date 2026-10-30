@@ -1,8 +1,27 @@
-import { createFileRoute, useNavigate, useRouter } from '@tanstack/react-router'
+import {
+  Link,
+  createFileRoute,
+  useNavigate,
+  useRouter,
+} from '@tanstack/react-router'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Download04Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowRight01Icon,
+  Download04Icon,
+  FileImportIcon,
+  PlayIcon,
+} from '@hugeicons/core-free-icons'
+import type { MobilePane } from '@/components/editor-shell/editor-shell'
+import type { SceneSortBy } from '@/components/workspace/scene-card'
+import type { SceneImageSortBy } from '@/components/workspace/scene-detail'
+import type {
+  SceneBoardScene,
+  SceneViewCharacterOverride,
+  SceneViewScene,
+} from '@/components/workspace/scene-view'
+import type { SaveStatus } from '@/components/workspace/workspace-title'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
@@ -12,84 +31,81 @@ import {
   getWorkspaceData,
   listProjectJobs,
 } from '@/server/functions/workspace'
-import { updateProject } from '@/server/functions/projects'
+import { assignScenePack, updateProject } from '@/server/functions/projects'
 import { createGenerationJob } from '@/server/functions/generation'
 import { getSetting } from '@/server/functions/settings'
 import {
   addProjectScene,
+  bulkDeleteProjectScenes,
   deleteProjectScene,
   duplicateProjectScene,
   getAllCharacterOverrides,
   renameProjectScene,
+  updateProjectScene,
 } from '@/server/functions/project-scenes'
-import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
-import { WorkspaceHeader } from '@/components/workspace/workspace-header'
-import { BottomToolbar } from '@/components/workspace/bottom-toolbar'
+import { EditorShell } from '@/components/editor-shell/editor-shell'
+import { EditorHeader } from '@/components/editor-shell/editor-header'
+import { useGenerateShortcut } from '@/components/editor-shell/use-generate-shortcut'
 import { PromptPanel } from '@/components/workspace/prompt-panel'
-import { ReferencePanel } from '@/components/workspace/reference-panel'
-import { ScenePanel } from '@/components/workspace/scene-panel'
-import { HistoryPanel } from '@/components/workspace/history-panel'
-import { ParameterPopover } from '@/components/workspace/parameter-popover'
+import {
+  ReferencePanel,
+  useReferenceImages,
+} from '@/components/workspace/reference-panel'
+import { ParameterForm } from '@/components/workspace/parameter-popover'
 import { ScenePackDialog } from '@/components/workspace/scene-pack-dialog'
+import { ImportDialog } from '@/components/workspace/import-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
+import { ScenesTab } from '@/components/workspace/scenes-tab'
+import { SceneBoard, SceneView } from '@/components/workspace/scene-view'
+import { reserveSummary } from '@/components/workspace/reserve-summary'
+import { WorkspaceTitle } from '@/components/workspace/workspace-title'
+import { HistoryStrip } from '@/components/quick-generate/history-strip'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
 function PendingComponent() {
   return (
-    <div className="h-full flex flex-col overflow-hidden">
-      {/* Header */}
-      <div className="h-12 border-b border-border bg-background flex items-center px-3 shrink-0 gap-3">
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex h-12 shrink-0 items-center gap-3 border-b bg-sidebar px-3">
         <Skeleton className="size-7 rounded-md" />
         <Skeleton className="h-4 w-28" />
         <div className="flex-1" />
-        <Skeleton className="h-4 w-16" />
-      </div>
-
-      {/* 3-panel body */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left panel */}
-        <aside className="hidden lg:block w-[280px] shrink-0 border-r border-border p-3 space-y-3">
-          <Skeleton className="h-4 w-24 mb-2" />
-          <Skeleton className="h-24 w-full rounded-md" />
-          <Skeleton className="h-4 w-20 mt-4 mb-2" />
-          <Skeleton className="h-16 w-full rounded-md" />
-        </aside>
-
-        {/* Center panel */}
-        <main className="flex-1 min-w-0 p-3 space-y-3">
-          <div className="flex items-center justify-between mb-2">
-            <Skeleton className="h-5 w-20" />
-            <Skeleton className="h-7 w-24 rounded-md" />
-          </div>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="flex items-center gap-3 px-2 py-2">
-              <Skeleton className="size-10 rounded-lg shrink-0" />
-              <div className="flex-1 space-y-1.5">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-3 w-40" />
-              </div>
-              <Skeleton className="h-7 w-14 rounded-md" />
-            </div>
-          ))}
-        </main>
-
-        {/* Right panel */}
-        <aside className="hidden lg:block w-[220px] shrink-0 border-l border-border p-3 space-y-2">
-          <Skeleton className="h-4 w-16 mb-2" />
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className="w-full aspect-square rounded-lg" />
-          ))}
-        </aside>
-      </div>
-
-      {/* Bottom toolbar */}
-      <div className="h-12 border-t border-border bg-background flex items-center px-3 gap-3 shrink-0">
-        <Skeleton className="h-7 w-20 rounded-md" />
         <Skeleton className="h-7 w-24 rounded-md" />
-        <div className="flex-1" />
-        <Skeleton className="h-8 w-24 rounded-md" />
+      </div>
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <aside className="hidden w-[300px] shrink-0 flex-col border-r md:flex">
+          <div className="flex h-10 items-center gap-2 border-b px-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-4 w-12" />
+            ))}
+          </div>
+          <div className="flex-1 space-y-2 p-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <Skeleton className="h-12 w-9 shrink-0 rounded" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-6 w-16 rounded-md" />
+              </div>
+            ))}
+          </div>
+          <div className="space-y-2 border-t p-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+        </aside>
+        <main className="min-w-0 flex-1 p-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Skeleton key={i} className="aspect-[3/4] w-full rounded-lg" />
+            ))}
+          </div>
+        </main>
+        <aside className="hidden w-[220px] shrink-0 space-y-2 border-l p-2 lg:block">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="aspect-square w-full rounded-md" />
+          ))}
+        </aside>
       </div>
     </div>
   )
@@ -103,27 +119,47 @@ const VALID_SORT = [
   'images_asc',
   'created_asc',
   'created_desc',
-] as const
-type SceneSortBy = (typeof VALID_SORT)[number]
+] as const satisfies ReadonlyArray<SceneSortBy>
+
+const VALID_IMAGE_SORT = [
+  'newest',
+  'tournament_winrate',
+  'tournament_wins',
+] as const satisfies ReadonlyArray<SceneImageSortBy>
 
 type WorkspaceSearch = {
-  view?: 'reserve' | 'edit'
   sort?: SceneSortBy
   q?: string
   scene?: number
+  imageSort?: SceneImageSortBy
+}
+
+const EMPTY_OVERRIDES: Array<SceneViewCharacterOverride> = []
+
+type ProjectFields = {
+  generalPrompt?: string
+  negativePrompt?: string
+  parameters?: string
 }
 
 export const Route = createFileRoute('/workspace/$projectId/')({
-  validateSearch: (search: Record<string, unknown>): WorkspaceSearch => ({
-    view: search.view === 'edit' ? 'edit' : undefined,
-    sort:
-      VALID_SORT.includes(search.sort as SceneSortBy) &&
-      search.sort !== 'default'
-        ? (search.sort as SceneSortBy)
-        : undefined,
-    q: typeof search.q === 'string' && search.q ? search.q : undefined,
-    scene: search.scene ? Number(search.scene) : undefined,
-  }),
+  validateSearch: (search: Record<string, unknown>): WorkspaceSearch => {
+    const scene = Number(search.scene)
+    return {
+      sort:
+        VALID_SORT.includes(search.sort as SceneSortBy) &&
+        search.sort !== 'default'
+          ? (search.sort as SceneSortBy)
+          : undefined,
+      q: typeof search.q === 'string' && search.q ? search.q : undefined,
+      scene: Number.isInteger(scene) && scene > 0 ? scene : undefined,
+      imageSort:
+        VALID_IMAGE_SORT.includes(search.imageSort as SceneImageSortBy) &&
+        search.imageSort !== 'newest'
+          ? (search.imageSort as SceneImageSortBy)
+          : undefined,
+    }
+  },
   loader: async ({ params }) => {
     const projectId = Number(params.projectId)
     return getWorkspaceData({ data: projectId })
@@ -189,19 +225,15 @@ function WorkspacePage() {
     [data.characters],
   )
 
-  // ── Auto-save ──
-  const [saveStatus, setSaveStatus] = useState<
-    'idle' | 'saving' | 'saved' | 'error'
-  >('idle')
+  // ── Auto-save (debounced; pending fields are merged so a prompt edit
+  // followed by a parameter edit within the debounce window saves both) ──
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
   const savedClearRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const pendingFieldsRef = useRef<ProjectFields>({})
 
   const saveProject = useCallback(
-    async (fields: {
-      generalPrompt?: string
-      negativePrompt?: string
-      parameters?: string
-    }) => {
+    async (fields: ProjectFields) => {
       setSaveStatus('saving')
       try {
         await updateProject({ data: { id: projectId, ...fields } })
@@ -214,17 +246,19 @@ function WorkspacePage() {
         toast.error(t('common.saveFailed'))
       }
     },
-    [projectId, router],
+    [projectId, router, t],
   )
 
   const debouncedSave = useCallback(
-    (fields: {
-      generalPrompt?: string
-      negativePrompt?: string
-      parameters?: string
-    }) => {
+    (fields: ProjectFields) => {
+      pendingFieldsRef.current = { ...pendingFieldsRef.current, ...fields }
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-      saveTimeoutRef.current = setTimeout(() => saveProject(fields), 1000)
+      saveTimeoutRef.current = setTimeout(() => {
+        saveTimeoutRef.current = undefined
+        const pending = pendingFieldsRef.current
+        pendingFieldsRef.current = {}
+        saveProject(pending)
+      }, 1000)
     },
     [saveProject],
   )
@@ -239,10 +273,21 @@ function WorkspacePage() {
     debouncedSave({ negativePrompt: value })
   }
 
-  function handleParamsChange(newParams: Record<string, unknown>) {
-    setParams(newParams)
-    debouncedSave({ parameters: JSON.stringify(newParams) })
-  }
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+  const handleParamsChange = useCallback(
+    (newParams: Record<string, unknown>) => {
+      paramsRef.current = newParams
+      setParams(newParams)
+      debouncedSave({ parameters: JSON.stringify(newParams) })
+    },
+    [debouncedSave],
+  )
+  const setParam = useCallback(
+    (key: string, value: unknown) =>
+      handleParamsChange({ ...paramsRef.current, [key]: value }),
+    [handleParamsChange],
+  )
 
   // ── Live images (updated incrementally during generation) ──
   const [liveImages, setLiveImages] = useState(data.recentImages)
@@ -305,39 +350,31 @@ function WorkspacePage() {
     [data.scenePacks, thumbnailOverrides, liveSceneCounts, liveLatestThumbs],
   )
 
-  // ── Character overrides (loaded for matrix view) ──
+  const allScenes = useMemo(
+    () =>
+      scenePacks.flatMap((pack) =>
+        pack.scenes.map((s) => ({ ...s, packName: pack.name })),
+      ),
+    [scenePacks],
+  )
+  const allSceneIds = useMemo(() => allScenes.map((s) => s.id), [allScenes])
+
+  // ── Character overrides (for the selected scene's placeholder editor) ──
   const [characterOverrides, setCharacterOverrides] = useState<
-    Record<
-      number,
-      Array<{
-        projectSceneId: number
-        characterId: number
-        placeholders: string
-      }>
-    >
+    Record<number, Array<SceneViewCharacterOverride>>
   >({})
 
   const loadCharacterOverrides = useCallback(async () => {
-    const allSceneIds = data.scenePacks.flatMap((p) =>
-      p.scenes.map((s) => s.id),
-    )
-    if (allSceneIds.length === 0 || data.characters.length === 0) {
+    const ids = data.scenePacks.flatMap((p) => p.scenes.map((s) => s.id))
+    if (ids.length === 0 || data.characters.length === 0) {
       setCharacterOverrides({})
       return
     }
     try {
-      const overrides = await getAllCharacterOverrides({ data: allSceneIds })
-      const grouped: Record<
-        number,
-        Array<{
-          projectSceneId: number
-          characterId: number
-          placeholders: string
-        }>
-      > = {}
+      const overrides = await getAllCharacterOverrides({ data: ids })
+      const grouped: Record<number, Array<SceneViewCharacterOverride>> = {}
       for (const o of overrides) {
-        if (!grouped[o.projectSceneId]) grouped[o.projectSceneId] = []
-        grouped[o.projectSceneId].push({
+        ;(grouped[o.projectSceneId] ??= []).push({
           projectSceneId: o.projectSceneId,
           characterId: o.characterId,
           placeholders: o.placeholders ?? '{}',
@@ -352,6 +389,110 @@ function WorkspacePage() {
   useEffect(() => {
     loadCharacterOverrides()
   }, [loadCharacterOverrides])
+
+  // ── URL search params ──
+  const searchParams = Route.useSearch()
+  const navigate = useNavigate({ from: Route.fullPath })
+
+  const sceneSortBy = searchParams.sort ?? 'default'
+  const setSceneSortBy = useCallback(
+    (sort: string) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          sort: sort === 'default' ? undefined : (sort as SceneSortBy),
+        }),
+      })
+    },
+    [navigate],
+  )
+
+  const sceneSearch = searchParams.q ?? ''
+  const setSceneSearch = useCallback(
+    (q: string) => {
+      navigate({
+        search: (prev) => ({ ...prev, q: q || undefined }),
+        replace: true,
+      })
+    },
+    [navigate],
+  )
+
+  const imageSortBy = searchParams.imageSort ?? 'newest'
+  const setImageSortBy = useCallback(
+    (sort: SceneImageSortBy) => {
+      navigate({
+        search: (prev) => ({
+          ...prev,
+          imageSort: sort === 'newest' ? undefined : sort,
+        }),
+        replace: true,
+      })
+    },
+    [navigate],
+  )
+
+  const [mobilePane, setMobilePane] = useState<MobilePane>('edit')
+
+  const requestedSceneId = searchParams.scene ?? null
+  const selectedSceneEntry =
+    requestedSceneId == null
+      ? undefined
+      : allScenes.find((s) => s.id === requestedSceneId)
+  const selectedSceneId = selectedSceneEntry ? requestedSceneId : null
+
+  const setSelectedSceneId = useCallback(
+    (id: number | null) => {
+      navigate({ search: (prev) => ({ ...prev, scene: id ?? undefined }) })
+    },
+    [navigate],
+  )
+
+  const handleSceneSelect = useCallback(
+    (id: number | null) => {
+      setSelectedSceneId(id)
+      if (id != null) setMobilePane('result')
+    },
+    [setSelectedSceneId],
+  )
+
+  // `?scene=` of another project / deleted / nonexistent → board, param cleared
+  useEffect(() => {
+    if (requestedSceneId != null && !selectedSceneEntry) {
+      navigate({
+        search: (prev) => ({ ...prev, scene: undefined }),
+        replace: true,
+      })
+    }
+  }, [requestedSceneId, selectedSceneEntry, navigate])
+
+  const selectedScene = useMemo<SceneViewScene | null>(
+    () =>
+      selectedSceneEntry
+        ? {
+            id: selectedSceneEntry.id,
+            name: selectedSceneEntry.name,
+            packName: selectedSceneEntry.packName,
+            placeholders: selectedSceneEntry.placeholders,
+            thumbnailImageId: selectedSceneEntry.thumbnailImageId,
+            thumbnailPath: selectedSceneEntry.thumbnailPath,
+            imageCount: selectedSceneEntry.recentImageCount,
+          }
+        : null,
+    [selectedSceneEntry],
+  )
+
+  const boardScenes = useMemo<Array<SceneBoardScene>>(
+    () =>
+      allScenes.map((s) => ({
+        id: s.id,
+        name: s.name,
+        packName: s.packName,
+        thumbnailPath: s.thumbnailPath,
+        imageCount: s.recentImageCount,
+      })),
+    [allScenes],
+  )
 
   // ── Scene management handlers ──
   const handleAddScene = useCallback(
@@ -397,6 +538,66 @@ function WorkspacePage() {
     loadCharacterOverrides()
   }, [router, loadCharacterOverrides])
 
+  const handleBulkDeleteScenes = useCallback(
+    async (ids: Array<number>) => {
+      try {
+        await bulkDeleteProjectScenes({ data: ids })
+      } catch (err) {
+        toast.error(t('scene.bulkDeleteFailed'))
+        throw err
+      }
+      toast.success(t('scene.bulkDeleteSuccess', { count: ids.length }))
+      handlePlaceholdersChange()
+    },
+    [t, handlePlaceholdersChange],
+  )
+
+  // ── Thumbnails ──
+  const handleSceneThumbnailChange = useCallback(
+    (imageId: number | null, thumbnailPath?: string | null) => {
+      if (selectedSceneId == null) return
+      const sceneId = selectedSceneId
+      setThumbnailOverrides((prev) => ({
+        ...prev,
+        [sceneId]: { imageId, thumbnailPath: thumbnailPath ?? null },
+      }))
+      updateProjectScene({ data: { id: sceneId, thumbnailImageId: imageId } })
+        .then(() => router.invalidate())
+        .catch(() => {
+          setThumbnailOverrides((prev) => {
+            const { [sceneId]: _, ...rest } = prev
+            return rest
+          })
+          toast.error(t('imageDetail.setSceneThumbFailed'))
+        })
+    },
+    [selectedSceneId, router, t],
+  )
+
+  const handleProjectThumbnailChange = useCallback(
+    (imageId: number | null) => {
+      updateProject({ data: { id: projectId, thumbnailImageId: imageId } })
+        .then(() => router.invalidate())
+        .catch(() => toast.error(t('imageDetail.setProjectThumbFailed')))
+    },
+    [projectId, router, t],
+  )
+
+  // ── SD Studio import (imported pack is assigned to this project) ──
+  const [importOpen, setImportOpen] = useState(false)
+  const handleImported = useCallback(
+    async (packId: number) => {
+      try {
+        await assignScenePack({ data: { projectId, scenePackId: packId } })
+        toast.success(t('templates.templateApplied'))
+        router.invalidate()
+      } catch {
+        toast.error(t('templates.applyFailed'))
+      }
+    },
+    [projectId, router, t],
+  )
+
   // ── Generation state ──
   const [countPerScene, setCountPerScene] = useState(0)
   const [sceneCounts, setSceneCounts] = useState<Record<number, number>>({})
@@ -404,6 +605,7 @@ function WorkspacePage() {
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
     data.queueStatus?.queueStopped ?? null,
   )
+  const [refreshKey, setRefreshKey] = useState(0)
 
   // Sync generation state when loader data changes (e.g. page refresh reconnects to running jobs)
   useEffect(() => {
@@ -418,14 +620,6 @@ function WorkspacePage() {
     }
   }, [data.activeJobs, data.queueStatus])
 
-  const allScenes = scenePacks.flatMap((pack) =>
-    pack.scenes.map((s) => ({ ...s, packName: pack.name })),
-  )
-
-  function getSceneCount(sceneId: number) {
-    return sceneCounts[sceneId] ?? countPerScene
-  }
-
   const handleSceneCountChange = useCallback(
     (sceneId: number, count: number | null) => {
       setSceneCounts((prev) => {
@@ -439,8 +633,12 @@ function WorkspacePage() {
     [],
   )
 
+  const summary = useMemo(
+    () => reserveSummary(allSceneIds, sceneCounts, countPerScene),
+    [allSceneIds, sceneCounts, countPerScene],
+  )
+
   // Poll during generation (stop polling when queue is stopped — no server-side changes in that state)
-  const prevCompletedRef = useRef(0)
   useEffect(() => {
     if (!generating || queueStopped) return
     let cancelled = false
@@ -460,6 +658,8 @@ function WorkspacePage() {
         const { jobs, queueStatus } = jobsResult
         setLiveImages(imgs)
         setLiveSceneCounts(counts)
+        // New images appear in the selected scene's grid
+        setRefreshKey((k) => k + 1)
 
         // Detect queue stop (error or pause)
         if (queueStatus?.queueStopped) {
@@ -473,18 +673,9 @@ function WorkspacePage() {
           return
         }
 
-        const totalCompleted = jobs.reduce(
-          (sum, j) => sum + (j.completedCount ?? 0),
-          0,
-        )
-        if (totalCompleted !== prevCompletedRef.current) {
-          prevCompletedRef.current = totalCompleted
-        }
-
-        if (jobs.length === 0 && !queueStatus?.queueStopped) {
+        if (jobs.length === 0) {
           setGenerating(false)
           setQueueStopped(null)
-          prevCompletedRef.current = 0
           router.invalidate()
         }
       } catch {
@@ -501,9 +692,9 @@ function WorkspacePage() {
   }, [generating, queueStopped, projectId, router])
 
   async function handleGenerate() {
-    const candidateIds = allScenes.map((s) => s.id)
-    const sceneIds = candidateIds.filter((id) => getSceneCount(id) > 0)
-    if (candidateIds.length === 0) {
+    const getSceneCount = (id: number) => sceneCounts[id] ?? countPerScene
+    const sceneIds = allSceneIds.filter((id) => getSceneCount(id) > 0)
+    if (allSceneIds.length === 0) {
       toast.error(t('generation.noScenesAvailable'))
       return
     }
@@ -527,8 +718,11 @@ function WorkspacePage() {
       return
     }
 
+    // Flush a pending prompt/parameter save so the job uses the latest values
     if (saveTimeoutRef.current) {
       clearTimeout(saveTimeoutRef.current)
+      saveTimeoutRef.current = undefined
+      pendingFieldsRef.current = {}
       await saveProject({
         generalPrompt,
         negativePrompt,
@@ -557,167 +751,291 @@ function WorkspacePage() {
     }
   }
 
-  // ── URL search params for filters/sort ──
-  const searchParams = Route.useSearch()
-  const navigate = useNavigate({ from: Route.fullPath })
+  // Generate button cooldown (same 1s as Quick Generate)
+  const [cooldown, setCooldown] = useState(false)
+  const cooldownRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  useEffect(() => () => clearTimeout(cooldownRef.current), [])
+  function handleGenerateClick() {
+    handleGenerate()
+    setCooldown(true)
+    clearTimeout(cooldownRef.current)
+    cooldownRef.current = setTimeout(() => setCooldown(false), 1000)
+  }
 
-  const viewMode = searchParams.view ?? 'reserve'
-  const setViewMode = useCallback(
-    (mode: 'reserve' | 'edit') => {
-      navigate({
-        search: (prev) => ({
-          ...prev,
-          view: mode === 'reserve' ? undefined : mode,
-        }),
-      })
+  const canGenerate = summary.images > 0
+  useGenerateShortcut(handleGenerate, canGenerate)
+
+  // ── Tab badges ──
+  const { data: references = [] } = useReferenceImages(projectId)
+  const activeRefMode = params.referenceMode
+  const enabledRefCount =
+    activeRefMode === 'vibe' || activeRefMode === 'precise'
+      ? references.filter((r) => r.enabled && r.type === activeRefMode).length
+      : 0
+
+  const availableScenes = useMemo(
+    () =>
+      allScenes.map((s) => ({ id: s.id, name: s.name, packName: s.packName })),
+    [allScenes],
+  )
+
+  const exportDialog = useCallback(
+    (sceneIds: Array<number>) => (
+      <DownloadDialog
+        trigger={
+          <Button size="xs" variant="outline">
+            <HugeiconsIcon icon={Download04Icon} className="size-3.5" />
+            {t('export.export')}
+          </Button>
+        }
+        projectId={projectId}
+        projectName={data.project.name}
+        projectSceneIds={sceneIds}
+      />
+    ),
+    [projectId, data.project.name, t],
+  )
+
+  const openImageDetail = useCallback(
+    (id: number) => {
+      navigate({ search: (prev) => ({ ...prev, imageDetail: id }) })
     },
     [navigate],
   )
 
-  const sceneSortBy = searchParams.sort ?? 'default'
-  const setSceneSortBy = useCallback(
-    (sort: string) => {
-      navigate({
-        search: (prev) => ({
-          ...prev,
-          sort: sort === 'default' ? undefined : (sort as SceneSortBy),
-        }),
-      })
-    },
-    [navigate],
-  )
-
-  const sceneSearch = searchParams.q ?? ''
-  const setSceneSearch = useCallback(
-    (q: string) => {
-      navigate({
-        search: (prev) => ({ ...prev, q: q || undefined }),
-        replace: true,
-      })
-    },
-    [navigate],
-  )
-
-  const selectedSceneId = searchParams.scene ?? null
-  const setSelectedSceneId = useCallback(
-    (id: number | null) => {
-      navigate({ search: (prev) => ({ ...prev, scene: id ?? undefined }) })
-    },
-    [navigate],
-  )
-
-  // ── Mobile panel state ──
-  const [leftOpen, setLeftOpen] = useState(false)
-  const [rightOpen, setRightOpen] = useState(false)
-
-  const totalImages = allScenes.reduce((sum, s) => sum + getSceneCount(s.id), 0)
+  const scenePackDialog = <ScenePackDialog projectId={projectId} />
 
   return (
-    <WorkspaceLayout
-      header={
-        <WorkspaceHeader
-          projectName={data.project.name}
-          projectId={projectId}
-          saveStatus={saveStatus}
-          thumbnailPath={data.projectThumbnailPath}
-          onToggleLeft={() => {
-            setLeftOpen(!leftOpen)
-            setRightOpen(false)
-          }}
-          onToggleRight={() => {
-            setRightOpen(!rightOpen)
-            setLeftOpen(false)
-          }}
-        />
-      }
-      leftPanel={
-        <>
-          <PromptPanel
-            generalPrompt={generalPrompt}
-            negativePrompt={negativePrompt}
-            characters={data.characters}
-            onGeneralPromptChange={handleGeneralPromptChange}
-            onNegativePromptChange={handleNegativePromptChange}
-            projectId={projectId}
-          />
-          <ReferencePanel
-            projectId={projectId}
-            referenceMode={
-              (params.referenceMode as 'none' | 'vibe' | 'precise') ?? 'none'
+    <>
+      <EditorShell
+        id="workspace"
+        mobilePane={mobilePane}
+        onMobilePaneChange={setMobilePane}
+        header={
+          <EditorHeader
+            title={
+              <WorkspaceTitle
+                projectId={projectId}
+                projectName={data.project.name}
+                thumbnailPath={data.projectThumbnailPath}
+                saveStatus={saveStatus}
+              />
             }
-            currentModel={(params.model as string) ?? 'nai-diffusion-4-5-full'}
-            onReferenceModeChange={(mode) =>
-              handleParamsChange({ ...params, referenceMode: mode })
-            }
-          />
-        </>
-      }
-      centerPanel={
-        <ScenePanel
-          scenePacks={scenePacks}
-          projectId={projectId}
-          projectName={data.project.name}
-          generalPlaceholderKeys={stableGeneralKeys}
-          characterPlaceholderKeys={characterPlaceholderKeys}
-          characters={data.characters}
-          characterOverrides={characterOverrides}
-          sceneCounts={sceneCounts}
-          defaultCount={countPerScene}
-          onSceneCountChange={handleSceneCountChange}
-          onAddScene={handleAddScene}
-          onDeleteScene={handleDeleteScene}
-          onRenameScene={handleRenameScene}
-          onDuplicateScene={handleDuplicateScene}
-          onPlaceholdersChange={handlePlaceholdersChange}
-          viewMode={viewMode}
-          onViewModeChange={setViewMode}
-          sortBy={sceneSortBy}
-          onSortByChange={setSceneSortBy}
-          searchQuery={sceneSearch}
-          onSearchQueryChange={setSceneSearch}
-          selectedSceneId={selectedSceneId}
-          onSelectedSceneChange={setSelectedSceneId}
-          getPrompts={getPrompts}
-        />
-      }
-      rightPanel={<HistoryPanel images={liveImages} projectId={projectId} />}
-      bottomToolbar={
-        <BottomToolbar
-          countPerScene={countPerScene}
-          onCountChange={setCountPerScene}
-          onGenerate={handleGenerate}
-          totalImages={totalImages}
-          parameterPopover={
-            <ParameterPopover params={params} onChange={handleParamsChange} />
-          }
-          scenePackDialog={<ScenePackDialog projectId={projectId} />}
-          downloadButton={
-            <DownloadDialog
-              trigger={
-                <Button variant="ghost" size="sm">
-                  <HugeiconsIcon icon={Download04Icon} className="size-5" />
-                  <span className="hidden sm:inline">{t('export.export')}</span>
+            actions={
+              <>
+                {scenePackDialog}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setImportOpen(true)}
+                  title={t('import.title')}
+                >
+                  <HugeiconsIcon icon={FileImportIcon} className="size-5" />
+                  <span className="hidden sm:inline">
+                    {t('workspace.importPreset')}
+                  </span>
                 </Button>
-              }
+                <DownloadDialog
+                  trigger={
+                    <Button variant="ghost" size="sm">
+                      <HugeiconsIcon icon={Download04Icon} className="size-5" />
+                      <span className="hidden sm:inline">
+                        {t('export.export')}
+                      </span>
+                    </Button>
+                  }
+                  projectId={projectId}
+                  projectName={data.project.name}
+                  availableScenes={availableScenes}
+                  filenameTemplate={
+                    params.filenameTemplate as string | undefined
+                  }
+                />
+              </>
+            }
+          />
+        }
+        tabs={[
+          {
+            id: 'scenes',
+            label: t('editor.tabScenes'),
+            badge: allScenes.length,
+            fill: true,
+            onboarding: 'scenes-tab',
+            content: (
+              <ScenesTab
+                scenePacks={scenePacks}
+                projectId={projectId}
+                sceneCounts={sceneCounts}
+                defaultCount={countPerScene}
+                onDefaultCountChange={setCountPerScene}
+                onSceneCountChange={handleSceneCountChange}
+                onAddScene={handleAddScene}
+                onDeleteScene={handleDeleteScene}
+                onRenameScene={handleRenameScene}
+                onDuplicateScene={handleDuplicateScene}
+                sortBy={sceneSortBy}
+                onSortByChange={setSceneSortBy}
+                searchQuery={sceneSearch}
+                onSearchQueryChange={setSceneSearch}
+                selectedSceneId={selectedSceneId}
+                onSelectedSceneChange={handleSceneSelect}
+                exportDialog={exportDialog}
+                onBulkDeleteScenes={handleBulkDeleteScenes}
+              />
+            ),
+          },
+          {
+            id: 'prompt',
+            label: t('editor.tabPrompt'),
+            onboarding: 'prompt-tab',
+            content: (
+              <PromptPanel
+                section="prompt"
+                generalPrompt={generalPrompt}
+                negativePrompt={negativePrompt}
+                characters={data.characters}
+                onGeneralPromptChange={handleGeneralPromptChange}
+                onNegativePromptChange={handleNegativePromptChange}
+                projectId={projectId}
+              />
+            ),
+          },
+          {
+            id: 'chars',
+            label: t('editor.tabCharacters'),
+            badge: data.characters.length,
+            content: (
+              <PromptPanel
+                section="characters"
+                generalPrompt={generalPrompt}
+                negativePrompt={negativePrompt}
+                characters={data.characters}
+                onGeneralPromptChange={handleGeneralPromptChange}
+                onNegativePromptChange={handleNegativePromptChange}
+                projectId={projectId}
+              />
+            ),
+          },
+          {
+            id: 'refs',
+            label: t('editor.tabReferences'),
+            badge: enabledRefCount,
+            content: (
+              <ReferencePanel
+                projectId={projectId}
+                className="border-t-0 p-0"
+                referenceMode={
+                  (params.referenceMode as 'none' | 'vibe' | 'precise') ??
+                  'none'
+                }
+                currentModel={
+                  (params.model as string) ?? 'nai-diffusion-4-5-full'
+                }
+                onReferenceModeChange={(mode) =>
+                  setParam('referenceMode', mode)
+                }
+              />
+            ),
+          },
+          {
+            id: 'params',
+            label: t('editor.tabParameters'),
+            content: <ParameterForm localParams={params} set={setParam} />,
+          },
+        ]}
+        footer={
+          <div className="flex flex-col gap-2">
+            <GenerationProgress />
+            <div
+              className="flex items-center gap-2"
+              data-onboarding="generation-controls"
+            >
+              <div className="min-w-0 flex-1 truncate text-xs text-muted-foreground tabular-nums">
+                {t('workspace.reserveSummary', {
+                  scenes: summary.scenes,
+                  images: summary.images,
+                })}
+              </div>
+              <Button
+                variant="brand"
+                onClick={handleGenerateClick}
+                disabled={!canGenerate || cooldown}
+                title={t('workspace.generateShortcut')}
+                className="shrink-0"
+              >
+                <HugeiconsIcon icon={PlayIcon} className="size-5" />
+                {t('generation.generateCount', { count: summary.images })}
+              </Button>
+            </div>
+          </div>
+        }
+        center={
+          selectedScene ? (
+            <SceneView
               projectId={projectId}
-              projectName={data.project.name}
-              availableScenes={allScenes.map((s) => ({
-                id: s.id,
-                name: s.name,
-                packName: s.packName,
-              }))}
-              filenameTemplate={params.filenameTemplate as string | undefined}
+              scene={selectedScene}
+              characters={data.characters}
+              characterOverrides={
+                characterOverrides[selectedScene.id] ?? EMPTY_OVERRIDES
+              }
+              generalPlaceholderKeys={stableGeneralKeys}
+              characterPlaceholderKeys={characterPlaceholderKeys}
+              getPrompts={getPrompts}
+              onPlaceholdersChange={handlePlaceholdersChange}
+              onRenameScene={handleRenameScene}
+              onThumbnailChange={handleSceneThumbnailChange}
+              projectThumbnailImageId={data.project.thumbnailImageId}
+              onProjectThumbnailChange={handleProjectThumbnailChange}
+              refreshKey={refreshKey}
+              imageSortBy={imageSortBy}
+              onImageSortByChange={setImageSortBy}
             />
-          }
-          generationProgress={<GenerationProgress />}
-        />
-      }
-      leftOpen={leftOpen}
-      rightOpen={rightOpen}
-      onDismiss={() => {
-        setLeftOpen(false)
-        setRightOpen(false)
-      }}
-    />
+          ) : (
+            <SceneBoard
+              scenes={boardScenes}
+              sceneCounts={sceneCounts}
+              defaultCount={countPerScene}
+              onSceneCountChange={handleSceneCountChange}
+              onSelect={handleSceneSelect}
+              onAddScene={handleAddScene}
+              scenePackDialog={scenePackDialog}
+            />
+          )
+        }
+        rightTitle={
+          liveImages.length > 0
+            ? `${t('history.title')} · ${liveImages.length}`
+            : t('history.title')
+        }
+        right={
+          <HistoryStrip
+            images={liveImages}
+            selectedImageId={null}
+            onSelect={openImageDetail}
+            footer={
+              <Link
+                to="/gallery"
+                search={{ project: projectId, imageDetail: undefined }}
+                className="flex min-w-0 items-center gap-1 text-sm whitespace-nowrap text-muted-foreground transition-colors hover:text-primary"
+              >
+                <span className="truncate">
+                  {t('quickGenerate.viewInGallery')}
+                </span>
+                <HugeiconsIcon
+                  icon={ArrowRight01Icon}
+                  className="size-4 shrink-0"
+                />
+              </Link>
+            }
+          />
+        }
+      />
+      <ImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={handleImported}
+      />
+    </>
   )
 }

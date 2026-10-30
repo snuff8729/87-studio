@@ -240,6 +240,9 @@ const ko: DeepStringify<typeof en> = {
   },
   workspace: {
     projects: '프로젝트',
+    reserveSummary: '씬 {{scenes}}개 · 이미지 {{images}}장',
+    importPreset: '가져오기',
+    generateShortcut: '생성 (Ctrl/Cmd+Enter)',
     gallery: '갤러리',
     saving: '저장 중...',
     saved: '저장됨',
@@ -283,8 +286,6 @@ const ko: DeepStringify<typeof en> = {
     boardHint: '씬을 선택하면 플레이스홀더를 편집하고 이미지를 볼 수 있습니다.',
     emptyTitle: '아직 씬이 없습니다',
     emptyDesc: '씬 팩을 추가하거나 새 씬을 만들어 시작하세요.',
-    reserveCount: '생성할 이미지 수',
-    resetCount: '기본값으로 초기화',
   },
   scene: {
     reserve: '예약',
@@ -560,6 +561,7 @@ const ko: DeepStringify<typeof en> = {
     hideLeftPanel: '왼쪽 패널 숨기기',
     showRightPanel: '오른쪽 패널 표시',
     hideRightPanel: '오른쪽 패널 숨기기',
+    tabScenes: '씬',
     tabPrompt: '프롬프트',
     tabCharacters: '캐릭터',
     tabReferences: '참조',
@@ -734,8 +736,7 @@ const ko: DeepStringify<typeof en> = {
     },
     step6: {
       title: '씬 편집',
-      description:
-        'Edit 모드로 전환하고 씬을 선택하여 플레이스홀더 값을 편집하세요.',
+      description: '씬 탭을 열고 씬을 선택하여 플레이스홀더 값을 편집하세요.',
     },
     step7: {
       title: '플레이스홀더 입력',
