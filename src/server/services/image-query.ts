@@ -1,28 +1,7 @@
 import { and, asc, desc, eq, isNull, or, sql } from 'drizzle-orm'
-import { db } from '../db'
 import { generatedImages } from '../db/schema'
 import type { SQL } from 'drizzle-orm'
-import { likeFragments, metadataHasPromptTag } from '@/lib/prompt-tags'
-
-// Exact whole-token match inside SQL, so pagination and prev/next keyset
-// queries stay correct. Registered once on the shared connection.
-const PROMPT_TAG_FN = 'prompt_has_tag'
-let promptTagFnRegistered = false
-function ensurePromptTagFn() {
-  if (promptTagFnRegistered) return
-  db.$client.function(
-    PROMPT_TAG_FN,
-    { deterministic: true },
-    (metadata: unknown, tag: unknown) =>
-      metadataHasPromptTag(
-        typeof metadata === 'string' ? metadata : null,
-        String(tag),
-      )
-        ? 1
-        : 0,
-  )
-  promptTagFnRegistered = true
-}
+import { likeFragments } from '@/lib/prompt-tags'
 
 function escapeLike(s: string) {
   return s.replace(/[\\%_]/g, (c) => `\\${c}`)
@@ -82,7 +61,6 @@ export function buildImageConditions(data: ImageFilters) {
   if (promptTag) {
     const fragments = likeFragments(promptTag)
     if (fragments.length > 0) {
-      ensurePromptTagFn()
       const likes = fragments.map(
         (f) =>
           sql`${generatedImages.metadata} LIKE ${`%${escapeLike(f)}%`} ESCAPE '\\'`,

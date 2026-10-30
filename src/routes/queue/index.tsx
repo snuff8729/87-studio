@@ -857,6 +857,7 @@ function QueueErrorBanner({
     queryKey: ['stopped-job', jobId],
     queryFn: () => getJobStatus({ data: jobId! }),
     enabled: jobId != null,
+    refetchInterval: 2000,
   })
   return (
     <div

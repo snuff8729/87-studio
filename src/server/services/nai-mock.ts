@@ -21,6 +21,14 @@ export function getMockDelayMs(env: NodeJS.ProcessEnv = process.env): number {
     : 1500
 }
 
+if (NAI_MOCK && !process.env.STUDIO_DATA_DIR) {
+  // Fake images / vibe encodings must never land in the real ./data
+  console.error(
+    '\n[87-studio] FATAL: NAI_MOCK=1 requires STUDIO_DATA_DIR (a throwaway data dir). Refusing to start.\n',
+  )
+  process.exit(1)
+}
+
 if (NAI_MOCK) {
   const msg = `NAI_MOCK=1: NovelAI mock mode is ON. No request is sent to novelai.net; images are fake (delay ${getMockDelayMs()}ms).`
   log.warn('mock.enabled', msg)

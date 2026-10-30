@@ -74,7 +74,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
   - 프로덕션은 Nitro가 정적 파일 서빙 처리
 - **데이터 디렉토리** (`STUDIO_DATA_DIR`, 기본 `./data`): DB·로그·이미지·썸네일·참조·다운로드·tag-images 위치
   - DB에는 항상 논리 경로(`data/images/...`)가 저장되고, 디스크 접근 시 `src/server/data-dir.ts`(`dataPath()`)와 `src/server/data-fs.ts`(node:fs 래퍼)가 `STUDIO_DATA_DIR`로 매핑. 환경변수가 없으면 경로를 그대로 사용(동작 변화 없음)
-  - 데모/테스트 서버를 실제 `./data`와 분리하는 용도 (vite dev의 cwd는 레포 루트여야 하므로 cwd 방식 대신 사용)
+  - drizzle.config.ts(`db:migrate`)도 `STUDIO_DATA_DIR`를 따름. 데모/테스트 서버를 실제 `./data`와 분리하는 용도 (vite dev의 cwd는 레포 루트여야 하므로 cwd 방식 대신 사용)
 
 ### 로깅
 
@@ -886,15 +886,16 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ## 프로젝트 삭제 정책
 
-- 프로젝트 삭제 시 **생성된 이미지 파일은 보존** (DB 레코드만 CASCADE 삭제, 파일 유지)
-- **씬 삭제** (레일/보드 메뉴의 단일 삭제, 선택 모드의 일괄 삭제): 확인 다이얼로그의 체크박스 "이미지 파일도 디스크에서 삭제 (N장)"로 선택
+- 프로젝트 삭제 시 **생성된 이미지 파일은 기본 보존** (DB 레코드만 CASCADE 삭제, 파일 유지). 확인 다이얼로그의 체크박스 "이미지 파일도 디스크에서 삭제 (N장)"로 선택. `deleteProject({ id, deleteFiles })`, 기본 `false`
+- **프로젝트 씬 팩 제거**: `removeProjectScenePack({ id, deleteFiles })`, 기본 `false` (현재 UI 호출부 없음)
+- **씬 삭제 / 프로젝트 삭제 / 씬 팩 제거는 모두 같은 정책** (공용 `DeleteFilesOption` 체크박스, 기본 해제). 씬 삭제 (레일/보드 메뉴의 단일 삭제, 선택 모드의 일괄 삭제): 확인 다이얼로그의 체크박스 "이미지 파일도 디스크에서 삭제 (N장)"로 선택
   - 기본값은 **해제 = 파일 보존**. 서버 함수 `deleteProjectScene({ id, deleteFiles })` / `bulkDeleteProjectScenes({ ids, deleteFiles })`의 `deleteFiles` 기본값은 `false`
   - 보존된 파일은 DB에 없는 고아 파일이 되며 설정 › 스토리지의 고아 파일 정리로 나중에 삭제 가능 (다이얼로그 힌트에 안내)
   - 단일 이미지 삭제(갤러리/상세)는 기존대로 파일도 삭제
 
 ## NAI Mock 모드 (유료 API 없이 큐 테스트)
 
-- 환경변수 `NAI_MOCK=1`을 **서버 시작 시** 지정한 경우에만 활성 (미설정이면 동작 변화 없음). 시작 시 경고 로그/콘솔 출력, 사이드바에 `MOCK` 배지(`data-testid="mock-badge"`, `getAppInfo` server fn의 `naiMock`)
+- 환경변수 `NAI_MOCK=1`을 **서버 시작 시** 지정한 경우에만 활성. **`STUDIO_DATA_DIR` 없이는 시작을 거부**(가짜 이미지/Vibe가 실제 `./data`에 쌓이지 않도록, 에러 출력 후 exit 1) (미설정이면 동작 변화 없음). 시작 시 경고 로그/콘솔 출력, 사이드바에 `MOCK` 배지(`data-testid="mock-badge"`, `getAppInfo` server fn의 `naiMock`)
 - `src/server/services/nai-mock.ts`: novelai.net으로 **어떤 네트워크 요청도 보내지 않음** (이미지 생성 + Vibe 인코딩 모두). `NAI_MOCK_DELAY_MS`(기본 1500) 후 sharp로 만든 그라디언트 + "MOCK seed {seed}" PNG를 ZIP에 담아 실제 응답과 같은 형태로 반환
 - API 키 없이도 동작 (생성 시 키 검사 생략, `getSetting('nai_api_key')`는 mock일 때 `'mock'` 반환, 키 검증은 항상 valid)
 - 실패 주입: 프롬프트(일반/네거티브/캐릭터)에 `__mock_fail__` → 매번 실패(`NAI API error 500 ... Mock failure`), `__mock_fail_once__` → 같은 프롬프트의 첫 호출만 실패(재시도 테스트용)

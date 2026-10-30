@@ -62,7 +62,7 @@ const en = {
     apiKeyNotSet: 'API key not set',
     deleteProject: 'Delete Project',
     deleteProjectDesc:
-      'Delete "{{name}}"? Generated images will be preserved on disk.',
+      'Delete "{{name}}" and all of its scenes and image records?',
     noProjectsYet: 'No projects yet',
     noProjectsDesc: 'Create your first project to get started.',
     newProject: 'New Project',

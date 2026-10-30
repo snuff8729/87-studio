@@ -4,5 +4,9 @@ export default defineConfig({
   schema: './src/server/db/schema.ts',
   out: './src/server/db/migrations',
   dialect: 'sqlite',
-  dbCredentials: { url: './data/studio.db' },
+  dbCredentials: {
+    url: process.env.STUDIO_DATA_DIR
+      ? `${process.env.STUDIO_DATA_DIR}/studio.db`
+      : './data/studio.db',
+  },
 })

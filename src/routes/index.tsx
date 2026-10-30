@@ -21,6 +21,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DeleteFilesOption } from '@/components/workspace/delete-files-option'
 import {
   Dialog,
   DialogContent,
@@ -183,7 +184,9 @@ function ProjectSelectorPage() {
   const [deleteTarget, setDeleteTarget] = useState<{
     id: number
     name: string
+    imageCount: number
   } | null>(null)
+  const [deleteFiles, setDeleteFiles] = useState(false)
   const [renameTarget, setRenameTarget] = useState<{
     id: number
     name: string
@@ -260,9 +263,9 @@ function ProjectSelectorPage() {
     }
   }
 
-  async function handleDelete(id: number) {
+  async function handleDelete(id: number, deleteFiles: boolean) {
     try {
-      await deleteProject({ data: id })
+      await deleteProject({ data: { id, deleteFiles } })
       toast.success(t('dashboard.projectDeleted'))
       router.invalidate()
     } catch {
@@ -430,9 +433,14 @@ function ProjectSelectorPage() {
                       <DropdownMenuSeparator />
                       <DropdownMenuItem
                         className="text-destructive focus:text-destructive"
-                        onClick={() =>
-                          setDeleteTarget({ id: p.id, name: p.name })
-                        }
+                        onClick={() => {
+                          setDeleteFiles(false)
+                          setDeleteTarget({
+                            id: p.id,
+                            name: p.name,
+                            imageCount: p.imageCount,
+                          })
+                        }}
                       >
                         <HugeiconsIcon icon={Delete02Icon} className="size-4" />
                         {t('dashboard.deleteProject')}
@@ -550,10 +558,16 @@ function ProjectSelectorPage() {
           name: deleteTarget?.name ?? '',
         })}
         onConfirm={() => {
-          if (deleteTarget) handleDelete(deleteTarget.id)
+          if (deleteTarget) handleDelete(deleteTarget.id, deleteFiles)
           setDeleteTarget(null)
         }}
-      />
+      >
+        <DeleteFilesOption
+          imageCount={deleteTarget?.imageCount ?? 0}
+          checked={deleteFiles}
+          onCheckedChange={setDeleteFiles}
+        />
+      </ConfirmDialog>
     </div>
   )
 }

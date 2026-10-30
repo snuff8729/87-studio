@@ -2,28 +2,48 @@ import { dirname } from 'node:path'
 import { createServerFn } from '@tanstack/react-start'
 import { existsSync, readdirSync, rmSync, unlinkSync } from '../data-fs'
 import { db } from '../db'
-import { generatedImages } from '../db/schema'
+import { generatedImages, tagBookmarkImages } from '../db/schema'
 import { createLogger } from '../services/logger'
 import { getAllStoredFiles, getFileSize } from '../services/image'
 
 const log = createLogger('fn.storage')
 
-export const getStorageStats = createServerFn({ method: 'GET' }).handler(
-  async () => {
-    // Get all file paths from DB
-    const dbImages = db
+/** Files referenced by the DB. Gallery-sourced bookmark images reuse data/images paths. */
+function collectReferencedPaths(): Set<string> {
+  const paths = new Set<string>()
+  const add = (
+    rows: Array<{ filePath: string; thumbnailPath: string | null }>,
+  ) => {
+    for (const r of rows) {
+      paths.add(r.filePath)
+      if (r.thumbnailPath) paths.add(r.thumbnailPath)
+    }
+  }
+  add(
+    db
       .select({
         filePath: generatedImages.filePath,
         thumbnailPath: generatedImages.thumbnailPath,
       })
       .from(generatedImages)
-      .all()
+      .all(),
+  )
+  add(
+    db
+      .select({
+        filePath: tagBookmarkImages.filePath,
+        thumbnailPath: tagBookmarkImages.thumbnailPath,
+      })
+      .from(tagBookmarkImages)
+      .all(),
+  )
+  return paths
+}
 
-    const dbFilePaths = new Set<string>()
-    for (const img of dbImages) {
-      dbFilePaths.add(img.filePath)
-      if (img.thumbnailPath) dbFilePaths.add(img.thumbnailPath)
-    }
+export const getStorageStats = createServerFn({ method: 'GET' }).handler(
+  async () => {
+    // Get all file paths from DB
+    const dbFilePaths = collectReferencedPaths()
 
     // Get all files from filesystem
     const stored = getAllStoredFiles()
@@ -46,7 +66,7 @@ export const getStorageStats = createServerFn({ method: 'GET' }).handler(
     return {
       totalFiles: allFiles.length,
       totalSize,
-      dbRecords: dbImages.length,
+      dbRecords: db.$count(generatedImages),
       orphanFiles: orphanFiles.length,
       orphanSize,
       imageFiles: stored.images.length,
@@ -57,19 +77,7 @@ export const getStorageStats = createServerFn({ method: 'GET' }).handler(
 
 export const cleanupOrphanFiles = createServerFn({ method: 'POST' }).handler(
   async () => {
-    const dbImages = db
-      .select({
-        filePath: generatedImages.filePath,
-        thumbnailPath: generatedImages.thumbnailPath,
-      })
-      .from(generatedImages)
-      .all()
-
-    const dbFilePaths = new Set<string>()
-    for (const img of dbImages) {
-      dbFilePaths.add(img.filePath)
-      if (img.thumbnailPath) dbFilePaths.add(img.thumbnailPath)
-    }
+    const dbFilePaths = collectReferencedPaths()
 
     const stored = getAllStoredFiles()
     const allFiles = [...stored.images, ...stored.thumbnails]

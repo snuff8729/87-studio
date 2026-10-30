@@ -136,8 +136,8 @@ export const updateProject = createServerFn({ method: 'POST' })
   })
 
 export const deleteProject = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => id)
-  .handler(async ({ data: id }) => {
+  .inputValidator((data: { id: number; deleteFiles?: boolean }) => data)
+  .handler(async ({ data: { id, deleteFiles = false } }) => {
     // Collect file paths before cascade delete
     const files = db
       .select({
@@ -152,7 +152,8 @@ export const deleteProject = createServerFn({ method: 'POST' })
       imageFiles: files.length,
     })
     db.delete(projects).where(eq(projects.id, id)).run()
-    deleteImageFiles(files)
+    // Kept files become orphans (cleaned up via Settings > Storage)
+    if (deleteFiles) deleteImageFiles(files)
     return { success: true }
   })
 
@@ -321,8 +322,8 @@ export const duplicateProject = createServerFn({ method: 'POST' })
   })
 
 export const removeProjectScenePack = createServerFn({ method: 'POST' })
-  .inputValidator((id: number) => id)
-  .handler(async ({ data: id }) => {
+  .inputValidator((data: { id: number; deleteFiles?: boolean }) => data)
+  .handler(async ({ data: { id, deleteFiles = false } }) => {
     // Collect image files for scenes in this pack before cascade delete
     const sceneIds = db
       .select({ id: projectScenes.id })
@@ -346,6 +347,6 @@ export const removeProjectScenePack = createServerFn({ method: 'POST' })
       imageFiles: files.length,
     })
     db.delete(projectScenePacks).where(eq(projectScenePacks.id, id)).run()
-    deleteImageFiles(files)
+    if (deleteFiles) deleteImageFiles(files)
     return { success: true }
   })

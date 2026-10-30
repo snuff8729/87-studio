@@ -65,7 +65,7 @@ const ko: DeepStringify<typeof en> = {
     apiKeyNotSet: 'API 키 미설정',
     deleteProject: '프로젝트 삭제',
     deleteProjectDesc:
-      '"{{name}}"을(를) 삭제하시겠습니까? 생성된 이미지 파일은 보존됩니다.',
+      '"{{name}}"을(를) 삭제하시겠습니까? 씬과 이미지 기록도 함께 삭제됩니다.',
     noProjectsYet: '프로젝트가 없습니다',
     noProjectsDesc: '첫 번째 프로젝트를 만들어 시작하세요.',
     newProject: '새 프로젝트',
