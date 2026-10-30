@@ -59,9 +59,9 @@ export function EditorLeftPanel({
           ))}
         </ScrollArea>
       </Tabs>
-      {footer !== undefined && footer !== null && (
+      {footer ? (
         <div className="shrink-0 border-t bg-background p-3">{footer}</div>
-      )}
+      ) : null}
     </div>
   )
 }

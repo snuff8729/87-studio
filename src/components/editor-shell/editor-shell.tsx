@@ -87,6 +87,26 @@ function pct(n: number): string {
   return `${n}%`
 }
 
+/**
+ * Collapse / expand a side panel. A panel that was collapsed at mount has no
+ * "previous size" and `expand()` would restore it to its minSize, so bump it
+ * to the default width in that case.
+ */
+function togglePanel(
+  panel: PanelImperativeHandle,
+  minSize: number,
+  defaultSize: number,
+) {
+  if (!panel.isCollapsed()) {
+    panel.collapse()
+    return
+  }
+  panel.expand()
+  if (panel.getSize().asPercentage <= minSize + 0.5) {
+    panel.resize(pct(defaultSize))
+  }
+}
+
 export function EditorShell({
   id,
   header,
@@ -161,16 +181,14 @@ export function EditorShell({
     const panel = leftRef.current
     if (!panel) return
     allowSaveRef.current = true
-    if (panel.isCollapsed()) panel.expand()
-    else panel.collapse()
+    togglePanel(panel, LAYOUT_LIMITS.left.min, LAYOUT_DEFAULT.left)
   }, [])
 
   const toggleRight = useCallback(() => {
     const panel = rightRef.current
     if (!panel) return
     allowSaveRef.current = true
-    if (panel.isCollapsed()) panel.expand()
-    else panel.collapse()
+    togglePanel(panel, LAYOUT_LIMITS.right.min, LAYOUT_DEFAULT.right)
   }, [])
 
   const ctx = useMemo<EditorShellContextValue>(
@@ -208,6 +226,8 @@ export function EditorShell({
     // Pre-mount / SSR: storage and viewport unknown yet.
     body = <div className="min-h-0 flex-1" />
   } else if (isMobile) {
+    // Crossing the 768px breakpoint swaps the desktop/mobile trees, which
+    // remounts the panes (local component state resets). Accepted trade-off.
     const paneLabels: Record<MobilePane, string> = {
       edit: t('editor.edit'),
       result: t('editor.result'),
