@@ -8,19 +8,31 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useWindowVirtualizer } from '@tanstack/react-virtual'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Download04Icon, Image02Icon } from '@hugeicons/core-free-icons'
+import {
+  CheckListIcon,
+  Delete02Icon,
+  Download04Icon,
+  FavouriteIcon,
+  Image02Icon,
+  StarIcon,
+} from '@hugeicons/core-free-icons'
 import type { GridSize } from '@/lib/use-image-grid-size'
-import { PageHeader } from '@/components/common/page-header'
+import type { GalleryFilters } from '@/components/gallery/gallery-toolbar'
+import {
+  GRID_SIZES,
+  GalleryToolbar,
+} from '@/components/gallery/gallery-toolbar'
+import {
+  SELECTION_ICON_BUTTON,
+  SelectionBar,
+} from '@/components/common/selection-bar'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import {
+  HeaderActions,
+  usePageHeader,
+} from '@/components/layout/breadcrumb-context'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import {
   bulkUpdateImages,
   listImages,
@@ -32,47 +44,31 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
 import { DownloadDialog } from '@/components/common/download-dialog'
-import { GridSizeToggle } from '@/components/common/grid-size-toggle'
 import { useImageGridSize } from '@/lib/use-image-grid-size'
 
 function PendingComponent() {
   return (
     <div>
-      {/* PageHeader */}
-      <div className="flex items-start justify-between gap-4 mb-6">
-        <div className="space-y-1.5">
-          <Skeleton className="h-6 w-20" />
-          <Skeleton className="h-4 w-32" />
-        </div>
-        <Skeleton className="h-8 w-20 rounded-md" />
-      </div>
-
       {/* Filter bar */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Skeleton className="h-9 w-40 rounded-md" />
-        <Skeleton className="h-8 w-20 rounded-md" />
-        <Skeleton className="h-9 w-32 rounded-md" />
-        <Skeleton className="h-9 w-36 rounded-md" />
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Skeleton className="h-7 w-20 rounded-md" />
+        <div className="ml-auto flex items-center gap-3">
+          <Skeleton className="h-7 w-32 rounded-md" />
+          <Skeleton className="h-4 w-16 rounded-md" />
+        </div>
       </div>
 
       {/* Image grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-1.5">
+      <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
         {Array.from({ length: 15 }).map((_, i) => (
-          <Skeleton key={i} className="w-full aspect-square rounded-lg" />
+          <Skeleton key={i} className="aspect-square w-full rounded-lg" />
         ))}
       </div>
     </div>
   )
 }
 
-type SearchParams = {
-  project?: number
-  projectSceneId?: number
-  tag?: number
-  favorite?: boolean
-  minRating?: number
-  sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
-  quick?: boolean
+type SearchParams = GalleryFilters & {
   imageDetail: number | undefined
 }
 
@@ -117,28 +113,18 @@ export const Route = createFileRoute('/gallery')({
 
 const GAP = 6 // gap-1.5 = 6px
 
-const gallerySizeMap: Record<GridSize, [number, number, number, number]> = {
-  sm: [3, 4, 6, 8],
-  md: [2, 3, 4, 5],
-  lg: [1, 2, 3, 4],
+/** Minimum cell width per grid size. Columns derive from the grid's own width. */
+const MIN_CELL_WIDTH: Record<GridSize, number> = {
+  sm: 112,
+  md: 160,
+  lg: 240,
 }
 
-function useGalleryColumns(gridSize: GridSize) {
-  const [cols, setCols] = useState(gallerySizeMap[gridSize][0])
-  useEffect(() => {
-    const bp = gallerySizeMap[gridSize]
-    function update() {
-      const w = window.innerWidth
-      if (w >= 1024) setCols(bp[3])
-      else if (w >= 768) setCols(bp[2])
-      else if (w >= 640) setCols(bp[1])
-      else setCols(bp[0])
-    }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [gridSize])
-  return cols
+function columnsFor(width: number, gridSize: GridSize) {
+  return Math.max(
+    1,
+    Math.floor((width + GAP) / (MIN_CELL_WIDTH[gridSize] + GAP)),
+  )
 }
 
 function GalleryLayout() {
@@ -169,10 +155,10 @@ function GalleryLayout() {
   const { gridSize, setGridSize } = useImageGridSize('gallery')
 
   // ── Virtualized grid setup ──
-  const cols = useGalleryColumns(gridSize)
   const gridRef = useRef<HTMLDivElement>(null)
   const [gridWidth, setGridWidth] = useState(0)
   const [scrollMargin, setScrollMargin] = useState(0)
+  const cols = columnsFor(gridWidth, gridSize)
 
   useEffect(() => {
     setImages(initialImages)
@@ -284,6 +270,19 @@ function GalleryLayout() {
     })
   }
 
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  function toggleAll() {
+    setSelectedIds((prev) =>
+      prev.size >= images.length
+        ? new Set()
+        : new Set(images.map((img) => img.id)),
+    )
+  }
+
   async function handleBulkFavorite() {
     try {
       await bulkUpdateImages({
@@ -297,8 +296,7 @@ function GalleryLayout() {
       toast.success(
         t('gallery.bulkFavoriteSuccess', { count: selectedIds.size }),
       )
-      setSelectedIds(new Set())
-      setSelectMode(false)
+      exitSelectMode()
     } catch {
       toast.error(t('gallery.bulkFailed'))
     }
@@ -311,244 +309,70 @@ function GalleryLayout() {
       })
       setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)))
       toast.success(t('gallery.bulkDeleteSuccess', { count: selectedIds.size }))
-      setSelectedIds(new Set())
-      setSelectMode(false)
+      exitSelectMode()
     } catch {
       toast.error(t('gallery.bulkDeleteFailed'))
     }
   }
 
-  const hasFilters =
-    search.project ||
-    search.favorite ||
-    search.minRating ||
-    search.projectSceneId ||
-    search.tag ||
-    search.sortBy ||
-    search.quick
+  function handleFilterChange(patch: Partial<GalleryFilters>) {
+    navigate({ search: (prev) => ({ ...prev, ...patch }) })
+  }
+
+  function handleClearFilters() {
+    navigate({
+      search: (prev) => ({ sortBy: prev.sortBy, imageDetail: undefined }),
+    })
+  }
 
   return (
     <>
       <div>
-        <PageHeader
-          title={t('gallery.title')}
-          description={t('gallery.imageCount', { count: images.length })}
-          actions={
-            <div className="flex items-center gap-2">
-              <DownloadDialog
-                trigger={
-                  <Button size="sm" variant="outline">
-                    <HugeiconsIcon icon={Download04Icon} className="size-4" />
-                    {t('export.export')}
-                  </Button>
-                }
-                projectId={search.project}
-                projectName={
-                  allProjects.find((p) => p.id === search.project)?.name
-                }
-                availableScenes={projectScenes}
-              />
-              <Button
-                size="sm"
-                variant={selectMode ? 'default' : 'outline'}
-                onClick={() => {
-                  setSelectMode(!selectMode)
-                  setSelectedIds(new Set())
-                }}
-              >
-                {selectMode ? t('gallery.deselect') : t('gallery.select')}
-              </Button>
-            </div>
-          }
+        {!isDetailOpen && (
+          <GalleryHeader
+            count={hasMore ? `${images.length}+` : images.length}
+            selectMode={selectMode}
+            selectedCount={selectedIds.size}
+            total={images.length}
+            onEnterSelect={() => setSelectMode(true)}
+            onExitSelect={exitSelectMode}
+            onToggleAll={toggleAll}
+            onFavorite={handleBulkFavorite}
+            onDelete={handleBulkDelete}
+            selectedIds={selectedIds}
+            projectId={search.project}
+            projectName={allProjects.find((p) => p.id === search.project)?.name}
+            scenes={projectScenes}
+          />
+        )}
+
+        <GalleryToolbar
+          filters={search}
+          projects={allProjects}
+          scenes={projectScenes}
+          tags={allTags}
+          gridSize={gridSize}
+          onGridSizeChange={setGridSize}
+          onChange={handleFilterChange}
+          onClear={handleClearFilters}
         />
 
-        {/* Filter Bar */}
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <Select
-            value={
-              search.quick
-                ? 'quick'
-                : search.project
-                  ? String(search.project)
-                  : 'all'
-            }
-            onValueChange={(v) =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  project: v === 'all' || v === 'quick' ? undefined : Number(v),
-                  projectSceneId:
-                    v === 'all' || v === 'quick'
-                      ? undefined
-                      : prev.projectSceneId,
-                  quick: v === 'quick' ? true : undefined,
-                }),
-              })
-            }
-          >
-            <SelectTrigger className="w-40">
-              <SelectValue placeholder={t('gallery.allProjects')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('gallery.allProjects')}</SelectItem>
-              <SelectItem value="quick">
-                {t('gallery.quickGenerate')}
-              </SelectItem>
-              {allProjects.map((p) => (
-                <SelectItem key={p.id} value={String(p.id)}>
-                  {p.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {search.project && projectScenes.length > 0 && (
-            <Select
-              value={
-                search.projectSceneId ? String(search.projectSceneId) : 'all'
-              }
-              onValueChange={(v) =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    projectSceneId: v === 'all' ? undefined : Number(v),
-                  }),
-                })
-              }
-            >
-              <SelectTrigger className="w-40">
-                <SelectValue placeholder={t('gallery.allScenes')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('gallery.allScenes')}</SelectItem>
-                {projectScenes.map((s) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
-                    {s.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Button
-            size="sm"
-            variant={search.favorite ? 'default' : 'outline'}
-            onClick={() =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  favorite: prev.favorite ? undefined : true,
-                }),
-              })
-            }
-          >
-            {t('gallery.favorites')}
-          </Button>
-
-          <Select
-            value={search.minRating ? String(search.minRating) : 'all'}
-            onValueChange={(v) =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  minRating: v === 'all' ? undefined : Number(v),
-                }),
-              })
-            }
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue placeholder={t('gallery.anyRating')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t('gallery.anyRating')}</SelectItem>
-              {[1, 2, 3, 4, 5].map((r) => (
-                <SelectItem key={r} value={String(r)}>
-                  {t('gallery.starsPlus', { count: r })}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          {allTags.length > 0 && (
-            <Select
-              value={search.tag ? String(search.tag) : 'all'}
-              onValueChange={(v) =>
-                navigate({
-                  search: (prev) => ({
-                    ...prev,
-                    tag: v === 'all' ? undefined : Number(v),
-                  }),
-                })
-              }
-            >
-              <SelectTrigger className="w-36">
-                <SelectValue placeholder={t('gallery.allTags')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t('gallery.allTags')}</SelectItem>
-                {allTags.map((t) => (
-                  <SelectItem key={t.id} value={String(t.id)}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          <Select
-            value={search.sortBy ?? 'newest'}
-            onValueChange={(v) =>
-              navigate({
-                search: (prev) => ({
-                  ...prev,
-                  sortBy:
-                    v === 'newest' ? undefined : (v as SearchParams['sortBy']),
-                }),
-              })
-            }
-          >
-            <SelectTrigger className="w-36">
-              <SelectValue placeholder="Sort" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="newest">{t('gallery.newestFirst')}</SelectItem>
-              <SelectItem value="oldest">{t('gallery.oldestFirst')}</SelectItem>
-              <SelectItem value="rating">
-                {t('gallery.highestRated')}
-              </SelectItem>
-              <SelectItem value="favorites">
-                {t('gallery.favoritesFirst')}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-
-          {hasFilters && (
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => navigate({ search: { imageDetail: undefined } })}
-            >
-              {t('common.clear')}
-            </Button>
-          )}
-
-          <div className="ml-auto">
-            <GridSizeToggle value={gridSize} onChange={setGridSize} />
-          </div>
-        </div>
-
         {/* Image Grid — Virtualized */}
-        <div ref={gridRef}>
+        <div
+          ref={gridRef}
+          data-gallery-grid
+          data-grid-size={GRID_SIZES.indexOf(gridSize)}
+        >
           {images.length === 0 ? (
-            <div className="rounded-xl border border-border border-dashed py-16 text-center">
+            <div className="rounded-xl border border-dashed border-border py-16 text-center">
               <HugeiconsIcon
                 icon={Image02Icon}
-                className="size-10 text-muted-foreground/40 mx-auto mb-3"
+                className="mx-auto mb-3 size-10 text-muted-foreground/40"
               />
-              <p className="text-base text-muted-foreground mb-1">
+              <p className="mb-1 text-base text-muted-foreground">
                 {t('gallery.noImagesFound')}
               </p>
-              <p className="text-sm text-muted-foreground mb-4">
+              <p className="mb-4 text-sm text-muted-foreground">
                 {t('gallery.noImagesDesc')}
               </p>
               <Button variant="outline" size="sm" asChild>
@@ -609,62 +433,141 @@ function GalleryLayout() {
               </div>
 
               {loading && (
-                <div className="text-center py-4 text-muted-foreground text-base">
+                <div className="py-4 text-center text-base text-muted-foreground">
                   {t('common.loading')}
                 </div>
               )}
             </>
           )}
         </div>
-
-        {/* Bulk action bar */}
-        {selectMode && selectedIds.size > 0 && (
-          <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
-            <span className="text-base font-medium">
-              {t('gallery.selectedCount', { count: selectedIds.size })}
-            </span>
-            <DownloadDialog
-              trigger={
-                <Button size="sm" variant="outline">
-                  <HugeiconsIcon icon={Download04Icon} className="size-4" />
-                  {t('export.export')}
-                </Button>
-              }
-              selectedImageIds={[...selectedIds]}
-            />
-            <Button size="sm" variant="outline" onClick={handleBulkFavorite}>
-              {t('gallery.addToFavorites')}
-            </Button>
-            <ConfirmDialog
-              trigger={
-                <Button size="sm" variant="destructive">
-                  {t('common.delete')}
-                </Button>
-              }
-              title={t('gallery.deleteImages')}
-              description={t('gallery.deleteImagesDesc', {
-                count: selectedIds.size,
-              })}
-              variant="destructive"
-              onConfirm={handleBulkDelete}
-            />
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setSelectMode(false)
-                setSelectedIds(new Set())
-              }}
-            >
-              {t('common.cancel')}
-            </Button>
-          </div>
-        )}
       </div>
 
       {/* Child route: image detail overlay or nothing (index) */}
       <Outlet />
     </>
+  )
+}
+
+// ─── Header (count, actions, selection) ──────────────────────────────────────
+
+function GalleryHeader({
+  count,
+  selectMode,
+  selectedCount,
+  total,
+  onEnterSelect,
+  onExitSelect,
+  onToggleAll,
+  onFavorite,
+  onDelete,
+  selectedIds,
+  projectId,
+  projectName,
+  scenes,
+}: {
+  count: number | string
+  selectMode: boolean
+  selectedCount: number
+  total: number
+  onEnterSelect: () => void
+  onExitSelect: () => void
+  onToggleAll: () => void
+  onFavorite: () => void
+  onDelete: () => void
+  selectedIds: ReadonlySet<number>
+  projectId: number | undefined
+  projectName: string | undefined
+  scenes: Array<{ id: number; name: string }>
+}) {
+  const { t } = useTranslation()
+  usePageHeader({ count })
+  const empty = selectedCount === 0
+
+  return (
+    <HeaderActions selecting={selectMode}>
+      {selectMode ? (
+        <SelectionBar
+          count={selectedCount}
+          total={total}
+          onExit={onExitSelect}
+          onToggleAll={onToggleAll}
+        >
+          <button
+            type="button"
+            className={SELECTION_ICON_BUTTON}
+            onClick={onFavorite}
+            disabled={empty}
+            title={t('gallery.addToFavorites')}
+            aria-label={t('gallery.addToFavorites')}
+          >
+            <HugeiconsIcon icon={FavouriteIcon} className="size-4" />
+          </button>
+          <DownloadDialog
+            trigger={
+              <button
+                type="button"
+                className={SELECTION_ICON_BUTTON}
+                disabled={empty}
+                title={t('export.export')}
+                aria-label={t('export.export')}
+              >
+                <HugeiconsIcon icon={Download04Icon} className="size-4" />
+              </button>
+            }
+            selectedImageIds={[...selectedIds]}
+          />
+          <ConfirmDialog
+            trigger={
+              <button
+                type="button"
+                className={`${SELECTION_ICON_BUTTON} hover:text-destructive`}
+                disabled={empty}
+                title={t('common.delete')}
+                aria-label={t('common.delete')}
+              >
+                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+              </button>
+            }
+            title={t('gallery.deleteImages')}
+            description={t('gallery.deleteImagesDesc', {
+              count: selectedCount,
+            })}
+            variant="destructive"
+            onConfirm={onDelete}
+          />
+        </SelectionBar>
+      ) : (
+        <>
+          <div className="ml-auto" />
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={onEnterSelect}
+            data-gallery-select
+            aria-label={t('gallery.select')}
+          >
+            <HugeiconsIcon icon={CheckListIcon} className="size-4" />
+            <span className="hidden sm:inline">{t('gallery.select')}</span>
+          </Button>
+          <DownloadDialog
+            trigger={
+              <Button
+                size="sm"
+                variant="outline"
+                aria-label={t('export.export')}
+                data-gallery-export
+              >
+                <HugeiconsIcon icon={Download04Icon} className="size-4" />
+                <span className="hidden sm:inline">{t('export.export')}</span>
+              </Button>
+            }
+            projectId={projectId}
+            projectName={projectName}
+            availableScenes={scenes}
+          />
+        </>
+      )}
+    </HeaderActions>
   )
 }
 
@@ -690,6 +593,7 @@ function GalleryImage({
   onToggleSelect: () => void
   onToggleFavorite: () => void
 }) {
+  const { t } = useTranslation()
   const [loaded, setLoaded] = useState(false)
   const imgRef = useRef<HTMLImageElement>(null)
 
@@ -699,10 +603,29 @@ function GalleryImage({
     }
   }, [])
 
+  const badges = (
+    <>
+      {img.isFavorite ? (
+        <span
+          data-favorite-badge
+          title={t('gallery.favoriteBadge')}
+          className="pointer-events-none absolute top-1.5 left-1.5 z-10 inline-flex size-5 items-center justify-center rounded-full bg-black/55 text-primary"
+        >
+          <HugeiconsIcon icon={StarIcon} className="size-3 fill-current" />
+        </span>
+      ) : null}
+      {img.rating ? (
+        <span className="pointer-events-none absolute bottom-1 left-1.5 rounded bg-black/55 px-1 text-xs text-primary">
+          {'★'.repeat(img.rating)}
+        </span>
+      ) : null}
+    </>
+  )
+
   if (selectMode) {
     return (
       <div
-        className="relative group w-full h-full rounded-lg overflow-hidden bg-secondary cursor-pointer"
+        className="group relative h-full w-full cursor-pointer overflow-hidden rounded-lg bg-secondary"
         onClick={onToggleSelect}
       >
         <ImageContent
@@ -711,20 +634,16 @@ function GalleryImage({
           loaded={loaded}
           onLoad={() => setLoaded(true)}
         />
-        <div className="absolute top-1.5 left-1.5 z-10">
+        {badges}
+        <div className="absolute top-1.5 right-1.5 z-10">
           <Checkbox
             checked={selected}
             onCheckedChange={onToggleSelect}
             onClick={(e) => e.stopPropagation()}
           />
         </div>
-        {img.rating ? (
-          <div className="absolute bottom-1 left-1.5 text-sm text-primary">
-            {'\u2605'.repeat(img.rating)}
-          </div>
-        ) : null}
         {selected && (
-          <div className="absolute inset-0 bg-primary/20 ring-2 ring-primary ring-inset rounded-lg" />
+          <div className="absolute inset-0 rounded-lg bg-primary/20 ring-2 ring-primary ring-inset" />
         )}
       </div>
     )
@@ -735,7 +654,7 @@ function GalleryImage({
       to="/gallery/$imageId"
       params={{ imageId: String(img.id) }}
       search={search}
-      className="relative group w-full h-full rounded-lg overflow-hidden bg-secondary block"
+      className="group relative block h-full w-full overflow-hidden rounded-lg bg-secondary"
     >
       <ImageContent
         imgRef={imgRef}
@@ -743,27 +662,25 @@ function GalleryImage({
         loaded={loaded}
         onLoad={() => setLoaded(true)}
       />
+      {badges}
 
-      {/* Favorite overlay */}
+      {/* Favorite toggle (hover) */}
       <button
         onClick={(e) => {
           e.preventDefault()
           e.stopPropagation()
           onToggleFavorite()
         }}
-        className={`absolute top-1.5 right-1.5 p-1 z-10 transition-opacity ${img.isFavorite ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-        aria-label={img.isFavorite ? 'Unfavorite' : 'Favorite'}
+        className="absolute top-1.5 right-1.5 z-10 rounded-full bg-black/55 p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+        aria-label={
+          img.isFavorite ? t('gallery.unfavorite') : t('gallery.favorite')
+        }
       >
-        <span className={img.isFavorite ? 'text-destructive' : 'text-white/70'}>
-          {img.isFavorite ? '\u2764' : '\u2661'}
-        </span>
+        <HugeiconsIcon
+          icon={FavouriteIcon}
+          className={`size-3.5 ${img.isFavorite ? 'fill-destructive text-destructive' : 'text-white/80'}`}
+        />
       </button>
-
-      {img.rating ? (
-        <div className="absolute bottom-1 left-1.5 text-sm text-primary">
-          {'\u2605'.repeat(img.rating)}
-        </div>
-      ) : null}
     </Link>
   )
 }
@@ -779,21 +696,22 @@ function ImageContent({
   loaded: boolean
   onLoad: () => void
 }) {
+  const { t } = useTranslation()
   if (img.thumbnailPath) {
     return (
       <img
         ref={imgRef}
         src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
         alt=""
-        className={`w-full h-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        className={`h-full w-full object-cover transition-opacity duration-300 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         loading="lazy"
         onLoad={onLoad}
       />
     )
   }
   return (
-    <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
-      No thumb
+    <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+      {t('gallery.noThumbnail')}
     </div>
   )
 }

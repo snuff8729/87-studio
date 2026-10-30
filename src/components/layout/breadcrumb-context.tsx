@@ -7,7 +7,7 @@ export type BreadcrumbEntry = { label: string; to?: string }
 type HeaderState = {
   pathname: string
   items: Array<BreadcrumbEntry> | null
-  count: number | null
+  count: number | string | null
 } | null
 
 type BreadcrumbContextValue = {
@@ -74,7 +74,7 @@ export function usePageHeader({
   count,
 }: {
   items?: Array<BreadcrumbEntry>
-  count?: number | null
+  count?: number | string | null
 }): void {
   const { setState } = useBreadcrumbContext()
   const pathname = usePathname()
@@ -100,7 +100,7 @@ export function useBreadcrumb(items: Array<BreadcrumbEntry>): void {
 /** Header state set by the current page, or null when none was set. */
 export function usePageHeaderState(): {
   items: Array<BreadcrumbEntry> | null
-  count: number | null
+  count: number | string | null
 } | null {
   const { state } = useBreadcrumbContext()
   const pathname = usePathname()

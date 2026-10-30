@@ -4,7 +4,7 @@ import {
   useNavigate,
   useRouter,
 } from '@tanstack/react-router'
-import { useEffect, useState } from 'react'
+import { useEffect, useLayoutEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -12,6 +12,9 @@ import {
   ArrowLeft02Icon,
   Cancel01Icon,
   Delete02Icon,
+  Download04Icon,
+  FavouriteIcon,
+  MoreVerticalIcon,
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
@@ -33,11 +36,21 @@ import { updateProject } from '@/server/functions/projects'
 import { getUcPresetLabel, parseNAIMetadata } from '@/lib/nai-metadata'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
-import { useBreadcrumb } from '@/components/layout/breadcrumb-context'
+import {
+  HeaderActions,
+  useBreadcrumb,
+} from '@/components/layout/breadcrumb-context'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { SELECTION_ICON_BUTTON } from '@/components/common/selection-bar'
 
 function PendingComponent() {
   return (
-    <div className="h-dvh flex flex-col lg:flex-row bg-background">
+    <div className="h-full flex flex-col lg:flex-row bg-background">
       {/* Image area */}
       <div className="flex-1 flex items-center justify-center bg-black/40 min-h-0">
         <Skeleton className="w-3/4 aspect-[3/4] max-h-[80%] rounded-lg bg-white/5" />
@@ -106,16 +119,54 @@ export const Route = createFileRoute('/gallery/$imageId')({
     })
   },
   component: ImageDetailOverlay,
-  pendingComponent: () => (
-    <div className="fixed inset-0 z-50 bg-background">
-      <PendingComponent />
-    </div>
-  ),
+  pendingComponent: () => <PendingOverlay />,
 })
 
-function ImageDetailOverlay() {
+/**
+ * Box of the detail overlay: everything right of the sidebar and below the
+ * app header, so the header (breadcrumb + actions) stays visible.
+ */
+function useHeaderInset() {
+  const [inset, setInset] = useState({ left: 0, top: 48 })
+  useLayoutEffect(() => {
+    const header = document.querySelector('[data-app-header]')
+    if (!header) return
+    const measure = () => {
+      const r = header.getBoundingClientRect()
+      setInset({ left: r.left, top: r.bottom })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(header)
+    window.addEventListener('resize', measure)
+    return () => {
+      ro.disconnect()
+      window.removeEventListener('resize', measure)
+    }
+  }, [])
+  return inset
+}
+
+function PendingOverlay() {
+  const { left, top } = useHeaderInset()
   return (
-    <div className="fixed inset-0 z-50 bg-background">
+    <div
+      className="fixed right-0 bottom-0 z-30 bg-background"
+      style={{ left, top }}
+    >
+      <PendingComponent />
+    </div>
+  )
+}
+
+function ImageDetailOverlay() {
+  const { left, top } = useHeaderInset()
+  return (
+    <div
+      data-image-detail
+      className="fixed right-0 bottom-0 z-30 bg-background"
+      style={{ left, top }}
+    >
       <ImageDetailPage />
     </div>
   )
@@ -321,7 +372,81 @@ function ImageDetailPage() {
     : null
 
   return (
-    <div className="h-dvh flex flex-col lg:flex-row bg-background">
+    <div className="h-full flex flex-col lg:flex-row bg-background">
+      <HeaderActions>
+        <div className="ml-auto" />
+        <button
+          type="button"
+          onClick={handleFavorite}
+          className={SELECTION_ICON_BUTTON}
+          data-detail-favorite
+          title={
+            detail.isFavorite
+              ? t('imageDetail.favorited')
+              : t('imageDetail.favorite')
+          }
+          aria-label={
+            detail.isFavorite
+              ? t('imageDetail.favorited')
+              : t('imageDetail.favorite')
+          }
+        >
+          <HugeiconsIcon
+            icon={FavouriteIcon}
+            className={`size-4 ${detail.isFavorite ? 'fill-destructive text-destructive' : ''}`}
+          />
+        </button>
+        <a
+          href={imageSrc}
+          download
+          className={SELECTION_ICON_BUTTON}
+          title={t('imageDetail.download')}
+          aria-label={t('imageDetail.download')}
+        >
+          <HugeiconsIcon icon={Download04Icon} className="size-4" />
+        </a>
+        {(detail.projectSceneId || detail.projectId) && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className={SELECTION_ICON_BUTTON}
+                aria-label={t('imageDetail.details')}
+              >
+                <HugeiconsIcon icon={MoreVerticalIcon} className="size-4" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {detail.projectSceneId && (
+                <DropdownMenuItem onSelect={handleSetSceneThumbnail}>
+                  {t('imageDetail.sceneThumb')}
+                </DropdownMenuItem>
+              )}
+              {detail.projectId && (
+                <DropdownMenuItem onSelect={handleSetProjectThumbnail}>
+                  {t('imageDetail.projectThumb')}
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <ConfirmDialog
+          trigger={
+            <button
+              type="button"
+              className={`${SELECTION_ICON_BUTTON} hover:text-destructive`}
+              title={t('common.delete')}
+              aria-label={t('common.delete')}
+            >
+              <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+            </button>
+          }
+          title={t('imageDetail.deleteTitle')}
+          description={t('imageDetail.deleteDesc')}
+          onConfirm={handleDelete}
+        />
+      </HeaderActions>
+
       {/* Image area */}
       <div className="flex-1 flex items-center justify-center relative bg-black/40 min-h-0">
         {/* Back button */}
@@ -368,16 +493,6 @@ function ImageDetailPage() {
 
       {/* Detail panel */}
       <div className="h-[40vh] lg:h-auto lg:w-80 bg-card border-t lg:border-t-0 lg:border-l border-border p-4 overflow-y-auto shrink-0">
-        <div className="flex items-center justify-between mb-5">
-          <h3 className="text-base font-medium">{t('imageDetail.details')}</h3>
-          <button
-            onClick={goBack}
-            className="text-muted-foreground hover:text-foreground transition-colors"
-          >
-            <HugeiconsIcon icon={Cancel01Icon} className="size-5" />
-          </button>
-        </div>
-
         {/* Context */}
         {(detail.projectName || detail.projectSceneName) && (
           <>
@@ -432,49 +547,6 @@ function ImageDetailPage() {
             <Separator className="mb-4" />
           </>
         )}
-
-        {/* Thumbnail actions */}
-        {(detail.projectSceneId || detail.projectId) && (
-          <>
-            <div className="mb-4 flex gap-2">
-              {detail.projectSceneId && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSetSceneThumbnail}
-                  className="flex-1"
-                >
-                  {t('imageDetail.sceneThumb')}
-                </Button>
-              )}
-              {detail.projectId && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleSetProjectThumbnail}
-                  className="flex-1"
-                >
-                  {t('imageDetail.projectThumb')}
-                </Button>
-              )}
-            </div>
-            <Separator className="mb-4" />
-          </>
-        )}
-
-        {/* Favorite */}
-        <div className="mb-4">
-          <Button
-            size="sm"
-            variant={detail.isFavorite ? 'default' : 'outline'}
-            onClick={handleFavorite}
-            className="w-full"
-          >
-            {detail.isFavorite
-              ? '\u2764 ' + t('imageDetail.favorited')
-              : '\u2661 ' + t('imageDetail.favorite')}
-          </Button>
-        </div>
 
         {/* Rating */}
         <div className="mb-4">
@@ -789,25 +861,6 @@ function ImageDetailPage() {
               {naiMeta && <GalleryNaiMetadata metadata={naiMeta} />}
             </div>
           )}
-        </div>
-
-        {/* Download + Delete */}
-        <div className="flex gap-2">
-          <a href={imageSrc} download className="flex-1">
-            <Button variant="outline" size="sm" className="w-full">
-              {t('imageDetail.download')}
-            </Button>
-          </a>
-          <ConfirmDialog
-            trigger={
-              <Button variant="destructive" size="sm">
-                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-              </Button>
-            }
-            title={t('imageDetail.deleteTitle')}
-            description={t('imageDetail.deleteDesc')}
-            onConfirm={handleDelete}
-          />
         </div>
       </div>
     </div>
