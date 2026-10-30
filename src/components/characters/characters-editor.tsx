@@ -73,6 +73,7 @@ export function CharactersEditor<TId extends string | number>({
   // A just-added id is selected before the data that contains it arrives
   const pendingIdRef = useRef<TId | null>(null)
   const wantNameFocusRef = useRef(false)
+  const [focusTick, setFocusTick] = useState(0)
   const nameInputRef = useRef<HTMLInputElement>(null)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
@@ -96,13 +97,15 @@ export function CharactersEditor<TId extends string | number>({
     wantNameFocusRef.current = false
     nameInputRef.current?.focus()
     nameInputRef.current?.select()
-  }, [selected?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected?.id, focusTick]) // eslint-disable-line react-hooks/exhaustive-deps
 
   function select(id: TId | undefined) {
     if (id === undefined) return
     pendingIdRef.current = id
     wantNameFocusRef.current = true
     setSelectedId(id)
+    // The id may already be selected (list updated first): still re-run the focus effect
+    setFocusTick((n) => n + 1)
   }
 
   function focusName() {
