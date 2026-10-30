@@ -492,6 +492,7 @@ const ko: DeepStringify<typeof en> = {
     bothLose: '↓ 둘 다 패배',
   },
   queue: {
+    nowGenerating: '생성 중',
     title: '대기열',
     empty: '대기 중인 작업이 없습니다',
     emptyDescription:

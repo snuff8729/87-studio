@@ -484,6 +484,7 @@ const en = {
     bothLose: 'Both Lose',
   },
   queue: {
+    nowGenerating: 'Now generating',
     title: 'Queue',
     empty: 'No pending tasks',
     emptyDescription:

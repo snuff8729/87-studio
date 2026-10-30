@@ -34,7 +34,12 @@ import {
 import type { DragEndEvent } from '@dnd-kit/core'
 import { Button } from '@/components/ui/button'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import {
+  HeaderActions,
+  usePageHeader,
+} from '@/components/layout/breadcrumb-context'
 import { useTranslation } from '@/lib/i18n'
+import { listImages } from '@/server/functions/gallery'
 import {
   cancelBatch,
   fetchQueueSummary,
@@ -626,11 +631,162 @@ function RecentBatchRow({
   )
 }
 
+// ---- NowGeneratingCard ----
+
+function NowGeneratingCard({
+  batch,
+  queueStopped,
+  onCancel,
+}: {
+  batch: BatchData
+  queueStopped: 'paused' | 'error' | null | undefined
+  onCancel: (batchId: number) => void
+}) {
+  const { t } = useTranslation()
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const isPaused = queueStopped === 'paused'
+  const isError = queueStopped === 'error'
+
+  const { data: jobs } = useQuery({
+    queryKey: ['batch-jobs', batch.id],
+    queryFn: () => getBatchJobs({ data: batch.id }),
+    refetchInterval: 2000,
+  })
+  const job = jobs?.find((j) => j.status === 'running') ?? jobs?.at(0)
+
+  // Latest image of the running scene (or of Quick Generate) as a live preview
+  const { data: latest } = useQuery({
+    queryKey: [
+      'queue-latest-image',
+      job?.projectSceneId ?? null,
+      batch.projectId,
+      batch.completedImages,
+    ],
+    queryFn: () =>
+      listImages({
+        data: {
+          page: 1,
+          limit: 1,
+          projectSceneId: job?.projectSceneId ?? undefined,
+          projectId: job?.projectSceneId
+            ? undefined
+            : (batch.projectId ?? undefined),
+          quickGenerate: batch.projectId === null ? true : undefined,
+        },
+      }),
+    enabled: batch.completedImages > 0,
+  })
+  const thumb = latest?.at(0)?.thumbnailPath ?? null
+
+  const label =
+    job?.projectName && job.sceneName
+      ? `${job.projectName} · ${job.sceneName}`
+      : (batch.label ?? `Batch #${batch.id}`)
+  const pct =
+    batch.totalImages > 0
+      ? (batch.completedImages / batch.totalImages) * 100
+      : 0
+  const barClass =
+    isPaused || isError
+      ? isError
+        ? 'bg-destructive'
+        : 'bg-muted-foreground/40'
+      : 'bg-brand-gradient'
+
+  return (
+    <div
+      data-now-generating
+      className="flex items-center gap-4 rounded-xl border border-border bg-card p-3"
+    >
+      <div className="flex size-20 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-secondary sm:size-24">
+        {thumb ? (
+          <img
+            src={`/api/thumbnails/${thumb.replace('data/thumbnails/', '')}`}
+            alt=""
+            className="h-full w-full object-cover"
+          />
+        ) : (
+          <HugeiconsIcon
+            icon={TimeQuarter02Icon}
+            className="size-7 text-muted-foreground/30"
+          />
+        )}
+      </div>
+      <div className="min-w-0 flex-1 space-y-2">
+        <div className="flex items-center gap-2">
+          {isPaused || isError ? (
+            <span
+              className={`inline-block size-2 shrink-0 rounded-full ${isError ? 'bg-destructive' : 'bg-muted-foreground/40'}`}
+            />
+          ) : (
+            <span className="inline-block size-2 shrink-0 animate-pulse rounded-full bg-primary" />
+          )}
+          <span className="text-xs font-medium text-muted-foreground">
+            {isError
+              ? t('queue.error')
+              : isPaused
+                ? t('queue.paused')
+                : t('queue.nowGenerating')}
+          </span>
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="truncate text-base font-medium">{label}</span>
+          {batch.projectId && (
+            <Link
+              to="/workspace/$projectId"
+              params={{ projectId: String(batch.projectId) }}
+              search={
+                job?.projectSceneId
+                  ? { scene: job.projectSceneId, imageDetail: undefined }
+                  : { imageDetail: undefined }
+              }
+              className="shrink-0 text-muted-foreground/40 transition-colors hover:text-primary"
+            >
+              <HugeiconsIcon icon={ArrowUpRight} className="size-3.5" />
+            </Link>
+          )}
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-secondary">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ${barClass}`}
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+          <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+            {batch.completedImages}/{batch.totalImages}
+          </span>
+        </div>
+      </div>
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        className="shrink-0 text-muted-foreground hover:text-destructive"
+        onClick={() => setCancelOpen(true)}
+        aria-label={t('queue.cancelBatch')}
+        title={t('queue.cancelBatch')}
+      >
+        <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+      </Button>
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title={t('queue.cancelBatch')}
+        description={t('queue.cancelBatchConfirm')}
+        actionLabel={t('common.delete')}
+        onConfirm={() => onCancel(batch.id)}
+        variant="destructive"
+      />
+    </div>
+  )
+}
+
 // ---- QueuePage ----
 
 function QueuePage() {
   const { t } = useTranslation()
   const queryClient = useQueryClient()
+  const [historyOpen, setHistoryOpen] = useState(false)
 
   const sensors = useSensors(
     useSensor(PointerSensor),
@@ -692,17 +848,22 @@ function QueuePage() {
       queryClient.invalidateQueries({ queryKey: ['queue-summary'] }),
   })
 
+  // The running batch is shown in the "now generating" card, the rest below
+  const currentBatch = activeBatches.find((b) => b.status === 'running')
+  const pendingBatches = activeBatches.filter((b) => b.id !== currentBatch?.id)
+
   const handleBatchDragEnd = useCallback(
     (event: DragEndEvent) => {
       const { active, over } = event
       if (!over || active.id === over.id) return
-      const oldIndex = activeBatches.findIndex((b) => b.id === active.id)
-      const newIndex = activeBatches.findIndex((b) => b.id === over.id)
+      const oldIndex = pendingBatches.findIndex((b) => b.id === active.id)
+      const newIndex = pendingBatches.findIndex((b) => b.id === over.id)
       if (oldIndex === -1 || newIndex === -1) return
-      const newOrder = arrayMove(activeBatches, oldIndex, newIndex)
-      reorderMutation.mutate(newOrder.map((b) => b.id))
+      const newOrder = arrayMove(pendingBatches, oldIndex, newIndex)
+      const ids = newOrder.map((b) => b.id)
+      reorderMutation.mutate(currentBatch ? [currentBatch.id, ...ids] : ids)
     },
-    [activeBatches, reorderMutation],
+    [pendingBatches, currentBatch, reorderMutation],
   )
 
   const isPaused = summary?.queueStopped === 'paused'
@@ -712,170 +873,156 @@ function QueuePage() {
     (sum, b) => sum + (b.totalImages - b.completedImages),
     0,
   )
-  const totalImages = activeBatches.reduce((sum, b) => sum + b.totalImages, 0)
-  const completedImages = activeBatches.reduce(
-    (sum, b) => sum + b.completedImages,
-    0,
-  )
-  const overallPct = totalImages > 0 ? (completedImages / totalImages) * 100 : 0
 
-  const avgMs = summary?.globalStats?.avgImageDurationMs ?? null
+  const avgMs = summary?.globalStats.avgImageDurationMs ?? null
   const etaMs =
     avgMs != null && totalPendingImages > 0 ? totalPendingImages * avgMs : null
 
   const isEmpty = activeBatches.length === 0 && !loadingActive
 
+  usePageHeader({ count: activeBatches.length })
+
   return (
-    <div>
-      <div className="max-w-3xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4">
+    <div className="space-y-6">
+      {!isEmpty && (
+        <HeaderActions>
+          <div className="ml-auto" />
+          {isPaused || isError ? (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => resumeMutation.mutate()}
+              disabled={resumeMutation.isPending}
+              aria-label={t('queue.resume')}
+              data-queue-resume
+            >
+              <HugeiconsIcon icon={PlayIcon} className="size-4" />
+              <span className="hidden sm:inline">{t('queue.resume')}</span>
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => pauseMutation.mutate()}
+              disabled={pauseMutation.isPending}
+              aria-label={t('queue.pause')}
+              data-queue-pause
+            >
+              <HugeiconsIcon icon={PauseIcon} className="size-4" />
+              <span className="hidden sm:inline">{t('queue.pause')}</span>
+            </Button>
+          )}
+        </HeaderActions>
+      )}
+
+      {/* Empty state */}
+      {isEmpty ? (
+        <div className="flex flex-col items-center justify-center space-y-4 py-24 text-center">
+          <HugeiconsIcon
+            icon={TimeQuarter02Icon}
+            className="size-12 text-muted-foreground/30"
+          />
           <div>
-            <h1 className="text-xl font-semibold text-foreground flex items-center gap-2">
-              <HugeiconsIcon
-                icon={TimeQuarter02Icon}
-                className="size-5 text-primary"
-              />
-              {t('queue.title' as any)}
-            </h1>
-            {!isEmpty && (
-              <div className="mt-1 flex items-center gap-3 text-sm text-muted-foreground">
-                <span>
-                  {t('queue.batchesCount' as any, {
-                    count: String(activeBatches.length),
-                  })}
-                </span>
+            <p className="text-base font-medium text-foreground">
+              {t('queue.empty')}
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {t('queue.emptyDescription')}
+            </p>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/" search={{ imageDetail: undefined }}>
+                {t('queue.goToWorkspace')}
+              </Link>
+            </Button>
+            <Button variant="secondary" size="sm" asChild>
+              <Link to="/generate" search={{ imageDetail: undefined }}>
+                {t('queue.goToGenerate')}
+              </Link>
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
+            <span>
+              {t('queue.batchesCount', {
+                count: String(activeBatches.length),
+              })}
+            </span>
+            <span className="text-muted-foreground/40">&middot;</span>
+            <span>
+              {t('queue.imagesRemaining', {
+                count: String(totalPendingImages),
+              })}
+            </span>
+            {etaMs != null && !isPaused && (
+              <>
                 <span className="text-muted-foreground/40">&middot;</span>
-                <span>
-                  {t('queue.imagesRemaining' as any, {
-                    count: String(totalPendingImages),
-                  })}
-                </span>
-                {etaMs != null && !isPaused && (
-                  <>
-                    <span className="text-muted-foreground/40">&middot;</span>
-                    <span>
-                      {t('queue.eta' as any, { time: formatDuration(etaMs) })}
-                    </span>
-                  </>
-                )}
-              </div>
+                <span>{t('queue.eta', { time: formatDuration(etaMs) })}</span>
+              </>
             )}
           </div>
 
-          {/* Pause / Resume */}
-          {!isEmpty && (
-            <div className="flex items-center gap-2 shrink-0">
-              {isPaused || isError ? (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => resumeMutation.mutate()}
-                  disabled={resumeMutation.isPending}
+          {currentBatch && (
+            <NowGeneratingCard
+              batch={currentBatch}
+              queueStopped={summary?.queueStopped}
+              onCancel={(id) => cancelBatchMutation.mutate(id)}
+            />
+          )}
+
+          {pendingBatches.length > 0 && (
+            <div className="space-y-2" data-pending-batches>
+              <h2 className="text-sm font-medium text-muted-foreground">
+                {t('queue.pending')}{' '}
+                <span className="tabular-nums">({pendingBatches.length})</span>
+              </h2>
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleBatchDragEnd}
+              >
+                <SortableContext
+                  items={pendingBatches.map((b) => b.id)}
+                  strategy={verticalListSortingStrategy}
                 >
-                  <HugeiconsIcon icon={PlayIcon} className="size-4" />
-                  {t('queue.resume' as any)}
-                </Button>
-              ) : (
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => pauseMutation.mutate()}
-                  disabled={pauseMutation.isPending}
-                >
-                  <HugeiconsIcon icon={PauseIcon} className="size-4" />
-                  {t('queue.pause' as any)}
-                </Button>
-              )}
+                  <div className="space-y-2">
+                    {pendingBatches.map((batch) => (
+                      <SortableBatchRow
+                        key={batch.id}
+                        batch={batch}
+                        onCancel={(id) => cancelBatchMutation.mutate(id)}
+                        onRetry={(id) => retryBatchMutation.mutate(id)}
+                        queuePaused={isPaused}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </DndContext>
             </div>
           )}
-        </div>
+        </>
+      )}
 
-        {/* Overall progress bar */}
-        {!isEmpty && (
-          <div className="space-y-1.5">
-            <div className="h-2 rounded-full bg-secondary overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-500 ${
-                  isError
-                    ? 'bg-destructive'
-                    : isPaused
-                      ? 'bg-muted-foreground/40'
-                      : 'bg-primary'
-                }`}
-                style={{ width: `${overallPct}%` }}
-              />
-            </div>
-            {(isPaused || isError) && (
-              <p
-                className={`text-xs font-medium ${isError ? 'text-destructive' : 'text-muted-foreground'}`}
-              >
-                {isError ? t('queue.error' as any) : t('queue.paused' as any)}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Empty state */}
-        {isEmpty ? (
-          <div className="flex flex-col items-center justify-center py-24 text-center space-y-4">
-            <HugeiconsIcon
-              icon={TimeQuarter02Icon}
-              className="size-12 text-muted-foreground/30"
-            />
-            <div>
-              <p className="text-base font-medium text-foreground">
-                {t('queue.empty' as any)}
-              </p>
-              <p className="text-sm text-muted-foreground mt-1">
-                {t('queue.emptyDescription' as any)}
-              </p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/" search={{ imageDetail: undefined }}>
-                  {t('queue.goToWorkspace' as any)}
-                </Link>
-              </Button>
-              <Button variant="secondary" size="sm" asChild>
-                <Link to="/generate" search={{ imageDetail: undefined }}>
-                  {t('queue.goToGenerate' as any)}
-                </Link>
-              </Button>
-            </div>
-          </div>
-        ) : (
-          /* Active batch list */
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleBatchDragEnd}
+      {/* Recent history (collapsed by default) */}
+      {recentBatches.length > 0 && (
+        <div className="space-y-2" data-queue-history>
+          <button
+            type="button"
+            onClick={() => setHistoryOpen((v) => !v)}
+            aria-expanded={historyOpen}
+            className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
           >
-            <SortableContext
-              items={activeBatches.map((b) => b.id)}
-              strategy={verticalListSortingStrategy}
-            >
-              <div className="space-y-2">
-                {activeBatches.map((batch) => (
-                  <SortableBatchRow
-                    key={batch.id}
-                    batch={batch}
-                    onCancel={(id) => cancelBatchMutation.mutate(id)}
-                    onRetry={(id) => retryBatchMutation.mutate(id)}
-                    queuePaused={isPaused}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-        )}
-
-        {/* Recent history */}
-        {recentBatches.length > 0 && (
-          <div className="space-y-2">
-            <h2 className="text-sm font-medium text-muted-foreground">
-              {t('queue.recentHistory' as any)}
-            </h2>
+            <HugeiconsIcon
+              icon={historyOpen ? ChevronUpIcon : ChevronDownIcon}
+              className="size-4"
+            />
+            {t('queue.recentHistory')}
+            <span className="tabular-nums">({recentBatches.length})</span>
+          </button>
+          {historyOpen && (
             <div className="space-y-2">
               {recentBatches.map((batch) => (
                 <RecentBatchRow
@@ -885,9 +1032,9 @@ function QueuePage() {
                 />
               ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
