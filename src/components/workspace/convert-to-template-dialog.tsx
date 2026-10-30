@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,13 +36,14 @@ export function ConvertToTemplateDialog({
   )
   const [creating, setCreating] = useState(false)
 
-  function handleOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      setName('')
-      setCheckedIds(new Set(scenes.map((s) => s.id)))
-    }
-    onOpenChange(isOpen)
-  }
+  // The dialog stays mounted: (re)initialise whenever it opens, with the
+  // scenes it was opened for pre-checked
+  useEffect(() => {
+    if (!open) return
+    setName('')
+    setCheckedIds(new Set(scenes.map((s) => s.id)))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
 
   function toggleScene(id: number) {
     setCheckedIds((prev) => {
@@ -70,7 +71,7 @@ export function ConvertToTemplateDialog({
   }
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>{t('scene.convertToTemplate')}</DialogTitle>

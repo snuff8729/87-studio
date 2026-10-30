@@ -38,3 +38,12 @@ Branch: `redesign/phase5` (from main)
 - shadcn first, hugeicons, i18n en + ko, dark tokens; header frame from phase 4 (`usePageHeader`, `HeaderButton`).
 - Unit tests only for new pure logic (e.g. win-rate filter helper). Smoke: extend `scripts/smoke/browse.mjs` (settings + metadata pages, gallery win-rate chip, bulk tag popover, add-to-bookmark) and keep `scripts/smoke/workspace.mjs` passing; check C2 height assertion and C3 board scroll there. Desktop 1440 + mobile 390. Never click an enabled Generate; abort writes in smoke runs.
 - Update `.claude/CLAUDE.md` (also mention the demo: `scripts/demo/*`, `npm run demo`, `npm run demo:seed`).
+
+### D4. Bundle images like a gallery
+
+- /bundles detail: tile click opens the image detail overlay (prev/next within the bundle via root search param `detailBundle`); "Set as thumbnail" is explicit (tile hover pin + overlay action), current thumbnail marked; gallery-style grid with size slider and count; "View in gallery" → `/gallery?bundle=<id>`.
+- Gallery: "Bundle" filter (`?bundle=`, `image_bundles` subquery in `listImages`), chip with the bundle name.
+
+### D5. Demo QA fixes
+
+Add scene selects the new scene; Save as Template pre-checks the selection; gallery detail prev/next follows the gallery's filters and sort; Rename focuses the name input; removing a bookmark's thumbnail image re-points/clears `thumbnail_image_id`; SceneView header buttons icon-only unless wide; placeholder editor sizes to content with a scroll fade; one selection bar in select mode; bulk favorite keeps select mode; duplicate inserts after the source and selects it, Add goes to the end of the pack; reserve counts persist per project (`87studio-scene-reserve:<id>`) and singular labels; accurate scene-delete wording (scene deletion removes image files); darker tag gallery backdrop; bookmark names shown with spaces in the delete dialog.

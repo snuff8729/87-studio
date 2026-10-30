@@ -925,7 +925,7 @@ export function TagGalleryContent({
                   }
                   title={t('tagGallery.deleteBookmark')}
                   description={t('tagGallery.deleteBookmarkDesc', {
-                    name: bookmarkDetail.name,
+                    name: bookmarkDetail.name.replace(/_/g, ' '),
                   })}
                   onConfirm={() => handleDelete(bookmarkDetail.id)}
                 />

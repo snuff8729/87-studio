@@ -46,6 +46,8 @@ import {
 } from '@/server/functions/gallery'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
+import { listBundleNames } from '@/server/functions/bundles'
+import { toImageQuery } from '@/lib/gallery-filters'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { BulkTagPopover } from '@/components/gallery/bulk-tag-popover'
 import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
@@ -88,31 +90,20 @@ export const Route = createFileRoute('/gallery')({
       search.favorite === true || search.favorite === 'true' ? true : undefined,
     minRating: search.minRating ? Number(search.minRating) : undefined,
     minWinRate: search.minWinRate ? Number(search.minWinRate) : undefined,
+    bundle: search.bundle ? Number(search.bundle) : undefined,
     sortBy: (search.sortBy as SearchParams['sortBy']) || undefined,
     quick: search.quick === true || search.quick === 'true' ? true : undefined,
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
-    const [images, allTags, allProjects] = await Promise.all([
-      listImages({
-        data: {
-          page: 1,
-          limit: 40,
-          projectId: deps.project,
-          projectSceneId: deps.projectSceneId,
-          isFavorite: deps.favorite,
-          minRating: deps.minRating,
-          minWinRate: deps.minWinRate,
-          tagIds: deps.tag ? [deps.tag] : undefined,
-          sortBy: deps.sortBy,
-          quickGenerate: deps.quick,
-        },
-      }),
+    const [images, allTags, allProjects, allBundles] = await Promise.all([
+      listImages({ data: { page: 1, limit: 40, ...toImageQuery(deps) } }),
       listTags(),
       listProjectsForFilter(),
+      listBundleNames(),
     ])
-    return { initialImages: images, allTags, allProjects }
+    return { initialImages: images, allTags, allProjects, allBundles }
   },
   component: GalleryLayout,
   pendingComponent: PendingComponent,
@@ -139,6 +130,7 @@ function GalleryLayout() {
     initialImages,
     allTags: loadedTags,
     allProjects,
+    allBundles,
   } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -238,18 +230,7 @@ function GalleryLayout() {
     setLoading(true)
     const nextPage = page + 1
     const result = await listImages({
-      data: {
-        page: nextPage,
-        limit: 40,
-        projectId: search.project,
-        projectSceneId: search.projectSceneId,
-        isFavorite: search.favorite,
-        minRating: search.minRating,
-        minWinRate: search.minWinRate,
-        tagIds: search.tag ? [search.tag] : undefined,
-        sortBy: search.sortBy,
-        quickGenerate: search.quick,
-      },
+      data: { page: nextPage, limit: 40, ...toImageQuery(search) },
     })
     setImages((prev) => [...prev, ...result])
     setPage(nextPage)
@@ -317,7 +298,7 @@ function GalleryLayout() {
       toast.success(
         t('gallery.bulkFavoriteSuccess', { count: selectedList.length }),
       )
-      exitSelectMode()
+      // Non-destructive: stay in select mode (like Export)
     } catch {
       toast.error(t('gallery.bulkFailed'))
     }
@@ -383,6 +364,7 @@ function GalleryLayout() {
           projects={allProjects}
           scenes={projectScenes}
           tags={allTags}
+          bundles={allBundles}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
           onChange={handleFilterChange}

@@ -100,6 +100,15 @@ import {
   SceneView,
 } from '@/components/workspace/scene-view'
 import { reserveSummary } from '@/components/workspace/reserve-summary'
+import {
+  parseReservePrefs,
+  reserveKey,
+  serializeReservePrefs,
+} from '@/components/workspace/reserve-prefs'
+import {
+  readStorage,
+  writeStorage,
+} from '@/components/editor-shell/use-editor-persist'
 import { WorkspaceTitle } from '@/components/workspace/workspace-title'
 import { HistoryStrip } from '@/components/quick-generate/history-strip'
 import { DownloadDialog } from '@/components/common/download-dialog'
@@ -521,6 +530,8 @@ function WorkspacePage() {
   const boardMode = searchParams.view === 'board'
 
   const requestedSceneId = searchParams.scene ?? null
+  /** A scene we just created and selected, until the loader data has it */
+  const justAddedSceneRef = useRef<number | null>(null)
   const selectedSceneEntry =
     requestedSceneId == null
       ? undefined
@@ -591,14 +602,16 @@ function WorkspacePage() {
   const handleDuplicateScene = useCallback(
     async (sceneId: number) => {
       try {
-        await duplicateProjectScene({ data: sceneId })
-        router.invalidate()
+        const copy = await duplicateProjectScene({ data: sceneId })
+        justAddedSceneRef.current = copy.id
+        await router.invalidate()
+        navigate({ search: (prev) => ({ ...prev, scene: copy.id }) })
         toast.success(t('scene.sceneDuplicated'))
       } catch {
         toast.error(t('scene.duplicateSceneFailed'))
       }
     },
-    [router, t],
+    [router, t, navigate],
   )
 
   const handlePlaceholdersChange = useCallback(() => {
@@ -671,6 +684,28 @@ function WorkspacePage() {
   // ── Generation state ──
   const [countPerScene, setCountPerScene] = useState(0)
   const [sceneCounts, setSceneCounts] = useState<Record<number, number>>({})
+  // Reserve counts persist per project
+  // The persist effect of the commit that hydrates still sees stale state
+  const skipReservePersist = useRef(true)
+  useEffect(() => {
+    skipReservePersist.current = true
+    const prefs = parseReservePrefs(readStorage(reserveKey(projectId)))
+    setSceneCounts(prefs.counts)
+    setCountPerScene(prefs.defaultCount)
+  }, [projectId])
+  useEffect(() => {
+    if (skipReservePersist.current) {
+      skipReservePersist.current = false
+      return
+    }
+    writeStorage(
+      reserveKey(projectId),
+      serializeReservePrefs({
+        counts: sceneCounts,
+        defaultCount: countPerScene,
+      }),
+    )
+  }, [projectId, sceneCounts, countPerScene])
   const [generating, setGenerating] = useState(data.activeJobs.length > 0)
   const [queueStopped, setQueueStopped] = useState<'error' | 'paused' | null>(
     data.queueStatus?.queueStopped ?? null,
@@ -776,6 +811,7 @@ function WorkspacePage() {
         toggleCollapsedPack(input.packId)
       }
       if (sceneFilter !== 'all' || sceneSearch) clearSceneFilters()
+      justAddedSceneRef.current = scene.id
       navigate({ search: (prev) => ({ ...prev, scene: scene.id }) })
       if (!boardMode) setMobilePane('result')
     },
@@ -949,7 +985,18 @@ function WorkspacePage() {
     setPackDialogOpen(true)
   }, [])
   useEffect(() => {
-    if (selectedSceneEntry) return
+    if (selectedSceneEntry) {
+      if (selectedSceneEntry.id === justAddedSceneRef.current) {
+        justAddedSceneRef.current = null
+      }
+      return
+    }
+    // Just added/duplicated: the loader data may lag behind the URL
+    if (
+      requestedSceneId != null &&
+      requestedSceneId === justAddedSceneRef.current
+    )
+      return
     const target = boardMode ? null : firstSceneId
     if (target == null && requestedSceneId == null) return
     navigate({
@@ -1236,6 +1283,7 @@ function WorkspacePage() {
               onSelect={handleSceneSelect}
               addScene={addSceneConfig}
               selectMode
+              railHasSelectionBar={!railWidth.compact}
               checkedIds={checkedIds}
               onCheckedChange={handleCheckedChange}
               onEnterSelectMode={enterSelectMode}
@@ -1384,6 +1432,16 @@ function WorkspacePage() {
                 {t('workspace.reserveSummary', {
                   scenes: summary.scenes,
                   images: summary.images,
+                  sceneLabel: t(
+                    summary.scenes === 1
+                      ? 'workspace.sceneOne'
+                      : 'workspace.sceneMany',
+                  ),
+                  imageLabel: t(
+                    summary.images === 1
+                      ? 'workspace.imageOne'
+                      : 'workspace.imageMany',
+                  ),
                 })}
               </div>
               <Button

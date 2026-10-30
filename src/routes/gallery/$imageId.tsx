@@ -37,6 +37,8 @@ import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
 import { getUcPresetLabel, parseNAIMetadata } from '@/lib/nai-metadata'
 import { Skeleton } from '@/components/ui/skeleton'
+import { toImageQuery } from '@/lib/gallery-filters'
+import type { GalleryFilters } from '@/lib/gallery-filters'
 import { useTranslation } from '@/lib/i18n'
 import {
   HeaderActions,
@@ -104,20 +106,11 @@ function PendingComponent() {
 }
 
 export const Route = createFileRoute('/gallery/$imageId')({
-  loaderDeps: ({ search }) => ({
-    project: (search as Record<string, unknown>).project as number | undefined,
-    projectSceneId: (search as Record<string, unknown>).projectSceneId as
-      | number
-      | undefined,
-  }),
+  loaderDeps: ({ search }) => search as GalleryFilters,
   loader: async ({ params, deps }) => {
     const imageId = Number(params.imageId)
     return getImageDetailPage({
-      data: {
-        imageId,
-        projectId: deps.project,
-        projectSceneId: deps.projectSceneId,
-      },
+      data: { imageId, filters: toImageQuery(deps) },
     })
   },
   component: ImageDetailOverlay,

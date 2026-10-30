@@ -1,4 +1,4 @@
-import { createFileRoute, useNavigate } from '@tanstack/react-router'
+import { Link, createFileRoute, useNavigate } from '@tanstack/react-router'
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -8,6 +8,7 @@ import {
   Copy01Icon,
   Delete02Icon,
   Image02Icon,
+  PinIcon,
   Search01Icon,
 } from '@hugeicons/core-free-icons'
 import { useQueryClient } from '@tanstack/react-query'
@@ -15,6 +16,14 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Slider } from '@/components/ui/slider'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import { GRID_SIZES } from '@/components/gallery/gallery-toolbar'
+import { useImageGridSize } from '@/lib/use-image-grid-size'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
@@ -36,6 +45,9 @@ import {
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
 import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
+
+/** Minimum tile width (px) per grid size. */
+const BUNDLE_CELL_MIN = { sm: 72, md: 104, lg: 150 } as const
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -81,6 +93,7 @@ function BundlesPage() {
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { t } = useTranslation()
+  const { gridSize, setGridSize } = useImageGridSize('bundles')
   const queryClient = useQueryClient()
   const bundleNamesForEditor = useBundleNames()
 
@@ -184,7 +197,7 @@ function BundlesPage() {
       )
       setTagInput('')
     })
-    listBundleImages({ data: { bundleId: selectedId, limit: 40 } }).then(
+    listBundleImages({ data: { bundleId: selectedId, limit: 200 } }).then(
       setBundleImages,
     )
   }, [selectedId])
@@ -255,6 +268,28 @@ function BundlesPage() {
       toast.error(t('bundles.deleteFailed'))
     }
   }
+
+  function openImage(imageId: number) {
+    navigate({
+      search: (prev: Record<string, unknown>) => ({
+        ...prev,
+        imageDetail: imageId,
+        detailBundle: selectedId ?? undefined,
+      }),
+    } as any)
+  }
+
+  // The detail overlay can change the thumbnail too
+  useEffect(() => {
+    if (!selectedId) return
+    const onChanged = () => {
+      refreshList()
+      getBundle({ data: selectedId }).then(setDetail)
+    }
+    window.addEventListener('bundle-thumbnail-changed', onChanged)
+    return () =>
+      window.removeEventListener('bundle-thumbnail-changed', onChanged)
+  }, [selectedId, refreshList])
 
   async function handleSetThumbnail(imageId: number) {
     if (!selectedId) return
@@ -740,11 +775,41 @@ function BundlesPage() {
           <Separator />
 
           {/* Linked images */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
+          <div className="space-y-2" data-bundle-images>
+            <div className="flex items-center gap-3">
               <Label className="text-sm text-muted-foreground uppercase tracking-wider">
                 {t('bundles.imageCount', { count: detail.imageCount })}
               </Label>
+              <div className="flex-1" />
+              {bundleImages.length > 0 && (
+                <>
+                  <Slider
+                    className="w-16"
+                    min={0}
+                    max={GRID_SIZES.length - 1}
+                    step={1}
+                    value={[GRID_SIZES.indexOf(gridSize)]}
+                    onValueChange={([v]) => setGridSize(GRID_SIZES[v] ?? 'md')}
+                    aria-label={t('sceneView.imageSize')}
+                    title={t('sceneView.imageSize')}
+                    data-bundle-size
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    asChild
+                    data-bundle-view-gallery
+                  >
+                    <Link
+                      to="/gallery"
+                      search={{ bundle: detail.id, imageDetail: undefined }}
+                    >
+                      {t('bundles.viewInGallery')}
+                    </Link>
+                  </Button>
+                </>
+              )}
             </div>
 
             {bundleImages.length === 0 ? (
@@ -752,35 +817,75 @@ function BundlesPage() {
                 {t('bundles.noImages')}
               </p>
             ) : (
-              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
-                {bundleImages.map((img) => (
-                  <button
-                    key={img.id}
-                    onClick={() => handleSetThumbnail(img.id)}
-                    className={`relative aspect-square rounded-md overflow-hidden bg-secondary group ${
-                      detail.thumbnailImageId === img.id
-                        ? 'ring-2 ring-primary'
-                        : ''
-                    }`}
-                    title={t('bundles.setThumbnail')}
-                  >
-                    {img.thumbnailPath ? (
-                      <img
-                        src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
-                        alt=""
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <HugeiconsIcon
-                          icon={Image02Icon}
-                          className="size-4 text-muted-foreground/30"
-                        />
-                      </div>
-                    )}
-                  </button>
-                ))}
+              <div
+                className="grid gap-1.5"
+                style={{
+                  gridTemplateColumns: `repeat(auto-fill, minmax(${BUNDLE_CELL_MIN[gridSize]}px, 1fr))`,
+                }}
+              >
+                {bundleImages.map((img) => {
+                  const isThumb = detail.thumbnailImageId === img.id
+                  return (
+                    <div
+                      key={img.id}
+                      data-bundle-tile={img.id}
+                      className={`group relative aspect-square overflow-hidden rounded-md bg-secondary ${
+                        isThumb ? 'ring-2 ring-primary' : ''
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={() => openImage(img.id)}
+                        className="block size-full"
+                        aria-label={t('bundles.openImage')}
+                      >
+                        {img.thumbnailPath ? (
+                          <img
+                            src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
+                            alt=""
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <HugeiconsIcon
+                              icon={Image02Icon}
+                              className="size-4 text-muted-foreground/30"
+                            />
+                          </div>
+                        )}
+                      </button>
+                      {isThumb && (
+                        <span
+                          data-bundle-thumb-mark
+                          title={t('bundles.thumbnailCurrent')}
+                          className="pointer-events-none absolute top-1 left-1 inline-flex size-5 items-center justify-center rounded-full bg-black/55 text-primary"
+                        >
+                          <HugeiconsIcon icon={PinIcon} className="size-3" />
+                        </span>
+                      )}
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <button
+                            type="button"
+                            data-bundle-set-thumb={img.id}
+                            onClick={() => handleSetThumbnail(img.id)}
+                            aria-label={t('bundles.setThumbnail')}
+                            className="absolute top-1 right-1 z-10 rounded-full bg-black/55 p-1 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+                          >
+                            <HugeiconsIcon
+                              icon={PinIcon}
+                              className={`size-3.5 ${isThumb ? 'text-primary' : 'text-white/80'}`}
+                            />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t('bundles.setThumbnail')}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                  )
+                })}
               </div>
             )}
           </div>

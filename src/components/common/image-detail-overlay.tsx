@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useRouter } from '@tanstack/react-router'
+import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -7,6 +7,7 @@ import {
   ArrowLeft02Icon,
   BookmarkAdd01Icon,
   Cancel01Icon,
+  PinIcon,
   Delete02Icon,
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
@@ -27,6 +28,7 @@ import {
 } from '@/server/functions/gallery'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
+import { setBundleThumbnail } from '@/server/functions/bundles'
 import { parseNAIMetadata } from '@/lib/nai-metadata'
 import { useTranslation } from '@/lib/i18n'
 
@@ -34,16 +36,22 @@ type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
 
 export function ImageDetailOverlay({ imageId }: { imageId: number }) {
   const router = useRouter()
+  const { detailBundle } = useSearch({ from: '__root__' })
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     setLoading(true)
-    getImageDetailPage({ data: { imageId } })
+    getImageDetailPage({
+      data: {
+        imageId,
+        filters: detailBundle ? { bundleId: detailBundle } : undefined,
+      },
+    })
       .then(setData)
       .catch(() => toast.error('Failed to load image'))
       .finally(() => setLoading(false))
-  }, [imageId])
+  }, [imageId, detailBundle])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -90,7 +98,12 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
       data-state="open"
       className="fixed inset-0 z-50 bg-background"
     >
-      <ImageDetailContent data={data} setData={setData} goBack={goBack} />
+      <ImageDetailContent
+        data={data}
+        setData={setData}
+        goBack={goBack}
+        bundleId={detailBundle}
+      />
     </div>
   )
 }
@@ -99,7 +112,9 @@ function ImageDetailContent({
   data: detail,
   setData: setDetail,
   goBack,
+  bundleId,
 }: {
+  bundleId?: number
   data: DetailData
   setData: (d: DetailData) => void
   goBack: () => void
@@ -595,6 +610,32 @@ function ImageDetailContent({
             </div>
           )}
         </div>
+
+        {/* Bundle context: explicit thumbnail action */}
+        {bundleId && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mb-2 w-full"
+            data-detail-bundle-thumb
+            onClick={async () => {
+              try {
+                await setBundleThumbnail({
+                  data: { bundleId, imageId: detail.id },
+                })
+                window.dispatchEvent(
+                  new CustomEvent('bundle-thumbnail-changed'),
+                )
+                toast.success(t('bundles.thumbnailSet'))
+              } catch {
+                toast.error(t('bundles.thumbnailFailed'))
+              }
+            }}
+          >
+            <HugeiconsIcon icon={PinIcon} className="size-4" />
+            {t('bundles.thumbAction')}
+          </Button>
+        )}
 
         {/* Add to tag bookmark */}
         <AddToBookmarkPopover

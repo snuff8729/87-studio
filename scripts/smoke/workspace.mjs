@@ -499,6 +499,12 @@ const rows = (page) =>
     'grid shows pack cards',
   )
   await shot(page, 'desktop-select-grid')
+  check(
+    (await page.locator('#center [data-selection-header]:visible').count()) ===
+      1 &&
+      (await page.locator('#center [data-grid-toolbar]:visible').count()) === 1,
+    'select mode shows one selection bar (rail) + a slim grid toolbar',
+  )
   // check two cards in the grid → rail rows in sync
   const cards = page.locator('#center [data-scene-board] [data-scene-id]')
   await cards.nth(0).click()
@@ -537,6 +543,14 @@ const rows = (page) =>
   await shot(page, 'desktop-select-setcount')
   await page.getByRole('button', { name: 'Apply', exact: true }).click()
   await settle(page, 300)
+  check(
+    await page.evaluate(() =>
+      Object.keys(localStorage).some((k) =>
+        k.startsWith('87studio-scene-reserve:'),
+      ),
+    ),
+    'reserve counts are persisted per project',
+  )
   await railHeader
     .getByRole('button', { name: 'More selection actions' })
     .click()

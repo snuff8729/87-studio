@@ -54,7 +54,7 @@ export function TagGalleryDialog({
     >
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/80 supports-backdrop-filter:backdrop-blur-xs"
         onClick={() => onOpenChange(false)}
       />
       {/* Dialog */}

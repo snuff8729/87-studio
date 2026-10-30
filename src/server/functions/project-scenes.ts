@@ -156,11 +156,14 @@ export const addProjectScene = createServerFn({ method: 'POST' })
         }
       }
 
-      // Shift existing scenes' sort order to make room at the front
-      tx.update(projectScenes)
-        .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })
+      // New scenes go to the end of the pack
+      const maxSort = tx
+        .select({
+          max: sql<number>`coalesce(max(${projectScenes.sortOrder}), -1)`,
+        })
+        .from(projectScenes)
         .where(eq(projectScenes.projectScenePackId, pack.id))
-        .run()
+        .get()
 
       const scene = tx
         .insert(projectScenes)
@@ -168,7 +171,7 @@ export const addProjectScene = createServerFn({ method: 'POST' })
           projectScenePackId: pack.id,
           name: data.name,
           placeholders: source?.placeholders ?? '{}',
-          sortOrder: 0,
+          sortOrder: (maxSort?.max ?? -1) + 1,
         })
         .returning()
         .get()
@@ -255,14 +258,16 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
 
     if (!scene) throw new Error('Scene not found')
 
-    // Get next sort order within same pack
-    const maxSort = db
-      .select({
-        max: sql<number>`coalesce(max(${projectScenes.sortOrder}), -1)`,
-      })
-      .from(projectScenes)
-      .where(eq(projectScenes.projectScenePackId, scene.projectScenePackId))
-      .get()
+    // Make room right after the source scene
+    db.update(projectScenes)
+      .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })
+      .where(
+        and(
+          eq(projectScenes.projectScenePackId, scene.projectScenePackId),
+          sql`${projectScenes.sortOrder} > ${scene.sortOrder}`,
+        ),
+      )
+      .run()
 
     // Insert duplicated scene
     const newScene = db
@@ -272,7 +277,7 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
         sourceSceneId: scene.sourceSceneId,
         name: `${scene.name} (Copy)`,
         placeholders: scene.placeholders,
-        sortOrder: (maxSort?.max ?? -1) + 1,
+        sortOrder: (scene.sortOrder ?? 0) + 1,
       })
       .returning()
       .get()

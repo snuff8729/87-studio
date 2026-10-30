@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
   generatedImages,
@@ -10,6 +10,8 @@ import {
   promptBundles,
   tags,
 } from '../db/schema'
+import { buildImageConditions, imageOrder } from '../services/image-query'
+import type { ImageFilters, ImageSort } from '../services/image-query'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
 
@@ -17,83 +19,24 @@ const log = createLogger('fn.gallery')
 
 export const listImages = createServerFn({ method: 'GET' })
   .inputValidator(
-    (data: {
-      page?: number
-      limit?: number
-      projectId?: number
-      projectSceneId?: number
-      sourceSceneId?: number
-      isFavorite?: boolean
-      minRating?: number
-      /** Percent; only images with at least one tournament match qualify */
-      minWinRate?: number
-      tagIds?: Array<number>
-      sortBy?: 'newest' | 'oldest' | 'rating' | 'favorites'
-      quickGenerate?: boolean
-    }) => data,
+    (
+      data: ImageFilters & {
+        page?: number
+        limit?: number
+        sortBy?: ImageSort
+      },
+    ) => data,
   )
   .handler(async ({ data }) => {
     const page = data.page ?? 1
     const limit = data.limit ?? 40
     const offset = (page - 1) * limit
-
-    const conditions = []
-    if (data.quickGenerate) conditions.push(isNull(generatedImages.projectId))
-    if (data.projectId)
-      conditions.push(eq(generatedImages.projectId, data.projectId))
-    if (data.projectSceneId)
-      conditions.push(eq(generatedImages.projectSceneId, data.projectSceneId))
-    if (data.sourceSceneId)
-      conditions.push(eq(generatedImages.sourceSceneId, data.sourceSceneId))
-    if (data.isFavorite) conditions.push(eq(generatedImages.isFavorite, 1))
-    if (data.minRating)
-      conditions.push(sql`${generatedImages.rating} >= ${data.minRating}`)
-
-    if (data.minWinRate) {
-      conditions.push(
-        sql`(${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) > 0 AND CAST(${generatedImages.tournamentWins} AS REAL) / (${generatedImages.tournamentWins} + ${generatedImages.tournamentLosses}) * 100 >= ${data.minWinRate}`,
-      )
-    }
-
-    // Tag filter as SQL subquery (not post-filter)
-    if (data.tagIds && data.tagIds.length > 0) {
-      conditions.push(
-        sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(
-          data.tagIds.map((id) => sql`${id}`),
-          sql`, `,
-        )}))`,
-      )
-    }
-
-    // Determine sort order
-    const sortBy = data.sortBy ?? 'newest'
-    let orderClauses: Array<ReturnType<typeof desc>>
-    switch (sortBy) {
-      case 'oldest':
-        orderClauses = [asc(generatedImages.createdAt)]
-        break
-      case 'rating':
-        orderClauses = [
-          desc(generatedImages.rating),
-          desc(generatedImages.createdAt),
-        ]
-        break
-      case 'favorites':
-        orderClauses = [
-          desc(generatedImages.isFavorite),
-          desc(generatedImages.createdAt),
-        ]
-        break
-      case 'newest':
-      default:
-        orderClauses = [desc(generatedImages.createdAt)]
-        break
-    }
+    const conditions = buildImageConditions(data)
 
     let query = db
       .select()
       .from(generatedImages)
-      .orderBy(...orderClauses)
+      .orderBy(...imageOrder(data.sortBy))
       .limit(limit)
       .offset(offset)
 
@@ -300,8 +243,11 @@ export const listScenesForFilter = createServerFn({ method: 'GET' })
 
 export const getImageDetailPage = createServerFn({ method: 'GET' })
   .inputValidator(
-    (data: { imageId: number; projectId?: number; projectSceneId?: number }) =>
-      data,
+    (data: {
+      imageId: number
+      /** Prev/next walk this filtered, sorted list (the gallery's) */
+      filters?: ImageFilters & { sortBy?: ImageSort }
+    }) => data,
   )
   .handler(async ({ data }) => {
     const image = db
@@ -338,36 +284,20 @@ export const getImageDetailPage = createServerFn({ method: 'GET' })
       projectSceneName = scene?.name ?? null
     }
 
-    // Prev/next within same filter context (newest-first order)
-    const filterConditions = []
-    if (data.projectId)
-      filterConditions.push(eq(generatedImages.projectId, data.projectId))
-    if (data.projectSceneId)
-      filterConditions.push(
-        eq(generatedImages.projectSceneId, data.projectSceneId),
-      )
-
-    // Prev = newer image (higher id)
-    const prevResult = db
+    // Prev/next = neighbours in the same filtered, sorted list as the grid
+    const f = data.filters ?? {}
+    const conditions = buildImageConditions(f)
+    const orderedIds = db
       .select({ id: generatedImages.id })
       .from(generatedImages)
-      .where(
-        and(sql`${generatedImages.id} > ${data.imageId}`, ...filterConditions),
-      )
-      .orderBy(asc(generatedImages.id))
-      .limit(1)
-      .get()
-
-    // Next = older image (lower id)
-    const nextResult = db
-      .select({ id: generatedImages.id })
-      .from(generatedImages)
-      .where(
-        and(sql`${generatedImages.id} < ${data.imageId}`, ...filterConditions),
-      )
-      .orderBy(desc(generatedImages.id))
-      .limit(1)
-      .get()
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(...imageOrder(f.sortBy))
+      .all()
+      .map((r) => r.id)
+    const at = orderedIds.indexOf(data.imageId)
+    const prevResult = at > 0 ? { id: orderedIds[at - 1] } : null
+    const nextResult =
+      at >= 0 && at < orderedIds.length - 1 ? { id: orderedIds[at + 1] } : null
 
     // Fetch linked bundles
     const linkedBundles = db

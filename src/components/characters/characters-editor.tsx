@@ -111,12 +111,18 @@ export function CharactersEditor<TId extends string | number>({
     setFocusTick((n) => n + 1)
   }
 
+  // Rename: the menu hands focus back to its trigger when it closes, so the
+  // name input takes focus from onCloseAutoFocus instead
+  const renameRequestedRef = useRef(false)
   function focusName() {
-    // The menu returns focus to its trigger when it closes
-    setTimeout(() => {
-      nameInputRef.current?.focus()
-      nameInputRef.current?.select()
-    }, 0)
+    renameRequestedRef.current = true
+  }
+  function handleMenuCloseFocus(e: Event) {
+    if (!renameRequestedRef.current) return
+    renameRequestedRef.current = false
+    e.preventDefault()
+    nameInputRef.current?.focus()
+    nameInputRef.current?.select()
   }
 
   return (
@@ -186,7 +192,10 @@ export function CharactersEditor<TId extends string | number>({
                   <HugeiconsIcon icon={MoreVerticalIcon} className="size-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
+              <DropdownMenuContent
+                align="end"
+                onCloseAutoFocus={handleMenuCloseFocus}
+              >
                 <DropdownMenuItem onSelect={focusName}>
                   {t('characters.rename')}
                 </DropdownMenuItem>

@@ -84,8 +84,12 @@ function RootNotFoundContent() {
 }
 
 export const Route = createRootRoute({
-  validateSearch: (search: Record<string, unknown>) => ({
+  validateSearch: (
+    search: Record<string, unknown>,
+  ): { imageDetail: number | undefined; detailBundle?: number } => ({
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
+    /** Opened from a bundle: prev/next walk that bundle's images */
+    detailBundle: search.detailBundle ? Number(search.detailBundle) : undefined,
   }),
   loader: () => ({ sidebarOpen: getSidebarDefaultOpen() }),
   head: () => ({

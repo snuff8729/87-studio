@@ -343,7 +343,7 @@ export function SceneView({
             title={t('scene.compare')}
           >
             <HugeiconsIcon icon={Exchange01Icon} className="size-4" />
-            <span className="hidden @2xl:inline">{t('scene.compare')}</span>
+            <span className="hidden @5xl:inline">{t('scene.compare')}</span>
           </Button>
           <Button
             variant="ghost"
@@ -353,7 +353,7 @@ export function SceneView({
             title={t('tournament.tournament')}
           >
             <HugeiconsIcon icon={ChampionIcon} className="size-4" />
-            <span className="hidden @2xl:inline">
+            <span className="hidden @5xl:inline">
               {t('tournament.tournament')}
             </span>
           </Button>
@@ -364,7 +364,7 @@ export function SceneView({
             title={t('scene.convertToTemplate')}
           >
             <HugeiconsIcon icon={FileExportIcon} className="size-4" />
-            <span className="hidden @2xl:inline">
+            <span className="hidden @5xl:inline">
               {t('scene.convertToTemplate')}
             </span>
           </Button>
@@ -376,7 +376,7 @@ export function SceneView({
               title={t('scene.resetThumbnail')}
             >
               <HugeiconsIcon icon={ImageRemove01Icon} className="size-4" />
-              <span className="hidden @2xl:inline">
+              <span className="hidden @5xl:inline">
                 {t('scene.resetThumbnail')}
               </span>
             </Button>
@@ -388,7 +388,7 @@ export function SceneView({
       <section
         className={cn(
           'flex shrink-0 flex-col border-b',
-          showPlaceholders && 'max-h-[45%]',
+          showPlaceholders && 'max-h-[min(45%,30rem)]',
         )}
       >
         <button
@@ -415,7 +415,7 @@ export function SceneView({
           )}
         </button>
         {showPlaceholders && (
-          <div className="min-h-0 overflow-y-auto px-3 pb-3 sm:px-4">
+          <ScrollFade className="min-h-0 px-3 pb-4 sm:px-4">
             <PlaceholderEditor
               key={sceneId}
               sceneId={sceneId}
@@ -429,7 +429,7 @@ export function SceneView({
               onPlaceholdersChange={onPlaceholdersChange}
               getPrompts={getPrompts}
             />
-          </div>
+          </ScrollFade>
         )}
       </section>
 
@@ -524,11 +524,14 @@ export function SceneEmptyState({
 
 function useSceneCardSize(
   projectId: number,
+  fallback: SceneCardSize = SCENE_CARD_SIZE_DEFAULT,
 ): [SceneCardSize, (size: SceneCardSize) => void] {
   const key = sceneBoardSizeKey(projectId)
-  const [size, setSizeState] = useState<SceneCardSize>(SCENE_CARD_SIZE_DEFAULT)
+  const [size, setSizeState] = useState<SceneCardSize>(fallback)
   useEffect(() => {
-    setSizeState(parseSceneCardSize(readStorage(key)))
+    const stored = readStorage(key)
+    setSizeState(stored ? parseSceneCardSize(stored) : fallback)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   const setSize = useCallback(
     (next: SceneCardSize) => {
@@ -562,6 +565,11 @@ export interface SceneBoardProps {
   addScene: AddSceneConfig
   /** Board mode: closes the board. Omitted for the selection grid. */
   onClose?: () => void
+  /**
+   * Selection grid next to an expanded rail (md+): the rail header already
+   * holds the selection bar, so the grid keeps only its own controls.
+   */
+  railHasSelectionBar?: boolean
   selectMode: boolean
   checkedIds: ReadonlySet<number>
   onCheckedChange: (sceneId: number, checked: boolean) => void
@@ -589,6 +597,7 @@ export function SceneBoard({
   onSelect,
   addScene,
   onClose,
+  railHasSelectionBar,
   selectMode,
   checkedIds,
   onCheckedChange,
@@ -596,7 +605,11 @@ export function SceneBoard({
   renderSelectionHeader,
 }: SceneBoardProps) {
   const { t } = useTranslation()
-  const [size, setSize] = useSceneCardSize(projectId)
+  // The selection grid (no close button) defaults to smaller cards
+  const [size, setSize] = useSceneCardSize(
+    projectId,
+    onClose ? undefined : 'md',
+  )
   const sizeIndex = SCENE_CARD_SIZES.indexOf(size)
   const shownCollapsed = effectiveCollapsed(collapsedPacks, searchQuery)
   const filtersActive = filter !== 'all' || searchQuery.trim() !== ''
@@ -617,7 +630,22 @@ export function SceneBoard({
     <div className="flex h-full min-h-0 flex-col" data-scene-board>
       {/* ── Toolbar (the selection header while selecting) ── */}
       {selectMode ? (
-        renderSelectionHeader(sizeSlider)
+        railHasSelectionBar ? (
+          <>
+            <div className="md:hidden">{renderSelectionHeader(sizeSlider)}</div>
+            <div
+              data-grid-toolbar
+              className="hidden shrink-0 items-center justify-end gap-2 border-b px-4 py-1.5 md:flex"
+            >
+              <span className="text-xs text-muted-foreground">
+                {t('scene.cardSize')}
+              </span>
+              {sizeSlider}
+            </div>
+          </>
+        ) : (
+          renderSelectionHeader(sizeSlider)
+        )
       ) : (
         <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2">
           <div className="text-sm font-semibold whitespace-nowrap">
@@ -705,6 +733,53 @@ export function SceneBoard({
           />
         )}
       </div>
+    </div>
+  )
+}
+
+// ── ScrollFade: scroll container with a bottom fade while content is cut off ──
+
+function ScrollFade({
+  className,
+  children,
+}: {
+  className?: string
+  children: ReactNode
+}) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [more, setMore] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = () =>
+      setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4)
+    update()
+    el.addEventListener('scroll', update, { passive: true })
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    if (el.firstElementChild) ro.observe(el.firstElementChild)
+    return () => {
+      el.removeEventListener('scroll', update)
+      ro.disconnect()
+    }
+  }, [])
+
+  return (
+    <div className="relative flex min-h-0 flex-1 flex-col">
+      <div
+        ref={ref}
+        data-placeholder-scroll
+        className={cn('flex-1 overflow-y-auto', className)}
+      >
+        {children}
+      </div>
+      {more && (
+        <div
+          data-scroll-more
+          className="pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-gradient-to-t from-background to-transparent"
+        />
+      )}
     </div>
   )
 }

@@ -334,9 +334,9 @@ function handlers(opts) {
     getBundle: (id) => {
       const b = BUNDLES.find((x) => x.id === id) ?? BUNDLES[0]
       const { tags, thumbnailPath, ...rest } = b
-      return rest
+      return { ...rest, imageCount: 6, thumbnailImageId: IMAGES[0].id }
     },
-    listBundleImages: () => [],
+    listBundleImages: () => IMAGES.slice(0, 6),
     listBundleTags: () => [
       { id: 1, name: 'outfit' },
       { id: 2, name: 'pose' },
@@ -1539,6 +1539,96 @@ async function galleryTools(w, h, tag) {
   await ov.ctx.close()
 }
 
+async function bundleImagesTest(w, h, tag) {
+  console.log(`== bundle images ${w}x${h}`)
+  const { ctx, page } = await newPage(w, h)
+  await navTo(page, '/bundles')
+  await page.locator('[data-list-row]').first().click()
+  await settle(page, 1200)
+  const tiles = page.locator('[data-bundle-tile]')
+  check(
+    (await tiles.count()) === 6,
+    `bundle images ${tag}: 6 tiles (${await tiles.count()})`,
+  )
+  check(
+    (await page.locator('[data-bundle-thumb-mark]').count()) === 1,
+    `bundle images ${tag}: current thumbnail is marked`,
+  )
+  check(
+    (await page.locator('[data-bundle-size]').count()) === 1,
+    `bundle images ${tag}: card size slider`,
+  )
+  await shot(page, `bundle-images-${tag}`)
+  // click opens the detail overlay (and does not set the thumbnail)
+  const second = await tiles.nth(1).getAttribute('data-bundle-tile')
+  await tiles.nth(1).locator('button').first().click()
+  await settle(page, 1500)
+  check(
+    param(page, 'imageDetail') === second &&
+      param(page, 'detailBundle') !== null,
+    `bundle images ${tag}: tile click opens the overlay (imageDetail=${param(page, 'imageDetail')})`,
+  )
+  check(
+    (await page
+      .locator('[role="dialog"] [data-detail-bundle-thumb]')
+      .count()) === 1,
+    `bundle images ${tag}: overlay has "Set Thumbnail" for the bundle`,
+  )
+  check(
+    !page.blocked.includes('setBundleThumbnail'),
+    `bundle images ${tag}: opening an image does not set the thumbnail`,
+  )
+  await shot(page, `bundle-overlay-${tag}`)
+  await page.locator('[role="dialog"] [data-detail-bundle-thumb]').click()
+  await settle(page, 400)
+  check(
+    page.blocked.includes('setBundleThumbnail'),
+    `bundle images ${tag}: overlay action sets the thumbnail (aborted)`,
+  )
+  await page.keyboard.press('Escape')
+  await settle(page, 800)
+  check(
+    param(page, 'imageDetail') === null,
+    `bundle images ${tag}: Escape closes the overlay`,
+  )
+  // explicit hover action on the tile
+  page.blocked.length = 0
+  await tiles.nth(2).hover()
+  await tiles.nth(2).locator('[data-bundle-set-thumb]').click()
+  await settle(page, 400)
+  check(
+    page.blocked.includes('setBundleThumbnail'),
+    `bundle images ${tag}: tile pin action sets the thumbnail (aborted)`,
+  )
+  // view in gallery → bundle chip
+  const link = page.locator('[data-bundle-view-gallery]')
+  check(
+    /bundle=\d+/.test((await link.getAttribute('href')) ?? ''),
+    `bundle images ${tag}: "View in gallery" link`,
+  )
+  await link.click()
+  await settle(page, 1500)
+  const chip = page.locator('[data-filter-chip="bundle"]')
+  check(
+    param(page, 'bundle') !== null &&
+      (await chip.count()) === 1 &&
+      /bundle_\d+/.test(await chip.innerText()),
+    `bundle images ${tag}: gallery shows the bundle chip (${(await chip.count()) ? await chip.innerText() : '-'})`,
+  )
+  // Bundle filter from the + Filter menu
+  await chip.locator('button').click()
+  await settle(page, 800)
+  await page.locator('[data-add-filter]').click()
+  await page.locator('[data-filter-menu="bundle"]').click()
+  await page.locator('[data-filter-option="bundle-2"]').click()
+  await settle(page, 1000)
+  check(
+    param(page, 'bundle') === '2',
+    `bundle images ${tag}: Bundle filter in the menu (bundle=${param(page, 'bundle')})`,
+  )
+  await ctx.close()
+}
+
 for (const [w, h, tag] of [
   [1440, 900, 'desktop'],
   [390, 844, 'mobile'],
@@ -1563,6 +1653,7 @@ for (const [w, h, tag] of [
   await settingsPage(w, h, tag)
   await metadataPage(w, h, tag)
   await galleryTools(w, h, tag)
+  await bundleImagesTest(w, h, tag)
 }
 
 console.log(`\nconsole errors: ${consoleErrors}\nfailures: ${failures}`)

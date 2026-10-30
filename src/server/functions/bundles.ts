@@ -75,9 +75,7 @@ export const listBundleTags = createServerFn({ method: 'GET' }).handler(
 )
 
 export const setBundleTags = createServerFn({ method: 'POST' })
-  .inputValidator(
-    (data: { bundleId: number; tagNames: Array<string> }) => data,
-  )
+  .inputValidator((data: { bundleId: number; tagNames: Array<string> }) => data)
   .handler(async ({ data }) => {
     const { bundleId, tagNames } = data
     const normalizedNames = tagNames
@@ -95,10 +93,7 @@ export const setBundleTags = createServerFn({ method: 'POST' })
     if (uniqueNames.length > 0) {
       // Upsert tags — insert missing, get all IDs
       for (const name of uniqueNames) {
-        db.insert(bundleTags)
-          .values({ name })
-          .onConflictDoNothing()
-          .run()
+        db.insert(bundleTags).values({ name }).onConflictDoNothing().run()
       }
 
       const tagRows = db
@@ -125,9 +120,7 @@ export const setBundleTags = createServerFn({ method: 'POST' })
     if (usedTagIds.length === 0) {
       db.delete(bundleTags).run()
     } else {
-      db.delete(bundleTags)
-        .where(notInArray(bundleTags.id, usedTagIds))
-        .run()
+      db.delete(bundleTags).where(notInArray(bundleTags.id, usedTagIds)).run()
     }
 
     log.info('setBundleTags', 'Bundle tags updated', {

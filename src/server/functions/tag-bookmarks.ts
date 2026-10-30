@@ -277,6 +277,27 @@ export const removeBookmarkImage = createServerFn({ method: 'POST' })
     }
 
     db.delete(tagBookmarkImages).where(eq(tagBookmarkImages.id, id)).run()
+
+    // Do not leave the bookmark pointing at the removed image: fall back to
+    // the next remaining image (or none)
+    const bookmark = db
+      .select({ thumbnailImageId: tagBookmarks.thumbnailImageId })
+      .from(tagBookmarks)
+      .where(eq(tagBookmarks.id, img.bookmarkId))
+      .get()
+    if (bookmark?.thumbnailImageId === id) {
+      const next = db
+        .select({ id: tagBookmarkImages.id })
+        .from(tagBookmarkImages)
+        .where(eq(tagBookmarkImages.bookmarkId, img.bookmarkId))
+        .orderBy(asc(tagBookmarkImages.sortOrder))
+        .limit(1)
+        .get()
+      db.update(tagBookmarks)
+        .set({ thumbnailImageId: next?.id ?? null })
+        .where(eq(tagBookmarks.id, img.bookmarkId))
+        .run()
+    }
     return { success: true }
   })
 

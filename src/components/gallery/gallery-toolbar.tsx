@@ -22,19 +22,9 @@ import { Slider } from '@/components/ui/slider'
 import { WIN_RATE_PRESETS } from '@/lib/win-rate'
 import { useTranslation } from '@/lib/i18n'
 
-export type GallerySort = 'newest' | 'oldest' | 'rating' | 'favorites'
+import type { GalleryFilters, GallerySort } from '@/lib/gallery-filters'
 
-export type GalleryFilters = {
-  project?: number
-  projectSceneId?: number
-  tag?: number
-  favorite?: boolean
-  minRating?: number
-  /** Percent; images without tournament matches never pass */
-  minWinRate?: number
-  sortBy?: GallerySort
-  quick?: boolean
-}
+export type { GalleryFilters, GallerySort }
 
 export const GRID_SIZES: Array<GridSize> = ['sm', 'md', 'lg']
 
@@ -46,6 +36,7 @@ export function activeFilterCount(f: GalleryFilters) {
     f.project,
     f.projectSceneId,
     f.tag,
+    f.bundle,
     f.favorite,
     f.minRating,
     f.minWinRate,
@@ -90,6 +81,7 @@ export function GalleryToolbar({
   projects,
   scenes,
   tags,
+  bundles,
   gridSize,
   onGridSizeChange,
   onChange,
@@ -99,6 +91,7 @@ export function GalleryToolbar({
   projects: Array<Option>
   scenes: Array<Option>
   tags: Array<Option>
+  bundles: Array<Option>
   gridSize: GridSize
   onGridSizeChange: (size: GridSize) => void
   /** Merges a partial filter set; `undefined` values remove a filter */
@@ -109,6 +102,7 @@ export function GalleryToolbar({
   const projectName = projects.find((p) => p.id === filters.project)?.name
   const sceneName = scenes.find((s) => s.id === filters.projectSceneId)?.name
   const tagName = tags.find((x) => x.id === filters.tag)?.name
+  const bundleName = bundles.find((x) => x.id === filters.bundle)?.name
   const chipCount = activeFilterCount(filters)
 
   return (
@@ -158,6 +152,13 @@ export function GalleryToolbar({
           kind="winrate"
           label={t('gallery.winRatePlus', { count: filters.minWinRate })}
           onRemove={() => onChange({ minWinRate: undefined })}
+        />
+      )}
+      {filters.bundle && (
+        <Chip
+          kind="bundle"
+          label={bundleName ?? String(filters.bundle)}
+          onRemove={() => onChange({ bundle: undefined })}
         />
       )}
       {filters.tag && (
@@ -288,6 +289,28 @@ export function GalleryToolbar({
               ))}
             </DropdownMenuSubContent>
           </DropdownMenuSub>
+
+          {bundles.length > 0 && (
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger data-filter-menu="bundle">
+                {t('gallery.filterBundle')}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent className="max-h-72 overflow-y-auto">
+                {bundles.map((b) => (
+                  <DropdownMenuItem
+                    key={b.id}
+                    data-filter-option={`bundle-${b.id}`}
+                    onSelect={() => onChange({ bundle: b.id })}
+                  >
+                    {b.name}
+                    {filters.bundle === b.id && (
+                      <HugeiconsIcon icon={Tick02Icon} />
+                    )}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          )}
 
           {tags.length > 0 && (
             <DropdownMenuSub>
