@@ -1258,7 +1258,7 @@ function WorkspacePage() {
         <SheetContent
           side="bottom"
           showCloseButton={false}
-          className="h-[85dvh] gap-0 overflow-hidden rounded-t-xl p-0"
+          className="gap-0 overflow-hidden rounded-t-xl p-0 data-[side=bottom]:h-[85dvh]"
         >
           <SheetHeader className="sr-only">
             <SheetTitle>{t('sceneRail.title')}</SheetTitle>
