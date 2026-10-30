@@ -15,6 +15,8 @@ import {
 import { createLogger } from '../services/logger'
 import { resolveBundlesInRawPrompts } from '../services/prompt'
 import type { ResolvedPrompts } from '../services/prompt'
+import type { PositionSpec } from '@/lib/character-positions'
+import { AI_POSITION } from '@/lib/character-positions'
 
 const log = createLogger('fn.quickGeneration')
 
@@ -27,6 +29,7 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
         name: string
         prompt: string
         negative: string
+        position?: PositionSpec
       }>
       parameters: Record<string, unknown>
       count: number
@@ -41,6 +44,7 @@ export const createQuickGenerationJob = createServerFn({ method: 'POST' })
         name: c.name,
         prompt: c.prompt,
         negative: c.negative,
+        position: c.position ?? AI_POSITION,
       })),
     }
 

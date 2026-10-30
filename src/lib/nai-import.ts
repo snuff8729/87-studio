@@ -4,8 +4,10 @@
  * Generate, Quick Generate drop dialog) goes through here.
  */
 
+import { normalizePositionSpec } from './character-positions'
 import { detectNaiModel } from './nai-model-detect'
 import { getModelProfile } from './nai-models'
+import type { PositionSpec } from './character-positions'
 import type { NAIMetadata } from './nai-metadata'
 import type { NaiModelDetection } from './nai-model-detect'
 
@@ -173,12 +175,20 @@ export interface ImportedCharacter {
   name: string
   prompt: string
   negative: string
+  position: PositionSpec
 }
 
 export interface NaiImportPrompts {
   generalPrompt: string
   negativePrompt: string
   characters: Array<ImportedCharacter>
+}
+
+/** use_coords true → Fixed at the caption center; otherwise AI */
+function importedPosition(metadata: NAIMetadata, index: number): PositionSpec {
+  const center = metadata.v4_prompt?.caption?.char_captions?.[index]?.centers[0]
+  if (metadata.v4_prompt?.use_coords !== true || !center) return { mode: 'ai' }
+  return normalizePositionSpec({ mode: 'fixed', x: center.x, y: center.y })
 }
 
 export function naiMetadataToPrompts(metadata: NAIMetadata): NaiImportPrompts {
@@ -192,6 +202,7 @@ export function naiMetadataToPrompts(metadata: NAIMetadata): NaiImportPrompts {
       name: `Character ${i + 1}`,
       prompt: cc.char_caption,
       negative: negCaptions[i]?.char_caption ?? '',
+      position: importedPosition(metadata, i),
     })),
   }
 }

@@ -8,7 +8,9 @@ import {
   promptBundles,
 } from '../db/schema'
 import { createLogger } from './logger'
+import type { PositionSpec } from '@/lib/character-positions'
 import { resolvePlaceholders } from '@/lib/placeholder'
+import { applyOverride, parsePositionSpec } from '@/lib/character-positions'
 import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
 
 const log = createLogger('prompt')
@@ -21,6 +23,8 @@ export interface ResolvedPrompts {
     name: string
     prompt: string
     negative: string
+    /** Resolved (default + scene override) position; absent = ai */
+    position?: PositionSpec
   }>
   usedBundleIds?: Array<number>
 }
@@ -120,6 +124,12 @@ export function synthesizePrompts(
       JSON.parse(o.placeholders || '{}') as Record<string, string>,
     ]),
   )
+  const positionOverrideMap = new Map(
+    charOverridesData.map((o) => [
+      o.characterId,
+      parsePositionSpec(o.position, true),
+    ]),
+  )
 
   const characterPrompts = chars.map((char) => {
     const charOverrides = overrideMap.get(char.id) || {}
@@ -138,6 +148,10 @@ export function synthesizePrompts(
       negative: resolvePlaceholders(
         resolveBundlesWithTracking(char.charNegative, bundleMap, usedBundleIds),
         mergedPlaceholders,
+      ),
+      position: applyOverride(
+        parsePositionSpec(char.position),
+        positionOverrideMap.get(char.id),
       ),
     }
   })

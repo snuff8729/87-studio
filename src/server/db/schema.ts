@@ -34,6 +34,8 @@ export const characters = sqliteTable(
     name: text('name').notNull(),
     charPrompt: text('char_prompt').notNull().default(''),
     charNegative: text('char_negative').notNull().default(''),
+    /** JSON PositionSpec; NULL = ai */
+    position: text('position'),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
@@ -133,6 +135,8 @@ export const characterSceneOverrides = sqliteTable(
       .notNull()
       .references(() => characters.id, { onDelete: 'cascade' }),
     placeholders: text('placeholders').default('{}'),
+    /** JSON ScenePositionSpec; NULL = inherit the character default */
+    position: text('position'),
   },
   (table) => [
     uniqueIndex('char_scene_override_unique_idx').on(

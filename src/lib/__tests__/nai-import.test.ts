@@ -250,9 +250,34 @@ describe('naiMetadataToParams', () => {
     expect(prompts.generalPrompt).toBe('1girl, 1boy, hug')
     expect(prompts.negativePrompt).toBe('lowres, worst quality')
     expect(prompts.characters).toEqual([
-      { name: 'Character 1', prompt: 'girl, red hair', negative: 'bad hands' },
-      { name: 'Character 2', prompt: 'boy, blue hair', negative: '' },
+      {
+        name: 'Character 1',
+        prompt: 'girl, red hair',
+        negative: 'bad hands',
+        position: { mode: 'ai' },
+      },
+      {
+        name: 'Character 2',
+        prompt: 'boy, blue hair',
+        negative: '',
+        position: { mode: 'ai' },
+      },
     ])
+  })
+
+  it('imports caption centers as Fixed positions only when use_coords is true', async () => {
+    const md = await parseNAIMetadata(
+      naiPng('NovelAI Diffusion V4.5 4BDE2A90', {
+        ...v4Comment(),
+        v4_prompt: { ...v4Comment().v4_prompt, use_coords: true },
+      }),
+    )
+    expect(naiMetadataToPrompts(md!).characters.map((c) => c.position)).toEqual(
+      [
+        { mode: 'fixed', x: 0.3, y: 0.5 },
+        { mode: 'fixed', x: 0.7, y: 0.5 },
+      ],
+    )
   })
 
   it('maps a V5 image and drops VAR+ / DECRISP', async () => {

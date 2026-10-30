@@ -3,6 +3,8 @@ import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { characterSceneOverrides, characters } from '../db/schema'
 import { createLogger } from '../services/logger'
+import type { PositionSpec } from '@/lib/character-positions'
+import { encodePosition } from '@/lib/character-positions'
 
 const log = createLogger('fn.characters')
 
@@ -24,6 +26,7 @@ export const createCharacter = createServerFn({ method: 'POST' })
       name: string
       charPrompt?: string
       charNegative?: string
+      position?: PositionSpec | null
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -42,6 +45,7 @@ export const createCharacter = createServerFn({ method: 'POST' })
         name: data.name,
         charPrompt: data.charPrompt ?? '',
         charNegative: data.charNegative ?? '',
+        position: encodePosition(data.position, true),
       })
       .returning()
       .get()
@@ -60,12 +64,20 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       name?: string
       charPrompt?: string
       charNegative?: string
+      /** PositionSpec (null/ai = AI decides) */
+      position?: PositionSpec | null
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { id, ...updates } = data
+    const { id, position, ...updates } = data
     db.update(characters)
-      .set({ ...updates, updatedAt: new Date().toISOString() })
+      .set({
+        ...updates,
+        ...(position !== undefined && {
+          position: encodePosition(position, true),
+        }),
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(characters.id, id))
       .run()
     return { success: true }
@@ -140,6 +152,7 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
           name: data.name,
           charPrompt: source.charPrompt,
           charNegative: source.charNegative,
+          position: source.position,
         })
         .returning()
         .get()
@@ -154,6 +167,7 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
             projectSceneId: o.projectSceneId,
             characterId: copy.id,
             placeholders: o.placeholders,
+            position: o.position,
           })
           .run()
       }

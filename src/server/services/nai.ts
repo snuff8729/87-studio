@@ -2,7 +2,9 @@ import { unzipSync } from 'fflate'
 import { createLogger } from './logger'
 import { NAI_MOCK, mockGenerateImage } from './nai-mock'
 import { buildNaiRequestInit } from './nai-request'
+import { buildCharacterPayload } from './nai-characters'
 import type { ResolvedPrompts } from './prompt'
+import type { ResolvedPositions } from '@/lib/character-positions'
 import {
   DEFAULT_NAI_MODEL,
   resolveDynamicThresholding,
@@ -47,21 +49,11 @@ export async function generateImage(
   prompts: ResolvedPrompts,
   params: GenerationParams,
   referenceData?: ReferenceData,
+  positions?: ResolvedPositions,
 ): Promise<{ imageData: Uint8Array; seed: number }> {
   const seed = params.seed ?? Math.floor(Math.random() * 2 ** 32)
 
-  if (NAI_MOCK) return mockGenerateImage(prompts, params, seed)
-
-  // Build v4_prompt char_captions from character prompts
-  const charCaptions = prompts.characterPrompts.map((cp) => ({
-    char_caption: cp.prompt,
-    centers: [{ x: 0.5, y: 0.5 }],
-  }))
-
-  const negCharCaptions = prompts.characterPrompts.map((cp) => ({
-    char_caption: cp.negative,
-    centers: [{ x: 0.5, y: 0.5 }],
-  }))
+  const chars = buildCharacterPayload(prompts.characterPrompts, positions)
 
   const model = params.model ?? DEFAULT_NAI_MODEL
   const body = {
@@ -72,12 +64,7 @@ export async function generateImage(
       add_original_image: true,
       autoSmea: true,
       cfg_rescale: params.cfgRescale,
-      characterPrompts: prompts.characterPrompts.map((cp) => ({
-        center: { x: 0.5, y: 0.5 },
-        enabled: true,
-        prompt: cp.prompt,
-        uc: cp.negative,
-      })),
+      characterPrompts: chars.characterPrompts,
       controlnet_strength: 1,
       deliberate_euler_ancestral_bug: false,
       dynamic_thresholding: resolveDynamicThresholding(model, params.decrisp),
@@ -100,19 +87,19 @@ export async function generateImage(
       seed: seed,
       steps: params.steps ?? 28,
       ucPreset: params.ucPreset ?? 0,
-      use_coords: false,
+      use_coords: chars.useCoords,
       v4_prompt: {
         caption: {
           base_caption: prompts.generalPrompt,
-          char_captions: charCaptions,
+          char_captions: chars.charCaptions,
         },
-        use_coords: false,
+        use_coords: chars.useCoords,
         use_order: false,
       },
       v4_negative_prompt: {
         caption: {
           base_caption: prompts.negativePrompt,
-          char_captions: negCharCaptions,
+          char_captions: chars.negCharCaptions,
         },
         legacy_uc: false,
       },
@@ -164,6 +151,8 @@ export async function generateImage(
     // VAR+ (skip_cfg_above_sigma) must be disabled when Precise Reference is active
     body.parameters.skip_cfg_above_sigma = null
   }
+
+  if (NAI_MOCK) return mockGenerateImage(prompts, params, seed)
 
   log.info('api.request', 'Sending NAI API request', body)
 

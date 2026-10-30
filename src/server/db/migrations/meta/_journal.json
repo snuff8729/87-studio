@@ -106,6 +106,13 @@
       "when": 1793361600980,
       "tag": "0014_project_pack_sort_order",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1793366884879,
+      "tag": "0015_character_positions",
+      "breakpoints": true
     }
   ]
 }

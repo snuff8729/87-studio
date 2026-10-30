@@ -20,6 +20,7 @@ export interface NAIV4Prompt {
     base_caption?: string
     char_captions?: Array<NAICharacterCaption>
   }
+  use_coords?: boolean
 }
 
 export interface NAIVibeTransferInfo {

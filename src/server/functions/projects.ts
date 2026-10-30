@@ -268,6 +268,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
           name: ch.name,
           charPrompt: ch.charPrompt,
           charNegative: ch.charNegative,
+          position: ch.position,
         })
         .returning()
         .get()
@@ -328,6 +329,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
                 projectSceneId: newScene.id,
                 characterId: newCharId,
                 placeholders: ovr.placeholders,
+                position: ovr.position,
               })
               .run()
           }
