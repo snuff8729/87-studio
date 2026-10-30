@@ -33,9 +33,14 @@ function NavMenuItem({
 }) {
   const { t } = useTranslation()
   const label = t(item.key)
+  const hasBadge = badge != null && badge > 0
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={isActive} tooltip={label}>
+      <SidebarMenuButton
+        asChild
+        isActive={isActive}
+        tooltip={hasBadge ? `${label} (${badge})` : label}
+      >
         <Link
           to={item.to}
           search={{ imageDetail: undefined }}
@@ -45,8 +50,18 @@ function NavMenuItem({
           <span>{label}</span>
         </Link>
       </SidebarMenuButton>
-      {badge != null && badge > 0 && (
-        <SidebarMenuBadge>{badge}</SidebarMenuBadge>
+      {hasBadge && (
+        <>
+          {/* Expanded: standard badge (hidden by the primitive in icon mode) */}
+          <SidebarMenuBadge>{badge}</SidebarMenuBadge>
+          {/* Icon mode: compact count pinned to the icon's top-right corner */}
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute -top-1 -right-1 hidden h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] leading-none font-semibold text-primary-foreground tabular-nums group-data-[collapsible=icon]:flex"
+          >
+            {badge > 99 ? '99+' : badge}
+          </span>
+        </>
       )}
     </SidebarMenuItem>
   )
@@ -54,7 +69,7 @@ function NavMenuItem({
 
 export function AppSidebar() {
   const { t } = useTranslation()
-  const { state } = useSidebar()
+  const { state, isMobile } = useSidebar()
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const activeTo = getActiveNavItem(pathname)?.to
   const { data: queueSummary } = useQueueSummary()
@@ -91,7 +106,7 @@ export function AppSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
+      <SidebarContent role="navigation" aria-label={t('nav.mainNavigation')}>
         <SidebarGroup>
           <SidebarGroupLabel>{t('nav.groupCreate')}</SidebarGroupLabel>
           <SidebarMenu>{renderGroup('create')}</SidebarMenu>
@@ -103,7 +118,7 @@ export function AppSidebar() {
       </SidebarContent>
 
       <SidebarFooter>
-        {state !== 'collapsed' && <QueueStatusWidget />}
+        {(isMobile || state !== 'collapsed') && <QueueStatusWidget />}
         <SidebarMenu>{renderGroup('footer')}</SidebarMenu>
       </SidebarFooter>
       <SidebarRail />

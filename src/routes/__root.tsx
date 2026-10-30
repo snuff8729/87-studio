@@ -137,7 +137,7 @@ function RootComponent() {
             <BreadcrumbProvider>
               <SidebarRouteSync />
               <AppSidebar />
-              <SidebarInset>
+              <SidebarInset className="min-w-0">
                 {isEditor ? (
                   <>
                     <div className="h-svh overflow-hidden">
@@ -148,7 +148,7 @@ function RootComponent() {
                 ) : (
                   <>
                     <AppHeader />
-                    <div className="p-4 lg:p-6 animate-in fade-in-0 duration-150">
+                    <div className="p-4 lg:p-6 animate-page-fade">
                       <Outlet />
                     </div>
                     <Toaster richColors position="bottom-right" />

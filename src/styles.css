@@ -46,6 +46,14 @@
 }
 
 @theme inline {
+  /* Opacity-only page fade: no transform, so fixed overlays inside the page
+     are not re-anchored to the animating wrapper. */
+  --animate-page-fade: page-fade 150ms ease-out;
+  @keyframes page-fade {
+    from {
+      opacity: 0;
+    }
+  }
   --font-sans:
     'Figtree Variable', 'Pretendard Variable', 'Apple SD Gothic Neo',
     'Malgun Gothic', sans-serif;

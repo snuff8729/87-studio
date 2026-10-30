@@ -38,6 +38,7 @@ const ko: DeepStringify<typeof en> = {
     settings: '설정',
     groupCreate: '생성',
     groupLibrary: '라이브러리',
+    mainNavigation: '메인 내비게이션',
   },
   error: {
     occurred: '오류가 발생했습니다',

@@ -35,6 +35,7 @@ const en = {
     settings: 'Settings',
     groupCreate: 'Create',
     groupLibrary: 'Library',
+    mainNavigation: 'Main navigation',
   },
   error: {
     occurred: 'An error occurred',
