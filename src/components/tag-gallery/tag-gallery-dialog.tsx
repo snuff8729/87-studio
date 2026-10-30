@@ -1,6 +1,10 @@
 import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Cancel01Icon } from '@hugeicons/core-free-icons'
 import { TagGalleryContent } from './tag-gallery-content'
+import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/i18n'
 
 interface TagGalleryDialogProps {
   open: boolean
@@ -19,6 +23,7 @@ export function TagGalleryDialog({
   onInsertTag,
   container,
 }: TagGalleryDialogProps) {
+  const { t } = useTranslation()
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
   const nested = !!container
@@ -60,6 +65,19 @@ export function TagGalleryDialog({
             : 'relative bg-background rounded-lg border border-border shadow-lg w-[90vw] h-[80vh] max-w-6xl flex flex-col overflow-hidden'
         }
       >
+        <div className="flex h-11 shrink-0 items-center justify-between border-b border-border pl-4 pr-2">
+          <span className="text-sm font-medium">
+            {t('tagGallery.panelTitle')}
+          </span>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onOpenChange(false)}
+            aria-label={t('common.close')}
+          >
+            <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+          </Button>
+        </div>
         <TagGalleryContent
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}
