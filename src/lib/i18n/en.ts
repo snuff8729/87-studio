@@ -386,8 +386,7 @@ const en = {
     noScenesDesc: 'Add scenes to define placeholder values for each variation.',
     addSceneFailed: 'Failed to add scene',
     deleteScene: 'Delete Scene',
-    deleteSceneDesc:
-      'Delete "{{name}}"? Its generated images are permanently deleted from disk too.',
+    deleteSceneDesc: 'Delete "{{name}}" from this project?',
     scenes: 'Scenes',
     selectScene: 'Select a scene to edit its placeholders.',
     selectSceneLeft: 'Select a scene from the left to edit its placeholders.',
@@ -444,8 +443,11 @@ const en = {
     selectAll: 'Select all',
     deselectAll: 'Deselect all',
     bulkDelete: 'Delete Scenes',
-    bulkDeleteDesc:
-      'Delete {{count}} scenes? Their generated images are permanently deleted from disk too.',
+    bulkDeleteDesc: 'Delete {{count}} scenes from this project?',
+    deleteFilesOption: 'Also delete image files from disk ({{count}} images)',
+    deleteFilesHintOn: 'The image files will be permanently deleted from disk.',
+    deleteFilesHintOff:
+      'The image files stay on disk and can be cleaned up later in Settings › Storage.',
     bulkDeleteSuccess: '{{count}} scenes deleted',
     bulkDeleteFailed: 'Failed to delete scenes',
     convertToTemplate: 'Save as Template',

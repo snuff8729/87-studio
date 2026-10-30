@@ -81,6 +81,7 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DeleteFilesOption } from '@/components/workspace/delete-files-option'
 import {
   readStorage,
   writeStorage,
@@ -198,7 +199,7 @@ export interface SceneRailProps {
   /** `replace`: keyboard ↑/↓ moves do not add history entries. */
   onSelect: (id: number, opts?: { replace?: boolean }) => void
   addScene: AddSceneConfig
-  onDeleteScene: (sceneId: number) => Promise<void>
+  onDeleteScene: (sceneId: number, deleteFiles: boolean) => Promise<void>
   onRenameScene: (id: number, name: string) => Promise<void>
   onDuplicateScene: (sceneId: number) => Promise<void>
   /** Selection state lives in the route (shared with the selection grid). */
@@ -273,6 +274,7 @@ export const SceneRail = memo(function SceneRail({
   const [renameTarget, setRenameTarget] = useState<SceneCardScene | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const [deleteTarget, setDeleteTarget] = useState<SceneCardScene | null>(null)
+  const [deleteFiles, setDeleteFiles] = useState(false)
 
   async function submitRename() {
     if (!renameTarget) return
@@ -293,7 +295,7 @@ export const SceneRail = memo(function SceneRail({
   async function confirmDelete() {
     if (!deleteTarget) return
     try {
-      await onDeleteScene(deleteTarget.id)
+      await onDeleteScene(deleteTarget.id, deleteFiles)
     } catch {
       toast.error(t('scene.deleteSceneFailed'))
     }
@@ -314,7 +316,12 @@ export const SceneRail = memo(function SceneRail({
         onResetCount={
           hasOverride ? () => onSceneCountChange(scene.id, null) : undefined
         }
-        onDelete={() => setTimeout(() => setDeleteTarget(scene), 0)}
+        onDelete={() =>
+          setTimeout(() => {
+            setDeleteFiles(false)
+            setDeleteTarget(scene)
+          }, 0)
+        }
       />
     ),
     [onDuplicateScene, onSceneCountChange],
@@ -609,7 +616,13 @@ export const SceneRail = memo(function SceneRail({
           name: deleteTarget?.name ?? '',
         })}
         onConfirm={confirmDelete}
-      />
+      >
+        <DeleteFilesOption
+          imageCount={deleteTarget?.imageCount ?? 0}
+          checked={deleteFiles}
+          onCheckedChange={setDeleteFiles}
+        />
+      </ConfirmDialog>
     </div>
   )
 })

@@ -17,6 +17,8 @@ interface ConfirmDialogBaseProps {
   description: string
   actionLabel?: string
   variant?: 'destructive' | 'default'
+  /** Extra content under the description (e.g. an opt-in checkbox) */
+  children?: React.ReactNode
   onConfirm: () => void | Promise<void>
 }
 
@@ -40,6 +42,7 @@ export function ConfirmDialog({
   description,
   actionLabel,
   variant = 'destructive',
+  children,
   onConfirm,
   open: controlledOpen,
   onOpenChange: controlledOnOpenChange,
@@ -69,6 +72,7 @@ export function ConfirmDialog({
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
           <AlertDialogDescription>{description}</AlertDialogDescription>
+          {children}
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel disabled={loading}>

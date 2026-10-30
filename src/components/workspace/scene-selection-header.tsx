@@ -27,6 +27,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { DeleteFilesOption } from '@/components/workspace/delete-files-option'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -47,6 +48,7 @@ export function SceneSelectionHeader({
   onResetCount,
   onSaveTemplate,
   onDelete,
+  deleteImageCount,
   renderExport,
   end,
   className,
@@ -61,7 +63,9 @@ export function SceneSelectionHeader({
   onApplyCount: (count: number) => void
   onResetCount: () => void
   onSaveTemplate: () => void
-  onDelete: () => Promise<void> | void
+  onDelete: (deleteFiles: boolean) => Promise<void> | void
+  /** Images of the checked scenes (shown in the delete dialog) */
+  deleteImageCount: number
   /** Wraps the export trigger in the export dialog (omitted = no export) */
   renderExport?: (trigger: ReactNode) => ReactNode
   /** Trailing slot (e.g. the card size slider) */
@@ -72,6 +76,7 @@ export function SceneSelectionHeader({
   const [countOpen, setCountOpen] = useState(false)
   const [bulkCount, setBulkCount] = useState(1)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [deleteFiles, setDeleteFiles] = useState(false)
   const empty = count === 0
   const state = selectAllState(count, total)
 
@@ -183,7 +188,12 @@ export function SceneSelectionHeader({
           <DropdownMenuSeparator />
           <DropdownMenuItem
             variant="destructive"
-            onSelect={() => setTimeout(() => setDeleteOpen(true), 0)}
+            onSelect={() =>
+              setTimeout(() => {
+                setDeleteFiles(false)
+                setDeleteOpen(true)
+              }, 0)
+            }
           >
             <HugeiconsIcon icon={Delete02Icon} />
             {t('common.delete')}
@@ -197,8 +207,14 @@ export function SceneSelectionHeader({
         onOpenChange={setDeleteOpen}
         title={t('scene.bulkDelete')}
         description={t('scene.bulkDeleteDesc', { count })}
-        onConfirm={onDelete}
-      />
+        onConfirm={() => onDelete(deleteFiles)}
+      >
+        <DeleteFilesOption
+          imageCount={deleteImageCount}
+          checked={deleteFiles}
+          onCheckedChange={setDeleteFiles}
+        />
+      </ConfirmDialog>
     </div>
   )
 }

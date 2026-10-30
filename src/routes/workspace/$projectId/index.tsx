@@ -583,9 +583,9 @@ function WorkspacePage() {
   // ── Scene management handlers ──
   // A pending placeholder edit of a scene being deleted is dropped, not saved
   const handleDeleteScene = useCallback(
-    async (sceneId: number) => {
+    async (sceneId: number, deleteFiles: boolean) => {
       pendingSaves.discard(`scene:${sceneId}`)
-      await deleteProjectScene({ data: sceneId })
+      await deleteProjectScene({ data: { id: sceneId, deleteFiles } })
       router.invalidate()
     },
     [router, pendingSaves],
@@ -621,10 +621,10 @@ function WorkspacePage() {
   }, [router, loadCharacterOverrides])
 
   const handleBulkDeleteScenes = useCallback(
-    async (ids: Array<number>) => {
+    async (ids: Array<number>, deleteFiles: boolean) => {
       for (const id of ids) pendingSaves.discard(`scene:${id}`)
       try {
-        await bulkDeleteProjectScenes({ data: ids })
+        await bulkDeleteProjectScenes({ data: { ids, deleteFiles } })
       } catch (err) {
         toast.error(t('scene.bulkDeleteFailed'))
         throw err
@@ -914,16 +914,27 @@ function WorkspacePage() {
     )
   }, [checkedVisibleIds.length, visibleSceneIds])
 
-  const handleBulkDelete = useCallback(async () => {
-    try {
-      await handleBulkDeleteScenes(checkedVisibleIds)
-    } catch {
-      // handleBulkDeleteScenes reports the failure; stay in select mode to retry
-      return
-    }
-    // A deleted selection falls back to the first scene (effect below)
-    exitSelectMode()
-  }, [handleBulkDeleteScenes, checkedVisibleIds, exitSelectMode])
+  const checkedImageCount = useMemo(() => {
+    const checked = new Set(checkedVisibleIds)
+    return allScenes.reduce(
+      (sum, s) => (checked.has(s.id) ? sum + s.recentImageCount : sum),
+      0,
+    )
+  }, [allScenes, checkedVisibleIds])
+
+  const handleBulkDelete = useCallback(
+    async (deleteFiles: boolean) => {
+      try {
+        await handleBulkDeleteScenes(checkedVisibleIds, deleteFiles)
+      } catch {
+        // handleBulkDeleteScenes reports the failure; stay in select mode to retry
+        return
+      }
+      // A deleted selection falls back to the first scene (effect below)
+      exitSelectMode()
+    },
+    [handleBulkDeleteScenes, checkedVisibleIds, exitSelectMode],
+  )
 
   const renderSelectionHeader = useCallback(
     (end?: ReactNode) => (
@@ -940,6 +951,7 @@ function WorkspacePage() {
         }}
         onSaveTemplate={() => setConvertIds(checkedVisibleIds)}
         onDelete={handleBulkDelete}
+        deleteImageCount={checkedImageCount}
         renderExport={(trigger) => (
           <DownloadDialog
             trigger={trigger}

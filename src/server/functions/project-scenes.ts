@@ -198,8 +198,8 @@ export const addProjectScene = createServerFn({ method: 'POST' })
   })
 
 export const deleteProjectScene = createServerFn({ method: 'POST' })
-  .inputValidator((projectSceneId: number) => projectSceneId)
-  .handler(async ({ data: projectSceneId }) => {
+  .inputValidator((data: { id: number; deleteFiles?: boolean }) => data)
+  .handler(async ({ data: { id: projectSceneId, deleteFiles = false } }) => {
     const scene = db
       .select({ projectScenePackId: projectScenes.projectScenePackId })
       .from(projectScenes)
@@ -217,7 +217,8 @@ export const deleteProjectScene = createServerFn({ method: 'POST' })
       .all()
 
     db.delete(projectScenes).where(eq(projectScenes.id, projectSceneId)).run()
-    deleteImageFiles(files)
+    // Kept files become orphans (cleaned up via Settings > Storage)
+    if (deleteFiles) deleteImageFiles(files)
 
     // If parent pack has no remaining scenes, delete it too
     if (scene) {
@@ -319,8 +320,8 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
   })
 
 export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })
-  .inputValidator((sceneIds: Array<number>) => sceneIds)
-  .handler(async ({ data: sceneIds }) => {
+  .inputValidator((data: { ids: Array<number>; deleteFiles?: boolean }) => data)
+  .handler(async ({ data: { ids: sceneIds, deleteFiles = false } }) => {
     if (sceneIds.length === 0) return { success: true, deletedCount: 0 }
 
     let deletedCount = 0
@@ -344,7 +345,7 @@ export const bulkDeleteProjectScenes = createServerFn({ method: 'POST' })
         .all()
 
       db.delete(projectScenes).where(eq(projectScenes.id, sceneId)).run()
-      deleteImageFiles(files)
+      if (deleteFiles) deleteImageFiles(files)
       deletedCount++
 
       // If parent pack has no remaining scenes, delete it too

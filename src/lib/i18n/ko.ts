@@ -392,8 +392,7 @@ const ko: DeepStringify<typeof en> = {
     noScenesDesc: '각 변형의 플레이스홀더 값을 정의하려면 씬을 추가하세요.',
     addSceneFailed: '씬 추가에 실패했습니다',
     deleteScene: '씬 삭제',
-    deleteSceneDesc:
-      '"{{name}}"을(를) 삭제하시겠습니까? 생성된 이미지 파일도 디스크에서 영구 삭제됩니다.',
+    deleteSceneDesc: '"{{name}}"을(를) 이 프로젝트에서 삭제하시겠습니까?',
     scenes: '씬',
     selectScene: '플레이스홀더를 편집할 씬을 선택하세요.',
     selectSceneLeft: '왼쪽에서 씬을 선택하여 플레이스홀더를 편집하세요.',
@@ -450,8 +449,11 @@ const ko: DeepStringify<typeof en> = {
     selectAll: '전체 선택',
     deselectAll: '전체 해제',
     bulkDelete: '씬 삭제',
-    bulkDeleteDesc:
-      '씬 {{count}}개를 삭제하시겠습니까? 생성된 이미지 파일도 디스크에서 영구 삭제됩니다.',
+    bulkDeleteDesc: '씬 {{count}}개를 이 프로젝트에서 삭제하시겠습니까?',
+    deleteFilesOption: '이미지 파일도 디스크에서 삭제 ({{count}}장)',
+    deleteFilesHintOn: '이미지 파일이 디스크에서 영구 삭제됩니다.',
+    deleteFilesHintOff:
+      '이미지 파일은 디스크에 남으며, 나중에 설정 › 스토리지에서 정리할 수 있습니다.',
     bulkDeleteSuccess: '{{count}}개 씬이 삭제되었습니다',
     bulkDeleteFailed: '씬 삭제에 실패했습니다',
     convertToTemplate: '템플릿으로 저장',
