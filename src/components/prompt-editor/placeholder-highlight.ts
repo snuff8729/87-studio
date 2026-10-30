@@ -6,7 +6,7 @@ const placeholderDeco = Decoration.mark({ class: 'cm-placeholder-highlight' })
 function findPlaceholders(doc: { toString: () => string }) {
   const decorations: Array<{ from: number; to: number }> = []
   const text = doc.toString()
-  const re = /@\{slot:[^}]+\}/g
+  const re = /@\{(?:slot:[^}]+|char|outfit)\}/g
   let match
   while ((match = re.exec(text)) !== null) {
     decorations.push({ from: match.index, to: match.index + match[0].length })

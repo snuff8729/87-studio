@@ -2,7 +2,7 @@ import { Decoration, ViewPlugin, hoverTooltip } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
 const invalidRefDeco = Decoration.mark({ class: 'cm-invalid-ref-highlight' })
-const INVALID_REF_RE = /@\{(?!slot:|bundle:)[^}]+\}/g
+const INVALID_REF_RE = /@\{(?!slot:|bundle:|char\}|outfit\})[^}]+\}/g
 
 function findInvalidRefs(doc: { toString: () => string }) {
   const decorations: Array<{ from: number; to: number }> = []

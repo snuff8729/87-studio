@@ -5,6 +5,8 @@ import {
   characterSceneOverrides,
   characters,
   generatedImages,
+  libraryCharacters,
+  outfitItems,
   projectScenePacks,
   projectScenes,
   projects,
@@ -13,6 +15,12 @@ import {
 } from '../db/schema'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
+import { copyOwnerContents, remapAxisValues } from '../services/parts'
+import {
+  parseAxisValues,
+  parseCondition,
+  parseIdList,
+} from '@/lib/character-parts'
 
 /** Next free pack order for a project (new packs go to the end). */
 function nextPackSortOrder(projectId: number): number {
@@ -216,6 +224,7 @@ export const assignScenePack = createServerFn({ method: 'POST' })
           sourceSceneId: scene.id,
           name: scene.name,
           placeholders: scene.placeholders,
+          axisValues: scene.axisValues,
           sortOrder: scene.sortOrder,
         })
         .run()
@@ -258,6 +267,74 @@ export const duplicateProject = createServerFn({ method: 'POST' })
       .where(eq(characters.projectId, id))
       .all()
 
+    // Project-only library rows are copied with the project (ids remapped)
+    const partsMaps = {
+      axes: new Map<number, number>(),
+      values: new Map<number, number>(),
+    }
+    const libCharMap = new Map<number, number>()
+    const itemMap = new Map<number, number>()
+    for (const lc of db
+      .select()
+      .from(libraryCharacters)
+      .where(eq(libraryCharacters.projectId, id))
+      .all()) {
+      const copy = db
+        .insert(libraryCharacters)
+        .values({
+          name: lc.name,
+          description: lc.description,
+          projectId: newProject.id,
+          sourceId: lc.sourceId,
+          thumbnailImageId: null,
+          sortOrder: lc.sortOrder,
+        })
+        .returning()
+        .get()
+      const r = copyOwnerContents(
+        db,
+        { characterId: lc.id },
+        { characterId: copy.id },
+      )
+      r.maps.axes.forEach((v, k) => partsMaps.axes.set(k, v))
+      r.maps.values.forEach((v, k) => partsMaps.values.set(k, v))
+      libCharMap.set(lc.id, copy.id)
+    }
+    for (const it of db
+      .select()
+      .from(outfitItems)
+      .where(eq(outfitItems.projectId, id))
+      .all()) {
+      const copy = db
+        .insert(outfitItems)
+        .values({
+          name: it.name,
+          description: it.description,
+          projectId: newProject.id,
+          sourceId: it.sourceId,
+          thumbnailImageId: null,
+          conditions: '{}',
+          sortOrder: it.sortOrder,
+        })
+        .returning()
+        .get()
+      const r = copyOwnerContents(
+        db,
+        { itemId: it.id },
+        { itemId: copy.id },
+        parseCondition(it.conditions),
+      )
+      db.update(outfitItems)
+        .set({ conditions: JSON.stringify(r.itemConditions) })
+        .where(eq(outfitItems.id, copy.id))
+        .run()
+      r.maps.axes.forEach((v, k) => partsMaps.axes.set(k, v))
+      r.maps.values.forEach((v, k) => partsMaps.values.set(k, v))
+      itemMap.set(it.id, copy.id)
+    }
+    const remapIdList = (raw: string | null) =>
+      JSON.stringify(parseIdList(raw).map((i) => itemMap.get(i) ?? i))
+
     const charIdMap = new Map<number, number>()
     for (const ch of sourceChars) {
       const newChar = db
@@ -268,6 +345,14 @@ export const duplicateProject = createServerFn({ method: 'POST' })
           name: ch.name,
           charPrompt: ch.charPrompt,
           charNegative: ch.charNegative,
+          libraryCharacterId:
+            ch.libraryCharacterId != null
+              ? (libCharMap.get(ch.libraryCharacterId) ?? ch.libraryCharacterId)
+              : null,
+          outfitItemIds: remapIdList(ch.outfitItemIds),
+          axisValues: JSON.stringify(
+            remapAxisValues(parseAxisValues(ch.axisValues), partsMaps),
+          ),
         })
         .returning()
         .get()
@@ -307,6 +392,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
             sourceSceneId: scene.sourceSceneId,
             name: scene.name,
             placeholders: scene.placeholders,
+            axisValues: scene.axisValues,
             thumbnailImageId: null,
             sortOrder: scene.sortOrder,
           })
@@ -328,6 +414,12 @@ export const duplicateProject = createServerFn({ method: 'POST' })
                 projectSceneId: newScene.id,
                 characterId: newCharId,
                 placeholders: ovr.placeholders,
+                axisValues: JSON.stringify(
+                  remapAxisValues(parseAxisValues(ovr.axisValues), partsMaps),
+                ),
+                outfitItemIds: ovr.outfitItemIds
+                  ? remapIdList(ovr.outfitItemIds)
+                  : null,
               })
               .run()
           }

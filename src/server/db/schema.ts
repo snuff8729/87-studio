@@ -22,6 +22,115 @@ export const projects = sqliteTable('projects', {
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
 })
 
+// ─── Character Parts Library ────────────────────────────────────────────────
+export const libraryCharacters = sqliteTable(
+  'library_characters',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    description: text('description'),
+    /** NULL = global library row, otherwise project-only copy */
+    projectId: integer('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
+    /** Library row this was detached from */
+    sourceId: integer('source_id'),
+    thumbnailImageId: integer('thumbnail_image_id'),
+    sortOrder: integer('sort_order').default(0),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [index('library_characters_project_id_idx').on(table.projectId)],
+)
+
+export const outfitItems = sqliteTable(
+  'outfit_items',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    description: text('description'),
+    projectId: integer('project_id').references(() => projects.id, {
+      onDelete: 'cascade',
+    }),
+    sourceId: integer('source_id'),
+    thumbnailImageId: integer('thumbnail_image_id'),
+    /** JSON: { [axisId]: number[] } — applies to all fragments of the item */
+    conditions: text('conditions').default('{}'),
+    sortOrder: integer('sort_order').default(0),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [index('outfit_items_project_id_idx').on(table.projectId)],
+)
+
+export const outfitPresets = sqliteTable('outfit_presets', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  description: text('description'),
+  /** JSON: number[] of outfit item ids (ordered) */
+  itemIds: text('item_ids').default('[]'),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: text('created_at').default(sql`(datetime('now'))`),
+  updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+})
+
+export const libraryAxes = sqliteTable(
+  'library_axes',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    name: text('name').notNull(),
+    ownerCharacterId: integer('owner_character_id').references(
+      () => libraryCharacters.id,
+      { onDelete: 'cascade' },
+    ),
+    ownerItemId: integer('owner_item_id').references(() => outfitItems.id, {
+      onDelete: 'cascade',
+    }),
+    sortOrder: integer('sort_order').default(0),
+  },
+  (table) => [
+    index('library_axes_owner_char_idx').on(table.ownerCharacterId),
+    index('library_axes_owner_item_idx').on(table.ownerItemId),
+  ],
+)
+
+export const libraryAxisValues = sqliteTable(
+  'library_axis_values',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    axisId: integer('axis_id')
+      .notNull()
+      .references(() => libraryAxes.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').default(0),
+  },
+  (table) => [index('library_axis_values_axis_idx').on(table.axisId)],
+)
+
+export const fragments = sqliteTable(
+  'fragments',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    characterId: integer('character_id').references(
+      () => libraryCharacters.id,
+      { onDelete: 'cascade' },
+    ),
+    itemId: integer('item_id').references(() => outfitItems.id, {
+      onDelete: 'cascade',
+    }),
+    text: text('text').default(''),
+    /** JSON: { [axisId]: number[] } */
+    conditions: text('conditions').default('{}'),
+    sortOrder: integer('sort_order').default(0),
+    createdAt: text('created_at').default(sql`(datetime('now'))`),
+    updatedAt: text('updated_at').default(sql`(datetime('now'))`),
+  },
+  (table) => [
+    index('fragments_character_idx').on(table.characterId),
+    index('fragments_item_idx').on(table.itemId),
+  ],
+)
+
 // ─── Characters ─────────────────────────────────────────────────────────────
 export const characters = sqliteTable(
   'characters',
@@ -34,6 +143,14 @@ export const characters = sqliteTable(
     name: text('name').notNull(),
     charPrompt: text('char_prompt').notNull().default(''),
     charNegative: text('char_negative').notNull().default(''),
+    libraryCharacterId: integer('library_character_id').references(
+      () => libraryCharacters.id,
+      { onDelete: 'set null' },
+    ),
+    /** JSON: number[] default outfit item ids (ordered) */
+    outfitItemIds: text('outfit_item_ids').default('[]'),
+    /** JSON: { [axisId]: valueId } local-axis defaults for this slot */
+    axisValues: text('axis_values').default('{}'),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
@@ -66,6 +183,7 @@ export const scenes = sqliteTable(
     name: text('name').notNull(),
     description: text('description'),
     placeholders: text('placeholders').default('{}'),
+    axisValues: text('axis_values').default('{}'),
     sortOrder: integer('sort_order').default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
@@ -107,6 +225,7 @@ export const projectScenes = sqliteTable(
     }),
     name: text('name').notNull(),
     placeholders: text('placeholders').default('{}'),
+    axisValues: text('axis_values').default('{}'),
     thumbnailImageId: integer('thumbnail_image_id'),
     sortOrder: integer('sort_order').default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
@@ -133,6 +252,9 @@ export const characterSceneOverrides = sqliteTable(
       .notNull()
       .references(() => characters.id, { onDelete: 'cascade' }),
     placeholders: text('placeholders').default('{}'),
+    axisValues: text('axis_values').default('{}'),
+    /** JSON number[] or NULL (= slot default outfit) */
+    outfitItemIds: text('outfit_item_ids'),
   },
   (table) => [
     uniqueIndex('char_scene_override_unique_idx').on(

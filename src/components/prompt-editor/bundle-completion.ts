@@ -23,6 +23,19 @@ export function setSlotNames(names: Array<string>) {
   slotNames = names
 }
 
+// Character-parts tokens (replaced by the linked library character / outfit)
+const PARTS_TOKENS = ['char', 'outfit'] as const
+
+function partsTokenOptions(query: string): Array<Completion> {
+  return PARTS_TOKENS.filter((t) => !query || t.includes(query)).map((t) => ({
+    label: t,
+    detail: 'parts',
+    type: 'keyword' as const,
+    apply: `${t}}`,
+    boost: 3,
+  }))
+}
+
 function slotCompletions(query: string): Array<Completion> {
   return slotNames
     .filter((n) => !query || n.toLowerCase().includes(query))
@@ -100,6 +113,7 @@ export async function unifiedCompletion(
 
       // No prefix yet — show both slot: and bundle: options
       const options: Array<Completion> = [
+        ...partsTokenOptions(query),
         ...slotNames
           .filter(
             (n) =>

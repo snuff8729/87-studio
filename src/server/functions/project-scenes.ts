@@ -8,6 +8,7 @@ import {
   projectScenes,
 } from '../db/schema'
 import { deleteImageFiles } from '../services/image'
+import { parseAxisValues } from '@/lib/character-parts'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -81,6 +82,90 @@ export const upsertCharacterOverride = createServerFn({ method: 'POST' })
           characterSceneOverrides.characterId,
         ],
         set: { placeholders: data.placeholders },
+      })
+      .run()
+    return { success: true }
+  })
+
+/** Set the scene's values for global axes (replaces the whole map). */
+export const updateSceneParts = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: { sceneId: number; axisValues: Record<string, number> }) => data,
+  )
+  .handler(async ({ data }) => {
+    db.update(projectScenes)
+      .set({
+        axisValues: JSON.stringify(data.axisValues),
+        updatedAt: new Date().toISOString(),
+      })
+      .where(eq(projectScenes.id, data.sceneId))
+      .run()
+    return { success: true }
+  })
+
+/** Merge: given keys are set on every scene, other keys stay untouched. */
+export const bulkSetSceneAxisValues = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      sceneIds: Array<number>
+      axisValues: Record<string, number>
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    if (data.sceneIds.length === 0) return { success: true, updated: 0 }
+    const now = new Date().toISOString()
+    db.transaction((tx) => {
+      const rows = tx
+        .select({ id: projectScenes.id, axisValues: projectScenes.axisValues })
+        .from(projectScenes)
+        .where(inArray(projectScenes.id, data.sceneIds))
+        .all()
+      for (const row of rows) {
+        const merged = { ...parseAxisValues(row.axisValues), ...data.axisValues }
+        tx.update(projectScenes)
+          .set({ axisValues: JSON.stringify(merged), updatedAt: now })
+          .where(eq(projectScenes.id, row.id))
+          .run()
+      }
+    })
+    return { success: true, updated: data.sceneIds.length }
+  })
+
+/**
+ * Upsert the per-scene parts of a character override. `axisValues` replaces
+ * the map; `outfitItemIds`: array = replace outfit for this scene, null =
+ * reset to the slot default. Omitted fields are untouched.
+ */
+export const updateCharacterOverrideParts = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      sceneId: number
+      characterId: number
+      axisValues?: Record<string, number>
+      outfitItemIds?: Array<number> | null
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const patch: { axisValues?: string; outfitItemIds?: string | null } = {}
+    if (data.axisValues !== undefined) {
+      patch.axisValues = JSON.stringify(data.axisValues)
+    }
+    if (data.outfitItemIds !== undefined) {
+      patch.outfitItemIds =
+        data.outfitItemIds === null ? null : JSON.stringify(data.outfitItemIds)
+    }
+    db.insert(characterSceneOverrides)
+      .values({
+        projectSceneId: data.sceneId,
+        characterId: data.characterId,
+        ...patch,
+      })
+      .onConflictDoUpdate({
+        target: [
+          characterSceneOverrides.projectSceneId,
+          characterSceneOverrides.characterId,
+        ],
+        set: patch,
       })
       .run()
     return { success: true }
@@ -176,6 +261,7 @@ export const addProjectScene = createServerFn({ method: 'POST' })
           projectScenePackId: pack.id,
           name: data.name,
           placeholders: source?.placeholders ?? '{}',
+          axisValues: source?.axisValues ?? '{}',
           sortOrder: (maxSort?.max ?? -1) + 1,
         })
         .returning()
@@ -193,6 +279,8 @@ export const addProjectScene = createServerFn({ method: 'POST' })
               projectSceneId: scene.id,
               characterId: override.characterId,
               placeholders: override.placeholders,
+              axisValues: override.axisValues,
+              outfitItemIds: override.outfitItemIds,
             })
             .run()
         }
@@ -277,6 +365,7 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
           sourceSceneId: scene.sourceSceneId,
           name,
           placeholders: scene.placeholders,
+          axisValues: scene.axisValues,
           sortOrder: (scene.sortOrder ?? 0) + 1,
         })
         .returning()
@@ -295,6 +384,8 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
             projectSceneId: newScene.id,
             characterId: override.characterId,
             placeholders: override.placeholders,
+            axisValues: override.axisValues,
+            outfitItemIds: override.outfitItemIds,
           })
           .run()
       }

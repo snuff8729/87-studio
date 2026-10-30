@@ -11,6 +11,7 @@ export const createScene = createServerFn({ method: 'POST' })
       name: string
       description?: string
       placeholders?: string
+      axisValues?: Record<string, number>
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -28,6 +29,7 @@ export const createScene = createServerFn({ method: 'POST' })
         name: data.name,
         description: data.description,
         placeholders: data.placeholders ?? '{}',
+        axisValues: JSON.stringify(data.axisValues ?? {}),
         sortOrder,
       })
       .returning()
@@ -42,12 +44,20 @@ export const updateScene = createServerFn({ method: 'POST' })
       name?: string
       description?: string
       placeholders?: string
+      /** Values for global axes: { [axisId]: valueId } */
+      axisValues?: Record<string, number>
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { id, ...updates } = data
+    const { id, axisValues, ...updates } = data
     db.update(scenes)
-      .set({ ...updates, updatedAt: new Date().toISOString() })
+      .set({
+        ...updates,
+        ...(axisValues !== undefined
+          ? { axisValues: JSON.stringify(axisValues) }
+          : {}),
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(scenes.id, id))
       .run()
     return { success: true }
@@ -95,6 +105,7 @@ export const duplicateScene = createServerFn({ method: 'POST' })
         ),
         description: source.description,
         placeholders: source.placeholders,
+        axisValues: source.axisValues,
         sortOrder: maxOrder + 1,
       })
       .returning()

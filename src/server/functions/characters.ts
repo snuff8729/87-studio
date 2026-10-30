@@ -60,12 +60,27 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       name?: string
       charPrompt?: string
       charNegative?: string
+      /** Link / unlink a library character (null = unlink) */
+      libraryCharacterId?: number | null
+      /** Default outfit: ordered outfit item ids */
+      outfitItemIds?: Array<number>
+      /** Slot defaults for local axes: { [axisId]: valueId } */
+      axisValues?: Record<string, number>
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { id, ...updates } = data
+    const { id, outfitItemIds, axisValues, ...rest } = data
     db.update(characters)
-      .set({ ...updates, updatedAt: new Date().toISOString() })
+      .set({
+        ...rest,
+        ...(outfitItemIds !== undefined
+          ? { outfitItemIds: JSON.stringify(outfitItemIds) }
+          : {}),
+        ...(axisValues !== undefined
+          ? { axisValues: JSON.stringify(axisValues) }
+          : {}),
+        updatedAt: new Date().toISOString(),
+      })
       .where(eq(characters.id, id))
       .run()
     return { success: true }
@@ -140,6 +155,9 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
           name: data.name,
           charPrompt: source.charPrompt,
           charNegative: source.charNegative,
+          libraryCharacterId: source.libraryCharacterId,
+          outfitItemIds: source.outfitItemIds,
+          axisValues: source.axisValues,
         })
         .returning()
         .get()
@@ -154,6 +172,8 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
             projectSceneId: o.projectSceneId,
             characterId: copy.id,
             placeholders: o.placeholders,
+            axisValues: o.axisValues,
+            outfitItemIds: o.outfitItemIds,
           })
           .run()
       }

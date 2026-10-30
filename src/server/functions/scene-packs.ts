@@ -111,6 +111,7 @@ export const createScenePackFromProjectScenes = createServerFn({
           scenePackId: pack.id,
           name: ps.name,
           placeholders: ps.placeholders || '{}',
+          axisValues: ps.axisValues || '{}',
           sortOrder: i,
         })
         .run()
@@ -163,6 +164,7 @@ export const duplicateScenePack = createServerFn({ method: 'POST' })
           name: s.name,
           description: s.description,
           placeholders: s.placeholders,
+          axisValues: s.axisValues,
           sortOrder: i,
         })
         .run()

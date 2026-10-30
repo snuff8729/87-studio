@@ -8,7 +8,16 @@ import {
   promptBundles,
 } from '../db/schema'
 import { createLogger } from './logger'
+import { loadLibraryData } from './parts'
 import { resolvePlaceholders } from '@/lib/placeholder'
+import {
+  applyParts,
+  composeParts,
+  effectiveAxisValues,
+  parseAxisValues,
+  parseIdList,
+  relevantAxes,
+} from '@/lib/character-parts'
 import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
 
 const log = createLogger('prompt')
@@ -120,6 +129,13 @@ export function synthesizePrompts(
       JSON.parse(o.placeholders || '{}') as Record<string, string>,
     ]),
   )
+  const overrideRowMap = new Map(
+    charOverridesData.map((o) => [o.characterId, o]),
+  )
+
+  // Character parts library (global + this project's project-only rows)
+  const library = loadLibraryData(projectId)
+  const sceneAxisValues = parseAxisValues(scene.axisValues)
 
   const characterPrompts = chars.map((char) => {
     const charOverrides = overrideMap.get(char.id) || {}
@@ -128,11 +144,43 @@ export function synthesizePrompts(
       Object.entries(charOverrides).filter(([_, v]) => v !== ''),
     )
     const mergedPlaceholders = { ...scenePlaceholders, ...nonEmptyOverrides }
+    // Compose library character / outfit fragments into the slot prompt
+    const overrideRow = overrideRowMap.get(char.id)
+    const libChar =
+      char.libraryCharacterId != null
+        ? (library.characters.find((c) => c.id === char.libraryCharacterId) ??
+          null)
+        : null
+    const outfitIds =
+      overrideRow?.outfitItemIds != null
+        ? parseIdList(overrideRow.outfitItemIds)
+        : parseIdList(char.outfitItemIds)
+    const outfit = outfitIds
+      .map((id) => library.items.find((i) => i.id === id))
+      .filter((i): i is NonNullable<typeof i> => !!i)
+    const axes = relevantAxes(
+      library.axes,
+      libChar?.id ?? null,
+      outfit.map((i) => i.id),
+    )
+    const values = effectiveAxisValues(axes, [
+      parseAxisValues(char.axisValues),
+      sceneAxisValues,
+      parseAxisValues(overrideRow?.axisValues),
+    ])
+    const parts = composeParts({
+      axes,
+      character: libChar,
+      items: outfit,
+      values,
+    })
+    const composedPrompt = applyParts(char.charPrompt, parts)
+
     return {
       characterId: char.id,
       name: char.name,
       prompt: resolvePlaceholders(
-        resolveBundlesWithTracking(char.charPrompt, bundleMap, usedBundleIds),
+        resolveBundlesWithTracking(composedPrompt, bundleMap, usedBundleIds),
         mergedPlaceholders,
       ),
       negative: resolvePlaceholders(
