@@ -17,6 +17,21 @@ import {
   type ContextMenuTarget,
 } from './editor-context-menu'
 
+// CM mounts its tooltip container as an in-flow 2px child of the parent. On
+// document.body that made every editor route 2px taller per editor than the
+// viewport, so tooltips get a zero-size fixed host instead.
+let tooltipHost: HTMLElement | null = null
+function getTooltipHost() {
+  if (!tooltipHost || !tooltipHost.isConnected) {
+    tooltipHost = document.createElement('div')
+    tooltipHost.setAttribute('data-cm-tooltip-host', '')
+    tooltipHost.style.cssText =
+      'position:fixed;top:0;left:0;width:0;height:0;z-index:100'
+    document.body.appendChild(tooltipHost)
+  }
+  return tooltipHost
+}
+
 // CM6 bug workaround: When lineWrapping is on and cursor is at a wrap boundary,
 // enforceCursorAssoc() modifies the DOM selection without checking hasFocus,
 // stealing focus back from the newly-focused editor.
@@ -115,7 +130,7 @@ export function PromptEditor({
         invalidRefHighlight,
         invalidRefTooltip,
         bundleTooltip,
-        tooltips({ parent: document.body }),
+        tooltips({ parent: getTooltipHost() }),
         autocompletion({
           override: [unifiedCompletion],
           activateOnTyping: true,
