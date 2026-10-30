@@ -961,7 +961,8 @@ function PackHeader({
           onOpenChange={setMenuOpen}
           className={cn(
             'p-0.5',
-            !menuOpen && 'hidden group-hover/pack:block focus-visible:block',
+            !menuOpen &&
+              'hidden group-hover/pack:block focus-visible:block pointer-coarse:block',
           )}
         />
       )}
@@ -1069,7 +1070,7 @@ const RailRow = memo(function RailRow(props: RailRowProps) {
           className={cn(
             'p-0.5',
             !menuOpen &&
-              'hidden group-hover/row:block focus-visible:block group-aria-selected/row:block',
+              'hidden group-hover/row:block focus-visible:block group-aria-selected/row:block pointer-coarse:block',
           )}
         />
       )}

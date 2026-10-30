@@ -856,7 +856,7 @@ function BoardPackHeader({
           className={cn(
             'p-0.5',
             !menuOpen &&
-              'opacity-0 group-hover/pack:opacity-100 focus-visible:opacity-100',
+              'opacity-0 group-hover/pack:opacity-100 focus-visible:opacity-100 pointer-coarse:opacity-100',
           )}
         />
       )}

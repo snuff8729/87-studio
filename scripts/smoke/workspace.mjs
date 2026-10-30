@@ -109,7 +109,7 @@ const envelope = (result) =>
   })
 
 const WRITE =
-  /^(create|update|delete|bulk|add|rename|duplicate|assign|upsert|set|remove|cancel|pause|resume|reorder|toggle|upload|import|convert|record)/i
+  /^(create|update|delete|bulk|add|rename|duplicate|assign|upsert|set|remove|cancel|pause|resume|reorder|move|toggle|upload|import|convert|record)/i
 
 // Minimal seroval encoder for plain JSON values
 let nextId = 50000
@@ -452,6 +452,122 @@ const rows = (page) =>
   await settle(page, 200)
   check((await pop.count()) === 0, 'Esc closes the popover')
 
+  // ── Project pack management: pack header menu, scene menu, new pack ──
+  {
+    const header = page.locator('#center [data-pack-header]').first()
+    await header.hover()
+    await header.getByRole('button', { name: 'More actions' }).click()
+    await settle(page, 300)
+    const packItems = (await page.getByRole('menuitem').allInnerTexts()).map(
+      norm,
+    )
+    check(
+      packItems.join('|') ===
+        'Rename pack|Move pack up|Move pack down|Save as template…|Delete pack…',
+      `pack header menu: ${packItems.join('|')}`,
+    )
+    check(
+      (await page
+        .getByRole('menuitem', { name: 'Move pack up' })
+        .getAttribute('aria-disabled')) === 'true',
+      'first pack: "Move pack up" disabled',
+    )
+    await shot(page, 'desktop-pack-header-menu')
+    // (the delete dialog itself is covered by the real-data e2e run)
+    await page.keyboard.press('Escape')
+    await settle(page, 400)
+
+    // right-click opens the same menu
+    await header.click({ button: 'right' })
+    await settle(page, 300)
+    check(
+      (await page.getByRole('menuitem', { name: 'Rename pack' }).count()) === 1,
+      'right-click on a pack header opens its menu',
+    )
+    await page.getByRole('menuitem', { name: 'Rename pack' }).click()
+    await settle(page, 500)
+    const renameInput = page.locator('#center input[aria-label="Pack name"]')
+    check((await renameInput.count()) === 1, 'Rename → inline input')
+    await renameInput.fill('Poses')
+    await settle(page, 300)
+    check(
+      (await page.getByText('already exists in this project').count()) >= 1,
+      'rename to an existing pack name shows the duplicate hint',
+    )
+    await renameInput.press('Escape')
+    await settle(page, 300)
+
+    // scene row menu
+    const row = rows(page).first()
+    await row.click({ button: 'right' })
+    await settle(page, 300)
+    const sceneItems = (await page.getByRole('menuitem').allInnerTexts()).map(
+      norm,
+    )
+    check(
+      ['Move up', 'Move down', 'Move to pack'].every((n) =>
+        sceneItems.includes(n),
+      ),
+      `scene menu has move items: ${sceneItems.join('|')}`,
+    )
+    await page.getByRole('menuitem', { name: 'Move to pack' }).hover()
+    await settle(page, 300)
+    check(
+      (await page.getByRole('menuitem', { name: 'New pack…' }).count()) === 1,
+      '"Move to pack" submenu offers "New pack…"',
+    )
+    await shot(page, 'desktop-move-to-pack')
+    await page.getByRole('menuitem', { name: 'New pack…' }).click()
+    await settle(page, 500)
+
+    // New pack dialog: duplicate name blocked, unique name submits
+    const dlg = page.getByRole('dialog')
+    const packName = dlg.getByLabel('Pack name')
+    await packName.fill('Poses')
+    await settle(page, 200)
+    check(
+      (await dlg.getByRole('alert').count()) === 1 &&
+        (await dlg.getByRole('button', { name: 'Create' }).isDisabled()),
+      'New pack dialog: duplicate name → inline error, Create disabled',
+    )
+    await packName.fill('Smoke Pack')
+    await packName.press('Enter')
+    await settle(page, 500)
+    check(
+      page.blocked.includes('createProjectScenePack'),
+      'New pack submits (createProjectScenePack request, blocked by the smoke)',
+    )
+    await page.keyboard.press('Escape')
+    await settle(page, 300)
+
+    // rail ⋯ menu entry + popover pack select entry
+    await page.getByRole('button', { name: 'More scene options' }).click()
+    check(
+      (await page.getByRole('menuitem', { name: 'New pack…' }).count()) === 1,
+      'rail ⋯ menu has "New pack…"',
+    )
+    await page.keyboard.press('Escape')
+    await settle(page, 400)
+    await addBtn.click()
+    await settle(page, 500)
+    check(await pop.isVisible(), 'add-scene popover reopens')
+    await shot(page, 'desktop-popover-reopened')
+    await pop.locator('[data-slot="select-trigger"]').click()
+    check(
+      (await page.getByRole('option', { name: 'New pack…' }).count()) === 1,
+      'add-scene popover pack select has "New pack…"',
+    )
+    await page.getByRole('option', { name: 'New pack…' }).click()
+    check(
+      (await pop.getByPlaceholder('Pack name').count()) === 1,
+      'choosing "New pack…" reveals an inline pack name input',
+    )
+    await shot(page, 'desktop-popover-new-pack')
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await settle(page, 300)
+  }
+
   // ── Selection mode: header, no wrap at 216px, selection grid ──
   await page.getByRole('button', { name: 'More scene options' }).click()
   await page.getByRole('menuitem', { name: 'Select', exact: true }).click()
@@ -559,11 +675,12 @@ const rows = (page) =>
     await page.locator('[role="menuitem"]').allInnerTexts()
   ).map(norm)
   check(
-    moreItems.length === 3 &&
+    moreItems.length === 4 &&
+      moreItems.some((t) => /Move to pack/.test(t)) &&
       moreItems.some((t) => /Save as Template/.test(t)) &&
       moreItems.some((t) => /Reset/.test(t)) &&
       moreItems.some((t) => /Delete/.test(t)),
-    `⋯ menu = template / reset / delete (${moreItems.join(' | ')})`,
+    `⋯ menu = template / move / reset / delete (${moreItems.join(' | ')})`,
   )
   await page.keyboard.press('Escape')
   // search in the rail narrows the grid

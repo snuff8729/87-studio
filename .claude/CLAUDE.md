@@ -25,7 +25,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 
 - **SQLite** (better-sqlite3) — 로컬 파일 DB (`data/studio.db`)
 - **Drizzle ORM** 0.45.1 — 타입 세이프 ORM
-  - drizzle-kit 0.31.9으로 마이그레이션 관리 (14개 마이그레이션 파일)
+  - drizzle-kit 0.31.9으로 마이그레이션 관리 (15개 마이그레이션 파일)
   - 스키마 파일에서 TypeScript 타입 자동 추론
 
 ### UI
@@ -197,6 +197,7 @@ src/
 │       ├── scene-palette-shortcut.ts  # Ctrl/Cmd+K 단축키 (macOS는 Cmd만, 다이얼로그 열림 시 무시)
 │       ├── scene-board-prefs.ts   # 보드 카드 크기 (87studio-scene-board-size:<id>)
 │       ├── scene-card.tsx         # SceneCard, ReserveStepper, SceneMenuItems/SceneMenuButton (레일·보드 공용)
+│       ├── project-pack-provider.tsx  # ProjectPackProvider(팩 컨텍스트 + 새 팩/팩 삭제 다이얼로그), PackMenuItems, MoveToPackSub, SceneMoveMenuItems, PackRenameInput (레일·보드·모바일 시트·선택 헤더 공용)
 │       ├── reserve-summary.ts     # 예약 합계 (씬 수, 이미지 수)
 │       ├── scene-view.tsx         # SceneView (선택 씬) + SceneBoard (보드 모드 / 씬 모드 선택 그리드, 팩 그룹) + SceneEmptyState
 │       ├── scene-detail.tsx       # 씬 이미지 그리드 (정렬, 선택 모드, 일괄 작업)
@@ -214,7 +215,7 @@ src/
 │   ├── db/
 │   │   ├── schema.ts          # Drizzle 스키마 정의 (23개 테이블)
 │   │   ├── index.ts           # DB 연결 (better-sqlite3)
-│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0013)
+│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0014)
 │   ├── services/
 │   │   ├── prompt.ts          # 프롬프트 합성 로직
 │   │   ├── nai.ts             # NAI API 클라이언트 (모델 선택 지원)
@@ -223,13 +224,14 @@ src/
 │   │   ├── download.ts        # 다운로드 ZIP 생성, 파일명 템플릿
 │   │   ├── reference.ts       # 참조 이미지 처리 (Vibe 인코딩, Precise 리사이즈/레터박싱)
 │   │   └── logger.ts          # 구조화된 JSON 로깅 (로테이션)
-│   └── functions/             # Server Functions (20개)
+│   └── functions/             # Server Functions (21개)
 │       ├── settings.ts        # API 키, 딜레이 설정
 │       ├── projects.ts        # 프로젝트 CRUD
 │       ├── characters.ts      # 캐릭터 관리 (생성/수정/삭제/복제/순서 이동)
 │       ├── scene-packs.ts     # 글로벌 씬 팩 관리
 │       ├── scenes.ts          # 글로벌 씬 관리
 │       ├── project-scenes.ts  # 프로젝트별 씬 스냅샷
+│       ├── project-scene-packs.ts  # 프로젝트 씬 팩 관리 (생성/이름 변경/순서 변경/씬 이동·순서, 모두 트랜잭션 + 프로젝트 소유 검증)
 │       ├── generation.ts      # 이미지 생성 큐
 │       ├── gallery.ts         # 이미지 조회/필터링
 │       ├── workspace.ts       # 워크스페이스 데이터 집계
@@ -248,6 +250,7 @@ src/
 │   └── use-mobile.ts          # 모바일(<768px) 감지 훅 (shadcn sidebar)
 ├── lib/
 │   ├── placeholder.ts         # @{slot:name} 파싱/치환 유틸
+│   ├── project-packs.ts       # 프로젝트 팩 순수 헬퍼 (이름 중복, " (2)" 접미사, 순서 교환)
 │   ├── bundle.ts              # @{bundle:name} 참조 추출/치환 유틸
 │   ├── use-bundles.ts         # 번들 데이터 React Query 훅
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
@@ -324,6 +327,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 - 글로벌 씬 팩을 프로젝트에 할당하면 해당 시점의 내용이 복사됨 (project_scene_packs → project_scenes)
 - 스냅샷 이후 독립적으로 편집 가능
+- **프로젝트 씬 팩 관리** (워크스페이스): 새 팩 만들기(레일 ⋯ / 씬 추가 팝오버의 "New pack…"), 팩 헤더 메뉴(⋯ 호버·우클릭, 터치는 항상 표시)에서 이름 변경(인라인)·위/아래 이동·템플릿으로 저장·삭제(씬/이미지 수 확인 + "디스크에서 이미지 파일도 삭제" 체크박스 기본 해제), 씬 메뉴 "Move to pack ▸"(선택 헤더 ⋯에도 일괄 이동) — 대상 팩 끝에 추가, 이름 충돌은 " (2)" 접미사 + 토스트에 변경 수 표시, 씬 위/아래 이동(정렬이 Default일 때만). 빈 팩도 그룹으로 표시("Add scene" 행). 마지막 씬을 삭제/이동해도 팩은 유지됨. 팩 순서가 레일/보드/팔레트/생성 순서를 결정
 - 글로벌 씬 팩 원본이 변경되어도 기존 할당에 영향 없음
 - 같은 글로벌 씬 팩을 다시 할당하면 **새로운 project_scene_pack + project_scenes**가 생성됨 (덮어쓰기가 아닌 추가)
 - source_scene_id로 원본 추적 (글로벌 씬 삭제 시 SET NULL)
@@ -488,13 +492,13 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 좌측 탭 (빠른 생성과 동일): Prompt(general/negative) · Chars(캐릭터 프롬프트, 추가/삭제) · Refs(활성 참조 수 배지) · Params
 - 고정 푸터: 진행률 + "N scenes · M images" + Generate M (Ctrl/Cmd+Enter)
 - 중앙 씬 모드(기본): `[SceneRail | SceneView]`
-  - SceneRail: 헤더(Scenes N, ▦ 보드, ＋ 씬 추가, ⋯ 정렬/선택 모드/씬 템플릿/Default ×N, 너비 토글), 검색(`?q=`) 입력 안에 필터 버튼(All=아이콘만, 활성=라벨 칩 Reserved/No images, 클릭 → All·Reserved·No images 드롭다운 + 개수), 팩 그룹(접기 상태 저장), 행 = 썸네일·이름·예약 스테퍼·메뉴(호버 "…"/우클릭), ↑/↓ 선택 이동(replace)
+  - SceneRail: 헤더(Scenes N, ▦ 보드, ＋ 씬 추가, ⋯ 정렬/선택 모드/씬 템플릿/새 팩/Default ×N, 너비 토글), 검색(`?q=`) 입력 안에 필터 버튼(All=아이콘만, 활성=라벨 칩 Reserved/No images, 클릭 → All·Reserved·No images 드롭다운 + 개수), 팩 그룹(접기 상태 저장), 행 = 썸네일·이름·예약 스테퍼·메뉴(호버 "…"/우클릭), ↑/↓ 선택 이동(replace)
   - ＋ 씬 추가: Popover(이름 · 팩 Select(기본=선택 씬의 팩) · "현재 씬 값 복사" 체크(플레이스홀더+캐릭터 오버라이드) · Cancel/Add). 같은 팩에 중복 이름이면 인라인 에러. 추가 후 새 씬 선택(`?scene=`, push)·레일 스크롤·접힌 팩 펼침·필터 해제. `addProjectScene`이 `packId`/`copyFromSceneId`/중복 검사(`DUPLICATE_SCENE_NAME`) 지원
   - 선택 모드: 선택 상태(`checkedIds`)는 워크스페이스 라우트가 소유해 레일·보드가 공유. 켜면 레일 헤더가 선택 헤더(✕ · 전체선택 체크박스 · "n selected" · 장수 설정 Popover · 내보내기 · ⋯ 템플릿/기본 장수로/삭제(확인))로 바뀌고(한 줄 유지, n=0이면 액션 비활성), 씬 모드 중앙은 SceneView 대신 **선택 그리드**(보드 카드 그리드 + 체크박스, 레일 검색·필터 반영, 카드 크기 슬라이더, 같은 선택 헤더)가 표시된다. 종료하면 선택한 씬의 SceneView로 복귀. compact 레일은 ✕+개수 배지만(액션은 중앙 헤더)
   - 너비: 216px / 56px(compact: 썸네일+장수 배지, 이름 툴팁). **수동 토글만**(자동 compact 없음), 선택은 프로젝트별 저장(`87studio-scene-rail:<id>`), 기본 expanded
   - SceneView (`?scene=<id>`): 이름 변경, 비교, 토너먼트, 템플릿 변환, 썸네일 초기화, 접이식 플레이스홀더, 이미지 그리드(`imageSort`). 선택 없음·잘못된 id·삭제된 씬 → 레일 순서 첫 씬 자동 선택(replace)
 - 보드 모드 (`?view=board`): 레일 숨김, 팩별 카드 그리드 + 검색+필터(레일과 같은 컴포넌트)/카드 크기 슬라이더/선택/＋ 씬 추가/닫기. 카드 클릭 → 해당 씬으로 씬 모드 복귀. 선택 모드에서는 툴바가 선택 헤더로 대체되고 카드 클릭은 체크 토글
-- 씬 0개: 빈 상태(씬 템플릿 / 씬 추가), 레일 숨김
+- 팩 0개: 빈 상태(씬 템플릿 / 씬 추가), 레일 숨김 (빈 팩만 있으면 레일 + 빈 상태)
 - Ctrl/Cmd+K: 씬 팔레트 (이름·팩 검색, Enter로 선택; 프롬프트 에디터 안에서도 동작, 다른 다이얼로그가 열려 있으면 무시)
 - 모바일: Result 패널 상단 "Scenes ▾ {현재 씬}" → 하단 Sheet에 전체 레일(선택 시 닫힘, 헤더에서 보드 진입)
 - 우측: 프로젝트 히스토리 (클릭 → 이미지 상세 오버레이), 갤러리 링크
@@ -662,7 +666,8 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 | id            | integer (PK, autoincrement)          |             |
 | project_id    | integer (FK → projects, CASCADE)     |             |
 | scene_pack_id | integer (FK → scene_packs, SET NULL) | 원본 추적용 |
-| name          | text (NOT NULL)                      |             |
+| name          | text (NOT NULL)                      | 프로젝트 내 고유 (UI/서버 검증) |
+| sort_order    | integer (NOT NULL, DEFAULT 0)        | 팩 순서 (마이그레이션 0014, id 순으로 백필) |
 | created_at    | text                                 |             |
 
 ### project_scenes
@@ -975,6 +980,7 @@ src/
 │       ├── bundle.test.ts           # 번들 참조 추출/치환
 │       ├── sd-studio-import.test.ts # SD Studio JSON 파싱
 │       ├── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
+│       ├── project-packs.test.ts    # 팩 이름 중복/접미사, 순서 교환
 │       └── prompt-tags.test.ts      # 프롬프트 태그 토큰 매칭 (가중치/중괄호/언더스코어)
 └── server/
     └── services/

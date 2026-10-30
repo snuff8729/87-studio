@@ -1655,6 +1655,16 @@ function WorkspacePage() {
           <SheetContent
             side="bottom"
             showCloseButton={false}
+            // Pack dialogs live outside the sheet's tree: do not close on them
+            onInteractOutside={(e) => {
+              if (
+                (e.target as HTMLElement | null)?.closest(
+                  '[role="dialog"],[role="alertdialog"]',
+                )
+              ) {
+                e.preventDefault()
+              }
+            }}
             className="gap-0 overflow-hidden rounded-t-xl p-0 data-[side=bottom]:h-[85dvh]"
           >
             <SheetHeader className="sr-only">
