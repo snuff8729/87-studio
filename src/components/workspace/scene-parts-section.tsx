@@ -12,7 +12,10 @@ import {
   relevantAxes,
 } from '@/lib/character-parts'
 import { AxisSegmented } from '@/components/parts/axis-segmented'
-import { OutfitItemsEditor } from '@/components/parts/outfit-items-editor'
+import {
+  CoveredBadge,
+  OutfitItemsEditor,
+} from '@/components/parts/outfit-items-editor'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -247,11 +250,17 @@ export function ScenePartsSection({
 
   // ── Preview ──
   const [previewOpen, setPreviewOpen] = useState(false)
+  // Refetch when item areas / cover rules / areas change in the library
+  const libraryKey = JSON.stringify([
+    library.data?.areas.map((a) => a.id),
+    library.data?.items.map((i) => [i.id, i.areaIds, i.coverRules]),
+  ])
   const preview = useQuery({
-    queryKey: ['scene-preview', projectId, sceneId, version],
+    queryKey: ['scene-preview', projectId, sceneId, version, libraryKey],
     queryFn: () =>
       previewPrompts({ data: { projectId, projectSceneId: sceneId } }),
-    enabled: previewOpen,
+    // Also drives the "Covered" chips in the character rows
+    enabled: !!axes,
     placeholderData: (prev) => prev,
   })
 
@@ -259,6 +268,12 @@ export function ScenePartsSection({
 
   const items = library.data?.items ?? []
   const presets = library.data?.presets ?? []
+  const hiddenBySlot = new Map(
+    (preview.data?.characterPrompts ?? []).map((c) => [
+      c.characterId,
+      c.hiddenItems ?? [],
+    ]),
+  )
 
   return (
     <div className="space-y-3" data-testid="scene-parts">
@@ -289,6 +304,7 @@ export function ScenePartsSection({
             globalAxes={globalAxes}
             items={items}
             presets={presets}
+            hidden={hiddenBySlot.get(slot.id)}
             projectId={projectId}
             onAxis={(axisId, v) =>
               updateOverride(slot.id, (cur) => {
@@ -384,6 +400,7 @@ function CharacterRow({
   globalAxes,
   items,
   presets,
+  hidden,
   projectId,
   onAxis,
   onOutfit,
@@ -395,6 +412,8 @@ function CharacterRow({
   globalAxes: Array<PartsAxis>
   items: Array<{ id: number; name: string; projectId: number | null }>
   presets: Array<{ id: number; name: string; itemIds: Array<number> }>
+  /** Items hidden by occlusion for this character in this scene */
+  hidden: Array<{ itemId: number; coveredBy: Array<number> }> | undefined
   projectId: number
   onAxis: (axisId: number, v: number | null) => void
   onOutfit: (ids: Array<number> | null) => void
@@ -423,6 +442,13 @@ function CharacterRow({
       ? t('sceneParts.outfitReplaced')
       : t('sceneParts.defaultOutfit'))
   const modified = parts.length > 0 || cur.outfitItemIds !== null
+  const covered: Record<number, string> = {}
+  for (const h of hidden ?? []) {
+    const names = h.coveredBy
+      .map((id) => items.find((i) => i.id === id)?.name)
+      .filter(Boolean)
+    covered[h.itemId] = names.join(', ')
+  }
 
   return (
     <div
@@ -503,16 +529,39 @@ function CharacterRow({
                 items={items}
                 presets={presets}
                 projectId={projectId}
+                covered={covered}
               />
             ) : (
-              <p className="text-xs text-muted-foreground">
-                {slotOutfit.length === 0
-                  ? t('parts.emptyOutfit')
-                  : slotOutfit
-                      .map((id) => items.find((i) => i.id === id)?.name)
-                      .filter(Boolean)
-                      .join(', ')}
-              </p>
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                {slotOutfit.length === 0 && t('parts.emptyOutfit')}
+                {slotOutfit.map((id, i) => {
+                  const item = items.find((x) => x.id === id)
+                  if (!item) return null
+                  return (
+                    <span
+                      key={`${id}-${i}`}
+                      className="inline-flex items-center"
+                    >
+                      <span
+                        className={cn(
+                          covered[id] !== undefined && 'opacity-50',
+                        )}
+                        data-covered={
+                          covered[id] !== undefined ? '' : undefined
+                        }
+                      >
+                        {item.name}
+                        {i < slotOutfit.length - 1 && covered[id] === undefined
+                          ? ','
+                          : ''}
+                      </span>
+                      {covered[id] !== undefined && (
+                        <CoveredBadge by={covered[id]} />
+                      )}
+                    </span>
+                  )
+                })}
+              </div>
             )}
           </div>
 

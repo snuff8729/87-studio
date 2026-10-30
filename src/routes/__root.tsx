@@ -90,12 +90,21 @@ export const Route = createRootRoute({
     imageDetail: number | undefined
     detailBundle?: number
     detailTag?: string
+    detailLibChar?: number
+    detailOutfitItem?: number
   } => ({
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
     /** Opened from a bundle: prev/next walk that bundle's images */
     detailBundle: search.detailBundle ? Number(search.detailBundle) : undefined,
     /** Opened from a tag bookmark: prev/next walk images using that prompt tag */
     detailTag: search.detailTag ? String(search.detailTag) : undefined,
+    /** Opened from a library character / outfit item: prev/next walk its images */
+    detailLibChar: search.detailLibChar
+      ? Number(search.detailLibChar)
+      : undefined,
+    detailOutfitItem: search.detailOutfitItem
+      ? Number(search.detailOutfitItem)
+      : undefined,
   }),
   loader: () => ({ sidebarOpen: getSidebarDefaultOpen() }),
   head: () => ({

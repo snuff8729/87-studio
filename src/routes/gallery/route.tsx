@@ -47,7 +47,12 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { useTranslation } from '@/lib/i18n'
 import { listBundleNames } from '@/server/functions/bundles'
-import { toImageQuery } from '@/lib/gallery-filters'
+import {
+  parseAxisParam,
+  serializeAxisParam,
+  toImageQuery,
+} from '@/lib/gallery-filters'
+import { getLibrary } from '@/server/functions/library'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { BulkTagPopover } from '@/components/gallery/bulk-tag-popover'
 import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
@@ -96,17 +101,32 @@ export const Route = createFileRoute('/gallery')({
     promptTag: search.promptTag
       ? String(search.promptTag).trim() || undefined
       : undefined,
+    axis: search.axis
+      ? serializeAxisParam(parseAxisParam(String(search.axis)))
+      : undefined,
+    libraryCharacter: search.libraryCharacter
+      ? Number(search.libraryCharacter)
+      : undefined,
+    outfitItem: search.outfitItem ? Number(search.outfitItem) : undefined,
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
-    const [images, allTags, allProjects, allBundles] = await Promise.all([
+    const [images, allTags, allProjects, allBundles, library] =
+      await Promise.all([
       listImages({ data: { page: 1, limit: 40, ...toImageQuery(deps) } }),
       listTags(),
       listProjectsForFilter(),
       listBundleNames(),
+      getLibrary({ data: { projectId: deps.project } }),
     ])
-    return { initialImages: images, allTags, allProjects, allBundles }
+    return {
+      initialImages: images,
+      allTags,
+      allProjects,
+      allBundles,
+      library,
+    }
   },
   component: GalleryLayout,
   pendingComponent: PendingComponent,
@@ -134,6 +154,7 @@ function GalleryLayout() {
     allTags: loadedTags,
     allProjects,
     allBundles,
+    library,
   } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -359,6 +380,10 @@ function GalleryLayout() {
             projectId={search.project}
             projectName={allProjects.find((p) => p.id === search.project)?.name}
             scenes={projectScenes}
+            axes={parseAxisParam(search.axis)}
+            hasLibraryFilter={Boolean(
+              search.libraryCharacter || search.outfitItem,
+            )}
           />
         )}
 
@@ -368,6 +393,7 @@ function GalleryLayout() {
           scenes={projectScenes}
           tags={allTags}
           bundles={allBundles}
+          library={library}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
           onChange={handleFilterChange}
@@ -483,6 +509,8 @@ function GalleryHeader({
   projectId,
   projectName,
   scenes,
+  axes,
+  hasLibraryFilter,
 }: {
   count: number | string
   selectMode: boolean
@@ -499,6 +527,8 @@ function GalleryHeader({
   projectId: number | undefined
   projectName: string | undefined
   scenes: Array<{ id: number; name: string }>
+  axes: Array<{ axisId: number; valueId: number }>
+  hasLibraryFilter: boolean
 }) {
   const { t } = useTranslation()
   usePageHeader({ count })
@@ -617,6 +647,8 @@ function GalleryHeader({
             projectId={projectId}
             projectName={projectName}
             availableScenes={scenes}
+            axes={axes}
+            libraryFilterIgnored={hasLibraryFilter}
           />
         </>
       )}

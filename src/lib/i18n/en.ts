@@ -187,6 +187,12 @@ const en = {
     filterPromptTag: 'Prompt tag',
     promptTagPlaceholder: 'Danbooru tag, e.g. blue_hair',
     promptTagChip: 'Prompt: {{tag}}',
+    characterChip: 'Character: {{name}}',
+    outfitChip: 'Outfit: {{name}}',
+    axisFilterHint:
+      'Only images generated after this update have view/framing info.',
+    exportLibraryFilterNote:
+      'The character/outfit filter is not applied to export. Other gallery filters (project, axis) are.',
     applyFilter: 'Apply',
     winRatePlus: '{{count}}%+ win rate',
     tagImages: 'Tag images',
@@ -816,6 +822,8 @@ const en = {
     bulkApply: 'Apply',
     bulkApplied: 'Updated {{count}} scenes',
     bulkFailed: 'Failed to update scenes',
+    covered: 'Covered',
+    coveredBy: 'Covered by {{name}}',
   },
   quickGenerate: {
     title: 'Quick Generate',
@@ -1246,6 +1254,46 @@ const en = {
     globalAxesHint:
       'Shared by every character and scene. The first value is the default.',
     notFound: 'This entry was not found. It may have been deleted.',
+    areasTitle: 'Body areas',
+    areasHint:
+      'Outfit items occupy areas and can cover the areas of items beneath them. Used for hiding clothes that would not be visible.',
+    areaCount: '{{count}} areas',
+    areaNamePlaceholder: 'New area name',
+    addArea: 'Add area',
+    areaName: 'Area name',
+    emptyAreas: 'No areas yet',
+    deleteArea: 'Delete area',
+    deleteAreaTitle: 'Delete area "{{name}}"?',
+    deleteAreaDesc:
+      '{{count}} outfit item(s) use this area. It is removed from them, and cover rules left without areas are deleted.',
+    deleteAreaDescNone: 'No outfit item uses this area.',
+    itemAreas: 'Areas',
+    itemAreasHint: 'Body areas this item occupies (a dress = Top + Bottom).',
+    noAreasDefined: 'No areas defined yet. Add some in Axes > Body areas.',
+    pickAreas: 'Pick areas',
+    covers: 'Covers',
+    coversHint:
+      'When a rule matches, those areas of the items before this one in the outfit are hidden.',
+    noRules: 'No cover rules',
+    addRule: 'Rule',
+    deleteRule: 'Delete rule',
+    ruleCovers: 'covers',
+    noneArea: 'no areas',
+    imagesTitle: 'Images ({{count}})',
+    imagesEmptyCharacter:
+      'Images generated with this character appear here (from now on).',
+    imagesEmptyItem:
+      'Images generated with this item appear here (from now on).',
+    viewInGallery: 'View in gallery',
+    setThumbnail: 'Set as thumbnail',
+    resetThumbnail: 'Reset thumbnail',
+    thumbnailSet: 'Thumbnail set',
+    thumbnailReset: 'Thumbnail reset',
+    thumbnailFailed: 'Failed to change thumbnail',
+    imageClose: 'Close',
+    imagePrev: 'Previous image',
+    imageNext: 'Next image',
+    openGalleryImage: 'Open in gallery detail',
   },
 } as const
 

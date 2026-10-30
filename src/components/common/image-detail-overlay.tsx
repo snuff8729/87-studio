@@ -30,6 +30,10 @@ import {
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
 import { setBundleThumbnail } from '@/server/functions/bundles'
+import {
+  updateLibraryCharacter,
+  updateOutfitItem,
+} from '@/server/functions/library'
 import { parseNAIMetadata } from '@/lib/nai-metadata'
 import { useTranslation } from '@/lib/i18n'
 
@@ -37,7 +41,8 @@ type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
 
 export function ImageDetailOverlay({ imageId }: { imageId: number }) {
   const router = useRouter()
-  const { detailBundle, detailTag } = useSearch({ from: '__root__' })
+  const { detailBundle, detailTag, detailLibChar, detailOutfitItem } =
+    useSearch({ from: '__root__' })
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -47,15 +52,20 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
       data: {
         imageId,
         filters:
-          detailBundle || detailTag
-            ? { bundleId: detailBundle, promptTag: detailTag }
+          detailBundle || detailTag || detailLibChar || detailOutfitItem
+            ? {
+                bundleId: detailBundle,
+                promptTag: detailTag,
+                libraryCharacterId: detailLibChar,
+                outfitItemId: detailOutfitItem,
+              }
             : undefined,
       },
     })
       .then(setData)
       .catch(() => toast.error('Failed to load image'))
       .finally(() => setLoading(false))
-  }, [imageId, detailBundle, detailTag])
+  }, [imageId, detailBundle, detailTag, detailLibChar, detailOutfitItem])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -107,6 +117,13 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
         setData={setData}
         goBack={goBack}
         bundleId={detailBundle}
+        libraryTarget={
+          detailLibChar
+            ? { kind: 'character', id: detailLibChar }
+            : detailOutfitItem
+              ? { kind: 'item', id: detailOutfitItem }
+              : undefined
+        }
       />
     </div>
   )
@@ -117,8 +134,10 @@ function ImageDetailContent({
   setData: setDetail,
   goBack,
   bundleId,
+  libraryTarget,
 }: {
   bundleId?: number
+  libraryTarget?: { kind: 'character' | 'item'; id: number }
   data: DetailData
   setData: (d: DetailData) => void
   goBack: () => void
@@ -639,6 +658,36 @@ function ImageDetailContent({
           >
             <HugeiconsIcon icon={PinIcon} className="size-4" />
             {t('bundles.thumbAction')}
+          </Button>
+        )}
+
+        {/* Library context: explicit thumbnail action */}
+        {libraryTarget && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mb-2 w-full"
+            data-detail-library-thumb
+            onClick={async () => {
+              try {
+                const payload = {
+                  id: libraryTarget.id,
+                  thumbnailImageId: detail.id,
+                }
+                if (libraryTarget.kind === 'character')
+                  await updateLibraryCharacter({ data: payload })
+                else await updateOutfitItem({ data: payload })
+                window.dispatchEvent(
+                  new CustomEvent('library-thumbnail-changed'),
+                )
+                toast.success(t('library.thumbnailSet'))
+              } catch {
+                toast.error(t('library.thumbnailFailed'))
+              }
+            }}
+          >
+            <HugeiconsIcon icon={PinIcon} className="size-4" />
+            {t('library.setThumbnail')}
           </Button>
         )}
 

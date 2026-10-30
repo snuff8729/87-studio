@@ -36,6 +36,10 @@ interface DownloadDialogProps {
   filenameTemplate?: string
   selectedImageIds?: Array<number>
   projectSceneIds?: Array<number>
+  /** Gallery axis filters (AND), applied to filter-based exports */
+  axes?: Array<{ axisId: number; valueId: number }>
+  /** A library character/outfit gallery filter is active but not supported here */
+  libraryFilterIgnored?: boolean
 }
 
 export function DownloadDialog({
@@ -46,6 +50,8 @@ export function DownloadDialog({
   filenameTemplate: initialTemplate,
   selectedImageIds,
   projectSceneIds: fixedSceneIds,
+  axes,
+  libraryFilterIgnored,
 }: DownloadDialogProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
@@ -137,6 +143,7 @@ export function DownloadDialog({
                   isFavorite: favoritesOnly || undefined,
                   minRating: minRating > 0 ? minRating : undefined,
                   minWinRate: minWinRate > 0 ? minWinRate : undefined,
+                  axes: axes?.length ? axes : undefined,
                 }
               : {
                   projectId,
@@ -146,6 +153,7 @@ export function DownloadDialog({
                   isFavorite: favoritesOnly || undefined,
                   minRating: minRating > 0 ? minRating : undefined,
                   minWinRate: minWinRate > 0 ? minWinRate : undefined,
+                  axes: axes?.length ? axes : undefined,
                 }),
           filenameTemplate: template || undefined,
         },
@@ -218,6 +226,14 @@ export function DownloadDialog({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
+          {!isSelectedMode && libraryFilterIgnored && (
+            <p
+              data-download-library-note
+              className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground"
+            >
+              {t('gallery.exportLibraryFilterNote')}
+            </p>
+          )}
           {/* Filters (only when not downloading selected images or fixed scenes) */}
           {!isSelectedMode && (
             <section className="space-y-3">

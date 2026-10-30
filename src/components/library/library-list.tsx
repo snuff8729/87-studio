@@ -1,6 +1,10 @@
 import { useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { Add01Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import {
+  Add01Icon,
+  Image01Icon,
+  Search01Icon,
+} from '@hugeicons/core-free-icons'
 import type { ReactNode } from 'react'
 import type { MenuEntry } from '@/components/workspace/scene-templates/row-menu'
 import {
@@ -22,6 +26,9 @@ export interface ListEntry {
   title: string
   subtitle: string
   projectOnly?: boolean
+  /** Show a thumbnail slot (characters / items) */
+  hasThumb?: boolean
+  thumbnailPath?: string | null
 }
 
 /** Search + ＋ New + rows with a ⋯ / right-click menu. */
@@ -128,6 +135,24 @@ export function LibraryList({
                     )}
                     data-index={i}
                   >
+                    {entry.hasThumb && (
+                      <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary text-muted-foreground">
+                        {entry.thumbnailPath ? (
+                          <img
+                            src={`/api/thumbnails/${entry.thumbnailPath.replace('data/thumbnails/', '')}`}
+                            alt=""
+                            className="size-full object-cover"
+                            loading="lazy"
+                            data-list-thumb
+                          />
+                        ) : (
+                          <HugeiconsIcon
+                            icon={Image01Icon}
+                            className="size-4"
+                          />
+                        )}
+                      </div>
+                    )}
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1.5">
                         <span className="truncate text-sm font-medium">

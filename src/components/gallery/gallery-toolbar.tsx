@@ -3,6 +3,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon, Cancel01Icon, Tick02Icon } from '@hugeicons/core-free-icons'
 import type { GridSize } from '@/lib/use-image-grid-size'
 import type { GalleryFilters, GallerySort } from '@/lib/gallery-filters'
+import { parseAxisParam, withAxisValue } from '@/lib/gallery-filters'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -31,6 +32,19 @@ export const GRID_SIZES: Array<GridSize> = ['sm', 'md', 'lg']
 
 type Option = { id: number; name: string }
 
+/** Subset of getLibrary() the toolbar needs. */
+export type GalleryLibrary = {
+  axes: Array<{
+    id: number
+    name: string
+    ownerCharacterId: number | null
+    ownerItemId: number | null
+    values: Array<Option>
+  }>
+  characters: Array<Option>
+  items: Array<Option>
+}
+
 /** Filters that appear as removable chips (sort is its own control). */
 export function activeFilterCount(f: GalleryFilters) {
   return [
@@ -43,6 +57,9 @@ export function activeFilterCount(f: GalleryFilters) {
     f.minWinRate,
     f.quick,
     f.promptTag,
+    f.axis,
+    f.libraryCharacter,
+    f.outfitItem,
   ].filter(Boolean).length
 }
 
@@ -84,6 +101,7 @@ export function GalleryToolbar({
   scenes,
   tags,
   bundles,
+  library,
   gridSize,
   onGridSizeChange,
   onChange,
@@ -94,6 +112,7 @@ export function GalleryToolbar({
   scenes: Array<Option>
   tags: Array<Option>
   bundles: Array<Option>
+  library: GalleryLibrary
   gridSize: GridSize
   onGridSizeChange: (size: GridSize) => void
   /** Merges a partial filter set; `undefined` values remove a filter */
@@ -107,6 +126,18 @@ export function GalleryToolbar({
   const tagName = tags.find((x) => x.id === filters.tag)?.name
   const bundleName = bundles.find((x) => x.id === filters.bundle)?.name
   const chipCount = activeFilterCount(filters)
+  const globalAxes = library.axes.filter(
+    (a) => a.ownerCharacterId == null && a.ownerItemId == null,
+  )
+  const axisEntries = parseAxisParam(filters.axis)
+  const characterName = filters.libraryCharacter
+    ? (library.characters.find((c) => c.id === filters.libraryCharacter)
+        ?.name ?? `#${filters.libraryCharacter}`)
+    : undefined
+  const itemName = filters.outfitItem
+    ? (library.items.find((c) => c.id === filters.outfitItem)?.name ??
+      `#${filters.outfitItem}`)
+    : undefined
 
   return (
     <div
@@ -171,6 +202,34 @@ export function GalleryToolbar({
             tag: filters.promptTag.replace(/_/g, ' '),
           })}
           onRemove={() => onChange({ promptTag: undefined })}
+        />
+      )}
+      {axisEntries.map((e) => {
+        const axis = library.axes.find((a) => a.id === e.axisId)
+        const valueName = axis?.values.find((v) => v.id === e.valueId)?.name
+        return (
+          <Chip
+            key={e.axisId}
+            kind="axis"
+            label={`${axis?.name ?? `#${e.axisId}`}: ${valueName ?? `#${e.valueId}`}`}
+            onRemove={() =>
+              onChange({ axis: withAxisValue(filters.axis, e.axisId, null) })
+            }
+          />
+        )
+      })}
+      {characterName && (
+        <Chip
+          kind="library-character"
+          label={t('gallery.characterChip', { name: characterName })}
+          onRemove={() => onChange({ libraryCharacter: undefined })}
+        />
+      )}
+      {itemName && (
+        <Chip
+          kind="outfit-item"
+          label={t('gallery.outfitChip', { name: itemName })}
+          onRemove={() => onChange({ outfitItem: undefined })}
         />
       )}
       {filters.tag && (
@@ -331,6 +390,40 @@ export function GalleryToolbar({
             {t('gallery.filterPromptTag')}
             {filters.promptTag && <HugeiconsIcon icon={Tick02Icon} />}
           </DropdownMenuItem>
+
+          {globalAxes
+            .filter((a) => a.values.length > 0)
+            .map((axis) => {
+              const current = axisEntries.find((e) => e.axisId === axis.id)
+              return (
+                <DropdownMenuSub key={axis.id}>
+                  <DropdownMenuSubTrigger data-filter-menu={`axis-${axis.id}`}>
+                    {axis.name}
+                  </DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="max-h-72 w-52 max-w-[55vw] overflow-y-auto">
+                    {axis.values.map((v) => (
+                      <DropdownMenuItem
+                        key={v.id}
+                        data-filter-option={`axis-${axis.id}-${v.id}`}
+                        onSelect={() =>
+                          onChange({
+                            axis: withAxisValue(filters.axis, axis.id, v.id),
+                          })
+                        }
+                      >
+                        {v.name}
+                        {current?.valueId === v.id && (
+                          <HugeiconsIcon icon={Tick02Icon} />
+                        )}
+                      </DropdownMenuItem>
+                    ))}
+                    <p className="px-2 py-1.5 text-[11px] leading-snug text-muted-foreground">
+                      {t('gallery.axisFilterHint')}
+                    </p>
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )
+            })}
 
           {tags.length > 0 && (
             <DropdownMenuSub>

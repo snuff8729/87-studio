@@ -32,9 +32,34 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
 import { createPreset } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
+
+/** Dimmed "Covered" badge with a tooltip naming the covering item(s). */
+export function CoveredBadge({ by }: { by: string }) {
+  const { t } = useTranslation()
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="outline"
+          className="ml-1 h-4 px-1 text-[10px]"
+          data-covered-badge
+          tabIndex={0}
+        >
+          {t('sceneParts.covered')}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{t('sceneParts.coveredBy', { name: by })}</TooltipContent>
+    </Tooltip>
+  )
+}
 
 interface OutfitItemInfo {
   id: number
@@ -59,6 +84,8 @@ interface OutfitItemsEditorProps {
   projectId?: number
   /** Show "Load preset" / "Save as preset" (default true) */
   showPresetMenu?: boolean
+  /** itemId -> covering item name(s): shown dimmed with a "Covered" badge */
+  covered?: Record<number, string>
   className?: string
 }
 
@@ -70,6 +97,7 @@ export function OutfitItemsEditor({
   presets = [],
   projectId,
   showPresetMenu = true,
+  covered,
   className,
 }: OutfitItemsEditorProps) {
   const { t } = useTranslation()
@@ -141,7 +169,16 @@ export function OutfitItemsEditor({
                 !item && 'text-muted-foreground line-through',
               )}
             >
-              <span className="max-w-40 truncate">{name}</span>
+              <span
+                className={cn(
+                  'max-w-40 truncate',
+                  covered?.[id] && 'opacity-50',
+                )}
+                data-covered={covered?.[id] ? '' : undefined}
+              >
+                {name}
+              </span>
+              {covered?.[id] && <CoveredBadge by={covered[id]} />}
               {item?.projectId != null && (
                 <Badge variant="outline" className="ml-1 h-4 px-1 text-[10px]">
                   {t('parts.projectOnly')}

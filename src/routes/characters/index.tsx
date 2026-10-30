@@ -14,6 +14,7 @@ import type { MenuEntry } from '@/components/workspace/scene-templates/row-menu'
 import { LibraryList } from '@/components/library/library-list'
 import { OwnerDetail } from '@/components/library/owner-detail'
 import { PresetDetail } from '@/components/library/preset-detail'
+import { AreasEditor } from '@/components/library/areas-editor'
 import { AxisEditor } from '@/components/library/axis-editor'
 import { CommitInput } from '@/components/library/commit-input'
 import { NewAxisForm } from '@/components/library/local-axes'
@@ -31,6 +32,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useTranslation } from '@/lib/i18n'
 import { nextCopyName } from '@/lib/scene-templates'
+import { cn } from '@/lib/utils'
 import {
   createLibraryCharacter,
   createOutfitItem,
@@ -62,10 +64,11 @@ export const Route = createFileRoute('/characters/')({
   component: CharactersPage,
   validateSearch: (
     search: Record<string, unknown>,
-  ): { tab?: Tab; id?: number; projectId?: number } => ({
+  ): { tab?: Tab; id?: number; projectId?: number; areas?: true } => ({
     tab: TABS.includes(search.tab as Tab) ? (search.tab as Tab) : undefined,
     id: toId(search.id),
     projectId: toId(search.projectId),
+    areas: search.areas ? true : undefined,
   }),
 })
 
@@ -78,8 +81,14 @@ type DeleteTarget = {
 }
 
 function CharactersPage() {
-  const { tab: tabParam, id: selectedId, projectId } = Route.useSearch()
+  const {
+    tab: tabParam,
+    id: selectedId,
+    projectId,
+    areas: areasParam,
+  } = Route.useSearch()
   const tab: Tab = tabParam ?? 'characters'
+  const areasView = tab === 'axes' && !!areasParam && selectedId === undefined
   const navigate = useNavigate()
   const isMobile = useIsMobile()
   const { t } = useTranslation()
@@ -104,6 +113,7 @@ function CharactersPage() {
   const characters = lib?.characters ?? []
   const items = lib?.items ?? []
   const presets = lib?.presets ?? []
+  const areas = lib?.areas ?? []
   const globalAxes = (lib?.axes ?? []).filter(
     (a) => a.ownerCharacterId === null && a.ownerItemId === null,
   )
@@ -116,18 +126,24 @@ function CharactersPage() {
   }
   usePageHeader({ count: lib ? counts[tab] : null })
 
-  function select(id: number | null, nextTab: Tab = tab) {
+  function select(id: number | null, nextTab: Tab = tab, showAreas = false) {
     void navigate({
       to: '/characters',
       search: {
         tab: nextTab === 'characters' ? undefined : nextTab,
         id: id ?? undefined,
         projectId,
+        areas: showAreas ? true : undefined,
         imageDetail: undefined,
       },
       // Opening a detail from the mobile list is a real step (phone Back
       // returns to the list); everything else replaces.
-      replace: !(isMobile && id !== null && selectedId === undefined),
+      replace: !(
+        isMobile &&
+        (id !== null || showAreas) &&
+        selectedId === undefined &&
+        !areasView
+      ),
     })
   }
 
@@ -292,6 +308,8 @@ function CharactersPage() {
           title: c.name,
           subtitle: t('library.fragmentCount', { count: c.fragments.length }),
           projectOnly: c.projectId !== null,
+          hasThumb: true,
+          thumbnailPath: c.thumbnailPath,
         }))
       : tab === 'outfits'
         ? items.map((c) => ({
@@ -301,6 +319,8 @@ function CharactersPage() {
               count: c.fragments.length,
             }),
             projectOnly: c.projectId !== null,
+            hasThumb: true,
+            thumbnailPath: c.thumbnailPath,
           }))
         : tab === 'presets'
           ? presets.map((p) => ({
@@ -346,15 +366,38 @@ function CharactersPage() {
   }
 
   const header = (
-    <Tabs value={tab} onValueChange={(v) => select(null, v as Tab)}>
-      <TabsList className="grid w-full grid-cols-4">
-        {TABS.map((id) => (
-          <TabsTrigger key={id} value={id} className="px-1 text-xs sm:text-sm">
-            {tabLabels[id]}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-    </Tabs>
+    <div className="space-y-2">
+      <Tabs value={tab} onValueChange={(v) => select(null, v as Tab)}>
+        <TabsList className="grid w-full grid-cols-4">
+          {TABS.map((id) => (
+            <TabsTrigger
+              key={id}
+              value={id}
+              className="px-1 text-xs sm:text-sm"
+            >
+              {tabLabels[id]}
+            </TabsTrigger>
+          ))}
+        </TabsList>
+      </Tabs>
+      {tab === 'axes' && (
+        <button
+          type="button"
+          data-areas-entry
+          data-active={areasView || undefined}
+          onClick={() => select(null, 'axes', true)}
+          className={cn(
+            'flex h-9 w-full items-center justify-between rounded-lg px-2.5 text-left text-sm transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+            areasView ? 'bg-primary/15' : 'bg-input/30 hover:bg-accent',
+          )}
+        >
+          <span className="font-medium">{t('library.areasTitle')}</span>
+          <span className="text-xs text-muted-foreground">
+            {t('library.areaCount', { count: areas.length })}
+          </span>
+        </button>
+      )}
+    </div>
   )
 
   const listPane = (
@@ -403,6 +446,7 @@ function CharactersPage() {
           kind={tab === 'characters' ? 'character' : 'item'}
           row={row}
           axes={lib.axes}
+          areas={areas}
         />
       ) : null
     } else if (tab === 'presets') {
@@ -446,6 +490,8 @@ function CharactersPage() {
         </div>
       )
     }
+  } else if (areasView && lib) {
+    detail = <AreasEditor areas={areas} items={items} />
   } else if (selectedId === undefined) {
     detail = (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
@@ -460,7 +506,7 @@ function CharactersPage() {
         id={`characters-${tab}`}
         list={listPane}
         detail={detail}
-        hasSelection={selectedId !== undefined}
+        hasSelection={selectedId !== undefined || areasView}
         onBack={() => select(null)}
         backLabel={tabLabels[tab]}
       />

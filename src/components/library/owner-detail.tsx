@@ -5,10 +5,17 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Add01Icon } from '@hugeicons/core-free-icons'
 import { ConditionEditor } from './condition-editor'
 import { FragmentRow } from './fragment-row'
+import { ItemOcclusion } from './item-occlusion'
+import { LibraryImagesSection } from './library-images-section'
 import { LocalAxes } from './local-axes'
 import { useDebouncedSave } from './use-debounced-save'
 import { useSerialSave } from './use-serial-save'
-import type { AxisValues, Condition, PartsAxis } from '@/lib/character-parts'
+import type {
+  AxisValues,
+  Condition,
+  CoverRule,
+  PartsAxis,
+} from '@/lib/character-parts'
 import {
   composeParts,
   effectiveAxisValues,
@@ -36,6 +43,10 @@ export interface OwnerRow {
   description: string | null
   projectId: number | null
   conditions?: Condition
+  areaIds?: Array<number>
+  coverRules?: Array<CoverRule>
+  imageCount: number
+  thumbnailImageId: number | null
   fragments: Array<{
     id: number
     text: string
@@ -48,10 +59,12 @@ export function OwnerDetail({
   kind,
   row,
   axes,
+  areas,
 }: {
   kind: 'character' | 'item'
   row: OwnerRow
   axes: Array<PartsAxis>
+  areas: Array<{ id: number; name: string }>
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -254,6 +267,16 @@ export function OwnerDetail({
         </section>
       )}
 
+      {kind === 'item' && (
+        <ItemOcclusion
+          itemId={row.id}
+          areas={areas}
+          areaIds={row.areaIds ?? []}
+          coverRules={row.coverRules ?? []}
+          relevant={relevant}
+        />
+      )}
+
       <section className="space-y-2">
         <div className="flex items-center justify-between gap-2">
           <Label className="text-sm text-muted-foreground">
@@ -331,6 +354,13 @@ export function OwnerDetail({
           )}
         </div>
       </section>
+
+      <LibraryImagesSection
+        kind={kind}
+        id={row.id}
+        imageCount={row.imageCount}
+        thumbnailImageId={row.thumbnailImageId}
+      />
     </div>
   )
 }
