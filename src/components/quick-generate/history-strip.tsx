@@ -5,14 +5,11 @@ import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import type { ReactNode } from 'react'
 import { useTranslation } from '@/lib/i18n'
-
-const GAP = 6
-const MIN_THUMB = 96
-
-// TODO(task3): use historyColumns from editor-shell/history-columns
-function columnsForWidth(width: number) {
-  return Math.max(1, Math.floor((width + GAP) / (MIN_THUMB + GAP)))
-}
+import {
+  HISTORY_GAP as GAP,
+  HISTORY_MIN_THUMB as MIN_THUMB,
+  historyColumns,
+} from '@/components/editor-shell/history-columns'
 
 interface HistoryImage {
   id: number
@@ -47,7 +44,7 @@ export function HistoryStrip({
     return () => ro.disconnect()
   }, [hasImages])
 
-  const cols = containerWidth > 0 ? columnsForWidth(containerWidth) : 1
+  const cols = containerWidth > 0 ? historyColumns(containerWidth) : 1
   const cellSize =
     containerWidth > 0
       ? Math.floor((containerWidth - GAP * (cols - 1)) / cols)
@@ -77,13 +74,6 @@ export function HistoryStrip({
 
   return (
     <div className="p-2 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-          {t('history.title')}
-        </h3>
-        <span className="text-xs text-muted-foreground">{images.length}</span>
-      </div>
-
       {images.length === 0 ? (
         <div className="flex-1 flex items-center justify-center">
           <p className="text-sm text-muted-foreground text-center">

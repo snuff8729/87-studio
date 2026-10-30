@@ -521,6 +521,10 @@ const en = {
     hideLeftPanel: 'Hide left panel',
     showRightPanel: 'Show right panel',
     hideRightPanel: 'Hide right panel',
+    tabPrompt: 'Prompt',
+    tabCharacters: 'Chars',
+    tabReferences: 'Refs',
+    tabParameters: 'Params',
   },
   history: {
     title: 'History',

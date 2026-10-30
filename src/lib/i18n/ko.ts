@@ -529,6 +529,10 @@ const ko: DeepStringify<typeof en> = {
     hideLeftPanel: '왼쪽 패널 숨기기',
     showRightPanel: '오른쪽 패널 표시',
     hideRightPanel: '오른쪽 패널 숨기기',
+    tabPrompt: '프롬프트',
+    tabCharacters: '캐릭터',
+    tabReferences: '참조',
+    tabParameters: '파라미터',
   },
   history: {
     title: '히스토리',

@@ -35,7 +35,7 @@ export function QuickPromptTab({
   }
 
   return (
-    <div className="p-3 space-y-3">
+    <div className="space-y-3">
       {/* General Prompt */}
       <div className="space-y-1.5">
         <div className="flex items-center justify-between">

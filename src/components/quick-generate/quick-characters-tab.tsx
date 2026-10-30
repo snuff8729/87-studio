@@ -47,7 +47,7 @@ export function QuickCharactersTab({
     : ''
 
   return (
-    <div className="p-3 space-y-2">
+    <div className="space-y-2">
       <div className="flex items-center justify-between">
         <Label className="text-sm text-muted-foreground uppercase tracking-wider">
           {t('quickGenerate.characters')}

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
@@ -18,6 +19,7 @@ import {
 } from '@/components/ui/select'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useTranslation } from '@/lib/i18n'
+import { cn } from '@/lib/utils'
 import {
   deleteReference,
   listReferences,
@@ -51,6 +53,24 @@ interface ReferencePanelProps {
   referenceMode: ReferenceMode
   currentModel: string
   onReferenceModeChange: (mode: ReferenceMode) => void
+  className?: string
+}
+
+/** Query key for a context's reference images (null = Quick Generate). */
+export function referencesQueryKey(projectId: number | null) {
+  return ['references', projectId] as const
+}
+
+/**
+ * Reference images of a project (or Quick Generate when `projectId` is null).
+ * Shared cache with ReferencePanel, so e.g. tab badges stay in sync.
+ */
+export function useReferenceImages(projectId: number | null) {
+  return useQuery({
+    queryKey: referencesQueryKey(projectId),
+    queryFn: async () =>
+      (await listReferences({ data: projectId })) as Array<ReferenceImage>,
+  })
 }
 
 export function ReferencePanel({
@@ -58,27 +78,24 @@ export function ReferencePanel({
   referenceMode,
   currentModel,
   onReferenceModeChange,
+  className,
 }: ReferencePanelProps) {
   const { t } = useTranslation()
-  const [references, setReferences] = useState<Array<ReferenceImage>>([])
   const [uploading, setUploading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const isV45 = currentModel.includes('4-5')
 
   // Load references
-  const loadReferences = useCallback(async () => {
-    try {
-      const refs = await listReferences({ data: projectId })
-      setReferences(refs as Array<ReferenceImage>)
-    } catch {
-      /* ignore */
-    }
-  }, [projectId])
-
-  useEffect(() => {
-    loadReferences()
-  }, [loadReferences])
+  const queryClient = useQueryClient()
+  const { data: references = [] } = useReferenceImages(projectId)
+  const loadReferences = useCallback(
+    () =>
+      queryClient.invalidateQueries({
+        queryKey: referencesQueryKey(projectId),
+      }),
+    [queryClient, projectId],
+  )
 
   const filteredRefs = references.filter((r) => r.type === referenceMode)
 
@@ -152,7 +169,7 @@ export function ReferencePanel({
   }
 
   return (
-    <div className="p-3 border-t border-border space-y-2.5">
+    <div className={cn('p-3 border-t border-border space-y-2.5', className)}>
       <Label className="text-sm text-muted-foreground uppercase tracking-wider">
         {t('reference.title')}
       </Label>

@@ -2,26 +2,23 @@ import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import {
-  ArrowLeft02Icon,
-  Image02Icon,
-  Menu01Icon,
-  PlayIcon,
-  TimeQuarter02Icon,
-  Upload01Icon,
-} from '@hugeicons/core-free-icons'
+import { Image02Icon, PlayIcon, Upload01Icon } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import type {
   CharacterEntry,
   QuickGenerateState,
   QuickImage,
 } from '@/components/quick-generate/types'
+import type { MobilePane } from '@/components/editor-shell/editor-shell'
+import { EditorShell } from '@/components/editor-shell/editor-shell'
+import { EditorHeader } from '@/components/editor-shell/editor-header'
 import { Button } from '@/components/ui/button'
-import { SidebarTrigger } from '@/components/ui/sidebar'
 import { NumberStepper } from '@/components/ui/number-stepper'
-import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
-import { ParameterPopover } from '@/components/workspace/parameter-popover'
-import { ReferencePanel } from '@/components/workspace/reference-panel'
+import { ParameterForm } from '@/components/workspace/parameter-popover'
+import {
+  ReferencePanel,
+  useReferenceImages,
+} from '@/components/workspace/reference-panel'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import { QuickPromptTab } from '@/components/quick-generate/quick-prompt-tab'
 import { QuickCharactersTab } from '@/components/quick-generate/quick-characters-tab'
@@ -54,6 +51,12 @@ function QuickGenerateButton({
   const [cooldown, setCooldown] = useState(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current)
+    }
+  }, [])
+
   const handleClick = useCallback(() => {
     onGenerate()
     setCooldown(true)
@@ -64,12 +67,12 @@ function QuickGenerateButton({
   return (
     <Button
       variant="brand"
-      size="sm"
       onClick={handleClick}
       disabled={disabled || cooldown}
+      className="min-w-0 flex-1"
     >
       <HugeiconsIcon icon={PlayIcon} className="size-5" />
-      <span className="hidden sm:inline">
+      <span className="truncate">
         {t('generation.generateCount', { count })}
       </span>
     </Button>
@@ -108,15 +111,12 @@ function QuickGeneratePage() {
 
   // ── State ──
   const [state, setState] = useState<QuickGenerateState>(loadState)
-  const [leftOpen, setLeftOpen] = useState(false)
-  const [rightOpen, setRightOpen] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [mobilePane, setMobilePane] = useState<MobilePane>('edit')
 
   // Image history
   const [images, setImages] = useState<Array<QuickImage>>([])
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
-
-  // Generation progress
 
   // DnD import
   const [dragging, setDragging] = useState(false)
@@ -295,6 +295,7 @@ function QuickGeneratePage() {
     }
 
     setGenerating(true)
+    setMobilePane('result')
     try {
       await createQuickGenerationJob({
         data: {
@@ -362,6 +363,15 @@ function QuickGeneratePage() {
     setSelectedImageId(img.id)
   }
 
+  function handleHistorySelect(id: number) {
+    setSelectedImageId(id)
+    setMobilePane('result')
+  }
+
+  // ── Tab badges ──
+  const { data: references = [] } = useReferenceImages(null)
+  const enabledRefCount = references.filter((r) => r.enabled).length
+
   // ── Favorite toggle on selected image ──
   async function handleToggleFavorite() {
     if (!selectedImage) return
@@ -397,6 +407,13 @@ function QuickGeneratePage() {
         }
       })()
     : null
+
+  const setParam = useCallback((key: string, value: unknown) => {
+    setState((prev) => ({
+      ...prev,
+      parameters: { ...prev.parameters, [key]: value },
+    }))
+  }, [])
 
   return (
     <>
@@ -444,52 +461,101 @@ function QuickGeneratePage() {
         />
       )}
 
-      <WorkspaceLayout
-        leftOpen={leftOpen}
-        rightOpen={rightOpen}
-        onDismiss={() => {
-          setLeftOpen(false)
-          setRightOpen(false)
-        }}
+      <EditorShell
+        id="quick-generate"
+        mobilePane={mobilePane}
+        onMobilePaneChange={setMobilePane}
         header={
-          <QuickGenerateHeader
-            onToggleLeft={() => setLeftOpen(!leftOpen)}
-            onToggleRight={() => setRightOpen(!rightOpen)}
+          <EditorHeader
+            title={t('quickGenerate.title')}
+            actions={
+              <Button variant="ghost" size="sm" asChild>
+                <Link
+                  to="/gallery"
+                  search={{ quick: true, imageDetail: undefined }}
+                >
+                  <HugeiconsIcon icon={Image02Icon} className="size-5" />
+                  <span className="hidden sm:inline">{t('nav.gallery')}</span>
+                </Link>
+              </Button>
+            }
           />
         }
-        leftPanel={
-          <>
-            <QuickPromptTab state={state} setState={setState} />
-            {/* temporary stacking: collapse doubled padding to the old 12px gap */}
-            <div className="-mt-3">
+        tabs={[
+          {
+            id: 'prompt',
+            label: t('editor.tabPrompt'),
+            content: <QuickPromptTab state={state} setState={setState} />,
+          },
+          {
+            id: 'chars',
+            label: t('editor.tabCharacters'),
+            badge: state.characters.length,
+            content: (
               <QuickCharactersTab
                 characters={state.characters}
                 addCharacter={addCharacter}
                 removeCharacter={removeCharacter}
                 updateCharacterField={updateCharacterField}
               />
+            ),
+          },
+          {
+            id: 'refs',
+            label: t('editor.tabReferences'),
+            badge: enabledRefCount,
+            content: (
+              <ReferencePanel
+                projectId={null}
+                className="p-0 border-t-0"
+                referenceMode={
+                  (state.parameters.referenceMode as
+                    | 'none'
+                    | 'vibe'
+                    | 'precise') ?? 'none'
+                }
+                currentModel={
+                  (state.parameters.model as string) ?? 'nai-diffusion-4-5-full'
+                }
+                onReferenceModeChange={(mode) => {
+                  setState((prev) => ({
+                    ...prev,
+                    parameters: { ...prev.parameters, referenceMode: mode },
+                  }))
+                }}
+              />
+            ),
+          },
+          {
+            id: 'params',
+            label: t('editor.tabParameters'),
+            content: (
+              <ParameterForm localParams={state.parameters} set={setParam} />
+            ),
+          },
+        ]}
+        footer={
+          <div className="flex flex-col gap-2">
+            <GenerationProgress />
+            <div className="flex items-center gap-2">
+              <NumberStepper
+                value={state.count}
+                onChange={(v) =>
+                  setState((prev) => ({ ...prev, count: Math.max(1, v ?? 1) }))
+                }
+                min={1}
+                max={100}
+                size="md"
+              />
+              <QuickGenerateButton
+                count={state.count}
+                disabled={!state.generalPrompt.trim()}
+                onGenerate={handleGenerate}
+              />
             </div>
-            <ReferencePanel
-              projectId={null}
-              referenceMode={
-                (state.parameters.referenceMode as
-                  | 'none'
-                  | 'vibe'
-                  | 'precise') ?? 'none'
-              }
-              currentModel={
-                (state.parameters.model as string) ?? 'nai-diffusion-4-5-full'
-              }
-              onReferenceModeChange={(mode) => {
-                setState((prev) => ({
-                  ...prev,
-                  parameters: { ...prev.parameters, referenceMode: mode },
-                }))
-              }}
-            />
-          </>
+          </div>
         }
-        centerPanel={
+        center={
           <ImageViewer
             image={selectedImage}
             imageParams={imageParams}
@@ -508,99 +574,19 @@ function QuickGeneratePage() {
             generating={generating}
           />
         }
-        rightPanel={
+        rightTitle={
+          images.length > 0
+            ? `${t('history.title')} · ${images.length}`
+            : t('history.title')
+        }
+        right={
           <HistoryStrip
             images={images}
             selectedImageId={selectedImageId}
-            onSelect={setSelectedImageId}
+            onSelect={handleHistorySelect}
           />
-        }
-        bottomToolbar={
-          <div className="border-t border-border bg-background shrink-0 grid px-3 pb-2 lg:pb-0 gap-x-2 grid-cols-[auto_1fr] grid-rows-[2.25rem_2.75rem] lg:grid-cols-[auto_1fr_auto] lg:grid-rows-[3rem]">
-            <div className="flex items-center gap-1">
-              <ParameterPopover
-                params={state.parameters}
-                onChange={(p) =>
-                  setState((prev) => ({ ...prev, parameters: p }))
-                }
-              />
-            </div>
-            <div className="flex items-center justify-end lg:justify-center min-w-0 overflow-hidden">
-              <GenerationProgress />
-            </div>
-            <div className="flex items-center justify-center lg:justify-end gap-1.5 col-span-2 lg:col-span-1">
-              <NumberStepper
-                value={state.count}
-                onChange={(v) =>
-                  setState((prev) => ({ ...prev, count: Math.max(1, v ?? 1) }))
-                }
-                min={1}
-                max={100}
-                size="md"
-              />
-              <QuickGenerateButton
-                count={state.count}
-                disabled={!state.generalPrompt.trim()}
-                onGenerate={handleGenerate}
-              />
-            </div>
-          </div>
         }
       />
     </>
-  )
-}
-
-// ─── Header ──────────────────────────────────────────────────────────────
-
-function QuickGenerateHeader({
-  onToggleLeft,
-  onToggleRight,
-}: {
-  onToggleLeft: () => void
-  onToggleRight: () => void
-}) {
-  const { t } = useTranslation()
-
-  return (
-    <header className="h-12 border-b border-border bg-background flex items-center justify-between px-3 shrink-0">
-      <div className="flex items-center gap-2 min-w-0">
-        <SidebarTrigger className="-ml-1 shrink-0" />
-        <Button variant="ghost" size="sm" asChild className="shrink-0">
-          <Link to="/" search={{ imageDetail: undefined }}>
-            <HugeiconsIcon icon={ArrowLeft02Icon} className="size-5" />
-            <span className="hidden sm:inline">{t('common.back')}</span>
-          </Link>
-        </Button>
-        <div className="h-4 w-px bg-border" />
-        <h1 className="text-base font-semibold truncate">
-          {t('quickGenerate.title')}
-        </h1>
-      </div>
-      <div className="flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggleLeft}
-          className="lg:hidden"
-        >
-          <HugeiconsIcon icon={Menu01Icon} className="size-5" />
-        </Button>
-        <Button variant="ghost" size="sm" asChild>
-          <Link to="/gallery" search={{ quick: true, imageDetail: undefined }}>
-            <HugeiconsIcon icon={Image02Icon} className="size-5" />
-            <span className="hidden sm:inline">{t('nav.gallery')}</span>
-          </Link>
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onToggleRight}
-          className="lg:hidden"
-        >
-          <HugeiconsIcon icon={TimeQuarter02Icon} className="size-5" />
-        </Button>
-      </div>
-    </header>
   )
 }
