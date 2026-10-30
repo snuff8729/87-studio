@@ -14,17 +14,14 @@ import { Toaster } from '@/components/ui/sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { I18nProvider, useTranslation } from '@/lib/i18n'
 import { OnboardingProvider } from '@/lib/onboarding'
-import { ThemeProvider } from '@/lib/theme'
 import { OnboardingOverlay } from '@/components/onboarding/onboarding-overlay'
 import { ImageDetailOverlay } from '@/components/common/image-detail-overlay'
 
 function RootErrorComponent({ error }: { error: Error }) {
   return (
-    <ThemeProvider>
-      <I18nProvider>
-        <RootErrorContent error={error} />
-      </I18nProvider>
-    </ThemeProvider>
+    <I18nProvider>
+      <RootErrorContent error={error} />
+    </I18nProvider>
   )
 }
 
@@ -58,11 +55,9 @@ function RootPendingComponent() {
 
 function RootNotFoundComponent() {
   return (
-    <ThemeProvider>
-      <I18nProvider>
-        <RootNotFoundContent />
-      </I18nProvider>
-    </ThemeProvider>
+    <I18nProvider>
+      <RootNotFoundContent />
+    </I18nProvider>
   )
 }
 
@@ -104,12 +99,12 @@ export const Route = createRootRoute({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className="dark">
       <head>
         <HeadContent />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){var t=localStorage.getItem('87studio-theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme:dark)').matches);document.documentElement.classList.toggle('dark',d);var s=localStorage.getItem('87studio-ui-scale');if(s){document.documentElement.style.fontSize=s+'%'}})()`,
+            __html: `(function(){var s=localStorage.getItem('87studio-ui-scale');if(s){document.documentElement.style.fontSize=s+'%'}})()`,
           }}
         />
       </head>
@@ -130,34 +125,32 @@ function RootComponent() {
   // Global image detail overlay (for non-gallery pages)
   const { imageDetail } = useSearch({ from: '__root__' })
   return (
-    <ThemeProvider>
-      <I18nProvider>
-        <OnboardingProvider>
-          {isWorkspace || isGenerate ? (
-            <TooltipProvider delayDuration={300}>
-              <Outlet />
-              <Toaster richColors position="top-center" />
-            </TooltipProvider>
-          ) : (
-            <TooltipProvider delayDuration={300}>
-              <Sidebar />
-              <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
-                <div className="p-4 lg:p-6">
-                  <div className="animate-in fade-in-0 duration-150">
-                    <Outlet />
-                  </div>
+    <I18nProvider>
+      <OnboardingProvider>
+        {isWorkspace || isGenerate ? (
+          <TooltipProvider delayDuration={300}>
+            <Outlet />
+            <Toaster richColors position="top-center" />
+          </TooltipProvider>
+        ) : (
+          <TooltipProvider delayDuration={300}>
+            <Sidebar />
+            <main className="lg:ml-56 min-h-screen pb-16 lg:pb-0">
+              <div className="p-4 lg:p-6">
+                <div className="animate-in fade-in-0 duration-150">
+                  <Outlet />
                 </div>
-              </main>
-              <BottomNav />
-              <Toaster richColors position="bottom-right" />
-            </TooltipProvider>
-          )}
-          {imageDetail && !isGallery && (
-            <ImageDetailOverlay imageId={imageDetail} />
-          )}
-          <OnboardingOverlay />
-        </OnboardingProvider>
-      </I18nProvider>
-    </ThemeProvider>
+              </div>
+            </main>
+            <BottomNav />
+            <Toaster richColors position="bottom-right" />
+          </TooltipProvider>
+        )}
+        {imageDetail && !isGallery && (
+          <ImageDetailOverlay imageId={imageDetail} />
+        )}
+        <OnboardingOverlay />
+      </OnboardingProvider>
+    </I18nProvider>
   )
 }

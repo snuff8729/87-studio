@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Compartment, EditorState } from '@codemirror/state'
+import { EditorState } from '@codemirror/state'
 import { EditorView, ViewPlugin, keymap, tooltips } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { acceptCompletion, autocompletion } from '@codemirror/autocomplete'
-import { darkTheme, lightTheme } from './theme'
+import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
@@ -11,7 +11,6 @@ import { invalidRefHighlight, invalidRefTooltip } from './invalid-ref-highlight'
 import { setBundleNames, setSlotNames, unifiedCompletion } from './bundle-completion'
 import { bundleTooltip } from './bundle-tooltip'
 import type { ViewUpdate } from '@codemirror/view'
-import { useTheme } from '@/lib/theme'
 import {
   EditorContextMenu,
   detectTokenAt,
@@ -48,12 +47,10 @@ export function PromptEditor({
   bundleNames: bundleNamesProp,
   slotNames: slotNamesProp,
 }: PromptEditorProps) {
-  const { resolvedTheme } = useTheme()
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const onChangeRef = useRef(onChange)
   onChangeRef.current = onChange
-  const themeCompartmentRef = useRef<Compartment | null>(null)
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<{
@@ -100,9 +97,6 @@ export function PromptEditor({
   useEffect(() => {
     if (!containerRef.current) return
 
-    const compartment = new Compartment()
-    themeCompartmentRef.current = compartment
-
     const state = EditorState.create({
       doc: value,
       extensions: [
@@ -114,7 +108,7 @@ export function PromptEditor({
         history(),
         EditorView.lineWrapping,
         fixLineWrapFocusSteal,
-        compartment.of(resolvedTheme === 'dark' ? darkTheme : lightTheme),
+        darkTheme,
         placeholderHighlight,
         bundleHighlight,
         weightHighlight,
@@ -172,18 +166,6 @@ export function PromptEditor({
     // Only recreate on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
-
-  // Sync theme changes at runtime
-  useEffect(() => {
-    const view = viewRef.current
-    const compartment = themeCompartmentRef.current
-    if (!view || !compartment) return
-    view.dispatch({
-      effects: compartment.reconfigure(
-        resolvedTheme === 'dark' ? darkTheme : lightTheme,
-      ),
-    })
-  }, [resolvedTheme])
 
   // Sync external value changes (skip if editor is focused to avoid cursor jumps)
   useEffect(() => {
