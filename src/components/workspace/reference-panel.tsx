@@ -266,7 +266,10 @@ function ReferenceImageCard({
   ref_: ReferenceImage
   referenceMode: ReferenceMode
   currentModel: string
-  onUpdate: (id: number, updates: Record<string, unknown>) => void
+  onUpdate: (
+    id: number,
+    updates: Record<string, unknown>,
+  ) => Promise<void> | void
   onDelete: (id: number) => void
 }) {
   const { t } = useTranslation()
@@ -375,77 +378,74 @@ function ReferenceImageCard({
       {/* Sliders */}
       <div className="space-y-1.5 px-0.5">
         {/* Strength (both modes) */}
-        <div className="space-y-0.5">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] text-muted-foreground">
-              {t('reference.strength')}
-            </span>
-            <span className="text-[10px] tabular-nums text-muted-foreground">
-              {ref_.strength.toFixed(2)}
-            </span>
-          </div>
-          <Slider
-            min={0}
-            max={1}
-            step={0.01}
-            value={[ref_.strength]}
-            onValueChange={([v]) =>
-              onUpdate(ref_.id, { strength: Math.round(v * 100) / 100 })
-            }
-            className="h-4"
-          />
-        </div>
+        <CommitSlider
+          label={t('reference.strength')}
+          value={ref_.strength}
+          onCommit={(v) => onUpdate(ref_.id, { strength: v })}
+        />
 
         {/* Vibe: Information Extracted */}
         {referenceMode === 'vibe' && (
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">
-                {t('reference.informationExtracted')}
-              </span>
-              <span className="text-[10px] tabular-nums text-muted-foreground">
-                {ref_.informationExtracted.toFixed(2)}
-              </span>
-            </div>
-            <Slider
-              min={0}
-              max={1}
-              step={0.01}
-              value={[ref_.informationExtracted]}
-              onValueChange={([v]) =>
-                onUpdate(ref_.id, {
-                  informationExtracted: Math.round(v * 100) / 100,
-                })
-              }
-              className="h-4"
-            />
-          </div>
+          <CommitSlider
+            label={t('reference.informationExtracted')}
+            value={ref_.informationExtracted}
+            onCommit={(v) => onUpdate(ref_.id, { informationExtracted: v })}
+          />
         )}
 
         {/* Precise: Fidelity */}
         {referenceMode === 'precise' && (
-          <div className="space-y-0.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] text-muted-foreground">
-                {t('reference.fidelity')}
-              </span>
-              <span className="text-[10px] tabular-nums text-muted-foreground">
-                {ref_.fidelity.toFixed(2)}
-              </span>
-            </div>
-            <Slider
-              min={0}
-              max={1}
-              step={0.01}
-              value={[ref_.fidelity]}
-              onValueChange={([v]) =>
-                onUpdate(ref_.id, { fidelity: Math.round(v * 100) / 100 })
-              }
-              className="h-4"
-            />
-          </div>
+          <CommitSlider
+            label={t('reference.fidelity')}
+            value={ref_.fidelity}
+            onCommit={(v) => onUpdate(ref_.id, { fidelity: v })}
+          />
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Slider that keeps the thumb value locally while dragging and persists only
+ * on commit (avoids per-tick server writes + refetch cancellation).
+ */
+function CommitSlider({
+  label,
+  value,
+  onCommit,
+}: {
+  label: string
+  value: number
+  onCommit: (v: number) => Promise<void> | void
+}) {
+  const [drag, setDrag] = useState<number | null>(null)
+  const shown = drag ?? value
+  return (
+    <div className="space-y-0.5">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-muted-foreground">{label}</span>
+        <span className="text-[10px] tabular-nums text-muted-foreground">
+          {shown.toFixed(2)}
+        </span>
+      </div>
+      <Slider
+        min={0}
+        max={1}
+        step={0.01}
+        value={[shown]}
+        onValueChange={([v]) => setDrag(Math.round(v * 100) / 100)}
+        onValueCommit={async ([v]) => {
+          const rounded = Math.round(v * 100) / 100
+          setDrag(rounded)
+          try {
+            await onCommit(rounded)
+          } finally {
+            setDrag(null)
+          }
+        }}
+        className="h-4"
+      />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Image02Icon, PlayIcon, Upload01Icon } from '@hugeicons/core-free-icons'
+import type { ComponentProps } from 'react'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import type {
   CharacterEntry,
@@ -10,7 +11,10 @@ import type {
   QuickImage,
 } from '@/components/quick-generate/types'
 import type { MobilePane } from '@/components/editor-shell/editor-shell'
-import { EditorShell } from '@/components/editor-shell/editor-shell'
+import {
+  EditorShell,
+  useEditorShell,
+} from '@/components/editor-shell/editor-shell'
 import { EditorHeader } from '@/components/editor-shell/editor-header'
 import { Button } from '@/components/ui/button'
 import { NumberStepper } from '@/components/ui/number-stepper'
@@ -103,6 +107,17 @@ function saveState(state: QuickGenerateState) {
   } catch {
     /* ignore */
   }
+}
+
+/** Disables viewer shortcuts on mobile while the result pane is hidden. */
+function QuickImageViewer(props: ComponentProps<typeof ImageViewer>) {
+  const { isMobile, mobilePane } = useEditorShell()
+  return (
+    <ImageViewer
+      {...props}
+      shortcutsEnabled={!isMobile || mobilePane === 'result'}
+    />
+  )
 }
 
 function QuickGeneratePage() {
@@ -255,10 +270,14 @@ function QuickGeneratePage() {
           return prev
         })
 
+        const active = jobData.jobs.some(
+          (j) => j.status === 'pending' || j.status === 'running',
+        )
+        setGenerating(active)
+
         // Stop polling if no more active jobs
-        if (jobData.jobs.length === 0 && !jobData.queueStatus.processing) {
+        if (!active && !jobData.queueStatus.processing) {
           stopPolling()
-          setGenerating(false)
         }
       } catch {
         /* ignore polling errors */
@@ -280,10 +299,11 @@ function QuickGeneratePage() {
   // Check if there are active jobs on mount
   useEffect(() => {
     listQuickJobs().then((jobData) => {
-      if (jobData.jobs.length > 0 || jobData.queueStatus.processing) {
-        setGenerating(true)
-        startPolling()
-      }
+      const active = jobData.jobs.some(
+        (j) => j.status === 'pending' || j.status === 'running',
+      )
+      setGenerating(active)
+      if (active || jobData.queueStatus.processing) startPolling()
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -370,7 +390,11 @@ function QuickGeneratePage() {
 
   // ── Tab badges ──
   const { data: references = [] } = useReferenceImages(null)
-  const enabledRefCount = references.filter((r) => r.enabled).length
+  const activeRefMode = state.parameters.referenceMode
+  const enabledRefCount =
+    activeRefMode === 'vibe' || activeRefMode === 'precise'
+      ? references.filter((r) => r.enabled && r.type === activeRefMode).length
+      : 0
 
   // ── Favorite toggle on selected image ──
   async function handleToggleFavorite() {
@@ -556,7 +580,7 @@ function QuickGeneratePage() {
           </div>
         }
         center={
-          <ImageViewer
+          <QuickImageViewer
             image={selectedImage}
             imageParams={imageParams}
             onToggleFavorite={handleToggleFavorite}

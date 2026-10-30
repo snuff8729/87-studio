@@ -24,6 +24,8 @@ interface ImageViewerProps {
   /** Older image in history (ArrowDown / ArrowRight) */
   onNext?: () => void
   generating?: boolean
+  /** Disable keyboard shortcuts (e.g. pane hidden on mobile). Default true. */
+  shortcutsEnabled?: boolean
 }
 
 function isTypingTarget(target: EventTarget | null) {
@@ -46,6 +48,7 @@ export function ImageViewer({
   onPrev,
   onNext,
   generating,
+  shortcutsEnabled = true,
 }: ImageViewerProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -57,6 +60,7 @@ export function ImageViewer({
     onPrev,
     onNext,
     hasImage: !!image,
+    shortcutsEnabled,
   })
   handlersRef.current = {
     onToggleFavorite,
@@ -64,6 +68,7 @@ export function ImageViewer({
     onPrev,
     onNext,
     hasImage: !!image,
+    shortcutsEnabled,
   }
 
   useEffect(() => {
@@ -73,6 +78,7 @@ export function ImageViewer({
       if (isTypingTarget(e.target)) return
       if (document.querySelector('[role="dialog"][data-state="open"]')) return
       const h = handlersRef.current
+      if (!h.shortcutsEnabled) return
 
       switch (e.key) {
         case 'ArrowUp':
@@ -190,7 +196,7 @@ export function ImageViewer({
           <button
             type="button"
             onClick={() => copySeed(image.seed as number)}
-            className="text-xs text-muted-foreground tabular-nums hover:text-primary transition-colors cursor-pointer"
+            className="text-xs text-muted-foreground tabular-nums whitespace-nowrap hover:text-primary transition-colors cursor-pointer"
           >
             {t('quickGenerate.seed')}: {image.seed}
           </button>
@@ -199,8 +205,8 @@ export function ImageViewer({
         {/* Resolution */}
         {width && height && (
           <>
-            <div className="h-3 w-px bg-border" />
-            <span className="text-xs text-muted-foreground tabular-nums">
+            <div className="hidden sm:block h-3 w-px bg-border" />
+            <span className="hidden sm:inline text-xs text-muted-foreground tabular-nums whitespace-nowrap">
               {width} x {height}
             </span>
           </>

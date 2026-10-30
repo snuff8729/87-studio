@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowRight01Icon } from '@hugeicons/core-free-icons'
@@ -34,7 +34,7 @@ export function HistoryStrip({
   const [containerWidth, setContainerWidth] = useState(0)
   const hasImages = images.length > 0
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const el = scrollRef.current
     if (!el) return
     const measure = () => setContainerWidth(el.clientWidth)
@@ -151,10 +151,13 @@ export function HistoryStrip({
           <Link
             to="/gallery"
             search={{ quick: true, imageDetail: undefined }}
-            className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
+            className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 whitespace-nowrap min-w-0"
           >
-            {t('quickGenerate.viewInGallery')}
-            <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
+            <span className="truncate">{t('quickGenerate.viewInGallery')}</span>
+            <HugeiconsIcon
+              icon={ArrowRight01Icon}
+              className="size-4 shrink-0"
+            />
           </Link>
         )}
       </div>
