@@ -19,6 +19,8 @@ export interface PartsFragment {
   id: number
   text: string
   conditions: Condition
+  /** Item fragments only: own body areas; empty/absent = inherit the item's */
+  areaIds?: Array<number>
 }
 export interface PartsCharacter {
   id: number
@@ -36,15 +38,210 @@ export interface PartsItem {
   areaIds?: Array<number>
   /** "when <condition> → covers <areas>" (optional: absent = none) */
   coverRules?: Array<CoverRule>
+  /** Resolved variable values (name -> value) for `@{var:name}` tokens */
+  varValues?: Record<string, string>
 }
+/** Fully hidden item: passes its condition, every matching fragment is hidden. */
 export interface HiddenItem {
   itemId: number
   /** Item ids (later in the outfit) whose cover rules hide this item */
   coveredBy: Array<number>
 }
+export interface PartialItem {
+  itemId: number
+  /** Hidden fragment ids (some, not all, of the item's matching fragments) */
+  fragmentIds: Array<number>
+  coveredBy: Array<number>
+  details: Array<{ fragmentId: number; coveredBy: Array<number> }>
+}
+/** Per worn item occlusion result. */
+export interface ItemVisibility {
+  itemId: number
+  hiddenFragmentIds: Array<number>
+  fully: boolean
+  coveredBy: Array<number>
+  details: Array<{ fragmentId: number; coveredBy: Array<number> }>
+}
+
+/** Body area with optional (single-level) parent. */
+export interface AreaNode {
+  id: number
+  parentId?: number | null
+}
 
 export const CHAR_TOKEN = '@{char}'
 export const OUTFIT_TOKEN = '@{outfit}'
+const VAR_TOKEN_RE = /@\{var:([^}]*)\}/g
+
+// ─── Areas tree ─────────────────────────────────────────────────────────────
+
+/** Top-level areas with their children (input order kept). Orphans → top-level. */
+export function groupAreas<T extends AreaNode>(
+  areas: Array<T>,
+): Array<{ area: T; children: Array<T> }> {
+  const ids = new Set(areas.map((a) => a.id))
+  const tops = areas.filter((a) => a.parentId == null || !ids.has(a.parentId))
+  return tops.map((area) => ({
+    area,
+    children: areas.filter((a) => a.parentId === area.id),
+  }))
+}
+
+/**
+ * One level only: a parent must be top-level, an area with children cannot get
+ * a parent, an area cannot be its own parent. `null` (top-level) is always OK.
+ */
+export function canSetParent(
+  areas: Array<AreaNode>,
+  areaId: number,
+  parentId: number | null,
+): boolean {
+  if (parentId === null) return true
+  if (parentId === areaId) return false
+  const parent = areas.find((a) => a.id === parentId)
+  if (!parent || parent.parentId != null) return false
+  return !areas.some((a) => a.parentId === areaId)
+}
+
+// ─── Outfit entries + variables ─────────────────────────────────────────────
+
+export interface ItemVariable {
+  name: string
+  default: string
+}
+/** One outfit slot: an item plus per-entry variable values. */
+export interface OutfitEntry {
+  id: number
+  vars?: Record<string, string>
+}
+
+export function parseVariables(raw: unknown): Array<ItemVariable> {
+  const v = parseJson(raw)
+  if (!Array.isArray(v)) return []
+  const out: Array<ItemVariable> = []
+  const seen = new Set<string>()
+  for (const r of v) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) continue
+    const rec = r as Record<string, unknown>
+    if (typeof rec.name !== 'string') continue
+    const name = rec.name.trim()
+    if (!name || seen.has(name)) continue
+    seen.add(name)
+    out.push({
+      name,
+      default: typeof rec.default === 'string' ? rec.default : '',
+    })
+  }
+  return out
+}
+
+function cleanVars(v: unknown): Record<string, string> | undefined {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
+  const out: Record<string, string> = {}
+  for (const [k, val] of Object.entries(v as Record<string, unknown>)) {
+    if (typeof val === 'string' && val !== '') out[k] = val
+  }
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
+/** Tolerant: accepts the legacy `number[]` as well as entries (or a mix). */
+export function parseOutfitEntries(raw: unknown): Array<OutfitEntry> {
+  const v = parseJson(raw)
+  if (!Array.isArray(v)) return []
+  const out: Array<OutfitEntry> = []
+  for (const e of v) {
+    if (typeof e === 'number' && Number.isFinite(e)) {
+      out.push({ id: e })
+    } else if (e && typeof e === 'object' && !Array.isArray(e)) {
+      const rec = e as Record<string, unknown>
+      if (typeof rec.id !== 'number' || !Number.isFinite(rec.id)) continue
+      const vars = cleanVars(rec.vars)
+      out.push(vars ? { id: rec.id, vars } : { id: rec.id })
+    }
+  }
+  return out
+}
+
+/** Normalize input (`number[]` or entries) into clean entries. */
+export function toOutfitEntries(
+  input: ReadonlyArray<number | OutfitEntry>,
+): Array<OutfitEntry> {
+  return parseOutfitEntries(input as unknown)
+}
+
+export function outfitEntryIds(raw: unknown): Array<number> {
+  return parseOutfitEntries(raw).map((e) => e.id)
+}
+
+export function stringifyOutfitEntries(
+  input: ReadonlyArray<number | OutfitEntry>,
+): string {
+  return JSON.stringify(toOutfitEntries(input))
+}
+
+/** Value per variable: entry value if non-empty, else the item default. */
+export function resolveVarValues(
+  variables: Array<ItemVariable> | undefined,
+  entryVars: Record<string, string> | undefined,
+): Record<string, string> {
+  const out: Record<string, string> = {}
+  for (const v of variables ?? []) {
+    const e = entryVars?.[v.name]
+    out[v.name] = e !== undefined && e !== '' ? e : v.default
+  }
+  return out
+}
+
+/** `@{var:name}` → value (unknown → ''). */
+export function substituteVars(
+  text: string,
+  values: Record<string, string> | undefined,
+): string {
+  return text.replace(VAR_TOKEN_RE, (_, name: string) => {
+    const k = name.trim()
+    return values && Object.hasOwn(values, k) ? values[k] : ''
+  })
+}
+
+export function extractVarNames(text: string): Array<string> {
+  const out: Array<string> = []
+  for (const m of text.matchAll(VAR_TOKEN_RE)) {
+    const n = m[1].trim()
+    if (n && !out.includes(n)) out.push(n)
+  }
+  return out
+}
+
+/** Rewrite `@{var:old}` → `@{var:new}` (used when a variable is renamed). */
+export function renameVarInText(
+  text: string,
+  oldName: string,
+  newName: string,
+): string {
+  return text.replace(VAR_TOKEN_RE, (full, name: string) =>
+    name.trim() === oldName ? `@{var:${newName}}` : full,
+  )
+}
+
+/**
+ * Same item sequence and same resolved variable values (defaults resolved on
+ * both sides). `itemVars` maps item id → variable definitions.
+ */
+export function outfitEntriesMatch(
+  a: Array<OutfitEntry>,
+  b: Array<OutfitEntry>,
+  itemVars: (itemId: number) => Array<ItemVariable> | undefined,
+): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].id !== b[i].id) return false
+    const defs = itemVars(a[i].id)
+    const va = resolveVarValues(defs, a[i].vars)
+    const vb = resolveVarValues(defs, b[i].vars)
+    for (const d of defs ?? []) if (va[d.name] !== vb[d.name]) return false
+  }
+  return true
+}
 
 // ─── JSON helpers (tolerant) ────────────────────────────────────────────────
 
@@ -159,66 +356,121 @@ function cleanText(text: string): string {
     .replace(/[\s,]+$/, '')
 }
 
+/**
+ * Fragment text -> output text. Item fragments substitute `@{var:name}` with the
+ * resolved value (unknown -> ''); in character fragments the token is stripped.
+ */
+function fragmentText(f: PartsFragment, vars: Record<string, string> | null) {
+  return cleanText(substituteVars(f.text, vars ?? undefined))
+}
+
 function joinFragments(
   fragments: Array<PartsFragment>,
   values: AxisValues,
   axes: Array<PartsAxis>,
+  vars: Record<string, string> | null,
+  skip?: Set<number>,
 ): Array<string> {
   const out: Array<string> = []
   for (const f of fragments) {
+    if (skip?.has(f.id)) continue
     if (!matchesCondition(f.conditions, values, axes)) continue
-    const t = cleanText(f.text)
+    const t = fragmentText(f, vars)
     if (t) out.push(t)
   }
   return out
 }
 
 /**
- * Outfit occlusion. Items are ordered inner → outer. Items failing their item
- * condition are not worn: neither visible nor able to cover. A worn item with
- * at least one area is hidden when every one of its areas is covered by a
- * matching cover rule of some worn item LATER in the list (a hidden outer item
- * still covers). Items without areas are never hidden. `knownAreaIds`, when
- * given, makes unknown (deleted) area ids ignored.
+ * Outfit occlusion. Items are ordered inner -> outer. Items failing their item
+ * condition are not worn: neither visible nor able to cover. Covering an area
+ * also covers its children (never the other way round). A fragment's effective
+ * areas are its own or else the item's; it is hidden when it has >=1 effective
+ * area and all of them are covered by a matching cover rule of some worn item
+ * LATER in the list (hidden outer items still cover). An item is fully hidden
+ * when it has >=1 condition-matching fragment and all of them are hidden.
+ * `areas` (the library's areas) makes unknown (deleted) ids ignored and
+ * provides the parent -> children expansion.
  */
 export function visibleItems(
   items: Array<PartsItem>,
   values: AxisValues,
   axes: Array<PartsAxis>,
-  knownAreaIds?: Array<number>,
-): { visible: Array<PartsItem>; hidden: Array<HiddenItem> } {
+  areasOrKnown?: Array<AreaNode> | Array<number>,
+): {
+  visible: Array<PartsItem>
+  hidden: Array<HiddenItem>
+  /** Per worn item (in outfit order) */
+  items: Array<ItemVisibility>
+} {
+  const nodes: Array<AreaNode> | null = areasOrKnown
+    ? (areasOrKnown as Array<AreaNode | number>).map((a) =>
+        typeof a === 'number' ? { id: a } : a,
+      )
+    : null
+  const known = nodes ? new Set(nodes.map((n) => n.id)) : null
+  const childrenOf = new Map<number, Array<number>>()
+  for (const n of nodes ?? []) {
+    if (n.parentId != null) {
+      const l = childrenOf.get(n.parentId) ?? []
+      l.push(n.id)
+      childrenOf.set(n.parentId, l)
+    }
+  }
+  const filterKnown = (ids: Array<number> | undefined) =>
+    (ids ?? []).filter((a) => !known || known.has(a))
+  const expand = (a: number) => [a, ...(childrenOf.get(a) ?? [])]
+
   const worn = items.filter((i) => matchesCondition(i.conditions, values, axes))
-  const known = knownAreaIds ? new Set(knownAreaIds) : null
   const visible: Array<PartsItem> = []
   const hidden: Array<HiddenItem> = []
+  const results: Array<ItemVisibility> = []
   worn.forEach((item, idx) => {
-    const areas = (item.areaIds ?? []).filter((a) => !known || known.has(a))
-    if (areas.length === 0) {
-      visible.push(item)
-      return
-    }
-    const covered = new Set<number>()
-    const coveredBy: Array<number> = []
+    const itemAreas = filterKnown(item.areaIds)
+    // area -> outer items covering it
+    const coverers = new Map<number, Array<number>>()
     for (const outer of worn.slice(idx + 1)) {
-      let contributes = false
       for (const rule of outer.coverRules ?? []) {
         if (!matchesCondition(rule.conditions, values, axes)) continue
-        for (const a of rule.areaIds) {
-          if (areas.includes(a)) {
-            covered.add(a)
-            contributes = true
+        for (const a of rule.areaIds)
+          for (const x of expand(a)) {
+            const l = coverers.get(x) ?? []
+            if (!l.includes(outer.id)) l.push(outer.id)
+            coverers.set(x, l)
           }
-        }
       }
-      if (contributes) coveredBy.push(outer.id)
     }
-    if (areas.every((a) => covered.has(a))) {
-      hidden.push({ itemId: item.id, coveredBy })
-    } else {
-      visible.push(item)
+    const order = worn.slice(idx + 1).map((o) => o.id)
+    const details: ItemVisibility['details'] = []
+    let matching = 0
+    for (const f of item.fragments) {
+      if (!matchesCondition(f.conditions, values, axes)) continue
+      matching++
+      const own = filterKnown(f.areaIds)
+      const eff = own.length > 0 ? own : itemAreas
+      if (eff.length === 0 || !eff.every((a) => coverers.has(a))) continue
+      const by = new Set<number>()
+      for (const a of eff) for (const id of coverers.get(a) ?? []) by.add(id)
+      details.push({
+        fragmentId: f.id,
+        coveredBy: order.filter((id) => by.has(id)),
+      })
     }
+    const fully = matching > 0 && details.length === matching
+    const by = new Set<number>()
+    for (const d of details) for (const id of d.coveredBy) by.add(id)
+    const coveredBy = order.filter((id) => by.has(id))
+    results.push({
+      itemId: item.id,
+      hiddenFragmentIds: details.map((d) => d.fragmentId),
+      fully,
+      coveredBy,
+      details,
+    })
+    if (fully) hidden.push({ itemId: item.id, coveredBy })
+    else visible.push(item)
   })
-  return { visible, hidden }
+  return { visible, hidden, items: results }
 }
 
 export function composeParts(args: {
@@ -226,32 +478,61 @@ export function composeParts(args: {
   character: PartsCharacter | null
   items: Array<PartsItem>
   values: AxisValues
+  /** Library areas (parents enable child expansion); numbers = known ids only */
+  areas?: Array<AreaNode> | Array<number>
+  /** @deprecated alias of `areas` */
   knownAreaIds?: Array<number>
 }): {
   char: string
   outfit: string
+  /** Fully hidden item ids */
   hiddenItemIds: Array<number>
   hidden: Array<HiddenItem>
+  /** Items with some (not all) fragments hidden */
+  partial: Array<PartialItem>
   /** Visible items that contributed at least one fragment */
   contributingItemIds: Array<number>
 } {
-  const { axes, character, items, values, knownAreaIds } = args
+  const { axes, character, items, values } = args
   const char = character
-    ? joinFragments(character.fragments, values, axes).join(', ')
+    ? joinFragments(character.fragments, values, axes, null).join(', ')
     : ''
-  const { visible, hidden } = visibleItems(items, values, axes, knownAreaIds)
+  const {
+    visible,
+    hidden,
+    items: vis,
+  } = visibleItems(items, values, axes, args.areas ?? args.knownAreaIds)
+  const byItem = new Map(vis.map((v) => [v.itemId, v]))
   const outfitParts: Array<string> = []
   const contributingItemIds: Array<number> = []
+  const partial: Array<PartialItem> = []
   for (const item of visible) {
-    const texts = joinFragments(item.fragments, values, axes)
+    const v = byItem.get(item.id)
+    const skip = new Set(v?.hiddenFragmentIds ?? [])
+    const texts = joinFragments(
+      item.fragments,
+      values,
+      axes,
+      item.varValues ?? {},
+      skip,
+    )
     if (texts.length > 0) contributingItemIds.push(item.id)
     outfitParts.push(...texts)
+    if (v && v.hiddenFragmentIds.length > 0) {
+      partial.push({
+        itemId: item.id,
+        fragmentIds: v.hiddenFragmentIds,
+        coveredBy: v.coveredBy,
+        details: v.details,
+      })
+    }
   }
   return {
     char,
     outfit: outfitParts.join(', '),
     hiddenItemIds: hidden.map((h) => h.itemId),
     hidden,
+    partial,
     contributingItemIds,
   }
 }

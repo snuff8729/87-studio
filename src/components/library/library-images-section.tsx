@@ -10,6 +10,7 @@ import {
   listLibraryImages,
   updateLibraryCharacter,
   updateOutfitItem,
+  updatePreset,
 } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -21,12 +22,13 @@ export function libraryThumbUrl(path: string): string {
 }
 
 async function setThumbnail(
-  kind: 'character' | 'item',
+  kind: 'character' | 'item' | 'preset',
   id: number,
   thumbnailImageId: number | null,
 ) {
   const payload = { id, thumbnailImageId }
   if (kind === 'character') await updateLibraryCharacter({ data: payload })
+  else if (kind === 'preset') await updatePreset({ data: payload })
   else await updateOutfitItem({ data: payload })
 }
 
@@ -37,7 +39,7 @@ export function LibraryImagesSection({
   imageCount,
   thumbnailImageId,
 }: {
-  kind: 'character' | 'item'
+  kind: 'character' | 'item' | 'preset'
   id: number
   imageCount: number
   thumbnailImageId: number | null
@@ -66,7 +68,9 @@ export function LibraryImagesSection({
         imageDetail: imageId,
         ...(kind === 'character'
           ? { detailLibChar: id }
-          : { detailOutfitItem: id }),
+          : kind === 'preset'
+            ? { detailPreset: id }
+            : { detailOutfitItem: id }),
       }),
     } as any)
   }
@@ -110,7 +114,9 @@ export function LibraryImagesSection({
                 search={
                   kind === 'character'
                     ? { libraryCharacter: id, imageDetail: undefined }
-                    : { outfitItem: id, imageDetail: undefined }
+                    : kind === 'preset'
+                      ? { outfitPreset: id, imageDetail: undefined }
+                      : { outfitItem: id, imageDetail: undefined }
                 }
                 data-view-in-gallery
               >
@@ -124,7 +130,9 @@ export function LibraryImagesSection({
         <p className="py-4 text-center text-sm text-muted-foreground">
           {kind === 'character'
             ? t('library.imagesEmptyCharacter')
-            : t('library.imagesEmptyItem')}
+            : kind === 'preset'
+              ? t('library.imagesEmptyPreset')
+              : t('library.imagesEmptyItem')}
         </p>
       ) : (
         <div className="grid grid-cols-4 gap-1.5 sm:grid-cols-5 md:grid-cols-6">

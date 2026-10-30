@@ -43,6 +43,7 @@ export type GalleryLibrary = {
   }>
   characters: Array<Option>
   items: Array<Option>
+  presets: Array<Option>
 }
 
 /** Filters that appear as removable chips (sort is its own control). */
@@ -60,6 +61,7 @@ export function activeFilterCount(f: GalleryFilters) {
     f.axis,
     f.libraryCharacter,
     f.outfitItem,
+    f.outfitPreset,
   ].filter(Boolean).length
 }
 
@@ -115,7 +117,11 @@ export function GalleryToolbar({
   bundles: Array<Option>
   library: GalleryLibrary
   /** Names for the active character/outfit filter ids (may be outside this project's library) */
-  libraryNames?: { characters: Array<Option>; items: Array<Option> }
+  libraryNames?: {
+    characters: Array<Option>
+    items: Array<Option>
+    presets: Array<Option>
+  }
   gridSize: GridSize
   onGridSizeChange: (size: GridSize) => void
   /** Merges a partial filter set; `undefined` values remove a filter */
@@ -144,6 +150,12 @@ export function GalleryToolbar({
     ? (library.items.find((c) => c.id === filters.outfitItem)?.name ??
       libraryNames?.items.find((c) => c.id === filters.outfitItem)?.name ??
       `#${filters.outfitItem}`)
+    : undefined
+
+  const presetName = filters.outfitPreset
+    ? (library.presets.find((c) => c.id === filters.outfitPreset)?.name ??
+      libraryNames?.presets.find((c) => c.id === filters.outfitPreset)?.name ??
+      `#${filters.outfitPreset}`)
     : undefined
 
   return (
@@ -237,6 +249,13 @@ export function GalleryToolbar({
           kind="outfit-item"
           label={t('gallery.outfitChip', { name: itemName })}
           onRemove={() => onChange({ outfitItem: undefined })}
+        />
+      )}
+      {presetName && (
+        <Chip
+          kind="outfit-preset"
+          label={t('gallery.presetChip', { name: presetName })}
+          onRemove={() => onChange({ outfitPreset: undefined })}
         />
       )}
       {filters.tag && (

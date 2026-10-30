@@ -193,6 +193,7 @@ const ko: DeepStringify<typeof en> = {
     promptTagPlaceholder: '단부루 태그, 예: blue_hair',
     promptTagChip: '프롬프트: {{tag}}',
     characterChip: '캐릭터: {{name}}',
+    presetChip: '프리셋: {{name}}',
     outfitChip: '의상: {{name}}',
     axisFilterHint:
       '이번 업데이트 이후 생성한 이미지에만 구도/프레이밍 정보가 있어요.',
@@ -789,6 +790,7 @@ const ko: DeepStringify<typeof en> = {
     inheritScene: '씬 따름',
     inheritDefault: '기본값',
     emptyOutfit: '아이템 없음',
+    varEmpty: '값',
     outfitOrder: '안쪽 → 바깥쪽',
     addItem: '아이템 추가',
     searchItems: '아이템 검색...',
@@ -832,6 +834,8 @@ const ko: DeepStringify<typeof en> = {
     bulkFailed: '씬 수정에 실패했어요',
     covered: '가려짐',
     coveredBy: '{{name}}에 가려짐',
+    partlyCovered: '일부 가려짐',
+    partlyCoveredLine: '{{text}} — {{name}}에 가려짐',
   },
   quickGenerate: {
     title: '빠른 생성',
@@ -1289,8 +1293,30 @@ const ko: DeepStringify<typeof en> = {
     imagesTitle: '이미지 ({{count}})',
     imagesEmptyCharacter:
       '이 캐릭터로 생성한 이미지가 여기에 표시돼요 (지금부터).',
-    imagesEmptyItem:
-      '이 아이템으로 생성한 이미지가 여기에 표시돼요 (지금부터).',
+    imagesEmptyItem: '이 아이템으로 생성한 이미지가 여기에 표시돼요 (지금부터).',
+    imagesEmptyPreset:
+      '이 의상으로 생성한 이미지가 여기에 표시돼요 (지금부터).',
+    variables: '변수',
+    noVariables: '변수 없음',
+    variableName: '변수 이름',
+    variableDefault: '기본값',
+    variableDefaultPlaceholder: '기본값',
+    deleteVariable: '변수 삭제',
+    addVariable: '변수 추가',
+    variableNamePlaceholder: '변수 이름 (예: color)',
+    variableDuplicate: '같은 이름의 변수가 이미 있어요',
+    variablesHint:
+      '이 아이템의 조각에서 @{var:이름} 으로 사용하세요. 의상 항목마다 값을 지정할 수 있고, 비우면 여기의 기본값을 써요.',
+    fragmentAreas: '조각 부위',
+    fragmentAreasInherit: '부위: 아이템 따라감',
+    fragmentAreasOwn: '부위: {{names}}',
+    fragmentAreasHint:
+      '이 조각이 차지하는 신체 부위를 고르세요. 비우면 아이템의 부위를 따라가요. 모든 부위가 가려지면 조각이 숨겨져요.',
+    fragmentAreasClear: '지우기 (아이템 따라감)',
+    areaMenu: '부위 메뉴',
+    setParent: '상위 부위 지정',
+    oneLevelOnly: '한 단계만 가능',
+    parentNone: '없음 (최상위)',
     viewInGallery: '갤러리에서 보기',
     setThumbnail: '썸네일로 지정',
     resetThumbnail: '썸네일 초기화',

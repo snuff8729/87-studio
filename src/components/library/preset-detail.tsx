@@ -3,6 +3,8 @@ import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useDebouncedSave } from './use-debounced-save'
 import { useSerialSave } from './use-serial-save'
+import { LibraryImagesSection } from './library-images-section'
+import type { ItemVariable, OutfitEntry } from '@/lib/character-parts'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -14,10 +16,12 @@ interface PresetRow {
   id: number
   name: string
   description: string | null
-  itemIds: Array<number>
+  entries: Array<OutfitEntry>
+  imageCount: number
+  thumbnailImageId: number | null
 }
 
-/** Preset detail: name, description and its ordered outfit items. */
+/** Preset detail: name, description, its ordered outfit items and images. */
 export function PresetDetail({
   preset,
   items,
@@ -29,6 +33,7 @@ export function PresetDetail({
     name: string
     projectId: number | null
     areaIds?: Array<number>
+    variables?: Array<ItemVariable>
   }>
   areas?: Array<{ id: number; name: string }>
 }) {
@@ -56,10 +61,10 @@ export function PresetDetail({
     })
   }
 
-  const itemIds = useSerialSave<Array<number>>(
-    preset.itemIds,
-    async (ids) => {
-      await updatePreset({ data: { id: preset.id, itemIds: ids } })
+  const entries = useSerialSave<Array<OutfitEntry>>(
+    preset.entries,
+    async (next) => {
+      await updatePreset({ data: { id: preset.id, itemIds: next } })
       await refresh()
     },
     () => toast.error(t('library.saveFailed')),
@@ -95,13 +100,20 @@ export function PresetDetail({
           {t('library.presetItems')}
         </Label>
         <OutfitItemsEditor
-          itemIds={itemIds.value}
-          onChange={(ids) => itemIds.commit(() => ids)}
+          entries={entries.value}
+          onChange={(next) => entries.commit(() => next)}
           items={items}
           areas={areas}
           showPresetMenu={false}
         />
       </section>
+
+      <LibraryImagesSection
+        kind="preset"
+        id={preset.id}
+        imageCount={preset.imageCount}
+        thumbnailImageId={preset.thumbnailImageId}
+      />
     </div>
   )
 }

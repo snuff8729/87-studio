@@ -5,16 +5,22 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
 import { ToggleGroup } from 'radix-ui'
 import { usePendingSave } from './pending-saves'
-import type { AxisValues, PartsAxis } from '@/lib/character-parts'
+import type {
+  AxisValues,
+  ItemVariable,
+  OutfitEntry,
+  PartsAxis,
+} from '@/lib/character-parts'
 import {
   parseAxisValues,
-  parseIdList,
+  parseOutfitEntries,
   relevantAxes,
 } from '@/lib/character-parts'
 import { AxisSegmented } from '@/components/parts/axis-segmented'
 import {
   CoveredBadge,
   OutfitItemsEditor,
+  PartlyCoveredBadge,
 } from '@/components/parts/outfit-items-editor'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/lib/i18n'
@@ -45,7 +51,7 @@ export interface ScenePartsOverride {
 
 interface OverrideState {
   axisValues: AxisValues
-  outfitItemIds: Array<number> | null
+  outfitItemIds: Array<OutfitEntry> | null
 }
 
 const DEBOUNCE_MS = 800
@@ -54,13 +60,13 @@ const DEBOUNCE_MS = 800
 export function slotHasParts(slot: ScenePartsSlot): boolean {
   return (
     slot.libraryCharacterId != null ||
-    parseIdList(slot.outfitItemIds ?? '[]').length > 0
+    parseOutfitEntries(slot.outfitItemIds ?? '[]').length > 0
   )
 }
 
 function parseOverride(o: ScenePartsOverride | undefined): OverrideState {
-  let outfit: Array<number> | null = null
-  if (o && o.outfitItemIds != null) outfit = parseIdList(o.outfitItemIds)
+  let outfit: Array<OutfitEntry> | null = null
+  if (o && o.outfitItemIds != null) outfit = parseOutfitEntries(o.outfitItemIds)
   return {
     axisValues: parseAxisValues(o?.axisValues ?? '{}'),
     outfitItemIds: outfit,
@@ -253,7 +259,15 @@ export function ScenePartsSection({
   // Refetch when item areas / cover rules / areas change in the library
   const libraryKey = JSON.stringify([
     library.data?.areas.map((a) => a.id),
-    library.data?.items.map((i) => [i.id, i.areaIds, i.coverRules]),
+    library.data?.areas.map((a) => a.parentId),
+    library.data?.items.map((i) => [
+      i.id,
+      i.areaIds,
+      i.coverRules,
+      i.variables,
+      i.fragments.map((f) => f.areaIds),
+    ]),
+    library.data?.presets.map((p) => [p.id, p.entries]),
     // Chars tab edits: library character / default outfit / axis defaults
     slots.map((s) => [
       s.id,
@@ -279,6 +293,12 @@ export function ScenePartsSection({
     (preview.data?.characterPrompts ?? []).map((c) => [
       c.characterId,
       c.hiddenItems ?? [],
+    ]),
+  )
+  const partialBySlot = new Map(
+    (preview.data?.characterPrompts ?? []).map((c) => [
+      c.characterId,
+      c.partialItems ?? [],
     ]),
   )
 
@@ -313,6 +333,7 @@ export function ScenePartsSection({
             areas={library.data?.areas}
             presets={presets}
             hidden={hiddenBySlot.get(slot.id)}
+            partialItems={partialBySlot.get(slot.id)}
             projectId={projectId}
             onAxis={(axisId, v) =>
               updateOverride(slot.id, (cur) => {
@@ -410,6 +431,7 @@ function CharacterRow({
   areas,
   presets,
   hidden,
+  partialItems,
   projectId,
   onAxis,
   onOutfit,
@@ -424,21 +446,30 @@ function CharacterRow({
     name: string
     projectId: number | null
     areaIds?: Array<number>
+    variables?: Array<ItemVariable>
+    fragments?: Array<{ id: number; text: string }>
   }>
   areas?: Array<{ id: number; name: string }>
-  presets: Array<{ id: number; name: string; itemIds: Array<number> }>
+  presets: Array<{ id: number; name: string; entries: Array<OutfitEntry> }>
   /** Items hidden by occlusion for this character in this scene */
   hidden: Array<{ itemId: number; coveredBy: Array<number> }> | undefined
+  /** Items with some fragments hidden by occlusion */
+  partialItems:
+    | Array<{
+        itemId: number
+        details: Array<{ fragmentId: number; coveredBy: Array<number> }>
+      }>
+    | undefined
   projectId: number
   onAxis: (axisId: number, v: number | null) => void
-  onOutfit: (ids: Array<number> | null) => void
+  onOutfit: (entries: Array<OutfitEntry> | null) => void
   onReset: () => void
 }) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const cur: OverrideState = state ?? { axisValues: {}, outfitItemIds: null }
-  const slotOutfit = parseIdList(slot.outfitItemIds ?? '[]')
-  const effectiveOutfit = cur.outfitItemIds ?? slotOutfit
+  const slotOutfit = parseOutfitEntries(slot.outfitItemIds ?? '[]')
+  const effectiveOutfit = (cur.outfitItemIds ?? slotOutfit).map((e) => e.id)
   const localAxes = relevantAxes(
     axes,
     slot.libraryCharacterId ?? null,
@@ -463,6 +494,20 @@ function CharacterRow({
       .map((id) => items.find((i) => i.id === id)?.name)
       .filter(Boolean)
     covered[h.itemId] = names.join(', ')
+  }
+
+  const partial: Record<number, Array<{ text: string; by: string }>> = {}
+  for (const p of partialItems ?? []) {
+    const item = items.find((i) => i.id === p.itemId)
+    partial[p.itemId] = p.details.map((d) => ({
+      text:
+        item?.fragments?.find((f) => f.id === d.fragmentId)?.text.trim() ??
+        `#${d.fragmentId}`,
+      by: d.coveredBy
+        .map((id) => items.find((i) => i.id === id)?.name)
+        .filter(Boolean)
+        .join(', '),
+    }))
   }
 
   return (
@@ -539,18 +584,19 @@ function CharacterRow({
             </ToggleGroup.Root>
             {cur.outfitItemIds ? (
               <OutfitItemsEditor
-                itemIds={cur.outfitItemIds}
-                onChange={(ids) => onOutfit(ids)}
+                entries={cur.outfitItemIds}
+                onChange={(next) => onOutfit(next)}
                 items={items}
                 areas={areas}
                 presets={presets}
                 projectId={projectId}
                 covered={covered}
+                partial={partial}
               />
             ) : (
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
                 {slotOutfit.length === 0 && t('parts.emptyOutfit')}
-                {slotOutfit.map((id, i) => {
+                {slotOutfit.map(({ id }, i) => {
                   const item = items.find((x) => x.id === id)
                   if (!item) return null
                   return (
@@ -573,6 +619,9 @@ function CharacterRow({
                       </span>
                       {covered[id] !== undefined && (
                         <CoveredBadge by={covered[id]} />
+                      )}
+                      {covered[id] === undefined && partial[id] && (
+                        <PartlyCoveredBadge lines={partial[id]} />
                       )}
                     </span>
                   )

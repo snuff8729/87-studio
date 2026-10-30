@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "e4230a16-02ff-4e85-8845-3700128f0f95",
+  "id": "aeb0d4ec-6758-4002-82bd-f19e77f8eba3",
   "prevId": "f529de8e-0fbd-4a84-a917-b2c4cf199965",
   "tables": {
     "bundle_tag_assignments": {
@@ -397,6 +397,14 @@
           "notNull": false,
           "autoincrement": false,
           "default": "'{}'"
+        },
+        "area_ids": {
+          "name": "area_ids",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'[]'"
         },
         "sort_order": {
           "name": "sort_order",
@@ -1273,6 +1281,13 @@
           "notNull": true,
           "autoincrement": false
         },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -1283,7 +1298,21 @@
         }
       },
       "indexes": {},
-      "foreignKeys": {},
+      "foreignKeys": {
+        "library_areas_parent_id_library_areas_id_fk": {
+          "name": "library_areas_parent_id_library_areas_id_fk",
+          "tableFrom": "library_areas",
+          "tableTo": "library_areas",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "checkConstraints": {}
@@ -1604,6 +1633,14 @@
           "autoincrement": false,
           "default": "'[]'"
         },
+        "variables": {
+          "name": "variables",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false,
+          "default": "'[]'"
+        },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
@@ -1688,6 +1725,13 @@
           "notNull": false,
           "autoincrement": false,
           "default": "'[]'"
+        },
+        "thumbnail_image_id": {
+          "name": "thumbnail_image_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         },
         "sort_order": {
           "name": "sort_order",
@@ -2732,52 +2776,6 @@
             "locale"
           ],
           "name": "tag_descriptions_tag_locale_pk"
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "tag_remote_cache": {
-      "name": "tag_remote_cache",
-      "columns": {
-        "tag": {
-          "name": "tag",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "kind": {
-          "name": "kind",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "json": {
-          "name": "json",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "fetched_at": {
-          "name": "fetched_at",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "tag_remote_cache_tag_kind_pk": {
-          "columns": [
-            "tag",
-            "kind"
-          ],
-          "name": "tag_remote_cache_tag_kind_pk"
         }
       },
       "uniqueConstraints": {},
