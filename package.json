@@ -14,7 +14,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "start": "node .output/server/index.mjs"
+    "start": "node .output/server/index.mjs",
+    "demo": "scripts\\demo\\start-demo.bat",
+    "demo:seed": "node scripts/demo/seed.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.2.0",
