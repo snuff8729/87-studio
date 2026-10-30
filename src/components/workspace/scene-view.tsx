@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
+  ArrowLeft01Icon,
   ArrowDown01Icon,
   Cancel01Icon,
   ChampionIcon,
@@ -88,6 +89,8 @@ export interface SceneViewProps {
   refreshKey?: number
   imageSortBy?: SceneImageSortBy
   onImageSortByChange?: (sort: SceneImageSortBy) => void
+  /** Back to the scene board (deselects the scene). */
+  onClose: () => void
 }
 
 function thumbUrl(path: string) {
@@ -141,6 +144,7 @@ export function SceneView({
   refreshKey,
   imageSortBy,
   onImageSortByChange,
+  onClose,
 }: SceneViewProps) {
   const { t } = useTranslation()
   const onboarding = useOnboardingMaybe()
@@ -221,6 +225,11 @@ export function SceneView({
   // Local bump so SceneDetail silently reloads W/L stats after a tournament
   const [localRefresh, setLocalRefresh] = useState(0)
 
+  // Image selection belongs to one scene
+  useEffect(() => {
+    setSelectMode(false)
+  }, [sceneId])
+
   function handleCompare() {
     if (!selectMode) setSelectMode(true)
     toast.info(t('sceneView.selectToCompare'))
@@ -232,6 +241,19 @@ export function SceneView({
     <div className="@container relative flex h-full min-h-0 flex-col">
       {/* ── Scene header ── */}
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          title={t('sceneView.backToScenesTitle')}
+          aria-label={t('sceneView.backToScenesTitle')}
+          className="-ml-1 shrink-0 px-1.5"
+        >
+          <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
+          <span className="hidden @md:inline">
+            {t('sceneView.backToScenes')}
+          </span>
+        </Button>
         <div className="size-8 shrink-0 overflow-hidden rounded-md bg-secondary/60">
           {scene.thumbnailPath ? (
             <img

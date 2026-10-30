@@ -280,6 +280,8 @@ const ko: DeepStringify<typeof en> = {
   sceneView: {
     placeholders: '플레이스홀더',
     togglePlaceholders: '플레이스홀더 보이기/숨기기',
+    backToScenes: '씬',
+    backToScenesTitle: '전체 씬으로 돌아가기',
     imageSize: '이미지 크기',
     selectToCompare: '이미지를 2개 이상 선택한 뒤 비교를 누르세요.',
     boardTitle: '씬',
@@ -746,7 +748,7 @@ const ko: DeepStringify<typeof en> = {
     step8: {
       title: '이미지 생성',
       description:
-        '생성할 이미지 수를 설정하고 생성 버튼을 클릭하세요. 이미지가 백그라운드에서 생성됩니다.',
+        '씬 탭에서 "기본 ×N"(또는 씬별 개수)으로 씬마다 생성할 이미지 수를 정한 뒤 생성 버튼을 누르세요. 이미지는 백그라운드에서 생성됩니다.',
     },
     completion: {
       title: '튜토리얼 완료!',

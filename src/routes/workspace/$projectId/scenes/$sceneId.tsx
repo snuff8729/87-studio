@@ -6,7 +6,8 @@ import { createFileRoute, redirect } from '@tanstack/react-router'
  */
 export const Route = createFileRoute('/workspace/$projectId/scenes/$sceneId')({
   beforeLoad: ({ params, search }) => {
-    const imageSort = (search as Record<string, unknown>).imageSort
+    const { imageSort, imageDetail } = search as Record<string, unknown>
+    const imageDetailId = Number(imageDetail)
     throw redirect({
       to: '/workspace/$projectId',
       params: { projectId: params.projectId },
@@ -16,7 +17,11 @@ export const Route = createFileRoute('/workspace/$projectId/scenes/$sceneId')({
           imageSort === 'tournament_winrate' || imageSort === 'tournament_wins'
             ? imageSort
             : undefined,
-        imageDetail: undefined,
+        // Keep an open image overlay (`?imageDetail=`) across the redirect
+        imageDetail:
+          Number.isInteger(imageDetailId) && imageDetailId > 0
+            ? imageDetailId
+            : undefined,
       },
       replace: true,
     })

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
 /** Modal surfaces that should swallow the shortcut while open. */
 const MODAL_SELECTOR = [
@@ -49,4 +49,34 @@ export function useGenerateShortcut(onGenerate: () => void, enabled: boolean) {
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
   }, [])
+}
+
+/**
+ * Shared 1s Generate cooldown for the button and the shortcut: `trigger`
+ * runs `onGenerate` unless cooling down, then starts the cooldown. Pass
+ * `trigger` and `enabled && !cooldown` to `useGenerateShortcut` so a click
+ * and a Ctrl/Cmd+Enter within 1s cannot queue two batches.
+ */
+export function useGenerateCooldown(onGenerate: () => void) {
+  const [cooldown, setCooldown] = useState(false)
+  const coolingRef = useRef(false)
+  const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  const onGenerateRef = useRef(onGenerate)
+  onGenerateRef.current = onGenerate
+
+  useEffect(() => () => clearTimeout(timerRef.current), [])
+
+  const trigger = useCallback(() => {
+    if (coolingRef.current) return
+    coolingRef.current = true
+    setCooldown(true)
+    clearTimeout(timerRef.current)
+    timerRef.current = setTimeout(() => {
+      coolingRef.current = false
+      setCooldown(false)
+    }, GENERATE_COOLDOWN_MS)
+    onGenerateRef.current()
+  }, [])
+
+  return { cooldown, trigger }
 }

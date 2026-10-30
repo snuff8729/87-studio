@@ -45,7 +45,14 @@ import {
 } from '@/server/functions/project-scenes'
 import { EditorShell } from '@/components/editor-shell/editor-shell'
 import { EditorHeader } from '@/components/editor-shell/editor-header'
-import { useGenerateShortcut } from '@/components/editor-shell/use-generate-shortcut'
+import {
+  useGenerateCooldown,
+  useGenerateShortcut,
+} from '@/components/editor-shell/use-generate-shortcut'
+import {
+  PendingSavesProvider,
+  createPendingSaves,
+} from '@/components/workspace/pending-saves'
 import { PromptPanel } from '@/components/workspace/prompt-panel'
 import {
   ReferencePanel,
@@ -249,19 +256,33 @@ function WorkspacePage() {
     [projectId, router, t],
   )
 
+  // Last started project save (awaited by Generate)
+  const projectSaveInFlightRef = useRef<Promise<void>>(Promise.resolve())
+
+  /** Saves the pending (debounced) fields now, or awaits a save in flight. */
+  const flushProjectSave = useCallback((): Promise<void> => {
+    if (!saveTimeoutRef.current) return projectSaveInFlightRef.current
+    clearTimeout(saveTimeoutRef.current)
+    saveTimeoutRef.current = undefined
+    const pending = pendingFieldsRef.current
+    pendingFieldsRef.current = {}
+    const save = saveProject(pending)
+    projectSaveInFlightRef.current = save
+    return save
+  }, [saveProject])
+
   const debouncedSave = useCallback(
     (fields: ProjectFields) => {
       pendingFieldsRef.current = { ...pendingFieldsRef.current, ...fields }
       if (saveTimeoutRef.current) clearTimeout(saveTimeoutRef.current)
-      saveTimeoutRef.current = setTimeout(() => {
-        saveTimeoutRef.current = undefined
-        const pending = pendingFieldsRef.current
-        pendingFieldsRef.current = {}
-        saveProject(pending)
-      }, 1000)
+      saveTimeoutRef.current = setTimeout(() => void flushProjectSave(), 1000)
     },
-    [saveProject],
+    [flushProjectSave],
   )
+
+  // Debounced saves of child editors (placeholders, character prompts),
+  // flushed before Generate
+  const [pendingSaves] = useState(createPendingSaves)
 
   function handleGeneralPromptChange(value: string) {
     setGeneralPrompt(value)
@@ -442,17 +463,26 @@ function WorkspacePage() {
   const selectedSceneId = selectedSceneEntry ? requestedSceneId : null
 
   const setSelectedSceneId = useCallback(
-    (id: number | null) => {
-      navigate({ search: (prev) => ({ ...prev, scene: id ?? undefined }) })
+    (id: number | null, opts?: { replace?: boolean }) => {
+      navigate({
+        search: (prev) => ({ ...prev, scene: id ?? undefined }),
+        replace: opts?.replace,
+      })
     },
     [navigate],
   )
 
   const handleSceneSelect = useCallback(
-    (id: number | null) => {
-      setSelectedSceneId(id)
+    (id: number | null, opts?: { replace?: boolean }) => {
+      setSelectedSceneId(id, opts)
       if (id != null) setMobilePane('result')
     },
+    [setSelectedSceneId],
+  )
+
+  // Back to the board (mobile stays on the Result pane, showing the board)
+  const handleCloseScene = useCallback(
+    () => setSelectedSceneId(null),
     [setSelectedSceneId],
   )
 
@@ -503,12 +533,14 @@ function WorkspacePage() {
     [projectId, router],
   )
 
+  // A pending placeholder edit of a scene being deleted is dropped, not saved
   const handleDeleteScene = useCallback(
     async (sceneId: number) => {
+      pendingSaves.discard(`scene:${sceneId}`)
       await deleteProjectScene({ data: sceneId })
       router.invalidate()
     },
-    [router],
+    [router, pendingSaves],
   )
 
   const handleRenameScene = useCallback(
@@ -540,6 +572,7 @@ function WorkspacePage() {
 
   const handleBulkDeleteScenes = useCallback(
     async (ids: Array<number>) => {
+      for (const id of ids) pendingSaves.discard(`scene:${id}`)
       try {
         await bulkDeleteProjectScenes({ data: ids })
       } catch (err) {
@@ -549,7 +582,7 @@ function WorkspacePage() {
       toast.success(t('scene.bulkDeleteSuccess', { count: ids.length }))
       handlePlaceholdersChange()
     },
-    [t, handlePlaceholdersChange],
+    [t, handlePlaceholdersChange, pendingSaves],
   )
 
   // ── Thumbnails ──
@@ -691,10 +724,24 @@ function WorkspacePage() {
     }
   }, [generating, queueStopped, projectId, router])
 
+  // Latest committed reserve state (read after the blur below re-rendered)
+  const reserveRef = useRef({ allSceneIds, sceneCounts, countPerScene })
+  reserveRef.current = { allSceneIds, sceneCounts, countPerScene }
+
   async function handleGenerate() {
-    const getSceneCount = (id: number) => sceneCounts[id] ?? countPerScene
-    const sceneIds = allSceneIds.filter((id) => getSceneCount(id) > 0)
-    if (allSceneIds.length === 0) {
+    // Generate uses what is on screen: blur commits a typed reserve stepper
+    // value, then every pending debounced save is flushed.
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur()
+    }
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    await Promise.all([flushProjectSave(), pendingSaves.flushAll()])
+
+    const reserve = reserveRef.current
+    const getSceneCount = (id: number) =>
+      reserve.sceneCounts[id] ?? reserve.countPerScene
+    const sceneIds = reserve.allSceneIds.filter((id) => getSceneCount(id) > 0)
+    if (reserve.allSceneIds.length === 0) {
       toast.error(t('generation.noScenesAvailable'))
       return
     }
@@ -718,18 +765,6 @@ function WorkspacePage() {
       return
     }
 
-    // Flush a pending prompt/parameter save so the job uses the latest values
-    if (saveTimeoutRef.current) {
-      clearTimeout(saveTimeoutRef.current)
-      saveTimeoutRef.current = undefined
-      pendingFieldsRef.current = {}
-      await saveProject({
-        generalPrompt,
-        negativePrompt,
-        parameters: JSON.stringify(params),
-      })
-    }
-
     const batchTotal = sceneIds.reduce((sum, id) => sum + getSceneCount(id), 0)
     setGenerating(true)
     try {
@@ -737,9 +772,11 @@ function WorkspacePage() {
         data: {
           projectId,
           projectSceneIds: sceneIds,
-          countPerScene,
+          countPerScene: reserve.countPerScene,
           sceneCounts:
-            Object.keys(sceneCounts).length > 0 ? sceneCounts : undefined,
+            Object.keys(reserve.sceneCounts).length > 0
+              ? reserve.sceneCounts
+              : undefined,
         },
       })
       toast.success(t('generation.generationStarted', { count: batchTotal }))
@@ -751,19 +788,12 @@ function WorkspacePage() {
     }
   }
 
-  // Generate button cooldown (same 1s as Quick Generate)
-  const [cooldown, setCooldown] = useState(false)
-  const cooldownRef = useRef<ReturnType<typeof setTimeout>>(undefined)
-  useEffect(() => () => clearTimeout(cooldownRef.current), [])
-  function handleGenerateClick() {
-    handleGenerate()
-    setCooldown(true)
-    clearTimeout(cooldownRef.current)
-    cooldownRef.current = setTimeout(() => setCooldown(false), 1000)
-  }
+  // Button and Ctrl/Cmd+Enter share one 1s cooldown (same as Quick Generate)
+  const { cooldown, trigger: handleGenerateClick } =
+    useGenerateCooldown(handleGenerate)
 
   const canGenerate = summary.images > 0
-  useGenerateShortcut(handleGenerate, canGenerate)
+  useGenerateShortcut(handleGenerateClick, canGenerate && !cooldown)
 
   // ── Tab badges ──
   const { data: references = [] } = useReferenceImages(projectId)
@@ -806,7 +836,7 @@ function WorkspacePage() {
   const scenePackDialog = <ScenePackDialog projectId={projectId} />
 
   return (
-    <>
+    <PendingSavesProvider value={pendingSaves}>
       <EditorShell
         id="workspace"
         mobilePane={mobilePane}
@@ -990,6 +1020,7 @@ function WorkspacePage() {
               refreshKey={refreshKey}
               imageSortBy={imageSortBy}
               onImageSortByChange={setImageSortBy}
+              onClose={handleCloseScene}
             />
           ) : (
             <SceneBoard
@@ -1036,6 +1067,6 @@ function WorkspacePage() {
         onOpenChange={setImportOpen}
         onImported={handleImported}
       />
-    </>
+    </PendingSavesProvider>
   )
 }

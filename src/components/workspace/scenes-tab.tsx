@@ -97,7 +97,11 @@ export interface ScenesTabProps {
   searchQuery: string
   onSearchQueryChange: (q: string) => void
   selectedSceneId: number | null
-  onSelectedSceneChange: (id: number | null) => void
+  /** `replace`: keyboard ↑/↓ moves do not add history entries. */
+  onSelectedSceneChange: (
+    id: number | null,
+    opts?: { replace?: boolean },
+  ) => void
   /** Renders an export trigger + dialog for the selected scenes (bulk bar). */
   exportDialog?: (sceneIds: Array<number>) => ReactNode
   /** Bulk delete for select mode; hidden when not provided. */
@@ -394,7 +398,7 @@ export const ScenesTab = memo(function ScenesTab({
             : navigableIds.length - 1
           : Math.min(navigableIds.length - 1, Math.max(0, idx + delta))
       if (navigableIds[next] !== selectedSceneId) {
-        onSelectedSceneChange(navigableIds[next])
+        onSelectedSceneChange(navigableIds[next], { replace: true })
       }
     },
     [navigableIds, selectedSceneId, onSelectedSceneChange],

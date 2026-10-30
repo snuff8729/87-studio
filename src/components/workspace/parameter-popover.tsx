@@ -1,7 +1,3 @@
-import { memo, useCallback, useState, useSyncExternalStore } from 'react'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Settings02Icon } from '@hugeicons/core-free-icons'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
@@ -14,18 +10,6 @@ import {
 } from '@/components/ui/select'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog'
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -33,23 +17,6 @@ import {
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
 import { DEFAULT_FILENAME_TEMPLATE } from '@/server/services/download'
-
-// --- useIsMobile hook ---
-const MOBILE_QUERY = '(max-width: 639px)'
-function subscribe(cb: () => void) {
-  const mql = window.matchMedia(MOBILE_QUERY)
-  mql.addEventListener('change', cb)
-  return () => mql.removeEventListener('change', cb)
-}
-function getSnapshot() {
-  return window.matchMedia(MOBILE_QUERY).matches
-}
-function getServerSnapshot() {
-  return false
-}
-function useIsMobile() {
-  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
-}
 
 // --- Model presets ---
 const AVAILABLE_MODELS = [
@@ -391,69 +358,3 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
     </div>
   )
 }
-
-// --- Main component ---
-interface ParameterPopoverProps {
-  params: Record<string, unknown>
-  onChange: (params: Record<string, unknown>) => void
-}
-
-export const ParameterPopover = memo(function ParameterPopover({
-  params,
-  onChange,
-}: ParameterPopoverProps) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [localParams, setLocalParams] = useState(params)
-  const isMobile = useIsMobile()
-
-  function handleOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      setLocalParams(params)
-    } else {
-      onChange(localParams)
-    }
-    setOpen(isOpen)
-  }
-
-  const set = useCallback((key: string, value: unknown) => {
-    setLocalParams((prev) => ({ ...prev, [key]: value }))
-  }, [])
-
-  const trigger = (
-    <Button variant="ghost" size="sm">
-      <HugeiconsIcon icon={Settings02Icon} className="size-5" />
-      <span className="hidden sm:inline">{t('generation.parameters')}</span>
-    </Button>
-  )
-
-  if (isMobile) {
-    return (
-      <Dialog open={open} onOpenChange={handleOpenChange}>
-        <DialogTrigger asChild>{trigger}</DialogTrigger>
-        <DialogContent className="!top-auto !bottom-0 !translate-y-0 !translate-x-[-50%] !rounded-b-none max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t('generation.generationParameters')}</DialogTitle>
-          </DialogHeader>
-          <ParameterForm localParams={localParams} set={set} />
-        </DialogContent>
-      </Dialog>
-    )
-  }
-
-  return (
-    <Popover open={open} onOpenChange={handleOpenChange}>
-      <PopoverTrigger asChild>{trigger}</PopoverTrigger>
-      <PopoverContent
-        side="top"
-        align="start"
-        className="w-96 max-h-[70vh] overflow-y-auto"
-      >
-        <h4 className="text-base font-medium">
-          {t('generation.generationParameters')}
-        </h4>
-        <ParameterForm localParams={localParams} set={set} />
-      </PopoverContent>
-    </Popover>
-  )
-})

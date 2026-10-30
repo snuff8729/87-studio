@@ -274,6 +274,8 @@ const en = {
   sceneView: {
     placeholders: 'Placeholders',
     togglePlaceholders: 'Show or hide placeholders',
+    backToScenes: 'Scenes',
+    backToScenesTitle: 'Back to all scenes',
     imageSize: 'Image size',
     selectToCompare: 'Select 2 or more images, then press Compare.',
     boardTitle: 'Scenes',
@@ -738,7 +740,7 @@ const en = {
     step8: {
       title: 'Generate Images',
       description:
-        'Set the number of images to generate and click the Generate button. Your images will be created in the background.',
+        'In the Scenes tab, set "Default ×N" (or a count on each scene) to choose how many images to make per scene, then press Generate. Images are created in the background.',
     },
     completion: {
       title: 'Tutorial Complete!',

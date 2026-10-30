@@ -16,7 +16,10 @@ import {
   useEditorShell,
 } from '@/components/editor-shell/editor-shell'
 import { EditorHeader } from '@/components/editor-shell/editor-header'
-import { useGenerateShortcut } from '@/components/editor-shell/use-generate-shortcut'
+import {
+  useGenerateCooldown,
+  useGenerateShortcut,
+} from '@/components/editor-shell/use-generate-shortcut'
 import { Button } from '@/components/ui/button'
 import { NumberStepper } from '@/components/ui/number-stepper'
 import { ParameterForm } from '@/components/workspace/parameter-popover'
@@ -53,27 +56,12 @@ function QuickGenerateButton({
   onGenerate: () => void
 }) {
   const { t } = useTranslation()
-  const [cooldown, setCooldown] = useState(false)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current)
-    }
-  }, [])
-
-  const handleClick = useCallback(() => {
-    onGenerate()
-    setCooldown(true)
-    if (timerRef.current) clearTimeout(timerRef.current)
-    timerRef.current = setTimeout(() => setCooldown(false), 1000)
-  }, [onGenerate])
 
   return (
     <Button
       variant="brand"
-      onClick={handleClick}
-      disabled={disabled || cooldown}
+      onClick={onGenerate}
+      disabled={disabled}
       className="min-w-0 flex-1"
     >
       <HugeiconsIcon icon={PlayIcon} className="size-5" />
@@ -340,7 +328,13 @@ function QuickGeneratePage() {
     }
   }
 
-  useGenerateShortcut(handleGenerate, !!state.generalPrompt.trim())
+  // Button and Ctrl/Cmd+Enter share one 1s cooldown
+  const { cooldown, trigger: handleGenerateClick } =
+    useGenerateCooldown(handleGenerate)
+  useGenerateShortcut(
+    handleGenerateClick,
+    !!state.generalPrompt.trim() && !cooldown,
+  )
 
   function addCharacter() {
     setState((prev) => ({
@@ -576,8 +570,8 @@ function QuickGeneratePage() {
               />
               <QuickGenerateButton
                 count={state.count}
-                disabled={!state.generalPrompt.trim()}
-                onGenerate={handleGenerate}
+                disabled={!state.generalPrompt.trim() || cooldown}
+                onGenerate={handleGenerateClick}
               />
             </div>
           </div>

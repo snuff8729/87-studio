@@ -32,6 +32,7 @@ import {
   deleteCharacter,
   updateCharacter,
 } from '@/server/functions/characters'
+import { usePendingSave } from './pending-saves'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -193,21 +194,39 @@ export function PromptPanel({
     }
   }
 
+  // The pending (debounced) edit and the last started save, so Generate can
+  // flush/await them and an unmount does not drop the edit.
+  const pendingCharRef = useRef<{
+    charId: number
+    prompt: string
+    negative: string
+  } | null>(null)
+  const charInFlightRef = useRef<Promise<void>>(Promise.resolve())
+  const saveCharRef = useRef(saveChar)
+  saveCharRef.current = saveChar
+
   function debouncedCharSave(charId: number, prompt: string, negative: string) {
     if (charSaveRef.current) clearTimeout(charSaveRef.current)
-    charSaveRef.current = setTimeout(
-      () => saveChar(charId, prompt, negative),
-      1000,
-    )
+    pendingCharRef.current = { charId, prompt, negative }
+    charSaveRef.current = setTimeout(() => void flushCharSave(), 1000)
   }
 
-  function flushCharSave() {
-    if (charSaveRef.current && typeof activeContext === 'number') {
-      clearTimeout(charSaveRef.current)
-      charSaveRef.current = undefined
-      saveChar(activeContext, charPrompt, charNegative)
-    }
+  function flushCharSave(): Promise<void> {
+    if (charSaveRef.current) clearTimeout(charSaveRef.current)
+    charSaveRef.current = undefined
+    const pending = pendingCharRef.current
+    pendingCharRef.current = null
+    if (!pending) return charInFlightRef.current
+    const save = saveCharRef.current(
+      pending.charId,
+      pending.prompt,
+      pending.negative,
+    )
+    charInFlightRef.current = save
+    return save
   }
+
+  usePendingSave({ flush: flushCharSave })
 
   function switchToGeneral() {
     if (activeContext === 'general') return
@@ -232,9 +251,12 @@ export function PromptPanel({
     }
   }
 
+  // Unmount: save a pending edit instead of dropping it
+  const flushCharSaveRef = useRef(flushCharSave)
+  flushCharSaveRef.current = flushCharSave
   useEffect(() => {
     return () => {
-      if (charSaveRef.current) clearTimeout(charSaveRef.current)
+      void flushCharSaveRef.current()
     }
   }, [])
 
@@ -299,6 +321,12 @@ export function PromptPanel({
   }
 
   async function handleDeleteCharacter(charId: number, charName: string) {
+    // A pending edit of the deleted character must not be saved afterwards
+    if (pendingCharRef.current?.charId === charId) {
+      clearTimeout(charSaveRef.current)
+      charSaveRef.current = undefined
+      pendingCharRef.current = null
+    }
     try {
       await deleteCharacter({ data: charId })
       toast.success(t('workspace.characterDeleted', { name: charName }))

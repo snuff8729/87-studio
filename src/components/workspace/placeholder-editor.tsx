@@ -29,6 +29,7 @@ import { resolveBundles } from '@/lib/bundle'
 import { useBundleMap, useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
 import { planPlaceholderSaves } from './placeholder-save-plan'
+import { usePendingSave } from './pending-saves'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -183,8 +184,11 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     }
   })
 
+  // Saves started by the last flush (awaited by a Generate flush).
+  const inFlightRef = useRef<Promise<void>>(Promise.resolve())
+
   /** Saves the overlay of the last committed render (debounce target). */
-  const flushSave = useCallback(() => {
+  const flushSave = useCallback((): Promise<void> => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = undefined
     const inputs = saveInputsRef.current
@@ -193,20 +197,43 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
       inputs.scenePlaceholders,
       inputs.characterOverrides,
     )
+    const saves: Array<Promise<void>> = []
     if (plan.general !== null) {
-      inputs
-        .onSaveGeneral(plan.general)
-        .then(() => inputs.onPlaceholdersChange?.())
-        .catch(() => toast.error(inputs.t('placeholder.failedToSave')))
+      saves.push(
+        inputs
+          .onSaveGeneral(plan.general)
+          .then(() => inputs.onPlaceholdersChange?.())
+          .catch(() => {
+            toast.error(inputs.t('placeholder.failedToSave'))
+          }),
+      )
     }
     for (const { charId, json } of plan.characters) {
-      inputs
-        .onSaveCharOverride(charId, json)
-        .then(() => inputs.onPlaceholdersChange?.())
-        .catch(() => toast.error(inputs.t('placeholder.failedToSaveOverride')))
+      saves.push(
+        inputs
+          .onSaveCharOverride(charId, json)
+          .then(() => inputs.onPlaceholdersChange?.())
+          .catch(() => {
+            toast.error(inputs.t('placeholder.failedToSaveOverride'))
+          }),
+      )
     }
     // The overlay is kept until the props catch up (see effect below).
+    const all = Promise.all(saves).then(() => undefined)
+    inFlightRef.current = all
+    return all
   }, [])
+
+  // Generate flushes a pending save (or awaits one in flight); deleting the
+  // scene discards it via `discard('scene:<id>')`.
+  usePendingSave({
+    key: `scene:${sceneId}`,
+    flush: () => (saveTimerRef.current ? flushSave() : inFlightRef.current),
+    discard: () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = undefined
+    },
+  })
 
   // Scene change / unmount: flush a pending debounced save for the scene
   // being left (uses the previous scene's inputs), then reset the overlay.
@@ -214,7 +241,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     setLocalValues({})
     pinnedCellRef.current = null
     return () => {
-      if (saveTimerRef.current) flushSave()
+      if (saveTimerRef.current) void flushSave()
     }
   }, [sceneId, flushSave])
 

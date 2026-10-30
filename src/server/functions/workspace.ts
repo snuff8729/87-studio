@@ -392,64 +392,6 @@ export const getSceneImageCounts = createServerFn({ method: 'GET' })
     return counts
   })
 
-// Context for standalone scene detail page
-export const getScenePageContext = createServerFn({ method: 'GET' })
-  .inputValidator((data: { projectId: number; sceneId: number }) => data)
-  .handler(async ({ data }) => {
-    const project = db
-      .select({
-        id: projects.id,
-        name: projects.name,
-        generalPrompt: projects.generalPrompt,
-        negativePrompt: projects.negativePrompt,
-        thumbnailImageId: projects.thumbnailImageId,
-      })
-      .from(projects)
-      .where(eq(projects.id, data.projectId))
-      .get()
-    if (!project) throw new Error('Project not found')
-
-    const chars = db
-      .select()
-      .from(characters)
-      .where(eq(characters.projectId, data.projectId))
-      .orderBy(characters.slotIndex)
-      .all()
-
-    const scene = db
-      .select()
-      .from(projectScenes)
-      .where(eq(projectScenes.id, data.sceneId))
-      .get()
-    if (!scene) throw new Error('Scene not found')
-
-    const pack = db
-      .select({ name: projectScenePacks.name })
-      .from(projectScenePacks)
-      .where(eq(projectScenePacks.id, scene.projectScenePackId))
-      .get()
-
-    const overrides = db
-      .select({
-        characterId: characterSceneOverrides.characterId,
-        placeholders: characterSceneOverrides.placeholders,
-      })
-      .from(characterSceneOverrides)
-      .where(eq(characterSceneOverrides.projectSceneId, data.sceneId))
-      .all()
-
-    return {
-      project,
-      characters: chars,
-      sceneName: scene.name,
-      packName: pack?.name ?? 'Unknown',
-      thumbnailImageId: scene.thumbnailImageId,
-      projectThumbnailImageId: project.thumbnailImageId,
-      scenePlaceholders: scene.placeholders,
-      characterOverrides: overrides,
-    }
-  })
-
 // Lightweight fetch for incremental UI updates during generation
 export const getRecentImages = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
