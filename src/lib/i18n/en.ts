@@ -678,6 +678,7 @@ const en = {
     noMatchingScenes: 'No matching scenes',
   },
   bundles: {
+    newShort: 'New',
     title: 'Prompt Bundles',
     description:
       'Reusable prompt text snippets. Use @{bundle name} in any prompt editor.',
@@ -713,6 +714,8 @@ const en = {
     createTagHint: 'Press Enter to create "{{name}}"',
   },
   tagGallery: {
+    newShort: 'New',
+    newTagName: 'Tag name',
     title: 'Tag Gallery',
     description: 'Browse and bookmark danbooru tags with thumbnails and memos.',
     noBookmarks: 'No bookmarks yet',

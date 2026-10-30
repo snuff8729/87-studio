@@ -15,10 +15,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { PageHeader } from '@/components/common/page-header'
+import { MasterDetail } from '@/components/common/master-detail'
+import { usePageHeader } from '@/components/layout/breadcrumb-context'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
 import {
@@ -86,7 +86,7 @@ function BundlesPage() {
 
   // Resolve URL bundle name to ID
   const urlBundleId = urlBundle
-    ? bundles.find((b) => b.name === urlBundle)?.id ?? null
+    ? (bundles.find((b) => b.name === urlBundle)?.id ?? null)
     : null
   const [selectedId, setSelectedIdState] = useState<number | null>(urlBundleId)
 
@@ -99,6 +99,7 @@ function BundlesPage() {
       replace: true,
     })
   }
+  usePageHeader({ count: bundles.length })
   const [searchText, setSearchText] = useState('')
   const [filterTags, setFilterTags] = useState<Array<string>>([])
   const [showTagDropdown, setShowTagDropdown] = useState(false)
@@ -140,7 +141,9 @@ function BundlesPage() {
   >([])
 
   // Tag state
-  const [allTags, setAllTags] = useState<Array<{ id: number; name: string }>>([])
+  const [allTags, setAllTags] = useState<Array<{ id: number; name: string }>>(
+    [],
+  )
   const [editTags, setEditTags] = useState<Array<string>>([])
   const [tagInput, setTagInput] = useState('')
   const tagSaveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -162,7 +165,9 @@ function BundlesPage() {
       setEditDescription(d.description ?? '')
       setEditContent(d.content)
       const bundleInList = bundles.find((b) => b.id === selectedId)
-      setEditTags(bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [])
+      setEditTags(
+        bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [],
+      )
       setTagInput('')
     })
     listBundleImages({ data: { bundleId: selectedId, limit: 40 } }).then(
@@ -332,7 +337,9 @@ function BundlesPage() {
   const filtered = bundles.filter((b) => {
     if (filterTags.length > 0) {
       const bundleTagNames = b.tags?.map((t: { name: string }) => t.name) ?? []
-      const hasMatchingTag = filterTags.some((ft) => bundleTagNames.includes(ft))
+      const hasMatchingTag = filterTags.some((ft) =>
+        bundleTagNames.includes(ft),
+      )
       if (!hasMatchingTag) return false
     }
     if (searchText) {
@@ -341,454 +348,462 @@ function BundlesPage() {
     return true
   })
 
-  return (
-    <div className="flex flex-col h-full">
-      <PageHeader
-        title={t('bundles.title')}
-        description={t('bundles.description')}
-      />
-
-      <div className="flex-1 flex min-h-0">
-        {/* Left panel — bundle list */}
-        <div className="w-72 lg:w-80 border-r border-border flex flex-col shrink-0">
-          {/* Search + create */}
-          <div className="p-3 space-y-2 border-b border-border">
-            <div className="relative">
-              <HugeiconsIcon
-                icon={Search01Icon}
-                className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10"
-              />
-              <div className="flex flex-wrap items-center gap-1 pl-8 pr-2 border border-border rounded-md bg-background min-h-[32px]">
-                {filterTags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-0.5 bg-primary/15 text-primary rounded px-1.5 py-0.5 text-xs"
+  const listPane = (
+    <div className="flex h-full min-h-0 flex-col">
+      {/* Search + create */}
+      <div className="p-3 space-y-2 border-b border-border">
+        <div className="flex items-start gap-2">
+          <div className="relative min-w-0 flex-1">
+            <HugeiconsIcon
+              icon={Search01Icon}
+              className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground z-10"
+            />
+            <div className="flex flex-wrap items-center gap-1 pl-8 pr-2 border border-border rounded-md bg-background min-h-[32px]">
+              {filterTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-0.5 bg-primary/15 text-primary rounded px-1.5 py-0.5 text-xs"
+                >
+                  #{tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveFilterTag(tag)}
+                    className="hover:text-primary/70"
                   >
-                    #{tag}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFilterTag(tag)}
-                      className="hover:text-primary/70"
-                    >
-                      <HugeiconsIcon icon={Cancel01Icon} className="size-2.5" />
-                    </button>
-                  </span>
-                ))}
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-2.5" />
+                  </button>
+                </span>
+              ))}
+              <input
+                ref={searchInputRef}
+                defaultValue=""
+                onChange={(e) => handleSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (
+                    e.key === 'Backspace' &&
+                    e.currentTarget.value === '' &&
+                    filterTags.length > 0
+                  ) {
+                    handleRemoveFilterTag(filterTags[filterTags.length - 1])
+                  }
+                  if (e.key === 'Escape') {
+                    setShowTagDropdown(false)
+                  }
+                }}
+                onBlur={() => {
+                  setTimeout(() => setShowTagDropdown(false), 200)
+                }}
+                placeholder={
+                  filterTags.length === 0 ? t('bundles.searchBundles') : ''
+                }
+                className="flex-1 min-w-[60px] h-[30px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+              />
+            </div>
+            {showTagDropdown && (
+              <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
+                {(() => {
+                  const matchedTags = allTags.filter(
+                    (t) =>
+                      t.name.includes(tagSearchPart.toLowerCase()) &&
+                      !filterTags.includes(t.name),
+                  )
+                  if (matchedTags.length === 0) {
+                    return (
+                      <div className="px-3 py-2 text-sm text-muted-foreground">
+                        {t('bundles.noMatchingTags')}
+                      </div>
+                    )
+                  }
+                  return matchedTags.slice(0, 10).map((tag) => {
+                    const count = bundles.filter((b) =>
+                      b.tags?.some(
+                        (bt: { name: string }) => bt.name === tag.name,
+                      ),
+                    ).length
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onMouseDown={(e) => e.preventDefault()}
+                        onClick={() => handleSelectFilterTag(tag.name)}
+                        className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
+                      >
+                        <span>#{tag.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {count}
+                        </span>
+                      </button>
+                    )
+                  })
+                })()}
+              </div>
+            )}
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-8 shrink-0"
+            data-new-bundle
+            onClick={() => setCreating(true)}
+          >
+            <HugeiconsIcon icon={Add01Icon} className="size-4" />
+            {t('bundles.newShort')}
+          </Button>
+        </div>
+        {creating && (
+          <div className="flex gap-1.5">
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder={t('bundles.bundleName')}
+              className="h-7 text-sm flex-1"
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreate()
+                if (e.key === 'Escape') {
+                  setCreating(false)
+                  setNewName('')
+                }
+              }}
+            />
+            <Button size="xs" onClick={handleCreate} disabled={!newName.trim()}>
+              {t('common.create')}
+            </Button>
+            <Button
+              size="xs"
+              variant="ghost"
+              onClick={() => {
+                setCreating(false)
+                setNewName('')
+              }}
+            >
+              {t('common.cancel')}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Bundle list */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 text-center px-4">
+            <p className="text-sm text-muted-foreground">
+              {bundles.length === 0
+                ? t('bundles.noBundlesYet')
+                : t('bundles.noBundlesDesc')}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-0.5 p-1.5">
+            {filtered.map((bundle) => {
+              const isActive = selectedId === bundle.id
+              const thumbSrc = bundle.thumbnailPath
+                ? `/api/thumbnails/${bundle.thumbnailPath.replace('data/thumbnails/', '')}`
+                : null
+
+              return (
+                <button
+                  key={bundle.id}
+                  onClick={() => setSelectedId(bundle.id)}
+                  data-list-row
+                  data-active={isActive || undefined}
+                  className={`flex w-full items-center gap-2.5 rounded-lg p-1.5 text-left transition-colors ${
+                    isActive ? 'bg-primary/15' : 'hover:bg-accent'
+                  }`}
+                >
+                  <div className="flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-secondary">
+                    {thumbSrc ? (
+                      <img
+                        src={thumbSrc}
+                        alt=""
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <HugeiconsIcon
+                        icon={Image02Icon}
+                        className="size-4 text-muted-foreground/30"
+                      />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-1">
+                      <span className="truncate text-sm font-medium">
+                        {bundle.name}
+                      </span>
+                      {bundle.imageCount > 0 && (
+                        <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                          {bundle.imageCount}
+                        </span>
+                      )}
+                    </div>
+                    {bundle.tags && bundle.tags.length > 0 && (
+                      <div className="mt-0.5 flex flex-wrap gap-0.5">
+                        {bundle.tags
+                          .slice(0, 3)
+                          .map((tag: { id: number; name: string }) => (
+                            <span
+                              key={tag.id}
+                              className="rounded bg-secondary px-1 text-[10px] text-muted-foreground"
+                            >
+                              {tag.name}
+                            </span>
+                          ))}
+                        {bundle.tags.length > 3 && (
+                          <span className="text-[10px] text-muted-foreground/60">
+                            +{bundle.tags.length - 3}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+
+  const detailPane = (
+    <>
+      {!detail ? (
+        <div className="flex h-full items-center justify-center text-muted-foreground">
+          <p className="text-sm">{t('bundles.selectBundle')}</p>
+        </div>
+      ) : (
+        <div className="space-y-5 p-4 md:p-6">
+          {/* Name */}
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">
+              {t('bundles.bundleName')}
+            </Label>
+            <Input
+              value={editName}
+              onChange={(e) => handleNameChange(e.target.value)}
+              className="text-base font-medium"
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">
+              {t('bundles.descriptionPlaceholder')}
+            </Label>
+            <Input
+              value={editDescription}
+              onChange={(e) => handleDescriptionChange(e.target.value)}
+              placeholder={t('bundles.descriptionPlaceholder')}
+              className="text-sm"
+            />
+          </div>
+
+          {/* Usage hint */}
+          <div className="flex items-center gap-2">
+            <code className="text-xs bg-secondary/50 px-2 py-1 rounded font-mono">
+              {'@{bundle:' + detail.name + '}'}
+            </code>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => handleCopyUsage(detail.name)}
+              title={t('common.copied')}
+            >
+              <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+            </Button>
+          </div>
+
+          {/* Tags */}
+          <div className="space-y-1.5">
+            <Label className="text-sm text-muted-foreground">
+              {t('bundles.tags')}
+            </Label>
+            <div className="flex flex-wrap gap-1.5 items-center p-2 rounded-md border border-border bg-background min-h-[38px]">
+              {editTags.map((tag) => (
+                <span
+                  key={tag}
+                  className="inline-flex items-center gap-1 bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-sm"
+                >
+                  {tag}
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveTag(tag)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
+                  </button>
+                </span>
+              ))}
+              <div className="relative flex-1 min-w-[80px]">
                 <input
-                  ref={searchInputRef}
-                  defaultValue=""
-                  onChange={(e) => handleSearchInput(e.target.value)}
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
                   onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ',') {
+                      e.preventDefault()
+                      handleAddTag(tagInput)
+                    }
                     if (
                       e.key === 'Backspace' &&
-                      e.currentTarget.value === '' &&
-                      filterTags.length > 0
+                      tagInput === '' &&
+                      editTags.length > 0
                     ) {
-                      handleRemoveFilterTag(filterTags[filterTags.length - 1])
+                      handleRemoveTag(editTags[editTags.length - 1])
                     }
-                    if (e.key === 'Escape') {
-                      setShowTagDropdown(false)
-                    }
-                  }}
-                  onBlur={() => {
-                    setTimeout(() => setShowTagDropdown(false), 200)
                   }}
                   placeholder={
-                    filterTags.length === 0
-                      ? t('bundles.searchBundles')
-                      : ''
+                    editTags.length === 0 ? t('bundles.tagsPlaceholder') : ''
                   }
-                  className="flex-1 min-w-[60px] h-[30px] bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                  className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
                 />
-              </div>
-              {showTagDropdown && (
-                <div className="absolute left-0 right-0 top-full mt-1 z-50 rounded-md border border-border bg-popover shadow-md max-h-48 overflow-y-auto">
-                  {(() => {
-                    const matchedTags = allTags.filter(
+                {tagInput.length > 0 &&
+                  (() => {
+                    const suggestions = allTags.filter(
                       (t) =>
-                        t.name.includes(tagSearchPart.toLowerCase()) &&
-                        !filterTags.includes(t.name),
+                        t.name.includes(tagInput.toLowerCase()) &&
+                        !editTags.includes(t.name),
                     )
-                    if (matchedTags.length === 0) {
-                      return (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">
-                          {t('bundles.noMatchingTags')}
-                        </div>
-                      )
-                    }
-                    return matchedTags.slice(0, 10).map((tag) => {
-                      const count = bundles.filter((b) =>
-                        b.tags?.some((bt: { name: string }) => bt.name === tag.name),
-                      ).length
-                      return (
-                        <button
-                          key={tag.id}
-                          type="button"
-                          onMouseDown={(e) => e.preventDefault()}
-                          onClick={() => handleSelectFilterTag(tag.name)}
-                          className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
-                        >
-                          <span>#{tag.name}</span>
-                          <span className="text-xs text-muted-foreground">{count}</span>
-                        </button>
-                      )
-                    })
-                  })()}
-                </div>
-              )}
-            </div>
-            {creating ? (
-              <div className="flex gap-1.5">
-                <Input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder={t('bundles.bundleName')}
-                  className="h-7 text-sm flex-1"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreate()
-                    if (e.key === 'Escape') {
-                      setCreating(false)
-                      setNewName('')
-                    }
-                  }}
-                />
-                <Button
-                  size="xs"
-                  onClick={handleCreate}
-                  disabled={!newName.trim()}
-                >
-                  {t('common.create')}
-                </Button>
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  onClick={() => {
-                    setCreating(false)
-                    setNewName('')
-                  }}
-                >
-                  {t('common.cancel')}
-                </Button>
-              </div>
-            ) : (
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-full"
-                onClick={() => setCreating(true)}
-              >
-                <HugeiconsIcon icon={Add01Icon} className="size-4" />
-                {t('bundles.createBundle')}
-              </Button>
-            )}
-          </div>
-
-          {/* Bundle list */}
-          <div className="flex-1 overflow-y-auto">
-            {filtered.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-12 text-center px-4">
-                <p className="text-sm text-muted-foreground">
-                  {bundles.length === 0
-                    ? t('bundles.noBundlesYet')
-                    : t('bundles.noBundlesDesc')}
-                </p>
-              </div>
-            ) : (
-              <div className="p-2 grid grid-cols-2 gap-1.5">
-                {filtered.map((bundle) => {
-                  const isActive = selectedId === bundle.id
-                  const thumbSrc = bundle.thumbnailPath
-                    ? `/api/thumbnails/${bundle.thumbnailPath.replace('data/thumbnails/', '')}`
-                    : null
-
-                  return (
-                    <button
-                      key={bundle.id}
-                      onClick={() => setSelectedId(bundle.id)}
-                      className={`relative rounded-lg overflow-hidden transition-all ${
-                        isActive
-                          ? 'ring-2 ring-primary'
-                          : 'ring-1 ring-border hover:ring-muted-foreground/40'
-                      }`}
-                    >
-                      {/* Thumbnail area */}
-                      <div className="aspect-square bg-secondary">
-                        {thumbSrc ? (
-                          <img
-                            src={thumbSrc}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <HugeiconsIcon
-                              icon={Image02Icon}
-                              className="size-8 text-muted-foreground/20"
-                            />
-                          </div>
-                        )}
-                      </div>
-                      {/* Info overlay at bottom */}
-                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/50 to-transparent px-2 pb-1.5 pt-5">
-                        <div className="flex items-center justify-between gap-1">
-                          <span className="text-xs font-medium truncate text-white">
-                            {bundle.name}
-                          </span>
-                          {bundle.imageCount > 0 && (
-                            <Badge
-                              variant="secondary"
-                              className="text-[10px] h-4 px-1.5 shrink-0 bg-white/20 text-white border-0"
+                    const exactMatch = editTags.includes(
+                      tagInput.trim().toLowerCase(),
+                    )
+                    if (suggestions.length === 0 && exactMatch) return null
+                    return (
+                      <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
+                        {suggestions.slice(0, 8).map((tag) => {
+                          const count = bundles.filter((b) =>
+                            b.tags?.some(
+                              (bt: { name: string }) => bt.name === tag.name,
+                            ),
+                          ).length
+                          return (
+                            <button
+                              key={tag.id}
+                              type="button"
+                              onClick={() => handleAddTag(tag.name)}
+                              className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
                             >
-                              {bundle.imageCount}
-                            </Badge>
-                          )}
-                        </div>
-                        {bundle.tags && bundle.tags.length > 0 && (
-                          <div className="flex gap-0.5 mt-0.5 flex-wrap">
-                            {bundle.tags.slice(0, 2).map((tag: { id: number; name: string }) => (
-                              <span
-                                key={tag.id}
-                                className="text-[9px] bg-white/15 text-white/80 rounded px-1"
-                              >
-                                {tag.name}
+                              <span>{tag.name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {count}
                               </span>
-                            ))}
-                            {bundle.tags.length > 2 && (
-                              <span className="text-[9px] text-white/50">
-                                +{bundle.tags.length - 2}
-                              </span>
-                            )}
+                            </button>
+                          )
+                        })}
+                        {suggestions.length === 0 && !exactMatch && (
+                          <div className="px-3 py-1.5 text-sm text-muted-foreground">
+                            {t('bundles.createTagHint', {
+                              name: tagInput.trim(),
+                            })}
                           </div>
                         )}
                       </div>
-                    </button>
-                  )
-                })}
+                    )
+                  })()}
+              </div>
+            </div>
+          </div>
+
+          <Separator />
+
+          {/* Content */}
+          <div className="space-y-1.5">
+            <PromptEditorHeader
+              label={t('bundles.bundleContent')}
+              uppercase
+              onExpand={() => setExpandOpen(true)}
+              onOpenTagGallery={() => setTagGalleryOpen(true)}
+            />
+            <LazyPromptEditor
+              value={editContent}
+              onChange={handleContentChange}
+              placeholder={t('bundles.contentPlaceholder')}
+              minHeight="200px"
+              bundleNames={bundleNamesForEditor}
+            />
+          </div>
+
+          <Separator />
+
+          {/* Linked images */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                {t('bundles.imageCount', { count: detail.imageCount })}
+              </Label>
+            </div>
+
+            {bundleImages.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                {t('bundles.noImages')}
+              </p>
+            ) : (
+              <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
+                {bundleImages.map((img) => (
+                  <button
+                    key={img.id}
+                    onClick={() => handleSetThumbnail(img.id)}
+                    className={`relative aspect-square rounded-md overflow-hidden bg-secondary group ${
+                      detail.thumbnailImageId === img.id
+                        ? 'ring-2 ring-primary'
+                        : ''
+                    }`}
+                    title={t('bundles.setThumbnail')}
+                  >
+                    {img.thumbnailPath ? (
+                      <img
+                        src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
+                        alt=""
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <HugeiconsIcon
+                          icon={Image02Icon}
+                          className="size-4 text-muted-foreground/30"
+                        />
+                      </div>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </div>
-        </div>
 
-        {/* Right panel — detail */}
-        <div className="flex-1 overflow-y-auto">
-          {!detail ? (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              <p className="text-sm">{t('bundles.selectBundle')}</p>
-            </div>
-          ) : (
-            <div className="p-4 lg:p-6 space-y-5 max-w-3xl">
-              {/* Name */}
-              <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">
-                  {t('bundles.bundleName')}
-                </Label>
-                <Input
-                  value={editName}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  className="text-base font-medium"
-                />
-              </div>
+          <Separator />
 
-              {/* Description */}
-              <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">
-                  {t('bundles.descriptionPlaceholder')}
-                </Label>
-                <Input
-                  value={editDescription}
-                  onChange={(e) => handleDescriptionChange(e.target.value)}
-                  placeholder={t('bundles.descriptionPlaceholder')}
-                  className="text-sm"
-                />
-              </div>
-
-              {/* Usage hint */}
-              <div className="flex items-center gap-2">
-                <code className="text-xs bg-secondary/50 px-2 py-1 rounded font-mono">
-                  {'@{bundle:' + detail.name + '}'}
-                </code>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => handleCopyUsage(detail.name)}
-                  title={t('common.copied')}
-                >
-                  <HugeiconsIcon icon={Copy01Icon} className="size-4" />
+          {/* Delete */}
+          <div className="flex justify-end">
+            <ConfirmDialog
+              trigger={
+                <Button variant="destructive" size="sm">
+                  <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                  {t('common.delete')}
                 </Button>
-              </div>
-
-              {/* Tags */}
-              <div className="space-y-1.5">
-                <Label className="text-sm text-muted-foreground">
-                  {t('bundles.tags')}
-                </Label>
-                <div className="flex flex-wrap gap-1.5 items-center p-2 rounded-md border border-border bg-background min-h-[38px]">
-                  {editTags.map((tag) => (
-                    <span
-                      key={tag}
-                      className="inline-flex items-center gap-1 bg-secondary text-secondary-foreground rounded-md px-2 py-0.5 text-sm"
-                    >
-                      {tag}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveTag(tag)}
-                        className="text-muted-foreground hover:text-foreground"
-                      >
-                        <HugeiconsIcon icon={Cancel01Icon} className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <div className="relative flex-1 min-w-[80px]">
-                    <input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ',') {
-                          e.preventDefault()
-                          handleAddTag(tagInput)
-                        }
-                        if (
-                          e.key === 'Backspace' &&
-                          tagInput === '' &&
-                          editTags.length > 0
-                        ) {
-                          handleRemoveTag(editTags[editTags.length - 1])
-                        }
-                      }}
-                      placeholder={
-                        editTags.length === 0 ? t('bundles.tagsPlaceholder') : ''
-                      }
-                      className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    />
-                    {tagInput.length > 0 && (() => {
-                      const suggestions = allTags.filter(
-                        (t) =>
-                          t.name.includes(tagInput.toLowerCase()) &&
-                          !editTags.includes(t.name),
-                      )
-                      const exactMatch = editTags.includes(tagInput.trim().toLowerCase())
-                      if (suggestions.length === 0 && exactMatch) return null
-                      return (
-                        <div className="absolute left-0 top-full mt-1 z-50 w-56 rounded-md border border-border bg-popover shadow-md">
-                          {suggestions.slice(0, 8).map((tag) => {
-                            const count = bundles.filter((b) =>
-                              b.tags?.some((bt: { name: string }) => bt.name === tag.name),
-                            ).length
-                            return (
-                              <button
-                                key={tag.id}
-                                type="button"
-                                onClick={() => handleAddTag(tag.name)}
-                                className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-accent"
-                              >
-                                <span>{tag.name}</span>
-                                <span className="text-xs text-muted-foreground">{count}</span>
-                              </button>
-                            )
-                          })}
-                          {suggestions.length === 0 && !exactMatch && (
-                            <div className="px-3 py-1.5 text-sm text-muted-foreground">
-                              {t('bundles.createTagHint', { name: tagInput.trim() })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              <Separator />
-
-              {/* Content */}
-              <div className="space-y-1.5">
-                <PromptEditorHeader
-                  label={t('bundles.bundleContent')}
-                  uppercase
-                  onExpand={() => setExpandOpen(true)}
-                  onOpenTagGallery={() => setTagGalleryOpen(true)}
-                />
-                <LazyPromptEditor
-                  value={editContent}
-                  onChange={handleContentChange}
-                  placeholder={t('bundles.contentPlaceholder')}
-                  minHeight="200px"
-                  bundleNames={bundleNamesForEditor}
-                />
-              </div>
-
-              <Separator />
-
-              {/* Linked images */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-                    {t('bundles.imageCount', { count: detail.imageCount })}
-                  </Label>
-                </div>
-
-                {bundleImages.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-4 text-center">
-                    {t('bundles.noImages')}
-                  </p>
-                ) : (
-                  <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-1.5">
-                    {bundleImages.map((img) => (
-                      <button
-                        key={img.id}
-                        onClick={() => handleSetThumbnail(img.id)}
-                        className={`relative aspect-square rounded-md overflow-hidden bg-secondary group ${
-                          detail.thumbnailImageId === img.id
-                            ? 'ring-2 ring-primary'
-                            : ''
-                        }`}
-                        title={t('bundles.setThumbnail')}
-                      >
-                        {img.thumbnailPath ? (
-                          <img
-                            src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <HugeiconsIcon
-                              icon={Image02Icon}
-                              className="size-4 text-muted-foreground/30"
-                            />
-                          </div>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <Separator />
-
-              {/* Delete */}
-              <div className="flex justify-end">
-                <ConfirmDialog
-                  trigger={
-                    <Button variant="destructive" size="sm">
-                      <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-                      {t('common.delete')}
-                    </Button>
-                  }
-                  title={t('bundles.deleteBundle')}
-                  description={t('bundles.deleteBundleDesc', {
-                    name: detail.name,
-                  })}
-                  onConfirm={() => handleDelete(detail.id)}
-                />
-              </div>
-            </div>
-          )}
+              }
+              title={t('bundles.deleteBundle')}
+              description={t('bundles.deleteBundleDesc', {
+                name: detail.name,
+              })}
+              onConfirm={() => handleDelete(detail.id)}
+            />
+          </div>
         </div>
-      </div>
+      )}
+    </>
+  )
+
+  return (
+    <>
+      <MasterDetail
+        id="bundles"
+        list={listPane}
+        detail={detailPane}
+        hasSelection={selectedId !== null}
+        onBack={() => setSelectedId(null)}
+        backLabel={t('nav.bundles')}
+      />
       <ExpandedEditorDialog
         open={expandOpen}
         onOpenChange={setExpandOpen}
@@ -807,6 +822,6 @@ function BundlesPage() {
           handleContentChange(newContent)
         }}
       />
-    </div>
+    </>
   )
 }

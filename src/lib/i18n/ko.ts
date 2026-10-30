@@ -686,6 +686,7 @@ const ko: DeepStringify<typeof en> = {
     noMatchingScenes: '일치하는 씬이 없습니다',
   },
   bundles: {
+    newShort: '새로 만들기',
     title: '프롬프트 번들',
     description:
       '재사용 가능한 프롬프트 텍스트 조각입니다. 모든 프롬프트 에디터에서 @{번들 이름}으로 사용하세요.',
@@ -722,6 +723,8 @@ const ko: DeepStringify<typeof en> = {
     createTagHint: 'Enter를 눌러 "{{name}}" 생성',
   },
   tagGallery: {
+    newShort: '새로 만들기',
+    newTagName: '태그 이름',
     title: '태그 갤러리',
     description: '단부루 태그를 썸네일과 메모와 함께 북마크하고 관리합니다.',
     noBookmarks: '북마크가 없습니다',

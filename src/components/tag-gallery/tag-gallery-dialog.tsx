@@ -79,6 +79,8 @@ export function TagGalleryDialog({
           </Button>
         </div>
         <TagGalleryContent
+          layoutId="tag-dialog"
+          embedded
           selectedTag={selectedTag}
           onSelectTag={setSelectedTag}
           onInsertTag={(tag) => {
