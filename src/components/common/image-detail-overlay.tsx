@@ -70,14 +70,24 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
 
   if (loading || !data) {
     return (
-      <div className="fixed inset-0 z-50 bg-background flex items-center justify-center">
+      <div
+        role="dialog"
+        aria-modal="true"
+        data-state="open"
+        className="fixed inset-0 z-50 bg-background flex items-center justify-center"
+      >
         <div className="size-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
       </div>
     )
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-background">
+    <div
+      role="dialog"
+      aria-modal="true"
+      data-state="open"
+      className="fixed inset-0 z-50 bg-background"
+    >
       <ImageDetailContent data={data} setData={setData} goBack={goBack} />
     </div>
   )

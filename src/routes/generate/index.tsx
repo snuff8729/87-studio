@@ -460,12 +460,15 @@ function QuickGeneratePage() {
         leftPanel={
           <>
             <QuickPromptTab state={state} setState={setState} />
-            <QuickCharactersTab
-              characters={state.characters}
-              addCharacter={addCharacter}
-              removeCharacter={removeCharacter}
-              updateCharacterField={updateCharacterField}
-            />
+            {/* temporary stacking: collapse doubled padding to the old 12px gap */}
+            <div className="-mt-3">
+              <QuickCharactersTab
+                characters={state.characters}
+                addCharacter={addCharacter}
+                removeCharacter={removeCharacter}
+                updateCharacterField={updateCharacterField}
+              />
+            </div>
             <ReferencePanel
               projectId={null}
               referenceMode={

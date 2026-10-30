@@ -66,6 +66,15 @@ export function HistoryStrip({
     virtualizer.measure()
   }, [virtualizer, rowHeight])
 
+  // Keep the selection visible (e.g. during keyboard navigation)
+  useEffect(() => {
+    if (selectedImageId == null) return
+    const idx = images.findIndex((img) => img.id === selectedImageId)
+    if (idx < 0) return
+    virtualizer.scrollToIndex(Math.floor(idx / cols), { align: 'auto' })
+    // only when the selection changes
+  }, [selectedImageId])
+
   return (
     <div className="p-2 flex flex-col h-full">
       <div className="flex items-center justify-between mb-2">

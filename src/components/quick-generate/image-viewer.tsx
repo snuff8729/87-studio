@@ -91,7 +91,7 @@ export function ImageViewer({
           return
         case 'f':
         case 'F':
-          if (h.hasImage) {
+          if (h.hasImage && !e.repeat) {
             e.preventDefault()
             h.onToggleFavorite()
           }
@@ -101,7 +101,7 @@ export function ImageViewer({
         case '3':
         case '4':
         case '5':
-          if (h.hasImage) {
+          if (h.hasImage && !e.repeat) {
             e.preventDefault()
             h.onSetRating(Number(e.key))
           }
