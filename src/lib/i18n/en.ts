@@ -497,6 +497,7 @@ const en = {
     noImagesYet: 'Generated images will appear here.',
     viewInGallery: 'View all in Gallery',
     seed: 'Seed',
+    seedCopied: 'Seed copied',
     generating: 'Generating...',
     promptPlaceholder: 'Enter your prompt here...',
     negativePlaceholder: 'Enter negative prompt...',

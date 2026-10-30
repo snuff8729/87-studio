@@ -1,51 +1,34 @@
-import {
-  Link,
-  createFileRoute,
-  useNavigate,
-  useRouter,
-} from '@tanstack/react-router'
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from 'react'
+import { Link, createFileRoute, useRouter } from '@tanstack/react-router'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  Add01Icon,
-  AlertCircleIcon,
-  ArrowExpand01Icon,
   ArrowLeft02Icon,
-  ArrowRight01Icon,
-  Delete02Icon,
   Image02Icon,
   Menu01Icon,
   PlayIcon,
   TimeQuarter02Icon,
   Upload01Icon,
 } from '@hugeicons/core-free-icons'
-import { useVirtualizer } from '@tanstack/react-virtual'
 import type { NAIMetadata } from '@/lib/nai-metadata'
-import type { GridSize } from '@/lib/use-image-grid-size'
+import type {
+  CharacterEntry,
+  QuickGenerateState,
+  QuickImage,
+} from '@/components/quick-generate/types'
 import { Button } from '@/components/ui/button'
 import { SidebarTrigger } from '@/components/ui/sidebar'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
-import { Checkbox } from '@/components/ui/checkbox'
 import { NumberStepper } from '@/components/ui/number-stepper'
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { WorkspaceLayout } from '@/components/workspace/workspace-layout'
 import { ParameterPopover } from '@/components/workspace/parameter-popover'
 import { ReferencePanel } from '@/components/workspace/reference-panel'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
-import { GridSizeToggle } from '@/components/common/grid-size-toggle'
-import { useImageGridSize } from '@/lib/use-image-grid-size'
+import { QuickPromptTab } from '@/components/quick-generate/quick-prompt-tab'
+import { QuickCharactersTab } from '@/components/quick-generate/quick-characters-tab'
+import { ImageViewer } from '@/components/quick-generate/image-viewer'
+import { HistoryStrip } from '@/components/quick-generate/history-strip'
+import { ImportMetadataDialog } from '@/components/quick-generate/import-metadata-dialog'
 import { useTranslation } from '@/lib/i18n'
-import { useBundleNames } from '@/lib/use-bundles'
-import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
 import {
   createQuickGenerationJob,
@@ -53,36 +36,6 @@ import {
   listQuickJobs,
 } from '@/server/functions/quick-generation'
 import { updateImage } from '@/server/functions/gallery'
-
-const PromptEditor = lazy(() =>
-  import('@/components/prompt-editor/prompt-editor').then((m) => ({
-    default: m.PromptEditor,
-  })),
-)
-
-function LazyPromptEditor(props: {
-  value: string
-  onChange: (v: string) => void
-  placeholder?: string
-  minHeight?: string
-  bundleNames?: Array<{ name: string; content: string }>
-}) {
-  return (
-    <Suspense
-      fallback={
-        <Textarea
-          value={props.value}
-          onChange={(e) => props.onChange(e.target.value)}
-          placeholder={props.placeholder}
-          className="font-mono text-base min-h-[200px]"
-          rows={8}
-        />
-      }
-    >
-      <PromptEditor {...props} />
-    </Suspense>
-  )
-}
 
 export const Route = createFileRoute('/generate/')({
   component: QuickGeneratePage,
@@ -125,21 +78,6 @@ function QuickGenerateButton({
 
 const STORAGE_KEY = '87studio-quick-generate'
 
-interface CharacterEntry {
-  id: string
-  name: string
-  prompt: string
-  negative: string
-}
-
-interface QuickGenerateState {
-  generalPrompt: string
-  negativePrompt: string
-  characters: Array<CharacterEntry>
-  parameters: Record<string, unknown>
-  count: number
-}
-
 function loadState(): QuickGenerateState {
   try {
     const stored = localStorage.getItem(STORAGE_KEY)
@@ -172,21 +110,10 @@ function QuickGeneratePage() {
   const [state, setState] = useState<QuickGenerateState>(loadState)
   const [leftOpen, setLeftOpen] = useState(false)
   const [rightOpen, setRightOpen] = useState(false)
-  const [_generating, setGenerating] = useState(false)
+  const [generating, setGenerating] = useState(false)
 
   // Image history
-  const [images, setImages] = useState<
-    Array<{
-      id: number
-      thumbnailPath: string | null
-      filePath: string
-      seed: number | null
-      isFavorite: number | null
-      rating: number | null
-      metadata: string | null
-      createdAt: string | null
-    }>
-  >([])
+  const [images, setImages] = useState<Array<QuickImage>>([])
   const [selectedImageId, setSelectedImageId] = useState<number | null>(null)
 
   // Generation progress
@@ -426,7 +353,14 @@ function QuickGeneratePage() {
     }))
   }
 
-  const selectedImage = images.find((img) => img.id === selectedImageId) ?? null
+  const selectedIndex = images.findIndex((img) => img.id === selectedImageId)
+  const selectedImage = selectedIndex >= 0 ? images[selectedIndex] : null
+
+  // images are newest-first: prev = newer (lower index), next = older
+  function selectByIndex(i: number) {
+    const img = images[i]
+    setSelectedImageId(img.id)
+  }
 
   // ── Favorite toggle on selected image ──
   async function handleToggleFavorite() {
@@ -525,9 +459,9 @@ function QuickGeneratePage() {
         }
         leftPanel={
           <>
-            <PromptPanelLocal
-              state={state}
-              setState={setState}
+            <QuickPromptTab state={state} setState={setState} />
+            <QuickCharactersTab
+              characters={state.characters}
               addCharacter={addCharacter}
               removeCharacter={removeCharacter}
               updateCharacterField={updateCharacterField}
@@ -553,15 +487,26 @@ function QuickGeneratePage() {
           </>
         }
         centerPanel={
-          <CenterPreview
-            selectedImage={selectedImage}
+          <ImageViewer
+            image={selectedImage}
             imageParams={imageParams}
             onToggleFavorite={handleToggleFavorite}
             onSetRating={handleSetRating}
+            onPrev={
+              selectedIndex > 0
+                ? () => selectByIndex(selectedIndex - 1)
+                : undefined
+            }
+            onNext={
+              selectedIndex >= 0 && selectedIndex < images.length - 1
+                ? () => selectByIndex(selectedIndex + 1)
+                : undefined
+            }
+            generating={generating}
           />
         }
         rightPanel={
-          <HistoryPanelLocal
+          <HistoryStrip
             images={images}
             selectedImageId={selectedImageId}
             onSelect={setSelectedImageId}
@@ -654,762 +599,5 @@ function QuickGenerateHeader({
         </Button>
       </div>
     </header>
-  )
-}
-
-// ─── Prompt Panel (Local) ─────────────────────────────────────────────────
-
-function PromptPanelLocal({
-  state,
-  setState,
-  addCharacter,
-  removeCharacter,
-  updateCharacterField,
-}: {
-  state: QuickGenerateState
-  setState: React.Dispatch<React.SetStateAction<QuickGenerateState>>
-  addCharacter: () => void
-  removeCharacter: (id: string) => void
-  updateCharacterField: (
-    id: string,
-    field: keyof CharacterEntry,
-    value: string,
-  ) => void
-}) {
-  const { t } = useTranslation()
-  const bundleNames = useBundleNames()
-  const [expandTarget, setExpandTarget] = useState<{
-    type: 'general' | 'negative' | 'charPrompt' | 'charNegative'
-    charId?: string
-    label: string
-  } | null>(null)
-
-  const expandValue = expandTarget
-    ? expandTarget.type === 'general'
-      ? state.generalPrompt
-      : expandTarget.type === 'negative'
-        ? state.negativePrompt
-        : expandTarget.type === 'charPrompt'
-          ? (state.characters.find((c) => c.id === expandTarget.charId)
-              ?.prompt ?? '')
-          : (state.characters.find((c) => c.id === expandTarget.charId)
-              ?.negative ?? '')
-    : ''
-
-  const expandOnChange = useCallback(
-    (v: string) => {
-      if (!expandTarget) return
-      if (expandTarget.type === 'general')
-        setState((prev) => ({ ...prev, generalPrompt: v }))
-      else if (expandTarget.type === 'negative')
-        setState((prev) => ({ ...prev, negativePrompt: v }))
-      else if (expandTarget.charId)
-        updateCharacterField(
-          expandTarget.charId,
-          expandTarget.type === 'charPrompt' ? 'prompt' : 'negative',
-          v,
-        )
-    },
-    [expandTarget, setState, updateCharacterField],
-  )
-
-  return (
-    <div className="p-3 space-y-3">
-      {/* General Prompt */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('quickGenerate.prompt')}
-          </Label>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() =>
-              setExpandTarget({
-                type: 'general',
-                label: t('quickGenerate.prompt'),
-              })
-            }
-            title={t('workspace.expandEditor')}
-          >
-            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-          </Button>
-        </div>
-        <LazyPromptEditor
-          value={state.generalPrompt}
-          onChange={(v) => setState((prev) => ({ ...prev, generalPrompt: v }))}
-          placeholder={t('quickGenerate.promptPlaceholder')}
-          minHeight="200px"
-          bundleNames={bundleNames}
-        />
-      </div>
-
-      {/* Negative Prompt */}
-      <div className="space-y-1.5">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('quickGenerate.negativePrompt')}
-          </Label>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() =>
-              setExpandTarget({
-                type: 'negative',
-                label: t('quickGenerate.negativePrompt'),
-              })
-            }
-            title={t('workspace.expandEditor')}
-          >
-            <HugeiconsIcon icon={ArrowExpand01Icon} className="size-4" />
-          </Button>
-        </div>
-        <LazyPromptEditor
-          value={state.negativePrompt}
-          onChange={(v) => setState((prev) => ({ ...prev, negativePrompt: v }))}
-          placeholder={t('quickGenerate.negativePlaceholder')}
-          minHeight="120px"
-          bundleNames={bundleNames}
-        />
-      </div>
-
-      {/* Characters */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm text-muted-foreground uppercase tracking-wider">
-            {t('quickGenerate.characters')}
-          </Label>
-          <Button variant="ghost" size="icon-sm" onClick={addCharacter}>
-            <HugeiconsIcon icon={Add01Icon} className="size-5" />
-          </Button>
-        </div>
-
-        {state.characters.map((char) => (
-          <div
-            key={char.id}
-            className="rounded-lg border border-border p-2 space-y-2"
-          >
-            <div className="flex items-center gap-1.5">
-              <Input
-                value={char.name}
-                onChange={(e) =>
-                  updateCharacterField(char.id, 'name', e.target.value)
-                }
-                placeholder={t('quickGenerate.characterName')}
-                className="h-7 text-sm flex-1"
-              />
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="text-muted-foreground hover:text-destructive shrink-0"
-                onClick={() => removeCharacter(char.id)}
-              >
-                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
-              </Button>
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">
-                  {t('quickGenerate.prompt')}
-                </Label>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() =>
-                    setExpandTarget({
-                      type: 'charPrompt',
-                      charId: char.id,
-                      label: `${char.name || t('quickGenerate.characters')} — ${t('quickGenerate.prompt')}`,
-                    })
-                  }
-                  title={t('workspace.expandEditor')}
-                >
-                  <HugeiconsIcon
-                    icon={ArrowExpand01Icon}
-                    className="size-3.5"
-                  />
-                </Button>
-              </div>
-              <LazyPromptEditor
-                value={char.prompt}
-                onChange={(v) => updateCharacterField(char.id, 'prompt', v)}
-                placeholder={t('quickGenerate.characterPrompt')}
-                minHeight="80px"
-                bundleNames={bundleNames}
-              />
-            </div>
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs text-muted-foreground">
-                  {t('quickGenerate.negativePrompt')}
-                </Label>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() =>
-                    setExpandTarget({
-                      type: 'charNegative',
-                      charId: char.id,
-                      label: `${char.name || t('quickGenerate.characters')} — ${t('quickGenerate.negativePrompt')}`,
-                    })
-                  }
-                  title={t('workspace.expandEditor')}
-                >
-                  <HugeiconsIcon
-                    icon={ArrowExpand01Icon}
-                    className="size-3.5"
-                  />
-                </Button>
-              </div>
-              <LazyPromptEditor
-                value={char.negative}
-                onChange={(v) => updateCharacterField(char.id, 'negative', v)}
-                placeholder={t('quickGenerate.characterNegative')}
-                minHeight="60px"
-                bundleNames={bundleNames}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <ExpandedEditorDialog
-        open={expandTarget !== null}
-        onOpenChange={(open) => {
-          if (!open) setExpandTarget(null)
-        }}
-        title={expandTarget?.label ?? ''}
-        value={expandValue}
-        onChange={expandOnChange}
-        bundleNames={bundleNames}
-      />
-    </div>
-  )
-}
-
-// ─── Center Preview Panel ─────────────────────────────────────────────────
-
-function CenterPreview({
-  selectedImage,
-  imageParams,
-  onToggleFavorite,
-  onSetRating,
-}: {
-  selectedImage: {
-    id: number
-    filePath: string
-    seed: number | null
-    isFavorite: number | null
-    rating: number | null
-    metadata: string | null
-  } | null
-  imageParams: Record<string, unknown> | null
-  onToggleFavorite: () => void
-  onSetRating: (rating: number) => void
-}) {
-  const { t } = useTranslation()
-  const navigate = useNavigate()
-
-  if (!selectedImage) {
-    return (
-      <div className="flex flex-col items-center justify-center h-full text-muted-foreground gap-3">
-        <HugeiconsIcon
-          icon={Image02Icon}
-          className="size-12 text-muted-foreground/30"
-        />
-        <p className="text-sm">{t('quickGenerate.emptyState')}</p>
-      </div>
-    )
-  }
-
-  const width = imageParams?.width as number | undefined
-  const height = imageParams?.height as number | undefined
-
-  return (
-    <div className="flex flex-col h-full">
-      {/* Image */}
-      <div className="flex-1 flex items-center justify-center p-4 min-h-0">
-        <img
-          src={`/api/images/${selectedImage.filePath.replace('data/images/', '')}`}
-          alt=""
-          className="max-h-full max-w-full object-contain rounded"
-          draggable={false}
-        />
-      </div>
-
-      {/* Info bar */}
-      <div className="shrink-0 border-t border-border px-4 py-2 flex items-center gap-3 text-sm">
-        {/* Favorite */}
-        <button onClick={onToggleFavorite} className="transition-colors">
-          <span
-            className={
-              selectedImage.isFavorite
-                ? 'text-destructive'
-                : 'text-muted-foreground hover:text-destructive'
-            }
-          >
-            {selectedImage.isFavorite ? '\u2764' : '\u2661'}
-          </span>
-        </button>
-
-        {/* Rating */}
-        <div className="flex items-center gap-0.5">
-          {[1, 2, 3, 4, 5].map((r) => (
-            <button
-              key={r}
-              onClick={() => onSetRating(r)}
-              className={`text-sm transition-colors ${
-                (selectedImage.rating ?? 0) >= r
-                  ? 'text-primary'
-                  : 'text-muted-foreground/30 hover:text-primary/50'
-              }`}
-            >
-              {'\u2605'}
-            </button>
-          ))}
-        </div>
-
-        <div className="h-3 w-px bg-border" />
-
-        {/* Seed */}
-        {selectedImage.seed != null && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {t('quickGenerate.seed')}: {selectedImage.seed}
-          </span>
-        )}
-
-        {/* Resolution */}
-        {width && height && (
-          <>
-            <div className="h-3 w-px bg-border" />
-            <span className="text-xs text-muted-foreground tabular-nums">
-              {width} x {height}
-            </span>
-          </>
-        )}
-
-        <div className="flex-1" />
-
-        {/* View in gallery */}
-        <button
-          onClick={() =>
-            navigate({
-              search: (prev: Record<string, unknown>) => ({
-                ...prev,
-                imageDetail: selectedImage.id,
-              }),
-            } as any)
-          }
-          className="text-xs text-muted-foreground hover:text-primary transition-colors flex items-center gap-1 cursor-pointer"
-        >
-          {t('imageDetail.details')}
-          <HugeiconsIcon icon={ArrowRight01Icon} className="size-3.5" />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ─── History Panel (Local) ────────────────────────────────────────────────
-
-const historyColsMap: Record<GridSize, number> = { sm: 3, md: 2, lg: 1 }
-const GAP = 4
-
-function HistoryPanelLocal({
-  images,
-  selectedImageId,
-  onSelect,
-}: {
-  images: Array<{
-    id: number
-    thumbnailPath: string | null
-    isFavorite: number | null
-  }>
-  selectedImageId: number | null
-  onSelect: (id: number) => void
-}) {
-  const { t } = useTranslation()
-  const { gridSize, setGridSize } = useImageGridSize('quick-history')
-  const cols = historyColsMap[gridSize]
-
-  const scrollRef = useRef<HTMLDivElement>(null)
-  const [containerWidth, setContainerWidth] = useState(0)
-
-  useEffect(() => {
-    const el = scrollRef.current
-    if (!el) return
-    const measure = () => setContainerWidth(el.clientWidth)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-
-  const cellSize =
-    containerWidth > 0
-      ? Math.floor((containerWidth - 8 - GAP * (cols - 1)) / cols)
-      : 80
-  const rowHeight = cellSize + GAP
-  const rowCount = Math.ceil(images.length / cols)
-
-  const virtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    overscan: 3,
-  })
-
-  useEffect(() => {
-    virtualizer.measure()
-  }, [virtualizer, rowHeight])
-
-  return (
-    <div className="p-2 flex flex-col h-full">
-      <div className="flex items-center justify-between mb-2">
-        <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
-          {t('history.title')}
-        </h3>
-        <div className="flex items-center gap-1.5">
-          <GridSizeToggle value={gridSize} onChange={setGridSize} />
-          <span className="text-xs text-muted-foreground">{images.length}</span>
-        </div>
-      </div>
-
-      {images.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
-          <p className="text-sm text-muted-foreground text-center">
-            {t('quickGenerate.noImagesYet')}
-          </p>
-        </div>
-      ) : (
-        <div ref={scrollRef} className="flex-1 overflow-y-auto -mx-1 px-1">
-          <div
-            style={{
-              height: `${virtualizer.getTotalSize()}px`,
-              position: 'relative',
-              width: '100%',
-            }}
-          >
-            {virtualizer.getVirtualItems().map((vRow) => {
-              const startIdx = vRow.index * cols
-              const rowImages = images.slice(startIdx, startIdx + cols)
-
-              return (
-                <div
-                  key={vRow.key}
-                  style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    transform: `translateY(${vRow.start}px)`,
-                  }}
-                >
-                  <div style={{ display: 'flex', gap: `${GAP}px` }}>
-                    {rowImages.map((img) => (
-                      <button
-                        key={img.id}
-                        onClick={() => onSelect(img.id)}
-                        className={`relative rounded-md overflow-hidden bg-secondary group block shrink-0 ${
-                          img.id === selectedImageId
-                            ? 'ring-2 ring-primary'
-                            : ''
-                        }`}
-                        style={{
-                          width: `${cellSize}px`,
-                          height: `${cellSize}px`,
-                        }}
-                      >
-                        {img.thumbnailPath ? (
-                          <img
-                            src={`/api/thumbnails/${img.thumbnailPath.replace('data/thumbnails/', '')}`}
-                            alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
-                            ...
-                          </div>
-                        )}
-                        {img.isFavorite ? (
-                          <div className="absolute top-0.5 right-0.5 text-xs text-destructive">
-                            {'\u2764'}
-                          </div>
-                        ) : null}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      <div className="mt-2 pt-2 border-t border-border">
-        <Link
-          to="/gallery"
-          search={{ quick: true, imageDetail: undefined }}
-          className="text-sm text-muted-foreground hover:text-primary transition-colors flex items-center gap-1"
-        >
-          {t('quickGenerate.viewInGallery')}
-          <HugeiconsIcon icon={ArrowRight01Icon} className="size-4" />
-        </Link>
-      </div>
-    </div>
-  )
-}
-
-// ─── Import Metadata Dialog ───────────────────────────────────────────────
-
-type ImportField =
-  | 'generalPrompt'
-  | 'negativePrompt'
-  | 'characters'
-  | 'parameters'
-  | 'resolution'
-
-function ImportMetadataDialog({
-  metadata,
-  open,
-  onOpenChange,
-  onApply,
-}: {
-  metadata: NAIMetadata
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onApply: (data: {
-    generalPrompt?: string
-    negativePrompt?: string
-    characters?: Array<CharacterEntry>
-    parameters?: Record<string, unknown>
-  }) => void
-}) {
-  const { t } = useTranslation()
-  const [fields, setFields] = useState<Record<ImportField, boolean>>({
-    generalPrompt: true,
-    negativePrompt: true,
-    characters: true,
-    parameters: true,
-    resolution: true,
-  })
-
-  const hasV4Chars =
-    metadata.v4_prompt?.caption?.char_captions &&
-    metadata.v4_prompt.caption.char_captions.length > 0
-
-  function toggleField(field: ImportField) {
-    setFields((prev) => ({ ...prev, [field]: !prev[field] }))
-  }
-
-  function handleApply() {
-    const result: Parameters<typeof onApply>[0] = {}
-
-    if (fields.generalPrompt) {
-      if (metadata.v4_prompt?.caption?.base_caption) {
-        result.generalPrompt = metadata.v4_prompt.caption.base_caption
-      } else {
-        result.generalPrompt = metadata.prompt ?? ''
-      }
-    }
-
-    if (fields.negativePrompt) {
-      result.negativePrompt = metadata.negativePrompt ?? ''
-    }
-
-    if (fields.characters && hasV4Chars) {
-      result.characters = metadata.v4_prompt!.caption!.char_captions!.map(
-        (cc, i) => {
-          const negChar =
-            metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-          return {
-            id: `imported-${Date.now()}-${i}`,
-            name: `Character ${i + 1}`,
-            prompt: cc.char_caption,
-            negative: negChar?.char_caption ?? '',
-          }
-        },
-      )
-    }
-
-    if (fields.parameters || fields.resolution) {
-      const params: Record<string, unknown> = {}
-      if (fields.parameters) {
-        if (metadata.steps != null) params.steps = metadata.steps
-        if (metadata.cfgScale != null) params.scale = metadata.cfgScale
-        if (metadata.cfgRescale != null) params.cfgRescale = metadata.cfgRescale
-        if (metadata.sampler) params.sampler = metadata.sampler
-        if (metadata.scheduler) params.scheduler = metadata.scheduler
-        if (metadata.ucPreset != null) params.ucPreset = metadata.ucPreset
-      }
-      if (fields.resolution) {
-        if (metadata.width != null) params.width = metadata.width
-        if (metadata.height != null) params.height = metadata.height
-      }
-      result.parameters = params
-    }
-
-    onApply(result)
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{t('quickGenerate.importFromImage')}</DialogTitle>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2 overflow-y-auto max-h-[60vh]">
-          <div className="space-y-1">
-            <Label className="text-sm text-muted-foreground">
-              {t('quickGenerate.importFields')}
-            </Label>
-            <div className="space-y-2.5 pt-1">
-              <ImportFieldCheckbox
-                checked={fields.generalPrompt}
-                onCheckedChange={() => toggleField('generalPrompt')}
-                label={t('quickGenerate.generalPrompt')}
-                preview={
-                  metadata.v4_prompt?.caption?.base_caption ||
-                  metadata.prompt ||
-                  undefined
-                }
-              />
-              <ImportFieldCheckbox
-                checked={fields.negativePrompt}
-                onCheckedChange={() => toggleField('negativePrompt')}
-                label={t('quickGenerate.negativePrompt2')}
-                preview={metadata.negativePrompt}
-              />
-              {hasV4Chars && (
-                <ImportFieldCheckbox
-                  checked={fields.characters}
-                  onCheckedChange={() => toggleField('characters')}
-                  label={t('quickGenerate.characterPrompts', {
-                    count: metadata.v4_prompt!.caption!.char_captions!.length,
-                  })}
-                  preview={metadata
-                    .v4_prompt!.caption!.char_captions!.map(
-                      (c) => c.char_caption,
-                    )
-                    .join(' | ')}
-                />
-              )}
-              <ImportFieldCheckbox
-                checked={fields.parameters}
-                onCheckedChange={() => toggleField('parameters')}
-                label={t('quickGenerate.generationParameters')}
-                preview={
-                  [
-                    metadata.steps && `Steps: ${metadata.steps}`,
-                    metadata.cfgScale && `CFG: ${metadata.cfgScale}`,
-                    metadata.sampler && `Sampler: ${metadata.sampler}`,
-                  ]
-                    .filter(Boolean)
-                    .join(', ') || undefined
-                }
-              />
-              <ImportFieldCheckbox
-                checked={fields.resolution}
-                onCheckedChange={() => toggleField('resolution')}
-                label={t('quickGenerate.resolution')}
-                preview={
-                  metadata.width && metadata.height
-                    ? `${metadata.width} x ${metadata.height}`
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-
-          <ImportReferenceWarning metadata={metadata} />
-        </div>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            {t('common.cancel')}
-          </Button>
-          <Button onClick={handleApply}>
-            {t('quickGenerate.importApply')}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  )
-}
-
-function ImportFieldCheckbox({
-  checked,
-  onCheckedChange,
-  label,
-  preview,
-}: {
-  checked: boolean
-  onCheckedChange: () => void
-  label: string
-  preview?: string
-}) {
-  return (
-    <label className="flex items-start gap-2.5 cursor-pointer group overflow-hidden">
-      <Checkbox
-        checked={checked}
-        onCheckedChange={onCheckedChange}
-        className="mt-0.5 shrink-0"
-      />
-      <div className="min-w-0 flex-1">
-        <span className="text-sm font-medium">{label}</span>
-        {preview && (
-          <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2 break-all">
-            {preview}
-          </p>
-        )}
-      </div>
-    </label>
-  )
-}
-
-function ImportReferenceWarning({ metadata }: { metadata: NAIMetadata }) {
-  const { t } = useTranslation()
-  const hasVibe =
-    metadata.hasVibeTransfer &&
-    metadata.vibeTransferInfo &&
-    metadata.vibeTransferInfo.length > 0
-  const hasPrecise =
-    metadata.hasCharacterReference &&
-    metadata.characterReferenceInfo &&
-    metadata.characterReferenceInfo.length > 0
-
-  if (!hasVibe && !hasPrecise) return null
-
-  let message: string
-  if (hasVibe && hasPrecise) {
-    message = t('reference.importWarningBoth', {
-      vibeCount: String(metadata.vibeTransferInfo!.length),
-      preciseCount: String(metadata.characterReferenceInfo!.length),
-    })
-  } else if (hasVibe) {
-    message = t('reference.importWarningVibe', {
-      count: String(metadata.vibeTransferInfo!.length),
-    })
-  } else {
-    message = t('reference.importWarningPrecise', {
-      count: String(metadata.characterReferenceInfo!.length),
-    })
-  }
-
-  return (
-    <div className="flex gap-2 rounded-md border border-primary/30 bg-primary/10 p-3">
-      <HugeiconsIcon
-        icon={AlertCircleIcon}
-        className="size-4 text-primary shrink-0 mt-0.5"
-      />
-      <div className="min-w-0">
-        <p className="text-sm font-medium text-primary">
-          {t('reference.importWarningTitle')}
-        </p>
-        <p className="text-xs text-primary/80 mt-0.5">{message}</p>
-      </div>
-    </div>
   )
 }

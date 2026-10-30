@@ -124,13 +124,12 @@ function ParamLabel({
 }
 
 // --- Shared form ---
-function ParameterForm({
-  localParams,
-  set,
-}: {
+export interface ParameterFormProps {
   localParams: Record<string, unknown>
   set: (key: string, value: unknown) => void
-}) {
+}
+
+export function ParameterForm({ localParams, set }: ParameterFormProps) {
   const { t } = useTranslation()
   const w = Number(localParams.width ?? 832)
   const h = Number(localParams.height ?? 1216)

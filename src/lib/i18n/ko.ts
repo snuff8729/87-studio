@@ -505,6 +505,7 @@ const ko: DeepStringify<typeof en> = {
     noImagesYet: '생성된 이미지가 여기에 표시됩니다.',
     viewInGallery: '갤러리에서 전체 보기',
     seed: '시드',
+    seedCopied: '시드가 복사되었습니다',
     generating: '생성 중...',
     promptPlaceholder: '프롬프트를 입력하세요...',
     negativePlaceholder: '네거티브 프롬프트를 입력하세요...',
