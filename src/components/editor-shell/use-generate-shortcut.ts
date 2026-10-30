@@ -6,6 +6,8 @@ export const MODAL_SELECTOR = [
   '[data-slot="dialog-content"]',
   '[data-slot="alert-dialog-content"]',
   '[data-slot="sheet-content"]',
+  // Popovers that own Enter / Ctrl+K while open
+  '[data-block-shortcuts]',
 ].join(',')
 
 const GENERATE_COOLDOWN_MS = 1000

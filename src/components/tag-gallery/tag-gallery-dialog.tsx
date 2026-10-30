@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { TagGalleryContent } from './tag-gallery-content'
 
@@ -21,9 +21,23 @@ export function TagGalleryDialog({
 }: TagGalleryDialogProps) {
   const [selectedTag, setSelectedTag] = useState<string | null>(null)
 
-  if (!open) return null
-
   const nested = !!container
+
+  // Esc closes only the gallery, not the Radix dialog it is nested in (that
+  // listens on the document in the capture phase, so intercept on window)
+  useEffect(() => {
+    if (!open || !nested) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      e.preventDefault()
+      onOpenChange(false)
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [open, nested, onOpenChange])
+
+  if (!open) return null
 
   return createPortal(
     <div

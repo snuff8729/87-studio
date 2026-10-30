@@ -239,6 +239,18 @@ const rows = (page) =>
   const count = Number(rail?.text.match(/(\d+)/)?.[1] ?? 0)
   check(count >= total, `rail header shows ${count} scenes`)
   check(rail?.w === 216, `rail defaults to expanded (${rail?.w}px)`)
+  const titleFits = await page.evaluate(() => {
+    const h = [
+      ...document.querySelectorAll('#center div[data-onboarding="scene-rail"]'),
+    ].find((el) => el.getClientRects().length > 0)
+    const t = h.firstElementChild
+    return { fits: t.scrollWidth <= t.clientWidth, text: t.textContent }
+  })
+  check(
+    titleFits.fits,
+    `rail title is not truncated at 216px ("${titleFits.text}")`,
+  )
+  await shot(page, 'desktop-rail-216')
   const rendered = await rows(page).count()
   check(rendered < 60, `virtualized (${rendered}/${count} rows in DOM)`)
 

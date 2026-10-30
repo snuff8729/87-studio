@@ -130,7 +130,11 @@ export function SceneSelectionHeader({
             <HugeiconsIcon icon={Layers01Icon} className="size-4" />
           </button>
         </PopoverTrigger>
-        <PopoverContent align="end" className="w-auto gap-2 p-2">
+        <PopoverContent
+          align="end"
+          className="w-auto gap-2 p-2"
+          data-block-shortcuts
+        >
           <div className="text-xs text-muted-foreground">
             {t('scene.setCountTitle')}
           </div>

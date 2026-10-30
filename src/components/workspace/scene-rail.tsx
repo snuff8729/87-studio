@@ -366,7 +366,7 @@ export const SceneRail = memo(function SceneRail({
           title={t('scene.addScene')}
           aria-label={t('scene.addScene')}
           data-onboarding="add-scene-btn"
-          className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+          className="inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
         >
           <HugeiconsIcon icon={Add01Icon} className="size-4" />
         </button>
@@ -449,7 +449,7 @@ export const SceneRail = memo(function SceneRail({
                 title={t('sceneRail.more')}
                 aria-label={t('sceneRail.more')}
                 className={cn(
-                  'relative shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground',
+                  'relative inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground',
                   sortBy !== 'default' && 'text-primary',
                 )}
               >
@@ -636,7 +636,7 @@ function RailIconButton({
       onClick={onClick}
       title={dot && dotLabel ? `${label} (${dotLabel})` : label}
       aria-label={label}
-      className="relative shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+      className="relative inline-flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
     >
       <HugeiconsIcon icon={icon} className="size-4" />
       {dot && (

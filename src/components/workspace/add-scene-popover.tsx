@@ -104,6 +104,7 @@ export function AddScenePopover({
         side={side}
         align={align}
         className="w-72 gap-3 p-3"
+        data-block-shortcuts
         data-onboarding={onboarding ? 'add-scene-form' : undefined}
         onKeyDown={(e) => {
           if (

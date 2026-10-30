@@ -75,6 +75,7 @@ import { ImportDialog } from '@/components/workspace/import-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import {
   SceneRail,
+  effectiveCollapsed,
   useCollapsedPacks,
   useRailCompact,
 } from '@/components/workspace/scene-rail'
@@ -759,6 +760,8 @@ function WorkspacePage() {
   // ── Add scene (＋ popover): the new scene is selected and revealed ──
   const handleAddScene = useCallback(
     async (input: AddSceneInput) => {
+      // Copying values must see edits that are still waiting for their save
+      if (input.copyFromSceneId != null) await pendingSaves.flushAll()
       const scene = await addProjectScene({
         data: {
           projectId,
@@ -786,6 +789,7 @@ function WorkspacePage() {
       clearSceneFilters,
       navigate,
       boardMode,
+      pendingSaves,
     ],
   )
 
@@ -831,10 +835,21 @@ function WorkspacePage() {
   )
   const [convertIds, setConvertIds] = useState<Array<number> | null>(null)
 
+  // Scenes in collapsed groups are hidden: select-all / bulk actions skip them
+  const shownCollapsed = effectiveCollapsed(collapsedPacks, sceneSearch)
   const visibleSceneIds = useMemo(
-    () => visiblePacks.flatMap((pack) => pack.scenes.map((sc) => sc.id)),
-    [visiblePacks],
+    () =>
+      visiblePacks
+        .filter((pack) => !shownCollapsed.has(pack.id))
+        .flatMap((pack) => pack.scenes.map((sc) => sc.id)),
+    [visiblePacks, shownCollapsed],
   )
+
+  // Selection belongs to one project
+  useEffect(() => {
+    setSelectMode(false)
+    setCheckedIds(new Set())
+  }, [projectId])
   const checkedVisibleIds = useMemo(
     () => visibleChecked(checkedIds, visibleSceneIds),
     [checkedIds, visibleSceneIds],

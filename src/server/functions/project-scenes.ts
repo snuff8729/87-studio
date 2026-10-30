@@ -145,6 +145,17 @@ export const addProjectScene = createServerFn({ method: 'POST' })
             .get()
         : undefined
 
+      if (source) {
+        const sourcePack = tx
+          .select()
+          .from(projectScenePacks)
+          .where(eq(projectScenePacks.id, source.projectScenePackId))
+          .get()
+        if (sourcePack?.projectId !== data.projectId) {
+          throw new Error('Scene not found')
+        }
+      }
+
       // Shift existing scenes' sort order to make room at the front
       tx.update(projectScenes)
         .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })

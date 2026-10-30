@@ -75,12 +75,21 @@ export function CharactersPanel({
         },
       })
       await router.invalidate()
-      // Keep the draft when it changed again while this save was running
-      if (draftsRef.current[id] === draft && pendingIdRef.current !== id) {
+      // Keep the draft when it changed again while this save was running,
+      // or while the name is blank (restored on blur instead)
+      if (
+        draftsRef.current[id] === draft &&
+        pendingIdRef.current !== id &&
+        draft.name.trim()
+      ) {
         dropDraft(id)
       }
     } catch {
       toast.error(t('workspace.characterSaveFailed'))
+      // Let the next flush (Generate) retry this edit
+      if (pendingIdRef.current === null && draftsRef.current[id]) {
+        pendingIdRef.current = id
+      }
     }
   }
 
@@ -93,7 +102,7 @@ export function CharactersPanel({
     const draft = draftsRef.current[id]
     if (!draft) return inFlightRef.current
     const run = save(id, draft)
-    inFlightRef.current = run
+    inFlightRef.current = Promise.all([inFlightRef.current, run]).then(() => {})
     return run
   }
 
@@ -133,6 +142,14 @@ export function CharactersPanel({
     pendingIdRef.current = id
     clearTimeout(timerRef.current)
     timerRef.current = setTimeout(() => void flush(), SAVE_DELAY_MS)
+  }
+
+  /** Blank names fall back to the stored one once the field loses focus. */
+  function handleNameBlur(id: number) {
+    const draft = draftsRef.current[id]
+    if (!draft || draft.name.trim()) return
+    const stored = charactersRef.current.find((c) => c.id === id)
+    if (stored) handleUpdate(id, { name: stored.name })
   }
 
   async function handleAdd() {
@@ -222,6 +239,7 @@ export function CharactersPanel({
       characters={items}
       onAdd={handleAdd}
       onUpdate={handleUpdate}
+      onNameBlur={handleNameBlur}
       onDuplicate={handleDuplicate}
       onMove={handleMove}
       onDelete={handleDelete}

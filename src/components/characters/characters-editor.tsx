@@ -49,6 +49,8 @@ interface CharactersEditorProps<TId extends string | number> {
   /** Create a character and resolve with its id (it is selected right away) */
   onAdd: () => Promise<TId | undefined> | TId | undefined
   onUpdate: (id: TId, patch: CharacterPatch) => void
+  /** Name field lost focus (e.g. restore a blank name) */
+  onNameBlur?: (id: TId) => void
   /** Duplicate and resolve with the copy's id */
   onDuplicate: (id: TId) => Promise<TId | undefined> | TId | undefined
   onMove: (id: TId, direction: -1 | 1) => void
@@ -61,6 +63,7 @@ export function CharactersEditor<TId extends string | number>({
   characters,
   onAdd,
   onUpdate,
+  onNameBlur,
   onDuplicate,
   onMove,
   onDelete,
@@ -223,6 +226,7 @@ export function CharactersEditor<TId extends string | number>({
           character={selected}
           nameInputRef={nameInputRef}
           onUpdate={(patch) => onUpdate(selected.id, patch)}
+          onNameBlur={() => onNameBlur?.(selected.id)}
           slots={slots}
         />
       )}
@@ -246,11 +250,13 @@ function CharacterBody<TId extends string | number>({
   character,
   nameInputRef,
   onUpdate,
+  onNameBlur,
   slots,
 }: {
   character: CharacterItem<TId>
   nameInputRef: React.RefObject<HTMLInputElement | null>
   onUpdate: (patch: CharacterPatch) => void
+  onNameBlur?: () => void
   slots?: boolean
 }) {
   const { t } = useTranslation()
@@ -284,6 +290,7 @@ function CharacterBody<TId extends string | number>({
           ref={nameInputRef}
           value={character.name}
           onChange={(e) => onUpdate({ name: e.target.value })}
+          onBlur={onNameBlur}
           placeholder={t('quickGenerate.characterName')}
           className="h-8 text-sm"
         />

@@ -375,9 +375,8 @@ function QuickGeneratePage() {
           prev.characters.map((c) => c.name),
         ),
       }
-      const next = [...prev.characters]
-      next.splice(index + 1, 0, copy)
-      return { ...prev, characters: next }
+      // Appended at the end, like the workspace
+      return { ...prev, characters: [...prev.characters, copy] }
     })
     return copyId
   }
