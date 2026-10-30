@@ -133,7 +133,7 @@ if [ -f ".output/server/index.mjs" ] && [ -z "$(find src public package.json vit
 else
     echo "  [5/6] 애플리케이션 빌드 중..."
     echo "        (첫 실행 시 몇 분 소요됩니다)"
-    "${NODE_BIN}/npm" run build
+    NODE_OPTIONS=--disable-warning=ExperimentalWarning "${NODE_BIN}/npm" run build
     echo "        완료!"
 fi
 

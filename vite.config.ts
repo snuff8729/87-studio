@@ -1,7 +1,7 @@
 import { extname, normalize, resolve, sep } from 'node:path'
 import { existsSync, readFileSync } from 'node:fs'
 import { execSync } from 'node:child_process'
-import { defineConfig } from 'vite'
+import { createLogger, defineConfig } from 'vite'
 import { devtools } from '@tanstack/devtools-vite'
 import { tanstackStart } from '@tanstack/react-start/plugin/vite'
 import viteReact from '@vitejs/plugin-react'
@@ -9,7 +9,7 @@ import viteTsConfigPaths from 'vite-tsconfig-paths'
 import tailwindcss from '@tailwindcss/vite'
 import { nitro } from 'nitro/vite'
 import { dataPath } from './src/server/data-dir'
-import type { Plugin } from 'vite'
+import type { Plugin, Rollup } from 'vite'
 
 const CONTENT_TYPES: Record<string, string> = {
   '.png': 'image/png',
@@ -102,12 +102,45 @@ function getAppVersion(): string {
   }
 }
 
+// Harmless build noise: "use client" directives in libraries, unused imports
+// inside framework packages, and the codes nitro itself ignores
+const IGNORED_WARNINGS = new Set([
+  'MODULE_LEVEL_DIRECTIVE',
+  'UNUSED_EXTERNAL_IMPORT',
+  'EVAL',
+  'CIRCULAR_DEPENDENCY',
+  'THIS_IS_UNDEFINED',
+  'EMPTY_BUNDLE',
+])
+
+function ignoreBuildWarnings(
+  warning: Rollup.RollupLog,
+  warn: (w: Rollup.RollupLog) => void,
+) {
+  if (warning.code && IGNORED_WARNINGS.has(warning.code)) return
+  warn(warning)
+}
+
+// Server function files import node built-ins that the client build stubs out
+const logger = createLogger()
+const loggerWarn = logger.warn
+logger.warn = (msg, options) => {
+  if (msg.includes('has been externalized for browser compatibility')) return
+  loggerWarn(msg, options)
+}
+
 const config = defineConfig({
+  customLogger: logger,
   define: {
     __APP_VERSION__: JSON.stringify(getAppVersion()),
   },
   server: {
     host: '0.0.0.0',
+  },
+  build: {
+    // Single local app: large chunks are expected
+    chunkSizeWarningLimit: 3000,
+    rollupOptions: { onwarn: ignoreBuildWarnings },
   },
   plugins: [
     serveDataFiles(),
@@ -120,6 +153,7 @@ const config = defineConfig({
           handler: './src/server/api/data-files.ts',
         },
       ],
+      rollupConfig: { onwarn: ignoreBuildWarnings },
     }),
     // this is the plugin that enables path aliases
     viteTsConfigPaths({

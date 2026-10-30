@@ -177,7 +177,9 @@ if (-not $buildIsStale) {
 } else {
     Write-Host "   [5/6] 애플리케이션 빌드 중..."
     Write-Host "         (첫 실행 시 몇 분 소요됩니다)"
+    $env:NODE_OPTIONS = "--disable-warning=ExperimentalWarning"
     & $npmCmd run build 2>&1 | Out-Host
+    Remove-Item Env:NODE_OPTIONS
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
         Write-Host "   [ERROR] 빌드에 실패했습니다."

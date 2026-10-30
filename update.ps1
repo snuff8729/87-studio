@@ -178,7 +178,9 @@ Write-Host "         완료!"
 Write-Host "   [5/5] 애플리케이션 빌드 중..."
 $outputDir = Join-Path $ROOT_DIR ".output"
 if (Test-Path $outputDir) { Remove-Item $outputDir -Recurse -Force }
+$env:NODE_OPTIONS = "--disable-warning=ExperimentalWarning"
 & $npmCmd run build 2>&1 | Out-Host
+Remove-Item Env:NODE_OPTIONS
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "   [ERROR] 빌드에 실패했습니다."

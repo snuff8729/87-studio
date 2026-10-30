@@ -122,7 +122,7 @@ echo "        완료!"
 # =============================================================
 echo "  [5/5] 애플리케이션 빌드 중..."
 rm -rf .output
-"${NODE_BIN}/npm" run build
+NODE_OPTIONS=--disable-warning=ExperimentalWarning "${NODE_BIN}/npm" run build
 echo "        완료!"
 
 # =============================================================
