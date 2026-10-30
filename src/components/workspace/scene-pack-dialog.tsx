@@ -83,16 +83,31 @@ function ScenePromptEditor(props: {
 
 interface ScenePackDialogProps {
   projectId: number
+  /** Controlled open state (optional; uncontrolled by default). */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 type PackListItem = Awaited<ReturnType<typeof listScenePacks>>[number]
 type PackDetail = Awaited<ReturnType<typeof getScenePack>>
 type SceneItem = PackDetail['scenes'][number]
 
-export function ScenePackDialog({ projectId }: ScenePackDialogProps) {
+export function ScenePackDialog({
+  projectId,
+  open: openProp,
+  onOpenChange,
+}: ScenePackDialogProps) {
   const { t } = useTranslation()
   const router = useRouter()
-  const [open, setOpen] = useState(false)
+  const [openState, setOpenState] = useState(false)
+  const open = openProp ?? openState
+  const setOpen = useCallback(
+    (next: boolean) => {
+      setOpenState(next)
+      onOpenChange?.(next)
+    },
+    [onOpenChange],
+  )
   const [packs, setPacks] = useState<Array<PackListItem>>([])
   const [selectedPack, setSelectedPack] = useState<PackDetail | null>(null)
 

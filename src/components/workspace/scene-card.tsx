@@ -9,7 +9,7 @@ import {
   RotateLeft01Icon,
 } from '@hugeicons/core-free-icons'
 import type { CSSProperties, ReactNode } from 'react'
-import type { SceneCardSize } from './scenes-tab-prefs'
+import type { SceneCardSize } from './scene-board-prefs'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   DropdownMenu,
@@ -21,28 +21,9 @@ import {
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
-export type { SceneCardSize } from './scenes-tab-prefs'
+export type { SceneCardSize } from './scene-board-prefs'
 
 // ── Shared types (workspace scene data as loaded by the route) ──
-
-export type SceneSortBy =
-  | 'default'
-  | 'name_asc'
-  | 'name_desc'
-  | 'images_desc'
-  | 'images_asc'
-  | 'created_asc'
-  | 'created_desc'
-
-export const SCENE_SORT_OPTIONS: Array<SceneSortBy> = [
-  'default',
-  'name_asc',
-  'name_desc',
-  'images_desc',
-  'images_asc',
-  'created_asc',
-  'created_desc',
-]
 
 export interface WorkspaceSceneData {
   id: number
@@ -60,7 +41,7 @@ export interface WorkspaceScenePack {
   scenes: Array<WorkspaceSceneData>
 }
 
-/** Minimal scene shape rendered by SceneCard / SceneRow. */
+/** Minimal scene shape rendered by SceneCard / the scene rail. */
 export interface SceneCardScene {
   id: number
   name: string
@@ -95,7 +76,7 @@ export interface SceneItemProps {
   onCountChange: (sceneId: number, count: number | null) => void
   selected: boolean
   onSelect: (sceneId: number) => void
-  /** Card size (ignored by SceneRow). */
+  /** Card size. */
   size?: SceneCardSize
   /** Menu items (e.g. `<SceneMenuItems />`); also opened by right-click. */
   menu?: ReactNode
@@ -277,7 +258,7 @@ export function SceneMenuItems({
   )
 }
 
-function SceneMenuButton({
+export function SceneMenuButton({
   menu,
   open,
   onOpenChange,
@@ -318,7 +299,7 @@ function SceneMenuButton({
   )
 }
 
-function useItemInteraction({
+export function useItemInteraction({
   scene,
   selectMode,
   checked,
@@ -345,7 +326,7 @@ function useItemInteraction({
   }
 }
 
-function SelectCheckbox({
+export function SelectCheckbox({
   scene,
   checked,
   onCheckedChange,
@@ -364,101 +345,6 @@ function SelectCheckbox({
     />
   )
 }
-
-// ── Compact list row ──
-
-export const SceneRow = memo(function SceneRow(props: SceneItemProps) {
-  const {
-    scene,
-    count,
-    defaultCount = 0,
-    onCountChange,
-    selected,
-    menu,
-    selectMode,
-    checked,
-    onCheckedChange,
-    className,
-    style,
-  } = props
-  const { t } = useTranslation()
-  const { menuOpen, setMenuOpen, onClick, onContextMenu } =
-    useItemInteraction(props)
-  const highlighted = selectMode ? !!checked : selected
-
-  return (
-    <div
-      role="option"
-      aria-selected={highlighted}
-      data-onboarding="scene-item"
-      data-scene-id={scene.id}
-      onClick={onClick}
-      onContextMenu={onContextMenu}
-      style={style}
-      className={cn(
-        'group/row flex items-center gap-2 rounded-md px-1.5 py-1 cursor-pointer select-none transition-colors',
-        highlighted
-          ? 'bg-primary/15 ring-1 ring-inset ring-primary/60'
-          : 'hover:bg-secondary/60',
-        className,
-      )}
-    >
-      {selectMode && (
-        <SelectCheckbox
-          scene={scene}
-          checked={checked}
-          onCheckedChange={onCheckedChange}
-        />
-      )}
-      <div className="w-9 h-12 rounded overflow-hidden shrink-0 bg-secondary/50 flex items-center justify-center">
-        {scene.thumbnailPath ? (
-          <img
-            src={sceneThumbnailUrl(scene.thumbnailPath)}
-            alt=""
-            className="w-full h-full object-cover"
-            loading="lazy"
-            draggable={false}
-          />
-        ) : (
-          <HugeiconsIcon
-            icon={Image02Icon}
-            className="size-4 text-muted-foreground/25"
-          />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <div
-          className={cn(
-            'text-sm font-medium truncate',
-            selected && !selectMode ? 'text-primary' : 'text-foreground/90',
-          )}
-        >
-          {scene.name}
-        </div>
-        <div className="flex items-center gap-1 text-xs text-muted-foreground tabular-nums">
-          <HugeiconsIcon icon={Image02Icon} className="size-3" />
-          {scene.imageCount}
-        </div>
-      </div>
-      {!selectMode && (
-        <ReserveStepper
-          value={count}
-          placeholder={defaultCount}
-          onChange={(v) => onCountChange(scene.id, v)}
-          size="xs"
-          title={t('scene.reserveCount')}
-        />
-      )}
-      {menu && !selectMode && (
-        <SceneMenuButton
-          menu={menu}
-          open={menuOpen}
-          onOpenChange={setMenuOpen}
-        />
-      )}
-    </div>
-  )
-})
 
 // ── Thumbnail card ──
 

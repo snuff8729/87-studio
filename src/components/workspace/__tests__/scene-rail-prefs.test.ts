@@ -3,6 +3,8 @@ import {
   RAIL_AUTO_COMPACT_BELOW,
   RAIL_WIDTH_COMPACT,
   RAIL_WIDTH_EXPANDED,
+  collapsedPacksKey,
+  parseCollapsedPacks,
   parseRailPref,
   railPrefKey,
   shouldCompact,
@@ -47,5 +49,27 @@ describe('shouldCompact', () => {
   it('lets an explicit choice win over the width rule', () => {
     expect(shouldCompact(300, 'expanded')).toBe(false)
     expect(shouldCompact(2000, 'compact')).toBe(true)
+  })
+})
+
+describe('collapsedPacksKey', () => {
+  it('is namespaced per project', () => {
+    expect(collapsedPacksKey(3)).toBe('87studio-scene-groups-collapsed:3')
+  })
+})
+
+describe('parseCollapsedPacks', () => {
+  it('reads a JSON array of pack ids', () => {
+    expect(parseCollapsedPacks('[1,5,9]')).toEqual([1, 5, 9])
+  })
+
+  it('drops invalid entries and duplicates', () => {
+    expect(parseCollapsedPacks('[1,"2",-3,1.5,null,4,4]')).toEqual([1, 4])
+  })
+
+  it('falls back to none for missing or malformed values', () => {
+    expect(parseCollapsedPacks(null)).toEqual([])
+    expect(parseCollapsedPacks('nope')).toEqual([])
+    expect(parseCollapsedPacks('{"a":1}')).toEqual([])
   })
 })

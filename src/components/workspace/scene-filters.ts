@@ -62,3 +62,48 @@ export function countByFilter(
   }
   return result
 }
+
+export type SceneSortBy =
+  | 'default'
+  | 'name_asc'
+  | 'name_desc'
+  | 'images_desc'
+  | 'images_asc'
+  | 'created_asc'
+  | 'created_desc'
+
+export const SCENE_SORT_OPTIONS: Array<SceneSortBy> = [
+  'default',
+  'name_asc',
+  'name_desc',
+  'images_desc',
+  'images_asc',
+  'created_asc',
+  'created_desc',
+]
+
+/** Sorted copy (`default` returns the input as-is: pack sort order). */
+export function sortScenes<T extends FilterableScene>(
+  scenes: Array<T>,
+  sortBy: SceneSortBy,
+): Array<T> {
+  if (sortBy === 'default') return scenes
+  const sorted = [...scenes]
+  sorted.sort((a, b) => {
+    switch (sortBy) {
+      case 'name_asc':
+        return a.name.localeCompare(b.name)
+      case 'name_desc':
+        return b.name.localeCompare(a.name)
+      case 'images_desc':
+        return b.imageCount - a.imageCount
+      case 'images_asc':
+        return a.imageCount - b.imageCount
+      case 'created_asc':
+        return a.id - b.id
+      case 'created_desc':
+        return b.id - a.id
+    }
+  })
+  return sorted
+}

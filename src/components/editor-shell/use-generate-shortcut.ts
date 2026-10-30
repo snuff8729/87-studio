@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 /** Modal surfaces that should swallow the shortcut while open. */
-const MODAL_SELECTOR = [
+export const MODAL_SELECTOR = [
   '[aria-modal="true"]',
   '[data-slot="dialog-content"]',
   '[data-slot="alert-dialog-content"]',

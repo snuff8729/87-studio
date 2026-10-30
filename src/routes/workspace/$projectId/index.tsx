@@ -8,16 +8,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
+  ArrowDown01Icon,
   ArrowRight01Icon,
+  DashboardSquare01Icon,
   Download04Icon,
   FileImportIcon,
   PlayIcon,
 } from '@hugeicons/core-free-icons'
+import type { ReactNode } from 'react'
 import type { MobilePane } from '@/components/editor-shell/editor-shell'
-import type { SceneSortBy } from '@/components/workspace/scene-card'
+import type {
+  SceneFilter,
+  SceneSortBy,
+} from '@/components/workspace/scene-filters'
+import type { RailPack } from '@/components/workspace/scene-rail'
 import type { SceneImageSortBy } from '@/components/workspace/scene-detail'
 import type {
-  SceneBoardScene,
   SceneViewCharacterOverride,
   SceneViewScene,
 } from '@/components/workspace/scene-view'
@@ -62,14 +68,37 @@ import { ParameterForm } from '@/components/workspace/parameter-popover'
 import { ScenePackDialog } from '@/components/workspace/scene-pack-dialog'
 import { ImportDialog } from '@/components/workspace/import-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
-import { ScenesTab } from '@/components/workspace/scenes-tab'
-import { SceneBoard, SceneView } from '@/components/workspace/scene-view'
+import {
+  SceneRail,
+  useCollapsedPacks,
+  useRailCompact,
+} from '@/components/workspace/scene-rail'
+import { ScenePalette } from '@/components/workspace/scene-palette'
+import { useScenePaletteShortcut } from '@/components/workspace/scene-palette-shortcut'
+import {
+  countByFilter,
+  filterScenes,
+  sortScenes,
+} from '@/components/workspace/scene-filters'
+import { toSceneCardScene } from '@/components/workspace/scene-card'
+import {
+  SceneBoard,
+  SceneEmptyState,
+  SceneView,
+} from '@/components/workspace/scene-view'
 import { reserveSummary } from '@/components/workspace/reserve-summary'
 import { WorkspaceTitle } from '@/components/workspace/workspace-title'
 import { HistoryStrip } from '@/components/quick-generate/history-strip'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 
 function PendingComponent() {
   return (
@@ -83,29 +112,40 @@ function PendingComponent() {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="hidden w-[300px] shrink-0 flex-col border-r md:flex">
           <div className="flex h-10 items-center gap-2 border-b px-2">
-            {Array.from({ length: 5 }).map((_, i) => (
+            {Array.from({ length: 4 }).map((_, i) => (
               <Skeleton key={i} className="h-4 w-12" />
             ))}
           </div>
-          <div className="flex-1 space-y-2 p-2">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <Skeleton className="h-12 w-9 shrink-0 rounded" />
-                <Skeleton className="h-4 flex-1" />
-                <Skeleton className="h-6 w-16 rounded-md" />
-              </div>
-            ))}
+          <div className="flex-1 space-y-3 p-3">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-28 w-full rounded-md" />
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-16 w-full rounded-md" />
           </div>
           <div className="space-y-2 border-t p-3">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-9 w-full rounded-md" />
           </div>
         </aside>
-        <main className="min-w-0 flex-1 p-4">
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3">
+        <main className="flex min-w-0 flex-1">
+          <div className="hidden w-[216px] shrink-0 space-y-2 border-r bg-sidebar p-2 md:block">
+            <Skeleton className="h-7 w-full rounded-md" />
             {Array.from({ length: 8 }).map((_, i) => (
-              <Skeleton key={i} className="aspect-[3/4] w-full rounded-lg" />
+              <div key={i} className="flex items-center gap-1.5">
+                <Skeleton className="h-9 w-7 shrink-0 rounded" />
+                <Skeleton className="h-4 flex-1" />
+                <Skeleton className="h-6 w-14 rounded-md" />
+              </div>
             ))}
+          </div>
+          <div className="min-w-0 flex-1 space-y-3 p-4">
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="h-24 w-full rounded-md" />
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(140px,1fr))] gap-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <Skeleton key={i} className="aspect-[3/4] w-full rounded-lg" />
+              ))}
+            </div>
           </div>
         </main>
         <aside className="hidden w-[220px] shrink-0 space-y-2 border-l p-2 lg:block">
@@ -139,6 +179,8 @@ type WorkspaceSearch = {
   q?: string
   scene?: number
   imageSort?: SceneImageSortBy
+  /** Center mode: scene rail + view (default) or the scene board. */
+  view?: 'board'
 }
 
 const EMPTY_OVERRIDES: Array<SceneViewCharacterOverride> = []
@@ -165,6 +207,7 @@ export const Route = createFileRoute('/workspace/$projectId/')({
         search.imageSort !== 'newest'
           ? (search.imageSort as SceneImageSortBy)
           : undefined,
+      view: search.view === 'board' ? 'board' : undefined,
     }
   },
   loader: async ({ params }) => {
@@ -417,11 +460,11 @@ function WorkspacePage() {
 
   const sceneSortBy = searchParams.sort ?? 'default'
   const setSceneSortBy = useCallback(
-    (sort: string) => {
+    (sort: SceneSortBy) => {
       navigate({
         search: (prev) => ({
           ...prev,
-          sort: sort === 'default' ? undefined : (sort as SceneSortBy),
+          sort: sort === 'default' ? undefined : sort,
         }),
       })
     },
@@ -454,6 +497,11 @@ function WorkspacePage() {
   )
 
   const [mobilePane, setMobilePane] = useState<MobilePane>('edit')
+  const [scenesSheetOpen, setScenesSheetOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [packDialogOpen, setPackDialogOpen] = useState(false)
+
+  const boardMode = searchParams.view === 'board'
 
   const requestedSceneId = searchParams.scene ?? null
   const selectedSceneEntry =
@@ -462,39 +510,30 @@ function WorkspacePage() {
       : allScenes.find((s) => s.id === requestedSceneId)
   const selectedSceneId = selectedSceneEntry ? requestedSceneId : null
 
-  const setSelectedSceneId = useCallback(
-    (id: number | null, opts?: { replace?: boolean }) => {
+  /**
+   * Selects a scene and shows it (scene mode). `replace`: keyboard ↑/↓
+   * moves do not add history entries.
+   */
+  const handleSceneSelect = useCallback(
+    (id: number, opts?: { replace?: boolean }) => {
       navigate({
-        search: (prev) => ({ ...prev, scene: id ?? undefined }),
+        search: (prev) => ({ ...prev, scene: id, view: undefined }),
         replace: opts?.replace,
       })
+      setMobilePane('result')
     },
     [navigate],
   )
 
-  const handleSceneSelect = useCallback(
-    (id: number | null, opts?: { replace?: boolean }) => {
-      setSelectedSceneId(id, opts)
-      if (id != null) setMobilePane('result')
-    },
-    [setSelectedSceneId],
-  )
+  const openBoard = useCallback(() => {
+    navigate({ search: (prev) => ({ ...prev, view: 'board' as const }) })
+  }, [navigate])
 
-  // Back to the board (mobile stays on the Result pane, showing the board)
-  const handleCloseScene = useCallback(
-    () => setSelectedSceneId(null),
-    [setSelectedSceneId],
-  )
+  const closeBoard = useCallback(() => {
+    navigate({ search: (prev) => ({ ...prev, view: undefined }) })
+  }, [navigate])
 
-  // `?scene=` of another project / deleted / nonexistent → board, param cleared
-  useEffect(() => {
-    if (requestedSceneId != null && !selectedSceneEntry) {
-      navigate({
-        search: (prev) => ({ ...prev, scene: undefined }),
-        replace: true,
-      })
-    }
-  }, [requestedSceneId, selectedSceneEntry, navigate])
+  const openScenePacks = useCallback(() => setPackDialogOpen(true), [])
 
   const selectedScene = useMemo<SceneViewScene | null>(
     () =>
@@ -510,18 +549,6 @@ function WorkspacePage() {
           }
         : null,
     [selectedSceneEntry],
-  )
-
-  const boardScenes = useMemo<Array<SceneBoardScene>>(
-    () =>
-      allScenes.map((s) => ({
-        id: s.id,
-        name: s.name,
-        packName: s.packName,
-        thumbnailPath: s.thumbnailPath,
-        imageCount: s.recentImageCount,
-      })),
-    [allScenes],
   )
 
   // ── Scene management handlers ──
@@ -670,6 +697,93 @@ function WorkspacePage() {
     () => reserveSummary(allSceneIds, sceneCounts, countPerScene),
     [allSceneIds, sceneCounts, countPerScene],
   )
+
+  // ── Scene rail / board: sorted groups, search + filter chips ──
+  const [sceneFilter, setSceneFilter] = useState<SceneFilter>('all')
+  const [collapsedPacks, toggleCollapsedPack] = useCollapsedPacks(projectId)
+  const railWidth = useRailCompact(projectId)
+
+  const sortedPacks = useMemo<Array<RailPack>>(
+    () =>
+      scenePacks.map((pack) => ({
+        id: pack.id,
+        name: pack.name,
+        scenes: sortScenes(
+          pack.scenes.map((s) => toSceneCardScene(s, pack.name)),
+          sceneSortBy,
+        ),
+      })),
+    [scenePacks, sceneSortBy],
+  )
+  const railOrderScenes = useMemo(
+    () => sortedPacks.flatMap((p) => p.scenes),
+    [sortedPacks],
+  )
+
+  const visiblePacks = useMemo<Array<RailPack>>(
+    () =>
+      sortedPacks
+        .map((pack) => ({
+          ...pack,
+          scenes: filterScenes(
+            pack.scenes,
+            { query: sceneSearch, filter: sceneFilter },
+            sceneCounts,
+            countPerScene,
+          ),
+        }))
+        .filter((pack) => pack.scenes.length > 0),
+    [sortedPacks, sceneSearch, sceneFilter, sceneCounts, countPerScene],
+  )
+
+  const filterCounts = useMemo(
+    () =>
+      countByFilter(railOrderScenes, sceneSearch, sceneCounts, countPerScene),
+    [railOrderScenes, sceneSearch, sceneCounts, countPerScene],
+  )
+
+  const clearSceneFilters = useCallback(() => {
+    setSceneFilter('all')
+    setSceneSearch('')
+  }, [setSceneSearch])
+
+  // No valid selection in scene mode (first visit, deleted scene, `?scene=`
+  // of another project) → first scene in rail order, replacing the entry.
+  // Board mode only drops an invalid `?scene=`.
+  const firstSceneId =
+    visiblePacks.at(0)?.scenes.at(0)?.id ?? railOrderScenes.at(0)?.id ?? null
+
+  // ── Scene palette (Ctrl/Cmd+K) ──
+  useScenePaletteShortcut(
+    () => setPaletteOpen(true),
+    railOrderScenes.length > 0,
+  )
+
+  // Mobile sheet: picking a scene (not ↑/↓) closes the sheet
+  const handleSheetSelect = useCallback(
+    (id: number, opts?: { replace?: boolean }) => {
+      handleSceneSelect(id, opts)
+      if (!opts?.replace) setScenesSheetOpen(false)
+    },
+    [handleSceneSelect],
+  )
+  const handleSheetOpenBoard = useCallback(() => {
+    setScenesSheetOpen(false)
+    openBoard()
+  }, [openBoard])
+  const handleSheetOpenScenePacks = useCallback(() => {
+    setScenesSheetOpen(false)
+    setPackDialogOpen(true)
+  }, [])
+  useEffect(() => {
+    if (selectedSceneEntry) return
+    const target = boardMode ? null : firstSceneId
+    if (target == null && requestedSceneId == null) return
+    navigate({
+      search: (prev) => ({ ...prev, scene: target ?? undefined }),
+      replace: true,
+    })
+  }, [selectedSceneEntry, boardMode, firstSceneId, requestedSceneId, navigate])
 
   // Poll during generation (stop polling when queue is stopped — no server-side changes in that state)
   useEffect(() => {
@@ -833,7 +947,138 @@ function WorkspacePage() {
     [navigate],
   )
 
-  const scenePackDialog = <ScenePackDialog projectId={projectId} />
+  // ── Center: [SceneRail | SceneView] (scene mode) or SceneBoard ──
+  const railProps = {
+    packs: visiblePacks,
+    totalCount: railOrderScenes.length,
+    filterCounts,
+    filter: sceneFilter,
+    onFilterChange: setSceneFilter,
+    searchQuery: sceneSearch,
+    onSearchQueryChange: setSceneSearch,
+    onClearFilters: clearSceneFilters,
+    collapsedPacks,
+    onToggleCollapsed: toggleCollapsedPack,
+    sortBy: sceneSortBy,
+    onSortByChange: setSceneSortBy,
+    sceneCounts,
+    defaultCount: countPerScene,
+    onDefaultCountChange: setCountPerScene,
+    onSceneCountChange: handleSceneCountChange,
+    selectedSceneId,
+    onAddScene: handleAddScene,
+    onDeleteScene: handleDeleteScene,
+    onRenameScene: handleRenameScene,
+    onDuplicateScene: handleDuplicateScene,
+    onBulkDeleteScenes: handleBulkDeleteScenes,
+    exportDialog,
+  }
+
+  let center: ReactNode
+  if (railOrderScenes.length === 0) {
+    center = (
+      <SceneEmptyState
+        onAddScene={handleAddScene}
+        onOpenScenePacks={openScenePacks}
+      />
+    )
+  } else if (boardMode) {
+    center = (
+      <SceneBoard
+        projectId={projectId}
+        packs={visiblePacks}
+        totalCount={railOrderScenes.length}
+        filterCounts={filterCounts}
+        filter={sceneFilter}
+        onFilterChange={setSceneFilter}
+        searchQuery={sceneSearch}
+        onSearchQueryChange={setSceneSearch}
+        onClearFilters={clearSceneFilters}
+        collapsedPacks={collapsedPacks}
+        onToggleCollapsed={toggleCollapsedPack}
+        sceneCounts={sceneCounts}
+        defaultCount={countPerScene}
+        onSceneCountChange={handleSceneCountChange}
+        selectedSceneId={selectedSceneId}
+        onSelect={handleSceneSelect}
+        onAddScene={handleAddScene}
+        onClose={closeBoard}
+      />
+    )
+  } else {
+    center = (
+      <div
+        ref={railWidth.containerRef}
+        className="flex h-full min-h-0 flex-col md:flex-row"
+      >
+        {/* Mobile: the rail lives in a bottom sheet */}
+        <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5 md:hidden">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setScenesSheetOpen(true)}
+            data-onboarding="scene-rail"
+            aria-label={t('sceneRail.openScenes')}
+            className="min-w-0 flex-1 justify-start"
+          >
+            <span className="text-muted-foreground">
+              {t('sceneRail.title')}
+            </span>
+            <HugeiconsIcon
+              icon={ArrowDown01Icon}
+              className="size-4 shrink-0 text-muted-foreground"
+            />
+            <span className="min-w-0 truncate font-medium">
+              {selectedScene?.name ?? t('sceneRail.noSelection')}
+            </span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={openBoard}
+            title={t('sceneRail.openBoard')}
+            aria-label={t('sceneRail.openBoard')}
+          >
+            <HugeiconsIcon icon={DashboardSquare01Icon} className="size-4" />
+          </Button>
+        </div>
+        <SceneRail
+          {...railProps}
+          onSelect={handleSceneSelect}
+          onOpenBoard={openBoard}
+          onOpenScenePacks={openScenePacks}
+          compact={railWidth.compact}
+          railPref={railWidth.pref}
+          onToggleCompact={railWidth.toggle}
+          onAutoWidth={railWidth.resetAuto}
+          className="hidden md:flex"
+        />
+        <div className="min-h-0 min-w-0 flex-1">
+          {selectedScene ? (
+            <SceneView
+              projectId={projectId}
+              scene={selectedScene}
+              characters={data.characters}
+              characterOverrides={
+                characterOverrides[selectedScene.id] ?? EMPTY_OVERRIDES
+              }
+              generalPlaceholderKeys={stableGeneralKeys}
+              characterPlaceholderKeys={characterPlaceholderKeys}
+              getPrompts={getPrompts}
+              onPlaceholdersChange={handlePlaceholdersChange}
+              onRenameScene={handleRenameScene}
+              onThumbnailChange={handleSceneThumbnailChange}
+              projectThumbnailImageId={data.project.thumbnailImageId}
+              onProjectThumbnailChange={handleProjectThumbnailChange}
+              refreshKey={refreshKey}
+              imageSortBy={imageSortBy}
+              onImageSortByChange={setImageSortBy}
+            />
+          ) : null}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <PendingSavesProvider value={pendingSaves}>
@@ -853,7 +1098,11 @@ function WorkspacePage() {
             }
             actions={
               <>
-                {scenePackDialog}
+                <ScenePackDialog
+                  projectId={projectId}
+                  open={packDialogOpen}
+                  onOpenChange={setPackDialogOpen}
+                />
                 <Button
                   variant="ghost"
                   size="sm"
@@ -886,35 +1135,6 @@ function WorkspacePage() {
           />
         }
         tabs={[
-          {
-            id: 'scenes',
-            label: t('editor.tabScenes'),
-            badge: allScenes.length,
-            fill: true,
-            onboarding: 'scenes-tab',
-            content: (
-              <ScenesTab
-                scenePacks={scenePacks}
-                projectId={projectId}
-                sceneCounts={sceneCounts}
-                defaultCount={countPerScene}
-                onDefaultCountChange={setCountPerScene}
-                onSceneCountChange={handleSceneCountChange}
-                onAddScene={handleAddScene}
-                onDeleteScene={handleDeleteScene}
-                onRenameScene={handleRenameScene}
-                onDuplicateScene={handleDuplicateScene}
-                sortBy={sceneSortBy}
-                onSortByChange={setSceneSortBy}
-                searchQuery={sceneSearch}
-                onSearchQueryChange={setSceneSearch}
-                selectedSceneId={selectedSceneId}
-                onSelectedSceneChange={handleSceneSelect}
-                exportDialog={exportDialog}
-                onBulkDeleteScenes={handleBulkDeleteScenes}
-              />
-            ),
-          },
           {
             id: 'prompt',
             label: t('editor.tabPrompt'),
@@ -1000,40 +1220,7 @@ function WorkspacePage() {
             </div>
           </div>
         }
-        center={
-          selectedScene ? (
-            <SceneView
-              projectId={projectId}
-              scene={selectedScene}
-              characters={data.characters}
-              characterOverrides={
-                characterOverrides[selectedScene.id] ?? EMPTY_OVERRIDES
-              }
-              generalPlaceholderKeys={stableGeneralKeys}
-              characterPlaceholderKeys={characterPlaceholderKeys}
-              getPrompts={getPrompts}
-              onPlaceholdersChange={handlePlaceholdersChange}
-              onRenameScene={handleRenameScene}
-              onThumbnailChange={handleSceneThumbnailChange}
-              projectThumbnailImageId={data.project.thumbnailImageId}
-              onProjectThumbnailChange={handleProjectThumbnailChange}
-              refreshKey={refreshKey}
-              imageSortBy={imageSortBy}
-              onImageSortByChange={setImageSortBy}
-              onClose={handleCloseScene}
-            />
-          ) : (
-            <SceneBoard
-              scenes={boardScenes}
-              sceneCounts={sceneCounts}
-              defaultCount={countPerScene}
-              onSceneCountChange={handleSceneCountChange}
-              onSelect={handleSceneSelect}
-              onAddScene={handleAddScene}
-              scenePackDialog={scenePackDialog}
-            />
-          )
-        }
+        center={center}
         rightTitle={
           liveImages.length > 0
             ? `${t('history.title')} · ${liveImages.length}`
@@ -1066,6 +1253,36 @@ function WorkspacePage() {
         open={importOpen}
         onOpenChange={setImportOpen}
         onImported={handleImported}
+      />
+      <Sheet open={scenesSheetOpen} onOpenChange={setScenesSheetOpen}>
+        <SheetContent
+          side="bottom"
+          showCloseButton={false}
+          className="h-[85dvh] gap-0 overflow-hidden rounded-t-xl p-0"
+        >
+          <SheetHeader className="sr-only">
+            <SheetTitle>{t('sceneRail.title')}</SheetTitle>
+            <SheetDescription>{t('sceneRail.openScenes')}</SheetDescription>
+          </SheetHeader>
+          <SceneRail
+            {...railProps}
+            variant="sheet"
+            onSelect={handleSheetSelect}
+            onOpenBoard={handleSheetOpenBoard}
+            onOpenScenePacks={handleSheetOpenScenePacks}
+            onClose={() => setScenesSheetOpen(false)}
+            className="min-h-0 flex-1"
+          />
+        </SheetContent>
+      </Sheet>
+      <ScenePalette
+        open={paletteOpen}
+        onOpenChange={setPaletteOpen}
+        packs={sortedPacks}
+        sceneCounts={sceneCounts}
+        defaultCount={countPerScene}
+        selectedSceneId={selectedSceneId}
+        onSelect={handleSceneSelect}
       />
     </PendingSavesProvider>
   )

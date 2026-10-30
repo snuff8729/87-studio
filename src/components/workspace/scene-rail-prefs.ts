@@ -21,3 +21,23 @@ export function shouldCompact(centerWidth: number, pref: RailPref): boolean {
     (pref === null && centerWidth < RAIL_AUTO_COMPACT_BELOW)
   )
 }
+
+/** Collapsed pack groups (shared by the rail, the board and the sheet). */
+export function collapsedPacksKey(projectId: number): string {
+  return `87studio-scene-groups-collapsed:${projectId}`
+}
+
+export function parseCollapsedPacks(raw: string | null): Array<number> {
+  if (!raw) return []
+  let value: unknown
+  try {
+    value = JSON.parse(raw)
+  } catch {
+    return []
+  }
+  if (!Array.isArray(value)) return []
+  const ids = value.filter(
+    (v): v is number => typeof v === 'number' && Number.isInteger(v) && v > 0,
+  )
+  return [...new Set(ids)]
+}

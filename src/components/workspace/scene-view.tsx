@@ -3,16 +3,18 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
-  ArrowLeft01Icon,
   ArrowDown01Icon,
+  ArrowRight01Icon,
   Cancel01Icon,
   ChampionIcon,
   Exchange01Icon,
   FileExportIcon,
+  Film02Icon,
   GridIcon,
   Image02Icon,
   ImageRemove01Icon,
   PencilEdit02Icon,
+  Search01Icon,
   Tick01Icon,
 } from '@hugeicons/core-free-icons'
 import { PlaceholderEditor } from './placeholder-editor'
@@ -20,10 +22,30 @@ import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
 import { SceneCard } from './scene-card'
-import type { ReactNode } from 'react'
+import { FilterChips, effectiveCollapsed } from './scene-rail'
+import {
+  SCENE_CARD_MIN_WIDTH,
+  SCENE_CARD_SIZES,
+  SCENE_CARD_SIZE_DEFAULT,
+  parseSceneCardSize,
+  sceneBoardSizeKey,
+} from './scene-board-prefs'
+import type { SceneCardSize } from './scene-board-prefs'
+import type { SceneFilter, SceneFilterCounts } from './scene-filters'
+import type { RailPack } from './scene-rail'
 import type { SceneImageSortBy } from './scene-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import { Slider } from '@/components/ui/slider'
+import {
+  readStorage,
+  writeStorage,
+} from '@/components/editor-shell/use-editor-persist'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 import { cn } from '@/lib/utils'
@@ -89,8 +111,6 @@ export interface SceneViewProps {
   refreshKey?: number
   imageSortBy?: SceneImageSortBy
   onImageSortByChange?: (sort: SceneImageSortBy) => void
-  /** Back to the scene board (deselects the scene). */
-  onClose: () => void
 }
 
 function thumbUrl(path: string) {
@@ -144,7 +164,6 @@ export function SceneView({
   refreshKey,
   imageSortBy,
   onImageSortByChange,
-  onClose,
 }: SceneViewProps) {
   const { t } = useTranslation()
   const onboarding = useOnboardingMaybe()
@@ -241,19 +260,6 @@ export function SceneView({
     <div className="@container relative flex h-full min-h-0 flex-col">
       {/* ── Scene header ── */}
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          title={t('sceneView.backToScenesTitle')}
-          aria-label={t('sceneView.backToScenesTitle')}
-          className="-ml-1 shrink-0 px-1.5"
-        >
-          <HugeiconsIcon icon={ArrowLeft01Icon} className="size-4" />
-          <span className="hidden @md:inline">
-            {t('sceneView.backToScenes')}
-          </span>
-        </Button>
         <div className="size-8 shrink-0 overflow-hidden rounded-md bg-secondary/60">
           {scene.thumbnailPath ? (
             <img
@@ -469,92 +475,229 @@ export function SceneView({
   )
 }
 
-// ── SceneBoard (no scene selected) ──
+// ── Empty project (no scenes) ──
 
-/** Same shape as Task 1's `SceneCard` scene. */
-export interface SceneBoardScene {
-  id: number
-  name: string
-  packName: string
-  thumbnailPath: string | null
-  imageCount: number
+export function SceneEmptyState({
+  onAddScene,
+  onOpenScenePacks,
+}: {
+  onAddScene: (name: string) => Promise<void>
+  onOpenScenePacks: () => void
+}) {
+  const { t } = useTranslation()
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
+      <div className="rounded-2xl bg-secondary/30 p-5">
+        <HugeiconsIcon
+          icon={GridIcon}
+          className="size-8 text-muted-foreground/40"
+        />
+      </div>
+      <div className="space-y-1">
+        <p className="text-base font-medium">{t('sceneView.emptyTitle')}</p>
+        <p className="max-w-xs text-sm text-muted-foreground">
+          {t('sceneView.emptyDesc')}
+        </p>
+      </div>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <Button variant="outline" size="sm" onClick={onOpenScenePacks}>
+          <HugeiconsIcon icon={Film02Icon} className="size-4" />
+          {t('templates.title')}
+        </Button>
+        <AddSceneInline onAddScene={onAddScene} onboarding />
+      </div>
+    </div>
+  )
+}
+
+// ── SceneBoard (explicit board mode: `?view=board`) ──
+
+function useSceneCardSize(
+  projectId: number,
+): [SceneCardSize, (size: SceneCardSize) => void] {
+  const key = sceneBoardSizeKey(projectId)
+  const [size, setSizeState] = useState<SceneCardSize>(SCENE_CARD_SIZE_DEFAULT)
+  useEffect(() => {
+    setSizeState(parseSceneCardSize(readStorage(key)))
+  }, [key])
+  const setSize = useCallback(
+    (next: SceneCardSize) => {
+      setSizeState(next)
+      writeStorage(key, next)
+    },
+    [key],
+  )
+  return [size, setSize]
 }
 
 export interface SceneBoardProps {
-  scenes: Array<SceneBoardScene>
+  projectId: number
+  /** Sorted + filtered groups (empty groups dropped). */
+  packs: Array<RailPack>
+  totalCount: number
+  filterCounts: SceneFilterCounts
+  filter: SceneFilter
+  onFilterChange: (filter: SceneFilter) => void
+  searchQuery: string
+  onSearchQueryChange: (q: string) => void
+  onClearFilters: () => void
+  collapsedPacks: ReadonlySet<number>
+  onToggleCollapsed: (packId: number) => void
   sceneCounts: Record<number, number>
   defaultCount: number
   onSceneCountChange: (sceneId: number, count: number | null) => void
+  selectedSceneId: number | null
+  /** Card click: select the scene and return to scene mode. */
   onSelect: (sceneId: number) => void
   onAddScene: (name: string) => Promise<void>
-  /** Rendered as-is (e.g. `<ScenePackDialog projectId={…} />`, which brings its own trigger). */
-  scenePackDialog: ReactNode
+  onClose: () => void
 }
 
 export function SceneBoard({
-  scenes,
+  projectId,
+  packs,
+  totalCount,
+  filterCounts,
+  filter,
+  onFilterChange,
+  searchQuery,
+  onSearchQueryChange,
+  onClearFilters,
+  collapsedPacks,
+  onToggleCollapsed,
   sceneCounts,
   defaultCount,
   onSceneCountChange,
+  selectedSceneId,
   onSelect,
   onAddScene,
-  scenePackDialog,
+  onClose,
 }: SceneBoardProps) {
   const { t } = useTranslation()
-
-  if (scenes.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
-        <div className="rounded-2xl bg-secondary/30 p-5">
-          <HugeiconsIcon
-            icon={GridIcon}
-            className="size-8 text-muted-foreground/40"
-          />
-        </div>
-        <div className="space-y-1">
-          <p className="text-base font-medium">{t('sceneView.emptyTitle')}</p>
-          <p className="max-w-xs text-sm text-muted-foreground">
-            {t('sceneView.emptyDesc')}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-center gap-2">
-          {scenePackDialog}
-          <AddSceneInline onAddScene={onAddScene} />
-        </div>
-      </div>
-    )
-  }
+  const [size, setSize] = useSceneCardSize(projectId)
+  const sizeIndex = SCENE_CARD_SIZES.indexOf(size)
+  const shownCollapsed = effectiveCollapsed(collapsedPacks, searchQuery)
+  const filtersActive = filter !== 'all' || searchQuery.trim() !== ''
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="flex flex-wrap items-center gap-2 border-b px-4 py-2">
-        <div className="min-w-0 flex-1">
-          <div className="text-sm font-semibold">
-            {t('sceneView.boardTitle')}
-            <span className="ml-1.5 tabular-nums text-muted-foreground">
-              {scenes.length}
-            </span>
-          </div>
-          <div className="truncate text-xs text-muted-foreground">
-            {t('sceneView.boardHint')}
-          </div>
+    <div className="flex h-full min-h-0 flex-col">
+      {/* ── Toolbar ── */}
+      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2">
+        <div className="text-sm font-semibold whitespace-nowrap">
+          {t('sceneView.boardTitle')}
+          <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
+            {totalCount}
+          </span>
         </div>
-        {scenePackDialog}
-        <AddSceneInline onAddScene={onAddScene} />
-      </div>
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(168px,1fr))] gap-3 p-4">
-        {scenes.map((scene) => (
-          <SceneCard
-            key={scene.id}
-            scene={scene}
-            count={sceneCounts[scene.id] ?? null}
-            defaultCount={defaultCount}
-            onCountChange={onSceneCountChange}
-            selected={false}
-            onSelect={onSelect}
-            size="lg"
+        <InputGroup className="h-7 w-44">
+          <InputGroupAddon>
+            <HugeiconsIcon icon={Search01Icon} className="size-3.5" />
+          </InputGroupAddon>
+          <InputGroupInput
+            value={searchQuery}
+            onChange={(e) => onSearchQueryChange(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Escape' && searchQuery) {
+                e.stopPropagation()
+                onSearchQueryChange('')
+              }
+            }}
+            placeholder={t('scene.searchPlaceholder')}
+            aria-label={t('scene.searchScenes')}
+            className="h-7 px-0 text-xs"
           />
-        ))}
+        </InputGroup>
+        <FilterChips
+          filter={filter}
+          counts={filterCounts}
+          onChange={onFilterChange}
+        />
+        <div className="flex-1" />
+        <Slider
+          className="w-20 shrink-0"
+          min={0}
+          max={SCENE_CARD_SIZES.length - 1}
+          step={1}
+          value={[sizeIndex < 0 ? SCENE_CARD_SIZES.length - 1 : sizeIndex]}
+          onValueChange={([v]) => setSize(SCENE_CARD_SIZES[v])}
+          aria-label={t('scene.cardSize')}
+        />
+        <AddSceneInline onAddScene={onAddScene} />
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onClose}
+          title={t('sceneRail.closeBoard')}
+        >
+          <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+          <span className="hidden sm:inline">{t('sceneRail.closeBoard')}</span>
+        </Button>
+      </div>
+
+      {/* ── Groups ── */}
+      <div className="min-h-0 flex-1 overflow-y-auto">
+        {packs.length === 0 ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+            <HugeiconsIcon
+              icon={Search01Icon}
+              className="size-8 text-muted-foreground/30"
+            />
+            <p className="text-sm text-muted-foreground">
+              {t('sceneRail.noMatches')}
+            </p>
+            {filtersActive && (
+              <Button size="sm" variant="outline" onClick={onClearFilters}>
+                {t('sceneRail.clearFilters')}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-4 p-4">
+            {packs.map((pack) => {
+              const collapsed = shownCollapsed.has(pack.id)
+              return (
+                <section key={pack.id}>
+                  <button
+                    type="button"
+                    onClick={() => onToggleCollapsed(pack.id)}
+                    aria-expanded={!collapsed}
+                    className="mb-2 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+                  >
+                    <HugeiconsIcon
+                      icon={collapsed ? ArrowRight01Icon : ArrowDown01Icon}
+                      className="size-3.5"
+                    />
+                    {pack.name}
+                    <span className="font-normal text-muted-foreground/70 tabular-nums">
+                      · {pack.scenes.length}
+                    </span>
+                  </button>
+                  {!collapsed && (
+                    <div
+                      className="grid gap-3"
+                      style={{
+                        gridTemplateColumns: `repeat(auto-fill, minmax(${SCENE_CARD_MIN_WIDTH[size]}px, 1fr))`,
+                      }}
+                    >
+                      {pack.scenes.map((scene) => (
+                        <SceneCard
+                          key={scene.id}
+                          scene={scene}
+                          count={sceneCounts[scene.id] ?? null}
+                          defaultCount={defaultCount}
+                          onCountChange={onSceneCountChange}
+                          selected={scene.id === selectedSceneId}
+                          onSelect={onSelect}
+                          size={size}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </section>
+              )
+            })}
+          </div>
+        )}
       </div>
     </div>
   )
@@ -562,8 +705,11 @@ export function SceneBoard({
 
 function AddSceneInline({
   onAddScene,
+  onboarding,
 }: {
   onAddScene: (name: string) => Promise<void>
+  /** Onboarding anchors (empty project: the rail with its ＋ is hidden). */
+  onboarding?: boolean
 }) {
   const { t } = useTranslation()
   const [adding, setAdding] = useState(false)
@@ -587,7 +733,12 @@ function AddSceneInline({
 
   if (!adding) {
     return (
-      <Button variant="outline" size="sm" onClick={() => setAdding(true)}>
+      <Button
+        variant="outline"
+        size="sm"
+        onClick={() => setAdding(true)}
+        data-onboarding={onboarding ? 'add-scene-btn' : undefined}
+      >
         <HugeiconsIcon icon={Add01Icon} className="size-4" />
         {t('scene.addScene')}
       </Button>
@@ -595,7 +746,10 @@ function AddSceneInline({
   }
 
   return (
-    <div className="flex items-center gap-1">
+    <div
+      className="flex items-center gap-1"
+      data-onboarding={onboarding ? 'add-scene-form' : undefined}
+    >
       <Input
         value={name}
         onChange={(e) => setName(e.target.value)}

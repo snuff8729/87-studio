@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countByFilter, filterScenes } from '../scene-filters'
+import { countByFilter, filterScenes, sortScenes } from '../scene-filters'
 
 const scenes = [
   { id: 1, name: 'Smile', imageCount: 3 },
@@ -89,5 +89,27 @@ describe('countByFilter', () => {
       reserved: 0,
       noImages: 0,
     })
+  })
+})
+
+describe('sortScenes', () => {
+  const list = [
+    { id: 2, name: 'b', imageCount: 1 },
+    { id: 3, name: 'C', imageCount: 9 },
+    { id: 1, name: 'a', imageCount: 4 },
+  ]
+
+  it('keeps the original order for "default" (same array)', () => {
+    expect(sortScenes(list, 'default')).toBe(list)
+  })
+
+  it('sorts by name, image count and creation (id) without mutating', () => {
+    expect(ids(sortScenes(list, 'name_asc'))).toEqual([1, 2, 3])
+    expect(ids(sortScenes(list, 'name_desc'))).toEqual([3, 2, 1])
+    expect(ids(sortScenes(list, 'images_desc'))).toEqual([3, 1, 2])
+    expect(ids(sortScenes(list, 'images_asc'))).toEqual([2, 1, 3])
+    expect(ids(sortScenes(list, 'created_asc'))).toEqual([1, 2, 3])
+    expect(ids(sortScenes(list, 'created_desc'))).toEqual([3, 2, 1])
+    expect(ids(list)).toEqual([2, 3, 1])
   })
 })

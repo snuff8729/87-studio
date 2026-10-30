@@ -47,7 +47,7 @@ export const ONBOARDING_STEPS: Array<OnboardingStepDef> = [
     id: 5,
     target: 'add-scene-btn',
     activeTarget: 'add-scene-form',
-    fallbackTarget: 'scenes-tab',
+    fallbackTarget: 'scene-rail',
     titleKey: 'onboarding.step5.title',
     descriptionKey: 'onboarding.step5.description',
     completion: { type: 'condition', check: 'scene-exists' },
@@ -55,7 +55,7 @@ export const ONBOARDING_STEPS: Array<OnboardingStepDef> = [
   {
     id: 6,
     target: 'scene-item',
-    fallbackTarget: 'scenes-tab',
+    fallbackTarget: 'scene-rail',
     titleKey: 'onboarding.step6.title',
     descriptionKey: 'onboarding.step6.description',
     completion: { type: 'condition', check: 'scene-selected-in-edit' },
