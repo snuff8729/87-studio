@@ -51,10 +51,13 @@ export const validateApiKey = createServerFn({ method: 'POST' })
     if (NAI_MOCK) return { valid: true, error: null }
 
     try {
+      // NAI moved /user/* to image.novelai.net (2026-07); the api.novelai.net
+      // path now answers 401 "User not found" for every token
       const response = await fetch(
-        'https://api.novelai.net/user/subscription',
+        'https://image.novelai.net/user/subscription',
         {
-          headers: { Authorization: `Bearer ${apiKey}` },
+          headers: { Authorization: `Bearer ${apiKey.trim()}` },
+          signal: AbortSignal.timeout(10_000),
         },
       )
 
