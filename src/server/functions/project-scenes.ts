@@ -9,7 +9,8 @@ import {
 } from '../db/schema'
 import { deleteImageFiles } from '../services/image'
 import type { ScenePositionSpec } from '@/lib/character-positions'
-import { parseAxisValues } from '@/lib/character-parts'
+import type { OutfitEntry } from '@/lib/character-parts'
+import { parseAxisValues, stringifyOutfitEntries } from '@/lib/character-parts'
 import { encodePosition } from '@/lib/character-positions'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
@@ -144,7 +145,7 @@ export const updateCharacterOverrideParts = createServerFn({ method: 'POST' })
       sceneId: number
       characterId: number
       axisValues?: Record<string, number>
-      outfitItemIds?: Array<number> | null
+      outfitItemIds?: Array<number | OutfitEntry> | null
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -154,7 +155,9 @@ export const updateCharacterOverrideParts = createServerFn({ method: 'POST' })
     }
     if (data.outfitItemIds !== undefined) {
       patch.outfitItemIds =
-        data.outfitItemIds === null ? null : JSON.stringify(data.outfitItemIds)
+        data.outfitItemIds === null
+          ? null
+          : stringifyOutfitEntries(data.outfitItemIds)
     }
     db.insert(characterSceneOverrides)
       .values({

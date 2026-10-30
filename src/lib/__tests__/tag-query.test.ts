@@ -14,6 +14,11 @@ describe('normalizeTagQuery', () => {
     expect(normalizeTagQuery('1.2::Long Hair::')).toBe('long_hair')
     expect(normalizeTagQuery('{blue eyes}')).toBe('blue_eyes')
     expect(normalizeTagQuery('[smile]')).toBe('smile')
+    expect(normalizeTagQuery('(red hair)')).toBe('red_hair')
+    expect(normalizeTagQuery('(red hair:1.2)')).toBe('red_hair')
+    expect(normalizeTagQuery('ganyu (genshin impact)')).toBe(
+      'ganyu_(genshin_impact)',
+    )
     expect(normalizeTagQuery('miku \\(vocaloid\\)')).toBe('miku_(vocaloid)')
     expect(normalizeTagQuery('  Long   Hair ')).toBe('long_hair')
   })

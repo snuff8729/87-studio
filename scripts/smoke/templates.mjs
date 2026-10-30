@@ -422,9 +422,10 @@ async function desktop() {
     await shot(page, "templates-desktop-scenes-drag")
     await handle('Alpha (copy)').focus()
     await page.keyboard.press('Space')
+    await settle(page, 350)
     for (let i = 0; i < 3; i++) {
       await page.keyboard.press('ArrowDown')
-      await settle(page, 120)
+      await settle(page, 350)
     }
     await page.keyboard.press('Space')
     await settle(page, 700)

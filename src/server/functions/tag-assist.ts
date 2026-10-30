@@ -9,7 +9,10 @@ import {
   searchTagsFor,
   suggestTagsFor,
 } from '../services/tag-index'
+import { getTagRemoteFor } from '../services/tag-remote'
+import type { RemoteKind } from '@/lib/tag-remote'
 
+export type { RemoteResult } from '../services/tag-remote'
 export type {
   TagInfo,
   TagSearchRow,
@@ -25,6 +28,18 @@ export const suggestTags = createServerFn({ method: 'GET' })
 export const getTagInfo = createServerFn({ method: 'GET' })
   .inputValidator((data: { name: string; locale: string }) => data)
   .handler(({ data }) => getTagInfoFor(data.name, data.locale))
+
+/**
+ * Danbooru related tags / used-together tags / rating counts for a canonical
+ * tag name (cached 7 days). Failures are returned as { ok: false }.
+ */
+export const getTagRemote = createServerFn({ method: 'GET' })
+  .inputValidator(
+    (data: { name: string; kind: RemoteKind; force?: boolean }) => data,
+  )
+  .handler(({ data }) =>
+    getTagRemoteFor(data.name, data.kind, data.force === true),
+  )
 
 /** Tag Search window results (tab: all/general/character/artist/copyright/<category>). */
 export const searchTagsWindow = createServerFn({ method: 'GET' })

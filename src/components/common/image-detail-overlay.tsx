@@ -34,6 +34,7 @@ import { setBundleThumbnail } from '@/server/functions/bundles'
 import {
   updateLibraryCharacter,
   updateOutfitItem,
+  updatePreset,
 } from '@/server/functions/library'
 import { parseNAIMetadata } from '@/lib/nai-metadata'
 import { useTranslation } from '@/lib/i18n'
@@ -42,7 +43,7 @@ type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
 
 export function ImageDetailOverlay({ imageId }: { imageId: number }) {
   const router = useRouter()
-  const { detailBundle, detailTag, detailLibChar, detailOutfitItem } =
+  const { detailBundle, detailTag, detailLibChar, detailOutfitItem, detailPreset } =
     useSearch({ from: '__root__' })
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
@@ -53,12 +54,17 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
       data: {
         imageId,
         filters:
-          detailBundle || detailTag || detailLibChar || detailOutfitItem
+          detailBundle ||
+          detailTag ||
+          detailLibChar ||
+          detailOutfitItem ||
+          detailPreset
             ? {
                 bundleId: detailBundle,
                 promptTag: detailTag,
                 libraryCharacterId: detailLibChar,
                 outfitItemId: detailOutfitItem,
+                outfitPresetId: detailPreset,
               }
             : undefined,
       },
@@ -66,7 +72,14 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
       .then(setData)
       .catch(() => toast.error('Failed to load image'))
       .finally(() => setLoading(false))
-  }, [imageId, detailBundle, detailTag, detailLibChar, detailOutfitItem])
+  }, [
+    imageId,
+    detailBundle,
+    detailTag,
+    detailLibChar,
+    detailOutfitItem,
+    detailPreset,
+  ])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'
@@ -123,7 +136,9 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
             ? { kind: 'character', id: detailLibChar }
             : detailOutfitItem
               ? { kind: 'item', id: detailOutfitItem }
-              : undefined
+              : detailPreset
+                ? { kind: 'preset', id: detailPreset }
+                : undefined
         }
       />
     </div>
@@ -138,7 +153,7 @@ function ImageDetailContent({
   libraryTarget,
 }: {
   bundleId?: number
-  libraryTarget?: { kind: 'character' | 'item'; id: number }
+  libraryTarget?: { kind: 'character' | 'item' | 'preset'; id: number }
   data: DetailData
   setData: (d: DetailData) => void
   goBack: () => void
@@ -679,6 +694,8 @@ function ImageDetailContent({
                 }
                 if (libraryTarget.kind === 'character')
                   await updateLibraryCharacter({ data: payload })
+                else if (libraryTarget.kind === 'preset')
+                  await updatePreset({ data: payload })
                 else await updateOutfitItem({ data: payload })
                 window.dispatchEvent(
                   new CustomEvent('library-thumbnail-changed'),

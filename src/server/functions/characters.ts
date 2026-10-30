@@ -4,7 +4,11 @@ import { db } from '../db'
 import { characterSceneOverrides, characters } from '../db/schema'
 import { createLogger } from '../services/logger'
 import type { PositionSpec } from '@/lib/character-positions'
-import { parseIdList } from '@/lib/character-parts'
+import type { OutfitEntry } from '@/lib/character-parts'
+import {
+  parseOutfitEntries,
+  stringifyOutfitEntries,
+} from '@/lib/character-parts'
 import { encodePosition } from '@/lib/character-positions'
 
 const log = createLogger('fn.characters')
@@ -68,7 +72,7 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       /** Link / unlink a library character (null = unlink) */
       libraryCharacterId?: number | null
       /** Default outfit: ordered outfit item ids */
-      outfitItemIds?: Array<number>
+      outfitItemIds?: Array<number | OutfitEntry>
       /** Slot defaults for local axes: { [axisId]: valueId } */
       axisValues?: Record<string, number>
       /** PositionSpec (null/ai = AI decides) */
@@ -81,7 +85,7 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       .set({
         ...rest,
         ...(outfitItemIds !== undefined
-          ? { outfitItemIds: JSON.stringify(outfitItemIds) }
+          ? { outfitItemIds: stringifyOutfitEntries(outfitItemIds) }
           : {}),
         ...(axisValues !== undefined
           ? { axisValues: JSON.stringify(axisValues) }
@@ -99,7 +103,7 @@ export const updateCharacter = createServerFn({ method: 'POST' })
     if (
       row &&
       row.libraryCharacterId === null &&
-      parseIdList(row.outfitItemIds).length === 0
+      parseOutfitEntries(row.outfitItemIds).length === 0
     ) {
       db.update(characterSceneOverrides)
         .set({ outfitItemIds: null })

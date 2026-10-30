@@ -9,7 +9,7 @@ import {
   LinkSquare02Icon,
 } from '@hugeicons/core-free-icons'
 import { usePendingSave } from './pending-saves'
-import type { AxisValues } from '@/lib/character-parts'
+import type { AxisValues, OutfitEntry } from '@/lib/character-parts'
 import { AxisSegmented } from '@/components/parts/axis-segmented'
 import { OutfitItemsEditor } from '@/components/parts/outfit-items-editor'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
@@ -29,7 +29,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from '@/components/ui/popover'
-import { parseAxisValues, parseIdList } from '@/lib/character-parts'
+import { parseAxisValues, parseOutfitEntries } from '@/lib/character-parts'
 import { useTranslation } from '@/lib/i18n'
 import { updateCharacter } from '@/server/functions/characters'
 import {
@@ -48,14 +48,14 @@ export interface SlotPartsFields {
 
 interface PartsState {
   libraryCharacterId: number | null
-  outfitItemIds: Array<number>
+  outfitItemIds: Array<OutfitEntry>
   axisValues: AxisValues
 }
 
 function parseState(slot: SlotPartsFields): PartsState {
   return {
     libraryCharacterId: slot.libraryCharacterId,
-    outfitItemIds: parseIdList(slot.outfitItemIds),
+    outfitItemIds: parseOutfitEntries(slot.outfitItemIds),
     axisValues: parseAxisValues(slot.axisValues),
   }
 }
@@ -64,7 +64,7 @@ function parseState(slot: SlotPartsFields): PartsState {
 export function slotHasParts(slot: SlotPartsFields): boolean {
   return (
     slot.libraryCharacterId !== null ||
-    parseIdList(slot.outfitItemIds).length > 0
+    parseOutfitEntries(slot.outfitItemIds).length > 0
   )
 }
 
@@ -117,7 +117,7 @@ export function CharacterPartsPanel({
 
   const localAxes = useMemo(() => {
     if (!library) return []
-    const itemIds = new Set(state.outfitItemIds)
+    const itemIds = new Set(state.outfitItemIds.map((e) => e.id))
     return library.axes.filter(
       (a) =>
         (a.ownerCharacterId !== null &&
@@ -131,7 +131,7 @@ export function CharacterPartsPanel({
     next: Partial<PartsState>,
     patch: {
       libraryCharacterId?: number | null
-      outfitItemIds?: Array<number>
+      outfitItemIds?: Array<OutfitEntry>
       axisValues?: Record<string, number>
     },
   ) {
@@ -332,9 +332,9 @@ export function CharacterPartsPanel({
           {t('charParts.defaultOutfit')}
         </Label>
         <OutfitItemsEditor
-          itemIds={state.outfitItemIds}
-          onChange={(ids) =>
-            persist({ outfitItemIds: ids }, { outfitItemIds: ids })
+          entries={state.outfitItemIds}
+          onChange={(next) =>
+            persist({ outfitItemIds: next }, { outfitItemIds: next })
           }
           items={library?.items ?? []}
           areas={library?.areas}

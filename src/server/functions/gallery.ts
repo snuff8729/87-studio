@@ -7,6 +7,7 @@ import {
   imageTags,
   libraryCharacters,
   outfitItems,
+  outfitPresets,
   projectScenes,
   projects,
   promptBundles,
@@ -387,6 +388,10 @@ export const bulkUpdateImages = createServerFn({ method: 'POST' })
         tx.update(outfitItems)
           .set({ thumbnailImageId: null })
           .where(inArray(outfitItems.thumbnailImageId, data.imageIds))
+          .run()
+        tx.update(outfitPresets)
+          .set({ thumbnailImageId: null })
+          .where(inArray(outfitPresets.thumbnailImageId, data.imageIds))
           .run()
         tx.delete(generatedImages)
           .where(inArray(generatedImages.id, data.imageIds))

@@ -33,6 +33,8 @@ export interface ImageFilters {
   libraryCharacterId?: number
   /** Images generated with this outfit item (contributing items only) */
   outfitItemId?: number
+  /** Images generated with an outfit equal to this preset */
+  outfitPresetId?: number
 }
 
 export function axisConditions(axes: ImageFilters['axes']): Array<SQL> {
@@ -84,6 +86,11 @@ export function buildImageConditions(data: ImageFilters) {
   if (data.outfitItemId) {
     conditions.push(
       sql`${generatedImages.id} IN (SELECT image_id FROM image_library_links WHERE kind = 'item' AND ref_id = ${data.outfitItemId})`,
+    )
+  }
+  if (data.outfitPresetId) {
+    conditions.push(
+      sql`${generatedImages.id} IN (SELECT image_id FROM image_library_links WHERE kind = 'preset' AND ref_id = ${data.outfitPresetId})`,
     )
   }
   // Prompt tag: cheap LIKE pre-filter first, then the exact token match

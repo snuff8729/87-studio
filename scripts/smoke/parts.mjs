@@ -102,6 +102,10 @@ const json = (s) => {
     return {}
   }
 }
+const entryIds = (raw) => {
+  const v = json(raw)
+  return Array.isArray(v) ? v.map((e) => (typeof e === 'number' ? e : e?.id)) : []
+}
 const axisId = (name) =>
   q1(
     'select id from library_axes where name = ? and owner_character_id is null and owner_item_id is null',
@@ -411,7 +415,7 @@ try {
   await until(
     () =>
       JSON.stringify(
-        json(q1('select item_ids from outfit_presets where id = ?', preset.id).item_ids),
+        entryIds(q1('select item_ids from outfit_presets where id = ?', preset.id).item_ids),
       ) === JSON.stringify([jacketId]),
     6000,
     'preset item_ids = [jacket]',
@@ -555,7 +559,7 @@ try {
   await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Jacket' }).first().click()
   await until(
     () =>
-      JSON.stringify(json(q1('select outfit_item_ids o from characters where id = ?', slot.id).o)) ===
+      JSON.stringify(entryIds(q1('select outfit_item_ids o from characters where id = ?', slot.id).o)) ===
       JSON.stringify([jacketId]),
     8000,
     'slot default outfit = [jacket]',
@@ -794,7 +798,7 @@ try {
   )
   const copyFr = q('select text from fragments where character_id = ? order by sort_order, id', copy?.id)
   check(copyFr.map((f) => f.text).join() === 'hana_face,hana_back_hair', 'copy has the fragments')
-  const newItems = json(s2.outfit_item_ids)
+  const newItems = entryIds(s2.outfit_item_ids)
   const copiedItem = q1('select * from outfit_items where id = ?', newItems[0])
   check(
     newItems.length === 1 && copiedItem?.project_id === PROJECT && copiedItem.id !== jacketId,
@@ -905,18 +909,18 @@ try {
     els.map((e) => e.querySelector('[data-inline-name]').textContent),
   )
   check(
-    names.join() === 'Top,Bottom,Outerwear,Shoes,Headwear,Accessory',
-    `Body areas lists the 6 seeded areas: ${names.join()}`,
+    names.join() === 'Top,Neck,Chest,Arms,Bottom,Outerwear,Shoes,Headwear,Accessory',
+    `Body areas lists the 9 seeded areas (children under Top): ${names.join()}`,
   )
   await page.getByRole('button', { name: 'Add area' }).click()
   const nameInput = page.getByRole('textbox', { name: 'Add area' })
   await nameInput.fill('Smoke Area')
   await nameInput.press('Enter')
   await until(() => !!areaId('Smoke Area'), 6000, 'area "Smoke Area" created')
-  await until(async () => (await rows.count()) === 7, 6000, 'UI shows 7 area rows')
-  check(q('select id from library_areas').length === 7, 'area added (DB 7 rows)')
-  await rows.nth(6).locator('[data-inline-name]').click()
-  const last = rows.nth(6).locator('[data-inline-name-input]')
+  await until(async () => (await rows.count()) === 10, 6000, 'UI shows 10 area rows')
+  check(q('select id from library_areas').length === 10, 'area added (DB 10 rows)')
+  await rows.nth(9).locator('[data-inline-name]').click()
+  const last = rows.nth(9).locator('[data-inline-name-input]')
   await last.fill('Smoke Area 2')
   await last.press('Enter')
   await until(() => !!areaId('Smoke Area 2'), 6000, 'area renamed')
@@ -928,8 +932,8 @@ try {
   console.log(`  area-delete confirm: ${(await dlg.innerText()).replace(/\s+/g, ' ')}`)
   await dlg.getByRole('button', { name: 'Delete', exact: true }).click()
   await until(() => !areaId('Smoke Area 2'), 6000, 'area deleted')
-  check(q('select id from library_areas').length === 6, 'area deleted (DB back to 6 rows)')
-  await until(async () => (await rows.count()) === 6, 6000, 'UI back to 6 area rows')
+  check(q('select id from library_areas').length === 9, 'area deleted (DB back to 9 rows)')
+  await until(async () => (await rows.count()) === 9, 6000, 'UI back to 9 area rows')
 } catch (e) {
   check(false, `exception: ${e.message.slice(0, 900)}`)
   await shot('9-error').catch(() => {})
@@ -1000,14 +1004,14 @@ try {
   await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Shirt' }).first().click()
   const slot2 = q1('select * from characters where project_id = ? order by slot_index limit 1', PROJECT2)
   await until(
-    () => JSON.stringify(json(q1('select outfit_item_ids o from characters where id = ?', slot2.id).o)) === JSON.stringify([shirtId]),
+    () => JSON.stringify(entryIds(q1('select outfit_item_ids o from characters where id = ?', slot2.id).o)) === JSON.stringify([shirtId]),
     8000,
     'slot outfit = [shirt]',
   )
   await page.getByRole('button', { name: 'Add item' }).click()
   await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Jacket' }).first().click()
   await until(
-    () => JSON.stringify(json(q1('select outfit_item_ids o from characters where id = ?', slot2.id).o)) === JSON.stringify([shirtId, jacketId]),
+    () => JSON.stringify(entryIds(q1('select outfit_item_ids o from characters where id = ?', slot2.id).o)) === JSON.stringify([shirtId, jacketId]),
     8000,
     'slot outfit = [shirt, jacket]',
   )
@@ -1254,6 +1258,437 @@ try {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Nested areas, fragment areas, item variables, preset images (steps 15-19)
+const entriesOf = (raw) => {
+  const v = json(raw)
+  return Array.isArray(v) ? v.map((e) => (typeof e === 'number' ? { id: e } : e)) : []
+}
+const presetRow = (name) => q1('select * from outfit_presets where name = ?', name)
+const areaChip2 = (scope, name) =>
+  scope.locator('[data-area-chip]').filter({ hasText: new RegExp(`^${name}$`) })
+let teeId, redId, whiteId
+
+step = '15' // A. nested body areas
+try {
+  const Top = areaId('Top'), Arms = areaId('Arms')
+  check(
+    ['Neck', 'Chest', 'Arms'].every((n) => q1('select parent_id p from library_areas where name = ?', n)?.p === Top),
+    'migration seeded Neck / Chest / Arms under Top (DB)',
+  )
+  await open('/characters?tab=axes')
+  await page.locator('[data-areas-entry]').click()
+  await page.locator('[data-areas-editor]').waitFor({ timeout: 8000 })
+  check((await page.locator('[data-area-child]').count()) === 3, 'tree shows 3 indented child rows under Top')
+  await shot('15-areas-tree')
+
+  // Top has children: it cannot become a child itself
+  const rowOf = (name) => page.locator('[data-area-row]').filter({ hasText: name }).first()
+  await rowOf('Top').hover()
+  await rowOf('Top').locator('[data-area-menu]').click()
+  await page.locator('[data-set-parent]').click()
+  const optBottom = page.locator(`[data-parent-option="${areaId('Bottom')}"]`)
+  await optBottom.waitFor({ timeout: 4000 })
+  check((await optBottom.getAttribute('data-disabled')) !== null, 'Set parent: an area with children cannot get a parent (option disabled)')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+
+  // add two areas, make Cap a child of Hat
+  await page.getByRole('button', { name: 'Add area' }).click()
+  const ai = page.getByRole('textbox', { name: 'Add area' })
+  await ai.fill('Smoke Hat')
+  await ai.press('Enter')
+  await until(() => !!areaId('Smoke Hat'), 6000, 'Smoke Hat created')
+  await ai.fill('Smoke Cap')
+  await ai.press('Enter')
+  await until(() => !!areaId('Smoke Cap'), 6000, 'Smoke Cap created')
+  await page.keyboard.press('Escape')
+  await rowOf('Smoke Cap').hover()
+  await rowOf('Smoke Cap').locator('[data-area-menu]').click()
+  await page.locator('[data-set-parent]').click()
+  await page.locator(`[data-parent-option="${areaId('Smoke Hat')}"]`).click()
+  await until(() => q1('select parent_id p from library_areas where name = ?', 'Smoke Cap')?.p === areaId('Smoke Hat'), 6000, 'Cap parent saved')
+  check(true, 'Set parent: Smoke Cap is now a child of Smoke Hat (DB)')
+  await until(async () => (await page.locator('[data-area-child]').count()) === 4, 6000, '4 child rows')
+  // a child cannot be a parent target
+  await rowOf('Smoke Hat').hover()
+  await rowOf('Smoke Hat').locator('[data-area-menu]').click()
+  await page.locator('[data-set-parent]').click()
+  const optHatUnderCap = page.locator(`[data-parent-option="${areaId('Smoke Cap')}"]`)
+  check(
+    !(await optHatUnderCap.count()) || (await optHatUnderCap.getAttribute('data-disabled')) !== null,
+    'a child (Smoke Cap) is not offered as a parent',
+  )
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Escape')
+  // delete the parent -> child becomes top-level
+  await rowOf('Smoke Hat').getByRole('button', { name: 'Delete area' }).click({ force: true })
+  const dlg = page.getByRole('alertdialog')
+  await dlg.waitFor()
+  await dlg.getByRole('button', { name: 'Delete', exact: true }).click()
+  await until(() => !areaId('Smoke Hat'), 6000, 'Smoke Hat deleted')
+  await dlg.waitFor({ state: 'hidden', timeout: 6000 })
+  await sleep(600)
+  check(
+    q1('select parent_id p from library_areas where name = ?', 'Smoke Cap')?.p === null,
+    'deleting the parent: its child becomes top-level (parent_id NULL)',
+  )
+  await rowOf('Smoke Cap').getByRole('button', { name: 'Delete area' }).click({ force: true })
+  await dlg.waitFor()
+  await dlg.getByRole('button', { name: 'Delete', exact: true }).click()
+  await until(() => !areaId('Smoke Cap'), 6000, 'Smoke Cap deleted')
+  check(true, 'cleanup: Smoke Cap deleted')
+  void Arms
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('15-error').catch(() => {})
+}
+
+step = '16' // B. fragment areas + a jacket rule that covers only Arms
+try {
+  const Top = areaId('Top'), Arms = areaId('Arms')
+  await open(`/characters?tab=outfits&id=${shirtId}`)
+  const sleeves = await addFragment('shirt_sleeves')
+  await sleeves.locator('[data-fragment-areas]').click()
+  const pop = page.locator(POP).last()
+  await pop.waitFor()
+  check(
+    (await pop.locator('[data-area-child]').count()) >= 3 && (await pop.locator(`[data-area-group="${Top}"] [data-area-chip]`).count()) === 4,
+    'fragment area picker groups Neck / Chest / Arms under Top',
+  )
+  await shot('16-fragment-area-picker')
+  await areaChip2(pop, 'Arms').click()
+  await until(
+    () => q1(`select area_ids a from fragments where item_id = ? and text = 'shirt_sleeves'`, shirtId)?.a === JSON.stringify([Arms]),
+    6000,
+    'sleeves fragment area_ids = [Arms]',
+  )
+  check(true, 'fragment "shirt_sleeves" has own area Arms (DB); shirt_white keeps []')
+  await page.keyboard.press('Escape')
+  const labels = await page.locator('[data-fragment-areas]').evaluateAll((els) => els.map((e) => e.textContent.trim()))
+  check(labels[0] === 'Areas: inherits item' && labels[1] === 'Areas: Arms', `fragment area buttons: ${JSON.stringify(labels)}`)
+  await shot('16-fragment-areas')
+
+  // jacket: 3rd rule "Zipper Open -> Arms"
+  await open(`/characters?tab=outfits&id=${jacketId}`)
+  const rules = page.locator('[data-cover-rule]')
+  await rules.first().waitFor({ timeout: 8000 })
+  await page.locator('[data-add-rule]').click()
+  await until(async () => (await rules.count()) === 3, 5000, 'third rule added')
+  await setCondition(rules.nth(2).getByRole('button', { name: 'Condition' }), ['Open'])
+  await areaChip2(rules.nth(2), 'Arms').click()
+  const zipAxis = q1('select id from library_axes where name = ? and owner_item_id = ?', 'Zipper', jacketId).id
+  const zipOpen = q1('select id from library_axis_values where axis_id = ? and name = ?', zipAxis, 'Open').id
+  const r3 = await until(
+    () => {
+      const r = json(itemRow(jacketId)?.cover_rules)
+      return r.length === 3 && JSON.stringify(r[2]) === JSON.stringify({ conditions: { [zipAxis]: [zipOpen] }, areaIds: [Arms] }) ? r : null
+    },
+    8000,
+    'third rule saved',
+  )
+  check(!!r3, 'jacket rule 3: Zipper Open -> Arms (DB)')
+  check(
+    (await rules.nth(2).locator('[data-area-child]').count()) === 3,
+    'rule area chips show the 3 children grouped under Top',
+  )
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('16-error').catch(() => {})
+}
+
+step = '17' // C. scene Parts: partly covered + parent cover
+try {
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  await rail().first().waitFor({ timeout: 15000 })
+  await ensurePartsOpen()
+  await expandChar()
+  await segBtn(sceneRow(), 'View', 'Front').click()
+  await segBtn(charRow2(), 'Zipper', 'Open').click()
+  await previewMatches(
+    (s) => s.includes('shirt_white') && !s.includes('shirt_sleeves') && s.includes('jacket_'),
+    'Front + Zipper Open -> shirt_white stays, shirt_sleeves gone',
+  )
+  check(true, 'Zipper Open (jacket covers Arms): shirt base stays, sleeves fragment gone')
+  await until(async () => (await charRow2().locator('[data-partly-covered-badge]').count()) === 1, 5000, 'Partly covered badge')
+  check((await charRow2().locator('[data-covered-badge]').count()) === 0, 'no full "Covered" badge while only partly covered')
+  await charRow2().locator('[data-partly-covered-badge]').hover()
+  const tip = await page.locator('[data-partly-covered-tip]').first().innerText({ timeout: 4000 }).catch(() => '')
+  check(/shirt_sleeves/.test(tip) && /Smoke Jacket/.test(tip), `Partly covered tooltip lists fragment + coverer ("${tip.replace(/\s+/g, ' ').trim()}")`)
+  await shot('17-partly-covered')
+  await page.mouse.move(5, 5)
+
+  await segBtn(charRow2(), 'Zipper', 'Closed').click()
+  await previewMatches(
+    (s) => !s.includes('shirt_white') && !s.includes('shirt_sleeves'),
+    'Zipper Closed (Top covers its children) -> shirt fully hidden',
+  )
+  await until(async () => (await charRow2().locator('[data-covered-badge]').count()) === 1, 5000, 'full Covered badge')
+  check((await charRow2().locator('[data-partly-covered-badge]').count()) === 0, 'Closed: parent cover hides the whole shirt ("Covered", not "Partly")')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('17-error').catch(() => {})
+}
+
+step = '18' // D. item variables + presets with variable values
+try {
+  await open('/characters?tab=outfits')
+  await newEntry('Smoke Tee')
+  teeId = q1(`select id from outfit_items where name = 'Smoke Tee'`)?.id
+  check(!!teeId, 'outfit item "Smoke Tee" created')
+  await page.getByRole('button', { name: 'Add variable' }).click()
+  const vi = page.getByRole('textbox', { name: 'Add variable' })
+  await vi.fill('color')
+  await vi.press('Enter')
+  await until(() => json(q1('select variables v from outfit_items where id = ?', teeId)?.v).length === 1, 6000, 'variable saved')
+  const vrow = page.locator('[data-variable-row="color"]')
+  await vrow.locator('[data-variable-default]').fill('white')
+  await vrow.locator('[data-variable-default]').press('Enter')
+  await until(() => json(q1('select variables v from outfit_items where id = ?', teeId)?.v)[0]?.default === 'white', 6000, 'default saved')
+  check(true, 'variable color (default white) saved on the item (DB)')
+
+  const f1 = await addFragment('@{var:color} tee')
+  check((await f1.locator('.cm-var-highlight').count()) === 1, 'known @{var:color} is highlighted in the fragment editor')
+  const f2 = await addFragment('@{var:nope} x')
+  check((await f2.locator('.cm-invalid-ref-highlight').count()) >= 1, 'unknown @{var:nope} is flagged')
+  await f2.getByRole('button', { name: 'Delete fragment' }).click({ force: true })
+  await until(async () => (await page.locator('[data-fragment-row]').count()) === 1, 5000, 'temp fragment removed')
+  await until(async () => (await previewOut().innerText()).trim() === 'white tee', 6000, 'preview "white tee"')
+  check(true, 'item preview substitutes the default: "white tee"')
+  await shot('18-item-variables')
+
+  // autocomplete offers the item's variable names
+  await f1.locator('.cm-content').click()
+  await page.keyboard.press('End')
+  await page.keyboard.type(', @{va', { delay: 25 })
+  const opt = page.locator('.cm-tooltip-autocomplete li').filter({ hasText: 'var:color' }).first()
+  check(await opt.waitFor({ timeout: 4000 }).then(() => true).catch(() => false), 'autocomplete offers var:color after "@{va"')
+  await page.keyboard.press('Escape')
+  // undo the typed text (select all + retype) so the fragment stays clean
+  await page.keyboard.press('Control+A')
+  await page.keyboard.type('@{var:color} tee', { delay: 12 })
+  await page.keyboard.press('Escape')
+  await sleep(1200)
+
+  // rename keeps the fragment tokens in sync
+  await vrow.locator('[data-inline-name]').click()
+  const rn = vrow.locator('[data-inline-name-input]')
+  await rn.fill('colour')
+  await rn.press('Enter')
+  await until(() => json(q1('select variables v from outfit_items where id = ?', teeId)?.v)[0]?.name === 'colour', 6000, 'renamed')
+  const ft = await until(
+    () => {
+      const t = q1(`select text from fragments where item_id = ?`, teeId)?.text
+      return t === '@{var:colour} tee' ? t : null
+    },
+    6000,
+    'fragment token rewritten',
+  )
+  check(!!ft, 'rename color -> colour rewrote the fragment token (DB)')
+  await until(async () => (await f1.locator('.cm-content').innerText()).includes('colour'), 6000, 'editor follows the rewrite')
+  await until(async () => (await previewOut().innerText()).trim() === 'white tee', 6000, 'preview still "white tee"')
+  check(true, 'editor + preview follow the rename (white tee)')
+
+  // presets A (red) / B (white = default)
+  await open('/characters?tab=presets')
+  for (const name of ['Smoke Red', 'Smoke White']) {
+    await page.keyboard.press('Escape')
+    await sleep(700)
+    await newEntry(name)
+    await page.getByRole('button', { name: 'Add item' }).click()
+    await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Tee' }).first().click()
+    await until(() => entriesOf(presetRow(name)?.item_ids).length === 1, 6000, `${name} has the tee`)
+    if (name === 'Smoke Red') {
+      const vin = page.locator('[data-outfit-var="colour"]')
+      await vin.waitFor({ timeout: 6000 })
+      await vin.fill('red')
+      await vin.press('Enter')
+      await until(() => entriesOf(presetRow(name)?.item_ids)[0]?.vars?.colour === 'red', 6000, 'red saved')
+      await shot('18-preset-vars')
+    }
+  }
+  redId = presetRow('Smoke Red').id
+  whiteId = presetRow('Smoke White').id
+  check(
+    JSON.stringify(entriesOf(presetRow('Smoke Red').item_ids)) === JSON.stringify([{ id: teeId, vars: { colour: 'red' } }]) &&
+      JSON.stringify(entriesOf(presetRow('Smoke White').item_ids)) === JSON.stringify([{ id: teeId }]),
+    'presets: Smoke Red = [tee colour=red], Smoke White = [tee] (DB)',
+  )
+
+  // workspace: slot default outfit variable input
+  await open(`/workspace/${PROJECT2}`)
+  await page.getByRole('tab', { name: /^Chars/ }).click()
+  const slotP2 = q1('select * from characters where project_id = ? order by slot_index limit 1', PROJECT2)
+  await page.getByRole('button', { name: 'Add item' }).click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Tee' }).first().click()
+  const gin = page.locator('[data-outfit-var="colour"]')
+  await gin.waitFor({ timeout: 8000 })
+  check((await gin.getAttribute('placeholder')) === 'white', 'slot outfit variable input shows the default as placeholder')
+  await gin.fill('green')
+  await gin.press('Enter')
+  await until(() => entriesOf(q1('select outfit_item_ids o from characters where id = ?', slotP2.id).o).some((e) => e.id === teeId && e.vars?.colour === 'green'), 8000, 'slot var saved')
+  check(true, 'slot default outfit entry keeps colour=green (DB)')
+  await page.getByRole('button', { name: 'Remove Smoke Tee' }).click({ force: true })
+  await until(() => !entriesOf(q1('select outfit_item_ids o from characters where id = ?', slotP2.id).o).some((e) => e.id === teeId), 8000, 'tee removed from slot')
+  check(true, 'tee removed again from the slot default')
+
+  // scene "replace for this scene": load preset Red / White, edit the value
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  await ensurePartsOpen()
+  await expandChar()
+  await charRow2().getByRole('radio', { name: 'Replace for this scene' }).click()
+  await charRow2().getByRole('button', { name: 'Load preset' }).click()
+  await page.getByRole('menuitem', { name: 'Smoke Red' }).click()
+  const ovOutfit = () => entriesOf(q1('select outfit_item_ids o from character_scene_overrides where project_scene_id = ? and character_id = ?', S2, slotP2.id)?.o)
+  await until(() => ovOutfit().length === 1 && ovOutfit()[0].vars?.colour === 'red', 8000, 'override outfit = [tee red]')
+  check(true, 'Load preset "Smoke Red" copies its entries incl. values into the scene override (DB)')
+  await previewMatches((s) => s.includes('red tee'), 'preview "red tee"')
+  const sin = charRow2().locator('[data-outfit-var="colour"]')
+  await sin.fill('blue')
+  await sin.press('Enter')
+  await previewMatches((s) => s.includes('blue tee') && !s.includes('red tee'), 'preview "blue tee"')
+  check(true, 'scene override value edit -> preview "blue tee"')
+  await shot('18-scene-vars')
+  await charRow2().getByRole('button', { name: 'Load preset' }).click()
+  await page.getByRole('menuitem', { name: 'Smoke White' }).click()
+  await previewMatches((s) => s.includes('white tee') && !s.includes('blue tee'), 'preview "white tee"')
+  check(true, 'preset A red / B white: loading Smoke White -> "white tee"')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('18-error').catch(() => {})
+}
+
+step = '19' // E. preset <-> images, gallery preset chip
+const genOn = async (sceneId, n) => {
+  await open(`/workspace/${PROJECT2}?scene=${sceneId}`)
+  const inputs = page.locator('[title="Images to generate"] input')
+  await inputs.first().waitFor({ timeout: 15000 })
+  const cnt = await inputs.count()
+  for (let i = 0; i < cnt; i++) {
+    const rowScene = await inputs.nth(i).evaluate((el) => el.closest('[data-scene-id]')?.getAttribute('data-scene-id') ?? null)
+    const want = rowScene === String(sceneId) ? n : 0
+    const input = inputs.nth(i)
+    if ((await input.inputValue()) === String(want)) continue
+    await input.click()
+    await page.keyboard.press('Control+A')
+    await page.keyboard.type(String(want))
+    await page.keyboard.press('Enter')
+    await sleep(120)
+  }
+  const jobBase = q1('select coalesce(max(id),0) m from generation_jobs').m
+  await page.getByRole('button', { name: new RegExp(`^Generate ${n}$`) }).first().click()
+  const job = await until(() => q1('select * from generation_jobs where id > ? and project_scene_id = ?', jobBase, sceneId), 10000, 'job created')
+  if (!job) return []
+  await until(() => q1('select status s from generation_jobs where id = ?', job.id).s === 'completed', 40000, 'job completed')
+  return q('select id from generated_images where job_id = ? order by id', job.id).map((r) => r.id)
+}
+const presetLinks = (imageId) => q("select ref_id from image_library_links where image_id = ? and kind = 'preset' order by ref_id", imageId).map((r) => r.ref_id)
+let redImgs = [], whiteImgs = []
+try {
+  const slotP2 = q1('select * from characters where project_id = ? order by slot_index limit 1', PROJECT2)
+  const setOverrideValue = async (preset, value) => {
+    await open(`/workspace/${PROJECT2}?scene=${S2}`)
+    await ensurePartsOpen()
+    await expandChar()
+    await charRow2().getByRole('button', { name: 'Load preset' }).click()
+    await page.getByRole('menuitem', { name: preset }).click()
+    if (value) {
+      const sin = charRow2().locator('[data-outfit-var="colour"]')
+      await sin.fill(value)
+      await sin.press('Enter')
+    }
+    await sleep(1200)
+  }
+  // currently: override = [tee] (Smoke White entries)
+  whiteImgs = await genOn(S2, 1)
+  check(whiteImgs.length === 1 && JSON.stringify(presetLinks(whiteImgs[0])) === JSON.stringify([whiteId]), `image generated with the white outfit links only "Smoke White" (${JSON.stringify(presetLinks(whiteImgs[0]))})`)
+  await setOverrideValue('Smoke Red')
+  redImgs = await genOn(S2, 1)
+  check(redImgs.length === 1 && JSON.stringify(presetLinks(redImgs[0])) === JSON.stringify([redId]), `image generated with the red outfit links only "Smoke Red" (${JSON.stringify(presetLinks(redImgs[0]))})`)
+  await setOverrideValue('Smoke Red', 'blue')
+  const blueImgs = await genOn(S2, 1)
+  check(blueImgs.length === 1 && presetLinks(blueImgs[0]).length === 0, 'a value matching no preset (blue) links no preset')
+  check(
+    q1("select count(*) c from image_library_links where kind = 'item' and ref_id = ?", teeId).c === 3,
+    'the tee item is linked to all 3 images',
+  )
+
+  // library Presets tab: images section + thumbnail
+  await open(`/characters?tab=presets&id=${redId}`)
+  const sec = page.locator('[data-library-images]')
+  await sec.waitFor({ timeout: 10000 })
+  check(/Images \(1\)/.test(await sec.innerText()), 'preset detail shows "Images (1)"')
+  await sec.locator(`[data-library-image="${redImgs[0]}"]`).waitFor({ timeout: 8000 })
+  await sec.locator(`[data-set-thumbnail="${redImgs[0]}"]`).click({ force: true })
+  await until(() => q1('select thumbnail_image_id t from outfit_presets where id = ?', redId)?.t === redImgs[0], 6000, 'preset thumbnail pinned')
+  check(true, 'pinning an image sets outfit_presets.thumbnail_image_id (DB)')
+  const listImg = page.locator('[data-list-row]').filter({ hasText: 'Smoke Red' }).locator('img')
+  check(await listImg.first().waitFor({ timeout: 6000 }).then(() => true).catch(() => false), 'preset list row shows the thumbnail')
+  await shot('19-preset-images')
+
+  // open the image from the library: overlay keeps the preset context
+  await sec.locator(`[data-library-image="${redImgs[0]}"]`).click()
+  await page.locator('[data-detail-library-thumb]').waitFor({ timeout: 10000 })
+  check(/detailPreset=/.test(page.url()), 'overlay opened with detailPreset in the URL')
+  await page.keyboard.press('Escape')
+  await sleep(500)
+
+  await page.locator('[data-view-in-gallery]').click()
+  await page.waitForURL(/\/gallery\?.*outfitPreset=/, { timeout: 8000 })
+  const chip = page.locator('[data-filter-chip="outfit-preset"]')
+  await chip.waitFor({ timeout: 8000 })
+  check(/Preset: Smoke Red/.test(await chip.innerText()), `gallery chip "${(await chip.innerText()).trim()}"`)
+  const cards = page.locator('[data-gallery-grid] a[href^="/gallery/"]')
+  await until(async () => (await cards.count()) === 1, 10000, 'gallery shows 1 card')
+  check(
+    (await cards.first().getAttribute('href')).includes(`/gallery/${redImgs[0]}`),
+    'preset filter shows exactly the red image',
+  )
+  await shot('19-gallery-preset')
+  await chip.locator('button').click()
+  await until(async () => (await cards.count()) > 1, 10000, 'chip removed')
+  check(!/outfitPreset=/.test(page.url()), 'removing the chip drops the param')
+
+  // reset thumbnail, then delete a preset: links go away
+  await open(`/characters?tab=presets&id=${redId}`)
+  await page.locator('[data-reset-thumbnail]').click()
+  await until(() => q1('select thumbnail_image_id t from outfit_presets where id = ?', redId)?.t === null, 6000, 'thumbnail reset')
+  check(true, 'reset thumbnail clears thumbnail_image_id')
+  await open(`/characters?tab=presets&id=${whiteId}`)
+  const wrow = page.locator('[data-list-row]').filter({ hasText: 'Smoke White' }).first()
+  await wrow.waitFor({ timeout: 8000 })
+  await wrow.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Delete' }).click()
+  const dd = page.getByRole('alertdialog')
+  await dd.waitFor()
+  await dd.getByRole('button', { name: 'Delete', exact: true }).click()
+  await until(() => !presetRow('Smoke White'), 6000, 'preset deleted')
+  check(
+    q1("select count(*) c from image_library_links where kind = 'preset' and ref_id = ?", whiteId).c === 0,
+    'deleting a preset removes its image links',
+  )
+  // image delete clears a pinned preset thumbnail (server rule)
+  check(
+    q1('select count(*) c from outfit_presets where thumbnail_image_id is not null and thumbnail_image_id not in (select id from generated_images)').c === 0,
+    'no preset thumbnail points to a missing image',
+  )
+
+  // restore the scene to the slot's default outfit (later smokes expect it)
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  await ensurePartsOpen()
+  await expandChar()
+  await charRow2().getByRole('radio', { name: 'Default outfit' }).click()
+  await until(
+    () => q1('select outfit_item_ids o from character_scene_overrides where project_scene_id = ? and character_id = ?', S2, slotP2.id)?.o === null,
+    8000,
+    'scene override outfit reset to default',
+  )
+  check(true, 'scene override outfit reset to the slot default')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('19-error').catch(() => {})
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 step = 'm'
 try {
   const mp = await newPage(390, 844)
@@ -1278,6 +1713,26 @@ try {
   await open('/gallery?axis=' + axisId('View') + ':' + valueId('View', 'Back'), mp)
   await mp.locator('[data-filter-chip="axis"]').waitFor({ timeout: 10000 })
   await shot('gallery-axis', mp)
+  await open('/characters?tab=axes&areas=true', mp)
+  await mp.locator('[data-area-child]').first().waitFor({ timeout: 10000 })
+  await shot('areas-tree', mp)
+  await open('/characters?tab=outfits&id=' + shirtId, mp)
+  await mp.locator('[data-fragment-areas]').first().waitFor({ timeout: 10000 })
+  await mp.locator('[data-fragment-areas]').nth(1).click()
+  await mp.locator(POP).last().waitFor({ timeout: 5000 })
+  await shot('fragment-areas', mp)
+  await mp.keyboard.press('Escape')
+  await open('/characters?tab=outfits&id=' + teeId, mp)
+  await mp.locator('[data-item-variables]').waitFor({ timeout: 10000 })
+  await shot('item-variables', mp)
+  await open('/characters?tab=presets&id=' + redId, mp)
+  await mp.locator('[data-outfit-var="colour"]').waitFor({ timeout: 10000 })
+  await shot('preset-vars', mp)
+  await mp.locator('[data-library-images]').scrollIntoViewIfNeeded()
+  await shot('preset-images', mp)
+  await open('/gallery?outfitPreset=' + redId, mp)
+  await mp.locator('[data-filter-chip="outfit-preset"]').waitFor({ timeout: 10000 })
+  await shot('gallery-preset', mp)
   check(true, '390px screenshots taken')
   tag = ''
 } catch (e) {

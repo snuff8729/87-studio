@@ -2,9 +2,9 @@ import { Decoration, ViewPlugin, hoverTooltip } from '@codemirror/view'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
 const invalidRefDeco = Decoration.mark({ class: 'cm-invalid-ref-highlight' })
-const INVALID_REF_SRC = String.raw`@\{(?!slot:|bundle:)[^}]+\}`
+const INVALID_REF_SRC = String.raw`@\{(?!slot:|bundle:|var:)[^}]+\}`
 /** Variant that treats @{char} / @{outfit} as valid */
-const INVALID_REF_SRC_PARTS = String.raw`@\{(?!slot:|bundle:|char\}|outfit\})[^}]+\}`
+const INVALID_REF_SRC_PARTS = String.raw`@\{(?!slot:|bundle:|var:|char\}|outfit\})[^}]+\}`
 
 function findInvalidRefs(doc: { toString: () => string }, allowParts: boolean) {
   const decorations: Array<{ from: number; to: number }> = []

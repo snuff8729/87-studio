@@ -335,6 +335,8 @@ export interface TagInfo {
   aliases: Array<string>
   implies: Array<string>
   impliedBy: Array<string>
+  /** More specific tags: implied-by plus same-group tags containing this name */
+  alternatives: Array<string>
   sameGroup: { group: string; tags: Array<string> } | null
 }
 
@@ -363,6 +365,43 @@ export function resolveDescription(
     .get(name) as { body: string | null } | undefined
   const text = wikiSummary(wiki?.body)
   return text ? { text, source: 'wiki' } : { text: null, source: null }
+}
+
+const ALT_LIMIT = 12
+
+/** Tags more specific than `name`: implied-by, and same-group tags that contain it. */
+function findAlternatives(
+  d: Database.Database,
+  name: string,
+  groups: Array<string>,
+): Array<string> {
+  const found = new Map<string, number>()
+  const implied = d
+    .prepare(
+      `SELECT i.antecedent_name AS n, COALESCE(t.post_count, 0) AS c
+       FROM tag_implications i LEFT JOIN tags t ON t.name = i.antecedent_name
+       WHERE i.consequent_name = ? AND i.status = 'active'
+       ORDER BY c DESC LIMIT 40`,
+    )
+    .all(name) as Array<{ n: string; c: number }>
+  for (const r of implied) found.set(r.n, r.c)
+  if (groups.length > 0) {
+    const like = '%' + name.replace(/[\\%_]/g, (c) => '\\' + c) + '%'
+    const marks = groups.map(() => '?').join(',')
+    const rows = d
+      .prepare(
+        `SELECT DISTINCT tg.tag AS n, COALESCE(t.post_count, 0) AS c
+         FROM tag_groups tg LEFT JOIN tags t ON t.name = tg.tag
+         WHERE tg.tag_group IN (${marks}) AND tg.tag != ? AND tg.tag LIKE ? ESCAPE '\\'
+         ORDER BY c DESC LIMIT 60`,
+      )
+      .all(...groups, name, like) as Array<{ n: string; c: number }>
+    for (const r of rows) found.set(r.n, r.c)
+  }
+  return [...found.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, ALT_LIMIT)
+    .map(([n]) => n)
 }
 
 export function getTagInfoFor(rawName: string, locale: string): TagInfo | null {
@@ -459,6 +498,7 @@ export function getTagInfoFor(rawName: string, locale: string): TagInfo | null {
     aliases,
     implies,
     impliedBy,
+    alternatives: findAlternatives(d, name, groups),
     sameGroup,
   }
   if (infoCache.size > 5_000) infoCache.clear()

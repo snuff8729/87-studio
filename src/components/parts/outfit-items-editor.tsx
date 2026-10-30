@@ -1,8 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { BookmarkAdd01Icon, Layers01Icon } from '@hugeicons/core-free-icons'
+import type { ItemVariable, OutfitEntry } from '@/lib/character-parts'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
@@ -61,9 +62,85 @@ export function CoveredBadge({ by }: { by: string }) {
   )
 }
 
+/** Dimmed "Partly covered" badge; tooltip lists "<fragment> - covered by <item>". */
+export function PartlyCoveredBadge({
+  lines,
+}: {
+  lines: Array<{ text: string; by: string }>
+}) {
+  const { t } = useTranslation()
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="outline"
+          className="ml-1 h-4 px-1 text-[10px]"
+          data-partly-covered-badge
+          tabIndex={0}
+        >
+          {t('sceneParts.partlyCovered')}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent className="flex flex-col gap-0.5" data-partly-covered-tip>
+        {lines.map((l, i) => (
+          <span key={i}>
+            {t('sceneParts.partlyCoveredLine', { text: l.text, name: l.by })}
+          </span>
+        ))}
+      </TooltipContent>
+    </Tooltip>
+  )
+}
+
+/** Variable value input: commits on blur / Enter; empty = use the item default. */
+function VarInput({
+  name,
+  placeholder,
+  value,
+  onCommit,
+}: {
+  name: string
+  placeholder: string
+  value: string
+  onCommit: (value: string) => void
+}) {
+  const [draft, setDraft] = useState(value)
+  useEffect(() => setDraft(value), [value])
+  const commit = () => {
+    const next = draft.trim()
+    if (next !== value) onCommit(next)
+  }
+  return (
+    <label className="flex min-w-0 items-center gap-1 text-[11px] text-muted-foreground">
+      <span className="shrink-0">{name}</span>
+      <Input
+        value={draft}
+        placeholder={placeholder}
+        aria-label={name}
+        data-outfit-var={name}
+        data-block-shortcuts
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            e.currentTarget.blur()
+          } else if (e.key === 'Escape') {
+            setDraft(value)
+            e.currentTarget.blur()
+          }
+        }}
+        className="h-6 w-28 px-1.5 text-xs"
+      />
+    </label>
+  )
+}
+
 interface OutfitItemInfo {
   id: number
   name: string
+  /** Variables of the item (an input per variable is shown in its row) */
+  variables?: Array<ItemVariable>
   /** null = global library item */
   projectId: number | null
   /** Body areas the item occupies (shown small in the row) */
@@ -73,12 +150,12 @@ interface OutfitItemInfo {
 interface OutfitPresetInfo {
   id: number
   name: string
-  itemIds: Array<number>
+  entries: Array<OutfitEntry>
 }
 
 interface OutfitItemsEditorProps {
-  itemIds: Array<number>
-  onChange: (ids: Array<number>) => void
+  entries: Array<OutfitEntry>
+  onChange: (entries: Array<OutfitEntry>) => void
   /** Items from getLibrary */
   items: Array<OutfitItemInfo>
   presets?: Array<OutfitPresetInfo>
@@ -88,6 +165,8 @@ interface OutfitItemsEditorProps {
   showPresetMenu?: boolean
   /** itemId -> covering item name(s): shown dimmed with a "Covered" badge */
   covered?: Record<number, string>
+  /** itemId -> hidden fragments (text + covering item name): "Partly covered" */
+  partial?: Record<number, Array<{ text: string; by: string }>>
   /** Body areas (names for the small area labels) */
   areas?: Array<{ id: number; name: string }>
   className?: string
@@ -95,16 +174,18 @@ interface OutfitItemsEditorProps {
 
 /** Ordered outfit item chips + add combobox + preset menu. */
 export function OutfitItemsEditor({
-  itemIds,
+  entries,
   onChange,
   items,
   presets = [],
   projectId,
   showPresetMenu = true,
   covered,
+  partial,
   areas,
   className,
 }: OutfitItemsEditorProps) {
+  const itemIds = entries.map((e) => e.id)
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [addOpen, setAddOpen] = useState(false)
@@ -128,7 +209,7 @@ export function OutfitItemsEditor({
   const savePreset = useMutation({
     mutationFn: (name: string) =>
       createPreset({
-        data: { name, itemIds: itemIds.filter((id) => byId.has(id)) },
+        data: { name, itemIds: entries.filter((e) => byId.has(e.id)) },
       }),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ['library'] })
@@ -144,7 +225,7 @@ export function OutfitItemsEditor({
       key={item.id}
       value={`${item.name} ${item.id}`}
       onSelect={() => {
-        onChange([...itemIds, item.id])
+        onChange([...entries, { id: item.id }])
         setAddOpen(false)
       }}
     >
@@ -166,12 +247,14 @@ export function OutfitItemsEditor({
       <SortableList
         ids={rowKeys}
         onReorder={(keys) =>
-          onChange(keys.map((k) => itemIds[rowKeys.indexOf(String(k))]))
+          onChange(keys.map((k) => entries[rowKeys.indexOf(String(k))]))
         }
       >
         <div className="flex flex-col gap-1" data-outfit-list>
-          {itemIds.map((id, index) => {
+          {entries.map((entry, index) => {
+            const id = entry.id
             const item = byId.get(id)
+            const vars = item?.variables ?? []
             const name = item ? item.name : t('parts.missingItem')
             const areaNames = (item?.areaIds ?? [])
               .map((a) => areaName.get(a))
@@ -182,40 +265,73 @@ export function OutfitItemsEditor({
                 key={rowKeys[index]}
                 id={rowKeys[index]}
                 data-outfit-row
-                className="flex h-9 items-center gap-1.5 rounded-lg border border-border bg-input/20 pr-1 pl-0.5"
+                className="flex flex-col rounded-lg border border-border bg-input/20 pr-1 pl-0.5"
               >
-                <DragHandle />
-                <span
-                  className={cn(
-                    'min-w-0 truncate text-sm',
-                    !item && 'text-muted-foreground line-through',
-                    covered?.[id] && 'opacity-50',
-                  )}
-                  data-covered={covered?.[id] ? '' : undefined}
-                >
-                  {name}
-                </span>
-                {areaNames && (
+                <div className="flex h-9 items-center gap-1.5">
+                  <DragHandle />
                   <span
-                    className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
-                    data-item-areas-label
+                    className={cn(
+                      'min-w-0 truncate text-sm',
+                      !item && 'text-muted-foreground line-through',
+                      covered?.[id] && 'opacity-50',
+                    )}
+                    data-covered={covered?.[id] ? '' : undefined}
                   >
-                    {areaNames}
+                    {name}
                   </span>
+                  {areaNames && (
+                    <span
+                      className="min-w-0 flex-1 truncate text-[11px] text-muted-foreground"
+                      data-item-areas-label
+                    >
+                      {areaNames}
+                    </span>
+                  )}
+                  {!areaNames && <span className="flex-1" />}
+                  {covered?.[id] && <CoveredBadge by={covered[id]} />}
+                  {!covered?.[id] && partial?.[id] && (
+                    <PartlyCoveredBadge lines={partial[id]} />
+                  )}
+                  {item?.projectId != null && (
+                    <Badge variant="outline" className="h-4 px-1 text-[10px]">
+                      {t('parts.projectOnly')}
+                    </Badge>
+                  )}
+                  <RowRemoveButton
+                    label={t('parts.removeItem', { name })}
+                    onClick={() =>
+                      onChange(entries.filter((_, i) => i !== index))
+                    }
+                  />
+                </div>
+                {vars.length > 0 && (
+                  <div
+                    className="flex flex-wrap gap-x-3 gap-y-1 pb-1.5 pl-6"
+                    data-outfit-vars
+                  >
+                    {vars.map((v) => (
+                      <VarInput
+                        key={v.name}
+                        name={v.name}
+                        placeholder={v.default || t('parts.varEmpty')}
+                        value={entry.vars?.[v.name] ?? ''}
+                        onCommit={(value) =>
+                          onChange(
+                            entries.map((e, i) => {
+                              if (i !== index) return e
+                              const next = { ...(e.vars ?? {}) }
+                              if (value) next[v.name] = value
+                              else delete next[v.name]
+                              return Object.keys(next).length > 0
+                                ? { id: e.id, vars: next }
+                                : { id: e.id }
+                            }),
+                          )
+                        }
+                      />
+                    ))}
+                  </div>
                 )}
-                {!areaNames && <span className="flex-1" />}
-                {covered?.[id] && <CoveredBadge by={covered[id]} />}
-                {item?.projectId != null && (
-                  <Badge variant="outline" className="h-4 px-1 text-[10px]">
-                    {t('parts.projectOnly')}
-                  </Badge>
-                )}
-                <RowRemoveButton
-                  label={t('parts.removeItem', { name })}
-                  onClick={() =>
-                    onChange(itemIds.filter((_, i) => i !== index))
-                  }
-                />
               </SortableRow>
             )
           })}
@@ -271,7 +387,14 @@ export function OutfitItemsEditor({
                   <DropdownMenuItem
                     key={p.id}
                     onClick={() => {
-                      onChange(p.itemIds.filter((id) => byId.has(id)))
+                      onChange(
+                        p.entries
+                          .filter((e) => byId.has(e.id))
+                          .map((e) => ({
+                            ...e,
+                            ...(e.vars ? { vars: { ...e.vars } } : {}),
+                          })),
+                      )
                       toast.success(t('parts.presetLoaded', { name: p.name }))
                     }}
                   >
@@ -288,7 +411,7 @@ export function OutfitItemsEditor({
                   variant="ghost"
                   size="sm"
                   className="text-sm"
-                  disabled={itemIds.length === 0}
+                  disabled={entries.length === 0}
                 >
                   <HugeiconsIcon icon={BookmarkAdd01Icon} strokeWidth={2} />
                   {t('parts.savePreset')}

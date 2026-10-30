@@ -54,13 +54,26 @@ export function PromptEditorHeader({
             onClick={() => setTagInfoEnabled(!cardOn)}
             aria-pressed={cardOn}
             data-tag-info-toggle
+            data-state={cardOn ? 'on' : 'off'}
             className={cn(
-              'p-1 rounded transition-colors hover:text-foreground',
-              cardOn ? 'text-primary' : 'text-muted-foreground',
+              'relative rounded p-1 transition-colors',
+              cardOn
+                ? 'bg-primary/15 text-primary hover:bg-primary/25'
+                : 'text-muted-foreground/60 hover:text-foreground',
             )}
-            title={t('tagAssist.cardToggle')}
+            title={cardOn ? t('tagAssist.cardOn') : t('tagAssist.cardOff')}
+            aria-label={cardOn ? t('tagAssist.cardOn') : t('tagAssist.cardOff')}
           >
-            <HugeiconsIcon icon={InformationCircleIcon} className="size-4" />
+            <HugeiconsIcon
+              icon={InformationCircleIcon}
+              className={cn('size-4', !cardOn && 'opacity-60')}
+            />
+            {!cardOn && (
+              <span
+                aria-hidden
+                className="pointer-events-none absolute top-1/2 left-1 h-px w-[calc(100%-0.5rem)] -rotate-45 bg-current"
+              />
+            )}
           </button>
           <button
             type="button"

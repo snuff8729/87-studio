@@ -21,13 +21,23 @@ import {
   fragmentOut,
   loadLibraryData,
   remapAxisValues,
+  remapOutfitEntries,
+  renameItemVariable,
 } from '../services/parts'
 import { createLogger } from '../services/logger'
-import type { Condition, CoverRule } from '@/lib/character-parts'
+import type {
+  Condition,
+  CoverRule,
+  ItemVariable,
+  OutfitEntry,
+} from '@/lib/character-parts'
 import {
+  canSetParent,
   parseAxisValues,
   parseCoverRules,
-  parseIdList,
+  parseOutfitEntries,
+  parseVariables,
+  stringifyOutfitEntries,
 } from '@/lib/character-parts'
 import { nextCopyName } from '@/lib/scene-templates'
 
@@ -48,22 +58,38 @@ function nextSort(
 
 const now = () => new Date().toISOString()
 
+const outfitEntryIdsOf = (raw: string | null) =>
+  parseOutfitEntries(raw).map((e) => e.id)
+
 // ─── Read ───────────────────────────────────────────────────────────────────
 
 export const getLibrary = createServerFn({ method: 'GET' })
   .inputValidator((data: { projectId?: number | null } | undefined) => data)
-  .handler(async ({ data }) => loadLibraryData(data?.projectId ?? null, { includeImageStats: true }),
+  .handler(async ({ data }) =>
+    loadLibraryData(data?.projectId ?? null, { includeImageStats: true }),
   )
 
 /** Names for specific ids regardless of project scope (gallery filter chips). */
 export const getLibraryNames = createServerFn({ method: 'GET' })
   .inputValidator(
-    (data: { characterIds?: Array<number>; itemIds?: Array<number> }) => data,
+    (data: {
+      characterIds?: Array<number>
+      itemIds?: Array<number>
+      presetIds?: Array<number>
+    }) => data,
   )
   .handler(async ({ data }) => {
     const characterIds = data.characterIds ?? []
     const itemIds = data.itemIds ?? []
+    const presetIds = data.presetIds ?? []
     return {
+      presets: presetIds.length
+        ? db
+            .select({ id: outfitPresets.id, name: outfitPresets.name })
+            .from(outfitPresets)
+            .where(inArray(outfitPresets.id, presetIds))
+            .all()
+        : [],
       characters: characterIds.length
         ? db
             .select({ id: libraryCharacters.id, name: libraryCharacters.name })
@@ -99,13 +125,16 @@ export const getLibraryUsage = createServerFn({ method: 'GET' })
       const rows = db.select().from(characters).all()
       const slotProject = new Map(rows.map((c) => [c.id, c.projectId]))
       for (const c of rows) {
-        if (parseIdList(c.outfitItemIds).includes(data.id)) {
+        if (parseOutfitEntries(c.outfitItemIds).some((e) => e.id === data.id)) {
           slots.add(c.id)
           projectIds.add(c.projectId)
         }
       }
       for (const o of db.select().from(characterSceneOverrides).all()) {
-        if (o.outfitItemIds && parseIdList(o.outfitItemIds).includes(data.id)) {
+        if (
+          o.outfitItemIds &&
+          parseOutfitEntries(o.outfitItemIds).some((e) => e.id === data.id)
+        ) {
           const pid = slotProject.get(o.characterId)
           if (pid !== undefined) {
             slots.add(o.characterId)
@@ -120,7 +149,11 @@ export const getLibraryUsage = createServerFn({ method: 'GET' })
 /** Latest images generated with a library character / outfit item. */
 export const listLibraryImages = createServerFn({ method: 'GET' })
   .inputValidator(
-    (data: { kind: 'character' | 'item'; id: number; limit?: number }) => data,
+    (data: {
+      kind: 'character' | 'item' | 'preset'
+      id: number
+      limit?: number
+    }) => data,
   )
   .handler(async ({ data }) => {
     return db
@@ -247,6 +280,7 @@ export const createOutfitItem = createServerFn({ method: 'POST' })
       conditions?: Condition
       areaIds?: Array<number>
       coverRules?: Array<CoverRule>
+      variables?: Array<ItemVariable>
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -259,6 +293,7 @@ export const createOutfitItem = createServerFn({ method: 'POST' })
         conditions: JSON.stringify(data.conditions ?? {}),
         areaIds: JSON.stringify(data.areaIds ?? []),
         coverRules: JSON.stringify(data.coverRules ?? []),
+        variables: JSON.stringify(parseVariables(data.variables ?? [])),
         sortOrder: nextSort('outfit_items'),
       })
       .returning()
@@ -275,24 +310,38 @@ export const updateOutfitItem = createServerFn({ method: 'POST' })
       conditions?: Condition
       areaIds?: Array<number>
       coverRules?: Array<CoverRule>
+      variables?: Array<ItemVariable>
+      /** Variable renames: fragment tokens + stored entry values follow */
+      renames?: Array<{ from: string; to: string }>
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { id, conditions, areaIds, coverRules, ...rest } = data
-    db.update(outfitItems)
-      .set({
-        ...rest,
-        ...(conditions !== undefined
-          ? { conditions: JSON.stringify(conditions) }
-          : {}),
-        ...(areaIds !== undefined ? { areaIds: JSON.stringify(areaIds) } : {}),
-        ...(coverRules !== undefined
-          ? { coverRules: JSON.stringify(parseCoverRules(coverRules)) }
-          : {}),
-        updatedAt: now(),
-      })
-      .where(eq(outfitItems.id, id))
-      .run()
+    const { id, conditions, areaIds, coverRules, variables, renames, ...rest } =
+      data
+    db.transaction((tx) => {
+      for (const r of renames ?? []) {
+        if (r.from !== r.to) renameItemVariable(tx, id, r.from, r.to)
+      }
+      tx.update(outfitItems)
+        .set({
+          ...rest,
+          ...(variables !== undefined
+            ? { variables: JSON.stringify(parseVariables(variables)) }
+            : {}),
+          ...(conditions !== undefined
+            ? { conditions: JSON.stringify(conditions) }
+            : {}),
+          ...(areaIds !== undefined
+            ? { areaIds: JSON.stringify(areaIds) }
+            : {}),
+          ...(coverRules !== undefined
+            ? { coverRules: JSON.stringify(parseCoverRules(coverRules)) }
+            : {}),
+          updatedAt: now(),
+        })
+        .where(eq(outfitItems.id, id))
+        .run()
+    })
     return { success: true }
   })
 
@@ -337,6 +386,7 @@ export const duplicateOutfitItem = createServerFn({ method: 'POST' })
           thumbnailImageId: null,
           conditions: '{}',
           areaIds: src.areaIds ?? '[]',
+          variables: src.variables ?? '[]',
           sortOrder: (src.sortOrder ?? 0) + 1,
         })
         .returning()
@@ -372,6 +422,7 @@ export const createFragment = createServerFn({ method: 'POST' })
       itemId?: number
       text?: string
       conditions?: Condition
+      areaIds?: Array<number>
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -396,6 +447,9 @@ export const createFragment = createServerFn({ method: 'POST' })
         itemId: data.itemId ?? null,
         text: data.text ?? '',
         conditions: JSON.stringify(data.conditions ?? {}),
+        areaIds: JSON.stringify(
+          data.itemId != null ? (data.areaIds ?? []) : [],
+        ),
         sortOrder: (maxSort?.max ?? -1) + 1,
       })
       .returning()
@@ -405,12 +459,20 @@ export const createFragment = createServerFn({ method: 'POST' })
 
 export const updateFragment = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { id: number; text?: string; conditions?: Condition }) => data,
+    (data: {
+      id: number
+      text?: string
+      conditions?: Condition
+      areaIds?: Array<number>
+    }) => data,
   )
   .handler(async ({ data }) => {
     db.update(fragments)
       .set({
         ...(data.text !== undefined ? { text: data.text } : {}),
+        ...(data.areaIds !== undefined
+          ? { areaIds: JSON.stringify([...new Set(data.areaIds)]) }
+          : {}),
         ...(data.conditions !== undefined
           ? { conditions: JSON.stringify(data.conditions) }
           : {}),
@@ -591,14 +653,47 @@ export const reorderAxisValues = createServerFn({ method: 'POST' })
 // ─── Body areas ─────────────────────────────────────────────────────────────
 
 export const createArea = createServerFn({ method: 'POST' })
-  .inputValidator((data: { name: string }) => data)
+  .inputValidator((data: { name: string; parentId?: number | null }) => data)
   .handler(async ({ data }) => {
+    const parentId = data.parentId ?? null
+    if (parentId !== null) {
+      const parent = db
+        .select()
+        .from(libraryAreas)
+        .where(eq(libraryAreas.id, parentId))
+        .get()
+      if (!parent || parent.parentId != null)
+        throw new Error('Parent must be a top-level area')
+    }
     const row = db
       .insert(libraryAreas)
-      .values({ name: data.name.trim(), sortOrder: nextSort('library_areas') })
+      .values({
+        name: data.name.trim(),
+        parentId,
+        sortOrder: nextSort('library_areas'),
+      })
       .returning()
       .get()
-    return { id: row.id, name: row.name, sortOrder: row.sortOrder ?? 0 }
+    return {
+      id: row.id,
+      name: row.name,
+      parentId: row.parentId,
+      sortOrder: row.sortOrder ?? 0,
+    }
+  })
+
+/** One level only: a parent must be top-level; an area with children cannot get one. */
+export const setAreaParent = createServerFn({ method: 'POST' })
+  .inputValidator((data: { id: number; parentId: number | null }) => data)
+  .handler(async ({ data }) => {
+    const all = db.select().from(libraryAreas).all()
+    if (!canSetParent(all, data.id, data.parentId))
+      throw new Error('Invalid parent (one level only)')
+    db.update(libraryAreas)
+      .set({ parentId: data.parentId })
+      .where(eq(libraryAreas.id, data.id))
+      .run()
+    return { success: true }
   })
 
 export const renameArea = createServerFn({ method: 'POST' })
@@ -639,21 +734,26 @@ export const reorderAreas = createServerFn({ method: 'POST' })
 
 export const createPreset = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { name: string; description?: string; itemIds?: Array<number> }) =>
-      data,
+    (data: {
+      name: string
+      description?: string
+      /** Item ids or entries (id + variable values) */
+      itemIds?: Array<number | OutfitEntry>
+    }) => data,
   )
   .handler(async ({ data }) => {
+    const entries = parseOutfitEntries(data.itemIds ?? [])
     const row = db
       .insert(outfitPresets)
       .values({
         name: data.name,
         description: data.description ?? null,
-        itemIds: JSON.stringify(data.itemIds ?? []),
+        itemIds: stringifyOutfitEntries(entries),
         sortOrder: nextSort('outfit_presets'),
       })
       .returning()
       .get()
-    return { ...row, itemIds: data.itemIds ?? [] }
+    return { ...row, itemIds: entries.map((e) => e.id), entries }
   })
 
 export const updatePreset = createServerFn({ method: 'POST' })
@@ -662,7 +762,8 @@ export const updatePreset = createServerFn({ method: 'POST' })
       id: number
       name?: string
       description?: string | null
-      itemIds?: Array<number>
+      itemIds?: Array<number | OutfitEntry>
+      thumbnailImageId?: number | null
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -670,7 +771,9 @@ export const updatePreset = createServerFn({ method: 'POST' })
     db.update(outfitPresets)
       .set({
         ...rest,
-        ...(itemIds !== undefined ? { itemIds: JSON.stringify(itemIds) } : {}),
+        ...(itemIds !== undefined
+          ? { itemIds: stringifyOutfitEntries(itemIds) }
+          : {}),
         updatedAt: now(),
       })
       .where(eq(outfitPresets.id, id))
@@ -681,7 +784,17 @@ export const updatePreset = createServerFn({ method: 'POST' })
 export const deletePreset = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
-    db.delete(outfitPresets).where(eq(outfitPresets.id, id)).run()
+    db.transaction((tx) => {
+      tx.delete(imageLibraryLinks)
+        .where(
+          and(
+            eq(imageLibraryLinks.kind, 'preset'),
+            eq(imageLibraryLinks.refId, id),
+          ),
+        )
+        .run()
+      tx.delete(outfitPresets).where(eq(outfitPresets.id, id)).run()
+    })
     return { success: true }
   })
 
@@ -746,10 +859,10 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
         .from(characterSceneOverrides)
         .where(eq(characterSceneOverrides.characterId, slot.id))
         .all()
-      const usedIds = new Set<number>(parseIdList(slot.outfitItemIds))
+      const usedIds = new Set<number>(outfitEntryIdsOf(slot.outfitItemIds))
       for (const o of overrides) {
         if (o.outfitItemIds) {
-          parseIdList(o.outfitItemIds).forEach((i) => usedIds.add(i))
+          outfitEntryIdsOf(o.outfitItemIds).forEach((i) => usedIds.add(i))
         }
       }
       const itemMap = new Map<number, number>()
@@ -773,6 +886,7 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
             thumbnailImageId: null,
             conditions: '{}',
             areaIds: item.areaIds ?? '[]',
+            variables: item.variables ?? '[]',
             sortOrder: item.sortOrder,
           })
           .returning()
@@ -805,8 +919,7 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
       ) {
         charMap.set(slot.libraryCharacterId, libraryCharacterId)
       }
-      const mapIds = (raw: string | null) =>
-        JSON.stringify(parseIdList(raw).map((i) => itemMap.get(i) ?? i))
+      const mapIds = (raw: string | null) => remapOutfitEntries(raw, itemMap)
       const mapAxes = (raw: string | null) =>
         JSON.stringify(remapAxisValues(parseAxisValues(raw), maps))
       const projectSlots = tx

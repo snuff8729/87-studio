@@ -1,6 +1,8 @@
 import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
+  characterSceneOverrides,
+  characters,
   fragments,
   generatedImages,
   imageAxisValues,
@@ -13,12 +15,22 @@ import {
   outfitPresets,
 } from '../db/schema'
 import type { AnyColumn } from 'drizzle-orm'
-import type { Condition, CoverRule, PartsAxis } from '@/lib/character-parts'
+import type {
+  Condition,
+  CoverRule,
+  ItemVariable,
+  OutfitEntry,
+  PartsAxis,
+} from '@/lib/character-parts'
 import {
   cleanCoverRuleConditions,
+  outfitEntriesMatch,
   parseCondition,
   parseCoverRules,
   parseIdList,
+  parseOutfitEntries,
+  parseVariables,
+  renameVarInText,
 } from '@/lib/character-parts'
 
 export type Tx = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
@@ -29,6 +41,8 @@ export interface LibraryFragment {
   itemId: number | null
   text: string
   conditions: Condition
+  /** Item fragments only; [] = inherits the item's areas */
+  areaIds: Array<number>
   sortOrder: number
 }
 
@@ -56,11 +70,14 @@ export interface LibraryItemRow extends LibraryCharacterRow {
   conditions: Condition
   areaIds: Array<number>
   coverRules: Array<CoverRule>
+  variables: Array<ItemVariable>
 }
 
 export interface LibraryArea {
   id: number
   name: string
+  /** One level only: null = top-level */
+  parentId: number | null
   sortOrder: number
 }
 
@@ -68,7 +85,14 @@ export interface LibraryPreset {
   id: number
   name: string
   description: string | null
+  /** Ordered items with per-entry variable values */
+  entries: Array<OutfitEntry>
+  /** Item ids of the entries (convenience) */
   itemIds: Array<number>
+  thumbnailImageId: number | null
+  /** Linked images (image_library_links) */
+  imageCount: number
+  thumbnailPath: string | null
   sortOrder: number
 }
 
@@ -87,6 +111,7 @@ export function fragmentOut(f: typeof fragments.$inferSelect): LibraryFragment {
     itemId: f.itemId,
     text: f.text ?? '',
     conditions: parseCondition(f.conditions),
+    areaIds: parseIdList(f.areaIds),
     sortOrder: f.sortOrder ?? 0,
   }
 }
@@ -169,18 +194,11 @@ export function loadLibraryData(
       values: valuesByAxis.get(a.id) ?? [],
     }))
 
-  const presets = db
+  const presetRows = db
     .select()
     .from(outfitPresets)
     .orderBy(asc(outfitPresets.sortOrder), asc(outfitPresets.id))
     .all()
-    .map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-      itemIds: parseIdList(p.itemIds),
-      sortOrder: p.sortOrder ?? 0,
-    }))
 
   const linkCounts = new Map<string, number>()
   if (includeImageStats) {
@@ -197,7 +215,7 @@ export function loadLibraryData(
     }
   }
   const thumbOf = (
-    kind: 'character' | 'item',
+    kind: 'character' | 'item' | 'preset',
     id: number,
     thumbnailImageId: number | null,
   ): string | null => {
@@ -232,7 +250,12 @@ export function loadLibraryData(
     .from(libraryAreas)
     .orderBy(asc(libraryAreas.sortOrder), asc(libraryAreas.id))
     .all()
-    .map((a) => ({ id: a.id, name: a.name, sortOrder: a.sortOrder ?? 0 }))
+    .map((a) => ({
+      id: a.id,
+      name: a.name,
+      parentId: a.parentId,
+      sortOrder: a.sortOrder ?? 0,
+    }))
 
   return {
     areas,
@@ -262,9 +285,97 @@ export function loadLibraryData(
       conditions: parseCondition(i.conditions),
       areaIds: parseIdList(i.areaIds),
       coverRules: parseCoverRules(i.coverRules),
+      variables: parseVariables(i.variables),
       fragments: fragsByItem.get(i.id) ?? [],
     })),
-    presets,
+    presets: presetRows.map((p) => {
+      const entries = parseOutfitEntries(p.itemIds)
+      return {
+        id: p.id,
+        name: p.name,
+        description: p.description,
+        entries,
+        itemIds: entries.map((e) => e.id),
+        thumbnailImageId: p.thumbnailImageId,
+        imageCount: linkCounts.get(`preset:${p.id}`) ?? 0,
+        thumbnailPath: thumbOf('preset', p.id, p.thumbnailImageId),
+        sortOrder: p.sortOrder ?? 0,
+      }
+    }),
+  }
+}
+
+/** Remap item ids of a stored outfit list (entries or legacy ids); vars kept. */
+export function remapOutfitEntries(
+  raw: string | null,
+  itemMap: Map<number, number>,
+): string {
+  return JSON.stringify(
+    parseOutfitEntries(raw).map((e) => ({
+      ...e,
+      id: itemMap.get(e.id) ?? e.id,
+    })),
+  )
+}
+
+/**
+ * A variable of an item was renamed: rewrite `@{var:old}` in the item's
+ * fragments and rename the value key in every stored outfit entry of the item.
+ */
+export function renameItemVariable(
+  tx: Tx,
+  itemId: number,
+  from: string,
+  to: string,
+): void {
+  for (const f of tx
+    .select()
+    .from(fragments)
+    .where(eq(fragments.itemId, itemId))
+    .all()) {
+    const next = renameVarInText(f.text ?? '', from, to)
+    if (next !== f.text)
+      tx.update(fragments)
+        .set({ text: next })
+        .where(eq(fragments.id, f.id))
+        .run()
+  }
+  const fix = (raw: string | null): string | null => {
+    const entries = parseOutfitEntries(raw)
+    let changed = false
+    for (const e of entries) {
+      if (e.id === itemId && e.vars && Object.hasOwn(e.vars, from)) {
+        const v = e.vars[from]
+        delete e.vars[from]
+        e.vars[to] = v
+        changed = true
+      }
+    }
+    return changed ? JSON.stringify(entries) : null
+  }
+  for (const c of tx.select().from(characters).all()) {
+    const n = fix(c.outfitItemIds)
+    if (n !== null)
+      tx.update(characters)
+        .set({ outfitItemIds: n })
+        .where(eq(characters.id, c.id))
+        .run()
+  }
+  for (const o of tx.select().from(characterSceneOverrides).all()) {
+    const n = fix(o.outfitItemIds)
+    if (n !== null)
+      tx.update(characterSceneOverrides)
+        .set({ outfitItemIds: n })
+        .where(eq(characterSceneOverrides.id, o.id))
+        .run()
+  }
+  for (const p of tx.select().from(outfitPresets).all()) {
+    const n = fix(p.itemIds)
+    if (n !== null)
+      tx.update(outfitPresets)
+        .set({ itemIds: n })
+        .where(eq(outfitPresets.id, p.id))
+        .run()
   }
 }
 
@@ -380,6 +491,7 @@ export function copyOwnerContents(
         conditions: JSON.stringify(
           remapCondition(parseCondition(f.conditions), maps),
         ),
+        areaIds: f.areaIds ?? '[]',
         sortOrder: f.sortOrder,
       })
       .run()
@@ -438,8 +550,23 @@ export function cleanConditions(
   }
 }
 
-/** Remove a deleted area from all items' areas and cover rules. */
+/**
+ * Remove a deleted area from all items' areas, fragments' areas and cover
+ * rules; its children become top-level.
+ */
 export function cleanAreas(tx: Tx, areaId: number): void {
+  tx.update(libraryAreas)
+    .set({ parentId: null })
+    .where(eq(libraryAreas.parentId, areaId))
+    .run()
+  for (const f of tx.select().from(fragments).all()) {
+    const ids = parseIdList(f.areaIds)
+    if (!ids.includes(areaId)) continue
+    tx.update(fragments)
+      .set({ areaIds: JSON.stringify(ids.filter((a) => a !== areaId)) })
+      .where(eq(fragments.id, f.id))
+      .run()
+  }
   for (const i of tx.select().from(outfitItems).all()) {
     const areaIds = parseIdList(i.areaIds)
     const rules = parseCoverRules(i.coverRules)
@@ -515,6 +642,8 @@ export function recordImageLibraryLinks(
     characterPrompts: Array<{
       libraryCharacterId?: number
       outfitItemIds?: Array<number>
+      /** Effective outfit entries (before occlusion) */
+      outfitEntries?: Array<OutfitEntry>
     }>
   },
 ): void {
@@ -545,6 +674,43 @@ export function recordImageLibraryLinks(
       .all()) {
       db.insert(imageLibraryLinks)
         .values({ imageId, kind: 'item', refId: r.id })
+        .onConflictDoNothing()
+        .run()
+    }
+  }
+  recordImagePresetLinks(imageId, prompts)
+}
+
+/**
+ * Link an image to every outfit preset equal to a parts character's effective
+ * outfit (same item sequence, same resolved variable values).
+ */
+export function recordImagePresetLinks(
+  imageId: number,
+  prompts: {
+    characterPrompts: Array<{ outfitEntries?: Array<OutfitEntry> }>
+  },
+): void {
+  const outfits = prompts.characterPrompts
+    .map((c) => c.outfitEntries ?? [])
+    .filter((e) => e.length > 0)
+  if (outfits.length === 0) return
+  const presets = db.select().from(outfitPresets).all()
+  if (presets.length === 0) return
+  const varsByItem = new Map<number, Array<ItemVariable>>()
+  for (const r of db
+    .select({ id: outfitItems.id, variables: outfitItems.variables })
+    .from(outfitItems)
+    .all()) {
+    varsByItem.set(r.id, parseVariables(r.variables))
+  }
+  const itemVars = (id: number) => varsByItem.get(id)
+  for (const p of presets) {
+    const entries = parseOutfitEntries(p.itemIds)
+    if (entries.length === 0) continue
+    if (outfits.some((o) => outfitEntriesMatch(entries, o, itemVars))) {
+      db.insert(imageLibraryLinks)
+        .values({ imageId, kind: 'preset', refId: p.id })
         .onConflictDoNothing()
         .run()
     }

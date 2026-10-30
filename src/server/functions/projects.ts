@@ -15,12 +15,15 @@ import {
 } from '../db/schema'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
-import { copyOwnerContents, remapAxisValues } from '../services/parts'
+import {
+  copyOwnerContents,
+  remapAxisValues,
+  remapOutfitEntries,
+} from '../services/parts'
 import {
   parseAxisValues,
   parseCondition,
   parseCoverRules,
-  parseIdList,
 } from '@/lib/character-parts'
 
 /** Next free pack order for a project (new packs go to the end). */
@@ -316,6 +319,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
           thumbnailImageId: null,
           conditions: '{}',
           areaIds: it.areaIds ?? '[]',
+          variables: it.variables ?? '[]',
           sortOrder: it.sortOrder,
         })
         .returning()
@@ -338,8 +342,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
       r.maps.values.forEach((v, k) => partsMaps.values.set(k, v))
       itemMap.set(it.id, copy.id)
     }
-    const remapIdList = (raw: string | null) =>
-      JSON.stringify(parseIdList(raw).map((i) => itemMap.get(i) ?? i))
+    const remapIdList = (raw: string | null) => remapOutfitEntries(raw, itemMap)
 
     const charIdMap = new Map<number, number>()
     for (const ch of sourceChars) {

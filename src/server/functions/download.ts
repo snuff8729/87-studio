@@ -41,6 +41,7 @@ export const prepareDownload = createServerFn({ method: 'POST' })
       axes?: ImageFilters['axes']
       libraryCharacterId?: number
       outfitItemId?: number
+      outfitPresetId?: number
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -77,6 +78,11 @@ export const prepareDownload = createServerFn({ method: 'POST' })
       if (data.outfitItemId) {
         conditions.push(
           sql`${generatedImages.id} IN (SELECT image_id FROM image_library_links WHERE kind = 'item' AND ref_id = ${data.outfitItemId})`,
+        )
+      }
+      if (data.outfitPresetId) {
+        conditions.push(
+          sql`${generatedImages.id} IN (SELECT image_id FROM image_library_links WHERE kind = 'preset' AND ref_id = ${data.outfitPresetId})`,
         )
       }
       if (data.tagIds && data.tagIds.length > 0) {

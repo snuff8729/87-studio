@@ -1,54 +1,17 @@
 import { toast } from 'sonner'
 import { useQueryClient } from '@tanstack/react-query'
+import { AreaChips, areaOrder } from './area-chips'
 import { ConditionEditor } from './condition-editor'
 import { useSerialSave } from './use-serial-save'
+import type { AreaOption } from './area-chips'
 import type { CoverRule, PartsAxis } from '@/lib/character-parts'
 import { RowRemoveButton } from '@/components/common/sortable-list/sortable-list'
 import { AddRowButton } from '@/components/common/sortable-list/add-row'
 import { Label } from '@/components/ui/label'
 import { updateOutfitItem } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
-import { cn } from '@/lib/utils'
 
-type Area = { id: number; name: string }
-
-/** Multi-select chips over the body areas. */
-function AreaChips({
-  areas,
-  selected,
-  onToggle,
-  label,
-}: {
-  areas: Array<Area>
-  selected: Array<number>
-  onToggle: (id: number) => void
-  label: string
-}) {
-  return (
-    <div className="flex flex-wrap gap-1.5" role="group" aria-label={label}>
-      {areas.map((a) => {
-        const on = selected.includes(a.id)
-        return (
-          <button
-            key={a.id}
-            type="button"
-            aria-pressed={on}
-            data-area-chip={a.id}
-            onClick={() => onToggle(a.id)}
-            className={cn(
-              'h-7 rounded-lg border px-2.5 text-xs transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
-              on
-                ? 'border-primary/40 bg-primary/15 text-primary'
-                : 'border-border bg-input/30 text-muted-foreground hover:text-foreground',
-            )}
-          >
-            {a.name}
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+type Area = AreaOption
 
 /** Outfit item: "Areas" picker + "Covers" rules. Edits compose via serial saves. */
 export function ItemOcclusion({
@@ -93,7 +56,7 @@ export function ItemOcclusion({
   const toggleIn = (list: Array<number>, id: number) =>
     list.includes(id) ? list.filter((x) => x !== id) : [...list, id]
   const orderByAreas = (ids: Array<number>) =>
-    areas.map((a) => a.id).filter((id) => ids.includes(id))
+    areaOrder(areas).filter((id) => ids.includes(id))
 
   return (
     <>
