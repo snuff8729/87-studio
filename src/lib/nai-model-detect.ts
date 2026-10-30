@@ -22,12 +22,17 @@ export interface NaiModelDetection {
 }
 
 /**
- * Source hash -> model id. Only hashes that are firmly known belong here;
- * everything else falls back to the version token (variant assumed).
+ * Source hash -> model id. `assumed: 'full'` marks entries whose Full vs
+ * Curated variant is not verified (the UI still says "Full assumed"); drop it
+ * once verified. Everything not listed falls back to the version token.
  */
-export const KNOWN_SOURCE_HASHES: Readonly<Record<string, string>> = {
+export const KNOWN_SOURCE_HASHES: Readonly<
+  Record<string, { id: string; assumed: NaiModelDetection['assumed'] }>
+> = {
   // "Stable Diffusion XL C1E1DE52" = NAI Diffusion Anime V3
-  C1E1DE52: 'nai-diffusion-3',
+  C1E1DE52: { id: 'nai-diffusion-3', assumed: null },
+  // "NovelAI Diffusion V5 0ADF9AB7": V5 confirmed from user samples, Full unverified
+  '0ADF9AB7': { id: 'nai-diffusion-5-full', assumed: 'full' },
 }
 
 function result(
@@ -124,11 +129,12 @@ export function detectNaiModel(
 
     const hash = /\b([0-9A-F]{8})\s*$/i.exec(text)?.[1]?.toUpperCase()
     if (hash && KNOWN_SOURCE_HASHES[hash]) {
+      const known = KNOWN_SOURCE_HASHES[hash]
       return result(
-        KNOWN_SOURCE_HASHES[hash],
+        known.id,
         'source-hash',
-        'high',
-        null,
+        known.assumed ? 'medium' : 'high',
+        known.assumed,
         text,
       )
     }

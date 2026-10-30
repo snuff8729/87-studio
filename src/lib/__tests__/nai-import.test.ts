@@ -156,6 +156,14 @@ describe('detectNaiModel', () => {
     })
   })
 
+  it('maps the real V5 sample hash with Full still assumed', () => {
+    expect(detectNaiModel('NovelAI Diffusion V5 0ADF9AB7')).toMatchObject({
+      id: 'nai-diffusion-5-full',
+      basis: 'source-hash',
+      assumed: 'full',
+    })
+  })
+
   it('treats unknown SDXL hashes as V3, furry only on evidence', () => {
     expect(detectNaiModel('Stable Diffusion XL 00000000')).toMatchObject({
       id: 'nai-diffusion-3',
