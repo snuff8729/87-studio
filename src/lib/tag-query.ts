@@ -27,6 +27,8 @@ export interface TagCandidate {
 
 const LEADING_WEIGHT_RE = /^-?\d*\.?\d+\s*::/
 const TRAILING_WEIGHT_RE = /::\s*$/
+/** A1111-style emphasis wrapper `(tag)` / `(tag:1.2)` (not an escaped `\(`). */
+const PAREN_WRAP_RE = /^\(+([^()]*?)(?::\s*-?\d*\.?\d+)?\)+$/
 
 /**
  * Query text for the tag DB: weight syntax (`1.2::`, trailing `::`, `{}`,
@@ -41,6 +43,8 @@ export function normalizeTagQuery(raw: string): string {
       .replace(/^[{[]+/, '')
       .replace(/[}\]]+$/, '')
       .trim()
+    const wrapped = PAREN_WRAP_RE.exec(s)
+    if (wrapped) s = wrapped[1].trim()
     if (s === before) break
   }
   return s

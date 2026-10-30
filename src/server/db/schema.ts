@@ -624,3 +624,15 @@ export const tagDescriptions = sqliteTable(
   },
   (table) => [primaryKey({ columns: [table.tag, table.locale] })],
 )
+
+// ─── Remote tag data cache (Danbooru related tags / rating counts, 7-day TTL) ─
+export const tagRemoteCache = sqliteTable(
+  'tag_remote_cache',
+  {
+    tag: text('tag').notNull(),
+    kind: text('kind').notNull(),
+    json: text('json').notNull(),
+    fetchedAt: integer('fetched_at').notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.tag, table.kind] })],
+)

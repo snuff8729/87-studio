@@ -40,7 +40,7 @@ function parseTagSegments(
   const segments: Array<{ text: string; from: number; to: number }> = []
   let start = 0
   for (let i = 0; i <= text.length; i++) {
-    if (i === text.length || text[i] === ',') {
+    if (i === text.length || text[i] === ',' || text[i] === '\n') {
       const raw = text.slice(start, i)
       const trimmed = raw.trim()
       if (trimmed && !trimmed.startsWith('@{')) {

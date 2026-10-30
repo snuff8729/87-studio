@@ -4,6 +4,7 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Copy01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { toast } from 'sonner'
 import { insertTagIntoLastEditor, useHasPromptEditor } from './editor-registry'
+import { RemoteSections } from './remote-sections'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/lib/i18n'
@@ -253,7 +254,7 @@ export function TagSearchPanel({
         ))}
       </div>
       <div
-        className="flex max-h-[45%] min-h-28 shrink-0 flex-col border-t bg-muted/20 text-xs"
+        className="flex max-h-[55%] min-h-28 shrink-0 flex-col border-t bg-muted/20 text-xs"
         data-tag-detail
       >
         <div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -293,6 +294,7 @@ export function TagSearchPanel({
                       [t('tagAssist.implies'), info.implies],
                       [t('tagAssist.impliedBy'), info.impliedBy],
                       [t('tagAssist.sameGroup'), info.sameGroup?.tags ?? []],
+                      [t('tagAssist.alternatives'), info.alternatives],
                     ] as Array<[string, Array<string>]>
                   ).map(([label, names]) =>
                     names.length === 0 ? null : (
@@ -315,6 +317,12 @@ export function TagSearchPanel({
                     ),
                   )}
                 </div>
+              )}
+              {info && (
+                <RemoteSections
+                  name={info.name}
+                  onPick={(n) => setQuery(tagDisplayName(n))}
+                />
               )}
             </div>
           )}

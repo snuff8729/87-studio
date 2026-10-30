@@ -247,7 +247,8 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
   await setDoc(page, 'long hair, smile')
   const toggle = page.locator('[data-tag-info-toggle]').first()
   await toggle.click()
-  await page.locator('.cm-content').first().click()
+  await page.locator('.cm-content').first().focus()
+  await page.keyboard.press('Escape')
   await page.keyboard.press('Home')
   await page.keyboard.press('ArrowRight')
   await page.waitForTimeout(900)
@@ -263,6 +264,399 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
       '1',
     'toggle re-enabled',
   )
+
+  // 2b. Caret card regressions (user report: "shows, then at some point stops")
+  {
+    const errsBefore = consoleErrors
+    const cardTitle = async () =>
+      (await page
+        .locator('.cm-tag-card .cm-tag-info-title')
+        .first()
+        .innerText()
+        .catch(() => null)) ?? null
+    const waitCard = async (title, ms = 5000) => {
+      try {
+        await page.waitForFunction(
+          (t) =>
+            [...document.querySelectorAll('.cm-tag-card .cm-tag-info-title')]
+              .map((n) => n.textContent)
+              .includes(t),
+          title,
+          { timeout: ms },
+        )
+        return true
+      } catch {
+        return false
+      }
+    }
+    // Click the middle of a word inside editor `idx`
+    const clickWord = async (idx, w) => {
+      const box = await page
+        .locator('.cm-content')
+        .nth(idx)
+        .evaluate((c, w) => {
+          const walker = document.createTreeWalker(c, NodeFilter.SHOW_TEXT)
+          let n
+          while ((n = walker.nextNode())) {
+            const i = n.data.indexOf(w)
+            if (i >= 0) {
+              const r = document.createRange()
+              const m = i + Math.floor(w.length / 2)
+              r.setStart(n, m)
+              r.setEnd(n, m + 1)
+              const b = r.getBoundingClientRect()
+              return { x: b.x + 1, y: b.y + b.height / 2 }
+            }
+          }
+          return null
+        }, w)
+      if (!box) throw new Error(`word not found: ${w}`)
+      await page.mouse.click(box.x, box.y)
+    }
+    const setDocN = async (idx, text) => {
+      const e = page.locator('.cm-content').nth(idx)
+      await page.keyboard.press('Escape')
+      await e.focus()
+      await page.keyboard.press('Control+A')
+      await page.keyboard.press('Delete')
+      if (text) await page.keyboard.insertText(text)
+      await page.keyboard.press('Escape')
+    }
+    await page.evaluate(() => localStorage.removeItem('87studio-tag-card-pos'))
+
+    // R1: blur used to throw inside CodeMirror's update() and kill the plugin
+    await setDocN(0, 'long hair, smile')
+    await setDocN(1, 'bad hands, blurry')
+    await clickWord(0, 'long hair')
+    check(await waitCard('long hair'), 'R1: card shows (editor 1)')
+    await page.locator('.cm-content').nth(1).focus()
+    await page.waitForTimeout(400)
+    check(
+      (await page.locator('.cm-tag-card').count()) === 0,
+      'R1: card hides when the editor loses focus',
+    )
+    await page.locator('.cm-content').nth(0).focus()
+    await page.keyboard.press('Control+Home')
+    await page.keyboard.press('ArrowRight')
+    check(
+      await waitCard('long hair'),
+      'R1: card works again in the editor that lost focus (plugin not dead)',
+    )
+    await page.locator('.cm-content').nth(1).focus()
+    await page.keyboard.press('Control+Home')
+    await page.keyboard.press('ArrowRight')
+    check(await waitCard('bad hands'), 'R1: card shows in the second editor')
+    check(
+      consoleErrors === errsBefore,
+      'R1: no CodeMirror plugin crash in console',
+    )
+
+    // R2: Esc, then click the same spot again
+    await setDocN(0, 'long hair, smile')
+    await clickWord(0, 'smile')
+    check(await waitCard('smile'), 'R2: card shows on click')
+    await page.keyboard.press('Escape')
+    await page.waitForTimeout(100)
+    check((await page.locator('.cm-tag-card').count()) === 0, 'R2: Esc hides')
+    await clickWord(0, 'smile')
+    check(
+      await waitCard('smile'),
+      'R2: clicking the same spot after Esc shows the card again',
+    )
+
+    // R3: tags on later lines (newline is a separator)
+    await setDocN(0, 'solo, hat\nlong hair\n\nsmile')
+    await clickWord(0, 'hat')
+    check(await waitCard('hat'), 'R3: tag at end of line 1 (before newline)')
+    await page.keyboard.press('Escape')
+    await clickWord(0, 'long hair')
+    check(await waitCard('long hair'), 'R3: tag alone on line 2')
+    await page.keyboard.press('Escape')
+    await clickWord(0, 'smile')
+    check(await waitCard('smile'), 'R3: tag after a blank line')
+
+    // R4: syntax variants
+    await setDocN(
+      0,
+      '1.2::long hair::, {blue eyes}, [smile], (red hair), long_hair, Long Hair, solo',
+    )
+    for (const [w, want] of [
+      ['red hair', 'red hair'],
+      ['blue eyes', 'blue eyes'],
+      ['smile', 'smile'],
+      ['long_hair', 'long hair'],
+      ['Long Hair', 'long hair'],
+    ]) {
+      await clickWord(0, w)
+      check(await waitCard(want), `R4: syntax ${w} -> ${want}`)
+    }
+    await setDocN(0, '@{slot:pose}, @{bundle:b}, smile')
+    await clickWord(0, 'smile')
+    check(await waitCard('smile'), 'R4: tag next to @{...} references')
+
+    // R5: toggle off/on, then click the same spot
+    await setDocN(0, 'long hair, smile')
+    const toggle = page.locator('[data-tag-info-toggle]').first()
+    await clickWord(0, 'long hair')
+    check(await waitCard('long hair'), 'R5: card shows before toggling')
+    await toggle.click()
+    check(
+      (await toggle.getAttribute('data-state')) === 'off',
+      'R5: toggle reports off',
+    )
+    check(
+      /off/i.test((await toggle.getAttribute('title')) ?? ''),
+      'R5: off tooltip says "Tag info card: off"',
+    )
+    check(
+      (await page.locator('.cm-tag-card').count()) === 0,
+      'R5: toggling off removes the card',
+    )
+    await page.waitForTimeout(400)
+    await shot(page, 'tag-assist-1440-toggle-off')
+    await toggle.click()
+    await clickWord(0, 'long hair')
+    check(
+      await waitCard('long hair'),
+      'R5: after off->on, clicking the same spot shows the card',
+    )
+
+    // R6: a failed lookup is not cached forever
+    await setDocN(0, 'long hair, smile, blue eyes')
+    await page.route('**/_serverFn/**', (r) => r.abort())
+    await clickWord(0, 'blue eyes')
+    await page.waitForTimeout(900)
+    check(
+      (await page.locator('.cm-tag-card').count()) === 0,
+      'R6: no card while the request fails',
+    )
+    await page.unroute('**/_serverFn/**')
+    await clickWord(0, 'smile')
+    await clickWord(0, 'blue eyes')
+    check(
+      await waitCard('blue eyes'),
+      'R6: same tag works after the failure (failure not cached)',
+    )
+
+    // R7: window blur / refocus brings the card back
+    await clickWord(0, 'long hair')
+    check(await waitCard('long hair'), 'R7: card shows')
+    await page.evaluate(() => window.dispatchEvent(new Event('blur')))
+    await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+    await page.waitForTimeout(700)
+    check(
+      (await page.locator('.cm-tag-card').count()) >= 1,
+      'R7: card present after window blur/focus',
+    )
+  }
+
+  // 2c. Remote sections (TAG_REMOTE_MOCK) + alternatives
+  {
+    await page.evaluate(() => localStorage.removeItem('87studio-tag-card-pos'))
+    const e = page.locator('.cm-content').first()
+    await page.keyboard.press('Escape')
+    await e.focus()
+    await page.keyboard.press('Control+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('long hair, smile, solo')
+    await page.keyboard.press('Control+Home')
+    await page.keyboard.press('ArrowRight')
+    const c = page.locator('.cm-tag-card')
+    await c.waitFor({ timeout: 6000 })
+    for (const kind of ['related', 'together', 'ratings']) {
+      await c
+        .locator(`[data-tag-remote="${kind}"][data-state="ok"]`)
+        .waitFor({ timeout: 8000 })
+      check(true, `remote section ${kind} loaded`)
+    }
+    check(
+      (await c.locator('[data-tag-remote="related"] .cm-tag-chip').count()) >=
+        3,
+      'Recommended has chips',
+    )
+    check(
+      (await c.locator('[data-tag-remote="together"] .cm-tag-chip').count()) >=
+        3,
+      'Used together has chips',
+    )
+    check(
+      (await c.locator('.cm-tag-rating').count()) === 4,
+      'Rating counts has 4 cells (G/S/Q/E)',
+    )
+    const ratingText = await c.locator('.cm-tag-ratings').innerText()
+    check(
+      /General/.test(ratingText) &&
+        /Sensitive/.test(ratingText) &&
+        /Questionable/.test(ratingText) &&
+        /Explicit/.test(ratingText),
+      'rating labels present',
+    )
+    const alt = c.locator('[data-tag-section="alternatives"]')
+    check(
+      (await alt.count()) === 1 && /very long hair/.test(await alt.innerText()),
+      'Alternatives lists "very long hair" for long hair',
+    )
+    await shot(page, 'tag-assist-1440-card-sections')
+    // remote chip click inserts
+    const rchip = c.locator('[data-tag-remote="related"] .cm-tag-chip').first()
+    const rname = (await rchip.innerText()).trim()
+    await rchip.click()
+    await page.waitForTimeout(200)
+    check(
+      (await docText(page)).startsWith(`long hair, ${rname}, smile`),
+      `Recommended chip inserts after the token (${rname})`,
+    )
+
+    // Failure of one section + retry ("solo" Recommended fails on a fresh server)
+    await page.keyboard.press('Control+End')
+    await page.keyboard.press('ArrowLeft')
+    const c2 = page.locator('.cm-tag-card')
+    await c2.waitFor({ timeout: 6000 })
+    const err = c2.locator('[data-tag-remote="related"][data-state="error"]')
+    const sawError = await err
+      .waitFor({ timeout: 4000 })
+      .then(() => true)
+      .catch(() => false)
+    check(
+      sawError,
+      'failed section shows "Couldn\'t load" (solo / fresh server)',
+    )
+    if (sawError) {
+      check(
+        /Couldn't load/.test(await err.innerText()) &&
+          (await c2
+            .locator('[data-tag-remote="together"][data-state="ok"]')
+            .count()) === 1,
+        'only the failed section errors; other sections loaded',
+      )
+      await err.locator('button').click()
+      await c2
+        .locator('[data-tag-remote="related"][data-state="ok"]')
+        .waitFor({ timeout: 6000 })
+      check(true, 'retry button reloads the section')
+    }
+  }
+
+  // 2d. Draggable / pinned card
+  {
+    await page.evaluate(() => localStorage.removeItem('87studio-tag-card-pos'))
+    const e = page.locator('.cm-content').first()
+    await page.keyboard.press('Escape')
+    await e.focus()
+    await page.keyboard.press('Control+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('long hair, smile, 1girl')
+    await page.keyboard.press('Control+Home')
+    await page.keyboard.press('ArrowRight')
+    const card = page.locator('.cm-tag-card')
+    await card.waitFor({ timeout: 6000 })
+    const head = card.locator('[data-tag-card-head]')
+    const hb = await head.boundingBox()
+    const cb = await card.boundingBox()
+    await page.mouse.move(hb.x + 20, hb.y + 6)
+    await page.mouse.down()
+    await page.mouse.move(hb.x - 120, hb.y + 160, { steps: 8 })
+    await page.mouse.up()
+    await page.waitForTimeout(250)
+    const pinned = page.locator('[data-tag-card-pinned] .cm-tag-card')
+    check((await pinned.count()) === 1, 'dragging the header pins the card')
+    check(
+      (await page.locator('.cm-tag-card:not([data-pinned])').count()) === 0,
+      'follow-mode tooltip card is gone while pinned',
+    )
+    const stored = await page.evaluate(() =>
+      localStorage.getItem('87studio-tag-card-pos'),
+    )
+    check(!!stored, `position persisted (${stored})`)
+    const pb = await page.locator('[data-tag-card-pinned]').boundingBox()
+    check(
+      Math.abs(pb.x - Math.max(4, cb.x - 140)) < 6 &&
+        Math.abs(pb.y - (cb.y + 154)) < 6,
+      `card moved with the pointer (${pb.x | 0},${pb.y | 0})`,
+    )
+    check(
+      (await pinned.locator('[data-tag-card-pin]').count()) === 1,
+      'pin indicator shown',
+    )
+    // content follows the caret while the position stays
+    await e.focus()
+    await page.keyboard.press('End')
+    await page.keyboard.press('ArrowLeft')
+    await page.waitForFunction(
+      () =>
+        document.querySelector('[data-tag-card-pinned] .cm-tag-info-title')
+          ?.textContent === '1girl',
+      null,
+      { timeout: 6000 },
+    )
+    const pb2 = await page.locator('[data-tag-card-pinned]').boundingBox()
+    check(
+      Math.abs(pb2.x - pb.x) < 1 && Math.abs(pb2.y - pb.y) < 1,
+      'pinned card keeps its place while content follows the caret (1girl)',
+    )
+    await shot(page, 'tag-assist-1440-card-pinned')
+
+    // survives a reload
+    await page.reload({ waitUntil: 'networkidle' })
+    const e2 = await editorOf(page)
+    await e2.focus()
+    await page.keyboard.press('Control+A')
+    await page.keyboard.press('Delete')
+    await page.keyboard.insertText('long hair, smile')
+    await page.keyboard.press('Control+Home')
+    await page.keyboard.press('ArrowRight')
+    await page
+      .locator('[data-tag-card-pinned] .cm-tag-card')
+      .waitFor({ timeout: 8000 })
+    const pb3 = await page.locator('[data-tag-card-pinned]').boundingBox()
+    check(
+      Math.abs(pb3.x - pb.x) < 2 && Math.abs(pb3.y - pb.y) < 2,
+      'pinned position restored after reload',
+    )
+    // clamped into the viewport
+    const h3 = await page
+      .locator('[data-tag-card-pinned] [data-tag-card-head]')
+      .boundingBox()
+    await page.mouse.move(h3.x + 20, h3.y + 6)
+    await page.mouse.down()
+    await page.mouse.move(-400, -400, { steps: 6 })
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+    const pb4 = await page.locator('[data-tag-card-pinned]').boundingBox()
+    check(
+      pb4.x >= 3 && pb4.y >= 3,
+      `dragging off-screen is clamped (${pb4.x | 0},${pb4.y | 0})`,
+    )
+    await page.mouse.move(h3.x, h3.y)
+    const h4 = await page
+      .locator('[data-tag-card-pinned] [data-tag-card-head]')
+      .boundingBox()
+    await page.mouse.move(h4.x + 20, h4.y + 6)
+    await page.mouse.down()
+    await page.mouse.move(5000, 5000, { steps: 6 })
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+    const pb5 = await page.locator('[data-tag-card-pinned]').boundingBox()
+    check(
+      pb5.x + pb5.width <= 1440 && pb5.y + pb5.height <= 900,
+      'dragging past the bottom-right is clamped',
+    )
+    // double-click header = unpin
+    await page.locator('[data-tag-card-pinned] [data-tag-card-head]').dblclick()
+    await page.waitForTimeout(500)
+    check(
+      (await page.locator('[data-tag-card-pinned]').count()) === 0 &&
+        (await page.evaluate(() =>
+          localStorage.getItem('87studio-tag-card-pos'),
+        )) === null,
+      'double-click header unpins (stored position cleared)',
+    )
+    await page.locator('.cm-tag-card:not([data-pinned])').first().waitFor({
+      timeout: 6000,
+    })
+    check(true, 'after unpin the card follows the caret again')
+    await page.keyboard.press('Escape')
+  }
 
   // 3. Tag Search window
   await setDoc(page, '1girl')
@@ -302,6 +696,39 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
     (await win.locator('[data-tag-detail]').innerText()).includes('smile'),
     'detail pane shows selection',
   )
+
+  // detail pane: Danbooru-backed sections + alternatives
+  {
+    const detail = win.locator('[data-tag-detail]')
+    for (const kind of ['related', 'together', 'ratings']) {
+      await detail
+        .locator(`[data-tag-section="${kind}"][data-remote-state="ok"]`)
+        .waitFor({ timeout: 8000 })
+      check(true, `Tag Search detail: ${kind} section loaded`)
+    }
+    await input.fill('long hair')
+    await firstRowIs(page, 'long_hair')
+    await detail
+      .locator('[data-tag-section="ratings"][data-remote-state="ok"]')
+      .waitFor({ timeout: 8000 })
+    check(
+      /very long hair/.test(
+        await detail
+          .locator('div', { hasText: 'Alternatives' })
+          .first()
+          .innerText(),
+      ),
+      'Tag Search detail: Alternatives lists very long hair',
+    )
+    await detail
+      .locator('.overflow-y-auto')
+      .first()
+      .evaluate((n) => n.scrollTo(0, n.scrollHeight))
+    await page.waitForTimeout(200)
+    await shot(page, 'tag-assist-1440-search-detail-sections')
+    await input.fill('smile')
+    await firstRowIs(page, 'smile')
+  }
 
   // page behind stays interactive: editor still focusable/typable
   await page.locator('.cm-content').first().click()
@@ -556,6 +983,35 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
     !!(await docText(page)).trim(),
     'mobile: Add inserts into the editor behind the sheet',
   )
+  // card: no drag on mobile
+  await page.goto(`${BASE}/generate`, { waitUntil: 'networkidle' })
+  await editorOf(page)
+  await page.locator('.cm-content').first().focus()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.press('Delete')
+  await page.keyboard.insertText('long hair, smile')
+  await page.keyboard.press('Escape')
+  await page.keyboard.press('Control+Home')
+  await page.keyboard.press('ArrowRight')
+  const mcard = page.locator('.cm-tag-card')
+  await mcard.waitFor({ timeout: 8000 })
+  await mcard
+    .locator('[data-tag-remote="ratings"][data-state="ok"]')
+    .waitFor({ timeout: 8000 })
+  const mh = await mcard.locator('[data-tag-card-head]').boundingBox()
+  await page.mouse.move(mh.x + 20, mh.y + 6)
+  await page.mouse.down()
+  await page.mouse.move(mh.x + 20, mh.y + 120, { steps: 6 })
+  await page.mouse.up()
+  await page.waitForTimeout(250)
+  check(
+    (await page.locator('[data-tag-card-pinned]').count()) === 0 &&
+      (await page.evaluate(() =>
+        localStorage.getItem('87studio-tag-card-pos'),
+      )) === null,
+    'mobile: dragging the card header does not pin it',
+  )
+  await shot(page, 'tag-assist-390-card-sections')
   check(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= window.innerWidth,
