@@ -18,7 +18,9 @@ import {
   DEFAULT_FILENAME_TEMPLATE,
   resolveFilenameTemplate,
 } from '../services/download'
+import { axisConditions } from '../services/image-query'
 import type { FilenameVars } from '../services/download'
+import type { ImageFilters } from '../services/image-query'
 
 const log = createLogger('fn.download')
 
@@ -36,6 +38,7 @@ export const prepareDownload = createServerFn({ method: 'POST' })
       filenameTemplate?: string
       imageIds?: Array<number>
       tagIds?: Array<number>
+      axes?: ImageFilters['axes']
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -63,6 +66,7 @@ export const prepareDownload = createServerFn({ method: 'POST' })
               ELSE 0 END >= ${data.minWinRate}`,
         )
       }
+      conditions.push(...axisConditions(data.axes))
       if (data.tagIds && data.tagIds.length > 0) {
         conditions.push(
           sql`${generatedImages.id} IN (SELECT image_id FROM image_tags WHERE tag_id IN (${sql.join(

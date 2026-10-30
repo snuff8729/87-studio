@@ -1,7 +1,11 @@
-import { asc, eq, isNull, or } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, isNull, or, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
   fragments,
+  generatedImages,
+  imageAxisValues,
+  imageLibraryLinks,
+  libraryAreas,
   libraryAxes,
   libraryAxisValues,
   libraryCharacters,
@@ -9,8 +13,12 @@ import {
   outfitPresets,
 } from '../db/schema'
 import type { AnyColumn } from 'drizzle-orm'
-import type { Condition, PartsAxis } from '@/lib/character-parts'
-import { parseCondition, parseIdList } from '@/lib/character-parts'
+import type { Condition, CoverRule, PartsAxis } from '@/lib/character-parts'
+import {
+  parseCondition,
+  parseCoverRules,
+  parseIdList,
+} from '@/lib/character-parts'
 
 export type Tx = Pick<typeof db, 'select' | 'insert' | 'update' | 'delete'>
 
@@ -28,6 +36,10 @@ export interface LibraryAxis extends PartsAxis {
 }
 
 export interface LibraryCharacterRow {
+  /** Linked images (image_library_links) */
+  imageCount: number
+  /** Thumbnail image's thumbnail (if set and existing), else latest linked */
+  thumbnailPath: string | null
   id: number
   name: string
   description: string | null
@@ -41,6 +53,14 @@ export interface LibraryCharacterRow {
 
 export interface LibraryItemRow extends LibraryCharacterRow {
   conditions: Condition
+  areaIds: Array<number>
+  coverRules: Array<CoverRule>
+}
+
+export interface LibraryArea {
+  id: number
+  name: string
+  sortOrder: number
 }
 
 export interface LibraryPreset {
@@ -52,6 +72,7 @@ export interface LibraryPreset {
 }
 
 export interface LibraryData {
+  areas: Array<LibraryArea>
   axes: Array<LibraryAxis>
   characters: Array<LibraryCharacterRow>
   items: Array<LibraryItemRow>
@@ -156,7 +177,57 @@ export function loadLibraryData(projectId?: number | null): LibraryData {
       sortOrder: p.sortOrder ?? 0,
     }))
 
+  const linkCounts = new Map<string, number>()
+  for (const r of db
+    .select({
+      kind: imageLibraryLinks.kind,
+      refId: imageLibraryLinks.refId,
+      n: sql<number>`count(*)`,
+    })
+    .from(imageLibraryLinks)
+    .groupBy(imageLibraryLinks.kind, imageLibraryLinks.refId)
+    .all()) {
+    linkCounts.set(`${r.kind}:${r.refId}`, r.n)
+  }
+  const thumbOf = (
+    kind: 'character' | 'item',
+    id: number,
+    thumbnailImageId: number | null,
+  ): string | null => {
+    if (thumbnailImageId != null) {
+      const img = db
+        .select({ t: generatedImages.thumbnailPath })
+        .from(generatedImages)
+        .where(eq(generatedImages.id, thumbnailImageId))
+        .get()
+      if (img?.t) return img.t
+    }
+    if (!linkCounts.get(`${kind}:${id}`)) return null
+    const latest = db
+      .select({ t: generatedImages.thumbnailPath })
+      .from(imageLibraryLinks)
+      .innerJoin(
+        generatedImages,
+        eq(imageLibraryLinks.imageId, generatedImages.id),
+      )
+      .where(
+        and(eq(imageLibraryLinks.kind, kind), eq(imageLibraryLinks.refId, id)),
+      )
+      .orderBy(desc(generatedImages.createdAt), desc(generatedImages.id))
+      .limit(1)
+      .get()
+    return latest?.t ?? null
+  }
+
+  const areas: Array<LibraryArea> = db
+    .select()
+    .from(libraryAreas)
+    .orderBy(asc(libraryAreas.sortOrder), asc(libraryAreas.id))
+    .all()
+    .map((a) => ({ id: a.id, name: a.name, sortOrder: a.sortOrder ?? 0 }))
+
   return {
+    areas,
     axes,
     characters: charRows.map((c) => ({
       id: c.id,
@@ -166,6 +237,8 @@ export function loadLibraryData(projectId?: number | null): LibraryData {
       sourceId: c.sourceId,
       thumbnailImageId: c.thumbnailImageId,
       sortOrder: c.sortOrder ?? 0,
+      imageCount: linkCounts.get(`character:${c.id}`) ?? 0,
+      thumbnailPath: thumbOf('character', c.id, c.thumbnailImageId),
       fragments: fragsByChar.get(c.id) ?? [],
     })),
     items: itemRows.map((i) => ({
@@ -176,7 +249,11 @@ export function loadLibraryData(projectId?: number | null): LibraryData {
       sourceId: i.sourceId,
       thumbnailImageId: i.thumbnailImageId,
       sortOrder: i.sortOrder ?? 0,
+      imageCount: linkCounts.get(`item:${i.id}`) ?? 0,
+      thumbnailPath: thumbOf('item', i.id, i.thumbnailImageId),
       conditions: parseCondition(i.conditions),
+      areaIds: parseIdList(i.areaIds),
+      coverRules: parseCoverRules(i.coverRules),
       fragments: fragsByItem.get(i.id) ?? [],
     })),
     presets,
@@ -199,6 +276,16 @@ function remapCondition(cond: Condition, maps: IdMaps): Condition {
     }
   }
   return out
+}
+
+export function remapCoverRules(
+  rules: Array<CoverRule>,
+  maps: IdMaps,
+): Array<CoverRule> {
+  return rules.map((r) => ({
+    conditions: remapCondition(r.conditions, maps),
+    areaIds: r.areaIds,
+  }))
 }
 
 /** Remap {axisId: valueId} using local-axis id maps; other keys untouched. */
@@ -225,7 +312,8 @@ export function copyOwnerContents(
   from: { characterId?: number; itemId?: number },
   to: { characterId?: number; itemId?: number },
   itemConditions?: Condition,
-): { maps: IdMaps; itemConditions: Condition } {
+  coverRules?: Array<CoverRule>,
+): { maps: IdMaps; itemConditions: Condition; coverRules: Array<CoverRule> } {
   const maps: IdMaps = { axes: new Map(), values: new Map() }
   const axisRows = tx
     .select()
@@ -291,6 +379,7 @@ export function copyOwnerContents(
   return {
     maps,
     itemConditions: remapCondition(itemConditions ?? {}, maps),
+    coverRules: remapCoverRules(coverRules ?? [], maps),
   }
 }
 
@@ -329,5 +418,132 @@ export function cleanConditions(
         .set({ conditions: next })
         .where(eq(outfitItems.id, i.id))
         .run()
+    // cover rule conditions are cleaned exactly like fragment conditions
+    const rules = parseCoverRules(i.coverRules)
+    let changed = false
+    const nextRules = rules.map((r) => {
+      const c = fix(JSON.stringify(r.conditions))
+      if (c === null) return r
+      changed = true
+      return { ...r, conditions: JSON.parse(c) as Condition }
+    })
+    if (changed)
+      tx.update(outfitItems)
+        .set({ coverRules: JSON.stringify(nextRules) })
+        .where(eq(outfitItems.id, i.id))
+        .run()
+  }
+}
+
+/** Remove a deleted area from all items' areas and cover rules. */
+export function cleanAreas(tx: Tx, areaId: number): void {
+  for (const i of tx.select().from(outfitItems).all()) {
+    const areaIds = parseIdList(i.areaIds)
+    const rules = parseCoverRules(i.coverRules)
+    const usesRule = rules.some((r) => r.areaIds.includes(areaId))
+    if (!areaIds.includes(areaId) && !usesRule) continue
+    const nextRules = rules
+      .map((r) => ({ ...r, areaIds: r.areaIds.filter((a) => a !== areaId) }))
+      .filter((r) => r.areaIds.length > 0)
+    tx.update(outfitItems)
+      .set({
+        areaIds: JSON.stringify(areaIds.filter((a) => a !== areaId)),
+        coverRules: JSON.stringify(nextRules),
+      })
+      .where(eq(outfitItems.id, i.id))
+      .run()
+  }
+}
+
+/**
+ * Distinct (global axis, value) pairs recorded in a job's resolved prompts,
+ * restricted to pairs that still exist in the library (axis/value may have
+ * been deleted since enqueue).
+ */
+export function globalAxisPairsOf(prompts: {
+  characterPrompts: Array<{ axisValues?: Record<string, number> }>
+}): Array<{ axisId: number; valueId: number }> {
+  const candidates = new Map<string, { axisId: number; valueId: number }>()
+  for (const c of prompts.characterPrompts) {
+    for (const [axisKey, valueId] of Object.entries(c.axisValues ?? {})) {
+      const axisId = Number(axisKey)
+      if (!Number.isInteger(axisId) || !Number.isInteger(valueId)) continue
+      candidates.set(`${axisId}:${valueId}`, { axisId, valueId })
+    }
+  }
+  if (candidates.size === 0) return []
+  const rows = db
+    .select({ axisId: libraryAxisValues.axisId, valueId: libraryAxisValues.id })
+    .from(libraryAxisValues)
+    .innerJoin(libraryAxes, eq(libraryAxes.id, libraryAxisValues.axisId))
+    .where(
+      and(
+        isNull(libraryAxes.ownerCharacterId),
+        isNull(libraryAxes.ownerItemId),
+        inArray(libraryAxisValues.axisId, [
+          ...new Set([...candidates.values()].map((c) => c.axisId)),
+        ]),
+      ),
+    )
+    .all()
+  return rows.filter((r) => candidates.has(`${r.axisId}:${r.valueId}`))
+}
+
+/** Insert the global axis values of an image (idempotent). */
+export function recordImageAxisValues(
+  imageId: number,
+  prompts: Parameters<typeof globalAxisPairsOf>[0],
+): void {
+  for (const p of globalAxisPairsOf(prompts)) {
+    db.insert(imageAxisValues)
+      .values({ imageId, axisId: p.axisId, valueId: p.valueId })
+      .onConflictDoNothing()
+      .run()
+  }
+}
+
+/**
+ * Link an image to the library character / contributing outfit items recorded
+ * in the job's resolved prompts. Ids that no longer exist are skipped.
+ */
+export function recordImageLibraryLinks(
+  imageId: number,
+  prompts: {
+    characterPrompts: Array<{
+      libraryCharacterId?: number
+      outfitItemIds?: Array<number>
+    }>
+  },
+): void {
+  const chars = new Set<number>()
+  const items = new Set<number>()
+  for (const c of prompts.characterPrompts) {
+    if (typeof c.libraryCharacterId === 'number')
+      chars.add(c.libraryCharacterId)
+    for (const id of c.outfitItemIds ?? []) items.add(id)
+  }
+  if (chars.size > 0) {
+    for (const r of db
+      .select({ id: libraryCharacters.id })
+      .from(libraryCharacters)
+      .where(inArray(libraryCharacters.id, [...chars]))
+      .all()) {
+      db.insert(imageLibraryLinks)
+        .values({ imageId, kind: 'character', refId: r.id })
+        .onConflictDoNothing()
+        .run()
+    }
+  }
+  if (items.size > 0) {
+    for (const r of db
+      .select({ id: outfitItems.id })
+      .from(outfitItems)
+      .where(inArray(outfitItems.id, [...items]))
+      .all()) {
+      db.insert(imageLibraryLinks)
+        .values({ imageId, kind: 'item', refId: r.id })
+        .onConflictDoNothing()
+        .run()
+    }
   }
 }

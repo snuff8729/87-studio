@@ -56,12 +56,23 @@ export const outfitItems = sqliteTable(
     thumbnailImageId: integer('thumbnail_image_id'),
     /** JSON: { [axisId]: number[] } — applies to all fragments of the item */
     conditions: text('conditions').default('{}'),
+    /** JSON: number[] of library_areas ids this item occupies */
+    areaIds: text('area_ids').default('[]'),
+    /** JSON: Array<{ conditions: Condition; areaIds: number[] }> */
+    coverRules: text('cover_rules').default('[]'),
     sortOrder: integer('sort_order').default(0),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
   (table) => [index('outfit_items_project_id_idx').on(table.projectId)],
 )
+
+/** Global body areas used by outfit occlusion */
+export const libraryAreas = sqliteTable('library_areas', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').default(0),
+})
 
 export const outfitPresets = sqliteTable('outfit_presets', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -524,6 +535,44 @@ export const imageBundles = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.imageId, table.bundleId] }),
     index('image_bundles_bundle_id_idx').on(table.bundleId),
+  ],
+)
+
+/** Effective global axis values an image was generated with (any character) */
+export const imageAxisValues = sqliteTable(
+  'image_axis_values',
+  {
+    imageId: integer('image_id')
+      .notNull()
+      .references(() => generatedImages.id, { onDelete: 'cascade' }),
+    axisId: integer('axis_id')
+      .notNull()
+      .references(() => libraryAxes.id, { onDelete: 'cascade' }),
+    valueId: integer('value_id')
+      .notNull()
+      .references(() => libraryAxisValues.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.imageId, table.axisId, table.valueId] }),
+    index('image_axis_values_axis_value_idx').on(table.axisId, table.valueId),
+  ],
+)
+
+/** Library character / outfit item usage per image (kind has no FK on ref_id) */
+export const imageLibraryLinks = sqliteTable(
+  'image_library_links',
+  {
+    imageId: integer('image_id')
+      .notNull()
+      .references(() => generatedImages.id, { onDelete: 'cascade' }),
+    /** 'character' | 'item' */
+    kind: text('kind').notNull(),
+    /** library_characters.id or outfit_items.id depending on kind */
+    refId: integer('ref_id').notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.imageId, table.kind, table.refId] }),
+    index('image_library_links_ref_idx').on(table.kind, table.refId),
   ],
 )
 

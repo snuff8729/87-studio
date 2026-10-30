@@ -9,6 +9,7 @@ import {
 } from '../db/schema'
 import { createLogger } from './logger'
 import { loadLibraryData } from './parts'
+import type { AxisValues } from '@/lib/character-parts'
 import type { PositionSpec } from '@/lib/character-positions'
 import { resolvePlaceholders } from '@/lib/placeholder'
 import {
@@ -34,6 +35,17 @@ export interface ResolvedPrompts {
     negative: string
     /** Resolved (default + scene override) position; absent = ai */
     position?: PositionSpec
+    /**
+     * Effective axis values (global + local) used to compose this slot; only
+     * for slots that use parts. Recorded for the gallery axis filter.
+     */
+    axisValues?: AxisValues
+    /** Outfit items hidden by occlusion in this scene (parts slots only) */
+    hiddenItems?: Array<{ itemId: number; coveredBy: Array<number> }>
+    /** Linked library character (parts slots only) */
+    libraryCharacterId?: number
+    /** Outfit items that contributed at least one fragment (not hidden) */
+    outfitItemIds?: Array<number>
   }>
   usedBundleIds?: Array<number>
 }
@@ -189,6 +201,7 @@ export function synthesizePrompts(
       character: libChar,
       items: outfit,
       values,
+      knownAreaIds: library.areas.map((a) => a.id),
     })
     const composedPrompt = applyParts(char.charPrompt, parts)
 
@@ -207,6 +220,12 @@ export function synthesizePrompts(
         parsePositionSpec(char.position),
         positionOverrideMap.get(char.id),
       ),
+      ...(partsActive && {
+        axisValues: values,
+        hiddenItems: parts.hidden,
+        ...(libChar && { libraryCharacterId: libChar.id }),
+        outfitItemIds: parts.contributingItemIds,
+      }),
     }
   })
 

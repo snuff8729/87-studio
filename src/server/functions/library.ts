@@ -1,10 +1,13 @@
 import { createServerFn } from '@tanstack/react-start'
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, desc, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
   characterSceneOverrides,
   characters,
   fragments,
+  generatedImages,
+  imageLibraryLinks,
+  libraryAreas,
   libraryAxes,
   libraryAxisValues,
   libraryCharacters,
@@ -12,6 +15,7 @@ import {
   outfitPresets,
 } from '../db/schema'
 import {
+  cleanAreas,
   cleanConditions,
   copyOwnerContents,
   fragmentOut,
@@ -19,14 +23,22 @@ import {
   remapAxisValues,
 } from '../services/parts'
 import { createLogger } from '../services/logger'
-import type { Condition } from '@/lib/character-parts'
-import { parseAxisValues, parseIdList } from '@/lib/character-parts'
+import type { Condition, CoverRule } from '@/lib/character-parts'
+import {
+  parseAxisValues,
+  parseCoverRules,
+  parseIdList,
+} from '@/lib/character-parts'
 import { nextCopyName } from '@/lib/scene-templates'
 
 const log = createLogger('fn.library')
 
 function nextSort(
-  table: 'library_characters' | 'outfit_items' | 'outfit_presets',
+  table:
+    | 'library_characters'
+    | 'outfit_items'
+    | 'outfit_presets'
+    | 'library_areas',
 ): number {
   const row = db.get<{ n: number }>(
     sql.raw(`select coalesce(max(sort_order), -1) + 1 as n from ${table}`),
@@ -78,6 +90,38 @@ export const getLibraryUsage = createServerFn({ method: 'GET' })
     return { slots: slots.size, projects: projectIds.size }
   })
 
+/** Latest images generated with a library character / outfit item. */
+export const listLibraryImages = createServerFn({ method: 'GET' })
+  .inputValidator(
+    (data: { kind: 'character' | 'item'; id: number; limit?: number }) => data,
+  )
+  .handler(async ({ data }) => {
+    return db
+      .select({
+        id: generatedImages.id,
+        filePath: generatedImages.filePath,
+        thumbnailPath: generatedImages.thumbnailPath,
+        seed: generatedImages.seed,
+        isFavorite: generatedImages.isFavorite,
+        rating: generatedImages.rating,
+        createdAt: generatedImages.createdAt,
+      })
+      .from(imageLibraryLinks)
+      .innerJoin(
+        generatedImages,
+        eq(imageLibraryLinks.imageId, generatedImages.id),
+      )
+      .where(
+        and(
+          eq(imageLibraryLinks.kind, data.kind),
+          eq(imageLibraryLinks.refId, data.id),
+        ),
+      )
+      .orderBy(desc(generatedImages.createdAt), desc(generatedImages.id))
+      .limit(data.limit ?? 24)
+      .all()
+  })
+
 // ─── Characters ─────────────────────────────────────────────────────────────
 
 export const createLibraryCharacter = createServerFn({ method: 'POST' })
@@ -120,7 +164,17 @@ export const updateLibraryCharacter = createServerFn({ method: 'POST' })
 export const deleteLibraryCharacter = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
-    db.delete(libraryCharacters).where(eq(libraryCharacters.id, id)).run()
+    db.transaction((tx) => {
+      tx.delete(imageLibraryLinks)
+        .where(
+          and(
+            eq(imageLibraryLinks.kind, 'character'),
+            eq(imageLibraryLinks.refId, id),
+          ),
+        )
+        .run()
+      tx.delete(libraryCharacters).where(eq(libraryCharacters.id, id)).run()
+    })
     return { success: true }
   })
 
@@ -164,6 +218,8 @@ export const createOutfitItem = createServerFn({ method: 'POST' })
       description?: string
       projectId?: number
       conditions?: Condition
+      areaIds?: Array<number>
+      coverRules?: Array<CoverRule>
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -174,6 +230,8 @@ export const createOutfitItem = createServerFn({ method: 'POST' })
         description: data.description ?? null,
         projectId: data.projectId ?? null,
         conditions: JSON.stringify(data.conditions ?? {}),
+        areaIds: JSON.stringify(data.areaIds ?? []),
+        coverRules: JSON.stringify(data.coverRules ?? []),
         sortOrder: nextSort('outfit_items'),
       })
       .returning()
@@ -188,15 +246,21 @@ export const updateOutfitItem = createServerFn({ method: 'POST' })
       description?: string | null
       thumbnailImageId?: number | null
       conditions?: Condition
+      areaIds?: Array<number>
+      coverRules?: Array<CoverRule>
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { id, conditions, ...rest } = data
+    const { id, conditions, areaIds, coverRules, ...rest } = data
     db.update(outfitItems)
       .set({
         ...rest,
         ...(conditions !== undefined
           ? { conditions: JSON.stringify(conditions) }
+          : {}),
+        ...(areaIds !== undefined ? { areaIds: JSON.stringify(areaIds) } : {}),
+        ...(coverRules !== undefined
+          ? { coverRules: JSON.stringify(parseCoverRules(coverRules)) }
           : {}),
         updatedAt: now(),
       })
@@ -208,7 +272,17 @@ export const updateOutfitItem = createServerFn({ method: 'POST' })
 export const deleteOutfitItem = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
-    db.delete(outfitItems).where(eq(outfitItems.id, id)).run()
+    db.transaction((tx) => {
+      tx.delete(imageLibraryLinks)
+        .where(
+          and(
+            eq(imageLibraryLinks.kind, 'item'),
+            eq(imageLibraryLinks.refId, id),
+          ),
+        )
+        .run()
+      tx.delete(outfitItems).where(eq(outfitItems.id, id)).run()
+    })
     return { success: true }
   })
 
@@ -235,21 +309,30 @@ export const duplicateOutfitItem = createServerFn({ method: 'POST' })
           projectId: src.projectId,
           thumbnailImageId: src.thumbnailImageId,
           conditions: '{}',
+          areaIds: src.areaIds ?? '[]',
           sortOrder: (src.sortOrder ?? 0) + 1,
         })
         .returning()
         .get()
-      const { itemConditions } = copyOwnerContents(
+      const { itemConditions, coverRules } = copyOwnerContents(
         tx,
         { itemId: src.id },
         { itemId: copy.id },
         JSON.parse(src.conditions || '{}') as Condition,
+        parseCoverRules(src.coverRules),
       )
       tx.update(outfitItems)
-        .set({ conditions: JSON.stringify(itemConditions) })
+        .set({
+          conditions: JSON.stringify(itemConditions),
+          coverRules: JSON.stringify(coverRules),
+        })
         .where(eq(outfitItems.id, copy.id))
         .run()
-      return { ...copy, conditions: JSON.stringify(itemConditions) }
+      return {
+        ...copy,
+        conditions: JSON.stringify(itemConditions),
+        coverRules: JSON.stringify(coverRules),
+      }
     })
   })
 
@@ -478,6 +561,53 @@ export const reorderAxisValues = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+// ─── Body areas ─────────────────────────────────────────────────────────────
+
+export const createArea = createServerFn({ method: 'POST' })
+  .inputValidator((data: { name: string }) => data)
+  .handler(async ({ data }) => {
+    const row = db
+      .insert(libraryAreas)
+      .values({ name: data.name.trim(), sortOrder: nextSort('library_areas') })
+      .returning()
+      .get()
+    return { id: row.id, name: row.name, sortOrder: row.sortOrder ?? 0 }
+  })
+
+export const renameArea = createServerFn({ method: 'POST' })
+  .inputValidator((data: { id: number; name: string }) => data)
+  .handler(async ({ data }) => {
+    db.update(libraryAreas)
+      .set({ name: data.name.trim() })
+      .where(eq(libraryAreas.id, data.id))
+      .run()
+    return { success: true }
+  })
+
+export const deleteArea = createServerFn({ method: 'POST' })
+  .inputValidator((id: number) => id)
+  .handler(async ({ data: id }) => {
+    db.transaction((tx) => {
+      cleanAreas(tx, id)
+      tx.delete(libraryAreas).where(eq(libraryAreas.id, id)).run()
+    })
+    return { success: true }
+  })
+
+export const reorderAreas = createServerFn({ method: 'POST' })
+  .inputValidator((data: { ids: Array<number> }) => data)
+  .handler(async ({ data }) => {
+    db.transaction((tx) => {
+      data.ids.forEach((id, i) => {
+        tx.update(libraryAreas)
+          .set({ sortOrder: i })
+          .where(eq(libraryAreas.id, id))
+          .run()
+      })
+    })
+    return { success: true }
+  })
+
 // ─── Presets ────────────────────────────────────────────────────────────────
 
 export const createPreset = createServerFn({ method: 'POST' })
@@ -615,6 +745,7 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
             sourceId: item.id,
             thumbnailImageId: item.thumbnailImageId,
             conditions: '{}',
+            areaIds: item.areaIds ?? '[]',
             sortOrder: item.sortOrder,
           })
           .returning()
@@ -624,9 +755,13 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
           { itemId: item.id },
           { itemId: copy.id },
           JSON.parse(item.conditions || '{}') as Condition,
+          parseCoverRules(item.coverRules),
         )
         tx.update(outfitItems)
-          .set({ conditions: JSON.stringify(r.itemConditions) })
+          .set({
+            conditions: JSON.stringify(r.itemConditions),
+            coverRules: JSON.stringify(r.coverRules),
+          })
           .where(eq(outfitItems.id, copy.id))
           .run()
         r.maps.axes.forEach((v, k) => maps.axes.set(k, v))

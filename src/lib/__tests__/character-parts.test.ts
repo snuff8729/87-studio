@@ -5,8 +5,10 @@ import {
   effectiveAxisValues,
   matchesCondition,
   parseAxisValues,
+  parseCoverRules,
   parseIdList,
   relevantAxes,
+  visibleItems,
 } from '../character-parts'
 import type { PartsAxis, PartsFragment, PartsItem } from '../character-parts'
 
@@ -146,6 +148,9 @@ describe('composeParts', () => {
     ).toEqual({
       char: '1girl, silver hair, ponytail, red eyes',
       outfit: 'black jacket, zipped up, pleated skirt',
+      hiddenItemIds: [],
+      hidden: [],
+      contributingItemIds: [7, 8],
     })
   })
 
@@ -158,6 +163,9 @@ describe('composeParts', () => {
     ).toEqual({
       char: '1girl, silver hair, loose hair, red eyes',
       outfit: '',
+      hiddenItemIds: [],
+      hidden: [],
+      contributingItemIds: [],
     })
     const upper = effectiveAxisValues(axes, [{ '2': 21, '1': 12, '3': 31 }])
     expect(
@@ -190,7 +198,171 @@ describe('composeParts', () => {
   it('no character, no items → empty', () => {
     expect(
       composeParts({ axes, character: null, items: [], values: {} }),
-    ).toEqual({ char: '', outfit: '' })
+    ).toEqual({
+      char: '',
+      outfit: '',
+      hiddenItemIds: [],
+      hidden: [],
+      contributingItemIds: [],
+    })
+  })
+})
+
+describe('visibleItems / occlusion', () => {
+  const TOP = 1
+  const BOTTOM = 2
+  const OUTER = 3
+  const mk = (
+    id: number,
+    text: string,
+    extra: Partial<PartsItem> = {},
+  ): PartsItem => ({
+    id,
+    conditions: {},
+    fragments: [frag(id * 100, text)],
+    ...extra,
+  })
+  const shirt = mk(1, 'white shirt', { areaIds: [TOP] })
+  const dress = mk(3, 'dress', { areaIds: [TOP, BOTTOM] })
+  const coatClosed = mk(4, 'long coat', {
+    areaIds: [OUTER],
+    coverRules: [{ conditions: { '3': [30] }, areaIds: [TOP] }],
+  })
+  const vals = (l: Record<string, number> = {}) =>
+    effectiveAxisValues(axes, [l])
+
+  it('hides an item only when ALL its areas are covered', () => {
+    const coverTop = mk(5, 'cape', {
+      coverRules: [{ conditions: {}, areaIds: [TOP] }],
+    })
+    // dress occupies Top+Bottom: Top alone is not enough
+    let r = visibleItems([dress, coverTop], vals(), axes)
+    expect(r.hidden).toEqual([])
+    expect(r.visible.map((i) => i.id)).toEqual([3, 5])
+    const coverBoth = mk(6, 'long cape', {
+      coverRules: [{ conditions: {}, areaIds: [TOP, BOTTOM] }],
+    })
+    r = visibleItems([dress, coverBoth], vals(), axes)
+    expect(r.hidden).toEqual([{ itemId: 3, coveredBy: [6] }])
+    // coverage can be split across several outer items
+    r = visibleItems([dress, coverTop, pants2()], vals(), axes)
+    expect(r.hidden).toEqual([{ itemId: 3, coveredBy: [5, 7] }])
+  })
+  function pants2(): PartsItem {
+    return mk(7, 'long skirt', {
+      areaIds: [BOTTOM],
+      coverRules: [{ conditions: {}, areaIds: [BOTTOM] }],
+    })
+  }
+
+  it('only items LATER in the list cover (order = inner → outer)', () => {
+    const cover = mk(5, 'cape', {
+      coverRules: [{ conditions: {}, areaIds: [TOP] }],
+    })
+    expect(visibleItems([cover, shirt], vals(), axes).hidden).toEqual([])
+    expect(visibleItems([shirt, cover], vals(), axes).hidden).toEqual([
+      { itemId: 1, coveredBy: [5] },
+    ])
+  })
+
+  it('a rule only covers when its condition matches', () => {
+    const closed = vals({ '3': 30 })
+    const open = vals({ '3': 31 })
+    expect(
+      visibleItems([shirt, coatClosed], closed, axes).hidden.map(
+        (h) => h.itemId,
+      ),
+    ).toEqual([1])
+    expect(visibleItems([shirt, coatClosed], open, axes).hidden).toEqual([])
+  })
+
+  it('an outer item failing its item condition does not cover', () => {
+    const cover = mk(5, 'cape', {
+      conditions: { '1': [12] }, // Back only
+      coverRules: [{ conditions: {}, areaIds: [TOP] }],
+    })
+    const front = vals({ '1': 10 })
+    expect(visibleItems([shirt, cover], front, axes).hidden).toEqual([])
+    expect(
+      visibleItems([shirt, cover], front, axes).visible.map((i) => i.id),
+    ).toEqual([1])
+    const back = vals({ '1': 12 })
+    expect(visibleItems([shirt, cover], back, axes).hidden).toEqual([
+      { itemId: 1, coveredBy: [5] },
+    ])
+  })
+
+  it('a hidden outer item still covers inner ones', () => {
+    const coat = mk(5, 'coat', {
+      areaIds: [OUTER],
+      coverRules: [{ conditions: {}, areaIds: [TOP] }],
+    })
+    const poncho = mk(6, 'poncho', {
+      areaIds: [OUTER],
+      coverRules: [{ conditions: {}, areaIds: [OUTER] }],
+    })
+    const r = visibleItems([shirt, coat, poncho], vals(), axes)
+    expect(r.hidden.map((h) => h.itemId)).toEqual([1, 5])
+    expect(r.visible.map((i) => i.id)).toEqual([6])
+  })
+
+  it('items without areas are never hidden', () => {
+    const ribbon = mk(8, 'ribbon')
+    const cover = mk(5, 'cape', {
+      coverRules: [{ conditions: {}, areaIds: [TOP, BOTTOM, OUTER] }],
+    })
+    expect(visibleItems([ribbon, cover], vals(), axes).hidden).toEqual([])
+  })
+
+  it('unknown area ids are ignored', () => {
+    const ghost = mk(9, 'ghost', { areaIds: [99] })
+    const cover = mk(5, 'cape', {
+      coverRules: [{ conditions: {}, areaIds: [99, TOP] }],
+    })
+    // 99 not known → ghost has no areas → visible
+    expect(visibleItems([ghost, cover], vals(), axes, [TOP]).hidden).toEqual([])
+    // known list drops 99 from a mixed item: only Top matters
+    const mixed = mk(10, 'mixed', { areaIds: [99, TOP] })
+    expect(
+      visibleItems([mixed, cover], vals(), axes, [TOP]).hidden.map(
+        (h) => h.itemId,
+      ),
+    ).toEqual([10])
+    // without a known list ids are taken at face value
+    expect(visibleItems([ghost, cover], vals(), axes).hidden).toEqual([
+      { itemId: 9, coveredBy: [5] },
+    ])
+  })
+
+  it('rule conditions may use the own local axis of the cover item', () => {
+    // zipper (axis 3) is local to item 7
+    const jacket7 = mk(7, 'jacket', {
+      areaIds: [OUTER],
+      coverRules: [{ conditions: { '3': [30] }, areaIds: [TOP] }],
+    })
+    const closed = effectiveAxisValues(axes, [{ '3': 30 }])
+    const open = effectiveAxisValues(axes, [{ '3': 31 }])
+    expect(visibleItems([shirt, jacket7], closed, axes).hidden).toHaveLength(1)
+    expect(visibleItems([shirt, jacket7], open, axes).hidden).toHaveLength(0)
+    // the axis is not relevant (item 7 not worn) → rule never evaluated
+    const rel = relevantAxes(axes, null, [])
+    expect(visibleItems([shirt], closed, rel).hidden).toHaveLength(0)
+  })
+
+  it('composeParts drops hidden fragments and reports hiddenItemIds', () => {
+    const cover = mk(5, 'cape', {
+      coverRules: [{ conditions: {}, areaIds: [TOP] }],
+    })
+    const r = composeParts({
+      axes,
+      character: null,
+      items: [shirt, cover],
+      values: vals(),
+    })
+    expect(r.outfit).toBe('cape')
+    expect(r.contributingItemIds).toEqual([5])
+    expect(r.hiddenItemIds).toEqual([1])
+    expect(r.hidden).toEqual([{ itemId: 1, coveredBy: [5] }])
   })
 })
 
@@ -257,5 +429,9 @@ describe('parse helpers', () => {
     expect(parseAxisValues('bad')).toEqual({})
     expect(parseIdList('[1,"a",3]')).toEqual([1, 3])
     expect(parseIdList(null)).toEqual([])
+    expect(
+      parseCoverRules('[{"conditions":{"1":[2]},"areaIds":[3,"x"]},5,null]'),
+    ).toEqual([{ conditions: { '1': [2] }, areaIds: [3] }])
+    expect(parseCoverRules('nope')).toEqual([])
   })
 })

@@ -23,6 +23,25 @@ export interface ImageFilters {
   quickGenerate?: boolean
   /** Danbooru tag that must be a whole token of the positive prompts */
   promptTag?: string
+  /**
+   * Global axis values the image was generated with (AND across entries; an
+   * entry matches when any character had that value). Images generated before
+   * this feature have no rows and never match.
+   */
+  axes?: Array<{ axisId: number; valueId: number }>
+  /** Images generated with this library character */
+  libraryCharacterId?: number
+  /** Images generated with this outfit item (contributing items only) */
+  outfitItemId?: number
+}
+
+export function axisConditions(axes: ImageFilters['axes']): Array<SQL> {
+  return (axes ?? [])
+    .filter((a) => Number.isInteger(a.axisId) && Number.isInteger(a.valueId))
+    .map(
+      (a) =>
+        sql`${generatedImages.id} IN (SELECT image_id FROM image_axis_values WHERE axis_id = ${a.axisId} AND value_id = ${a.valueId})`,
+    )
 }
 
 export function buildImageConditions(data: ImageFilters) {
@@ -54,6 +73,17 @@ export function buildImageConditions(data: ImageFilters) {
         data.tagIds.map((id) => sql`${id}`),
         sql`, `,
       )}))`,
+    )
+  }
+  conditions.push(...axisConditions(data.axes))
+  if (data.libraryCharacterId) {
+    conditions.push(
+      sql`${generatedImages.id} IN (SELECT image_id FROM image_library_links WHERE kind = 'character' AND ref_id = ${data.libraryCharacterId})`,
+    )
+  }
+  if (data.outfitItemId) {
+    conditions.push(
+      sql`${generatedImages.id} IN (SELECT image_id FROM image_library_links WHERE kind = 'item' AND ref_id = ${data.outfitItemId})`,
     )
   }
   // Prompt tag: cheap LIKE pre-filter first, then the exact token match

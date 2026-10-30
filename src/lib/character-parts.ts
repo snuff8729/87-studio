@@ -24,10 +24,23 @@ export interface PartsCharacter {
   id: number
   fragments: Array<PartsFragment>
 }
+export interface CoverRule {
+  conditions: Condition
+  areaIds: Array<number>
+}
 export interface PartsItem {
   id: number
   conditions: Condition
   fragments: Array<PartsFragment>
+  /** Body areas the item occupies (optional: absent = none) */
+  areaIds?: Array<number>
+  /** "when <condition> → covers <areas>" (optional: absent = none) */
+  coverRules?: Array<CoverRule>
+}
+export interface HiddenItem {
+  itemId: number
+  /** Item ids (later in the outfit) whose cover rules hide this item */
+  coveredBy: Array<number>
 }
 
 export const CHAR_TOKEN = '@{char}'
@@ -72,6 +85,21 @@ export function parseIdList(raw: unknown): Array<number> {
   const v = parseJson(raw)
   if (!Array.isArray(v)) return []
   return v.filter((n): n is number => typeof n === 'number')
+}
+
+export function parseCoverRules(raw: unknown): Array<CoverRule> {
+  const v = parseJson(raw)
+  if (!Array.isArray(v)) return []
+  const out: Array<CoverRule> = []
+  for (const r of v) {
+    if (!r || typeof r !== 'object' || Array.isArray(r)) continue
+    const rec = r as Record<string, unknown>
+    out.push({
+      conditions: parseCondition(rec.conditions),
+      areaIds: parseIdList(rec.areaIds),
+    })
+  }
+  return out
 }
 
 // ─── Composition ────────────────────────────────────────────────────────────
@@ -145,22 +173,87 @@ function joinFragments(
   return out
 }
 
+/**
+ * Outfit occlusion. Items are ordered inner → outer. Items failing their item
+ * condition are not worn: neither visible nor able to cover. A worn item with
+ * at least one area is hidden when every one of its areas is covered by a
+ * matching cover rule of some worn item LATER in the list (a hidden outer item
+ * still covers). Items without areas are never hidden. `knownAreaIds`, when
+ * given, makes unknown (deleted) area ids ignored.
+ */
+export function visibleItems(
+  items: Array<PartsItem>,
+  values: AxisValues,
+  axes: Array<PartsAxis>,
+  knownAreaIds?: Array<number>,
+): { visible: Array<PartsItem>; hidden: Array<HiddenItem> } {
+  const worn = items.filter((i) => matchesCondition(i.conditions, values, axes))
+  const known = knownAreaIds ? new Set(knownAreaIds) : null
+  const visible: Array<PartsItem> = []
+  const hidden: Array<HiddenItem> = []
+  worn.forEach((item, idx) => {
+    const areas = (item.areaIds ?? []).filter((a) => !known || known.has(a))
+    if (areas.length === 0) {
+      visible.push(item)
+      return
+    }
+    const covered = new Set<number>()
+    const coveredBy: Array<number> = []
+    for (const outer of worn.slice(idx + 1)) {
+      let contributes = false
+      for (const rule of outer.coverRules ?? []) {
+        if (!matchesCondition(rule.conditions, values, axes)) continue
+        for (const a of rule.areaIds) {
+          if (areas.includes(a)) {
+            covered.add(a)
+            contributes = true
+          }
+        }
+      }
+      if (contributes) coveredBy.push(outer.id)
+    }
+    if (areas.every((a) => covered.has(a))) {
+      hidden.push({ itemId: item.id, coveredBy })
+    } else {
+      visible.push(item)
+    }
+  })
+  return { visible, hidden }
+}
+
 export function composeParts(args: {
   axes: Array<PartsAxis>
   character: PartsCharacter | null
   items: Array<PartsItem>
   values: AxisValues
-}): { char: string; outfit: string } {
-  const { axes, character, items, values } = args
+  knownAreaIds?: Array<number>
+}): {
+  char: string
+  outfit: string
+  hiddenItemIds: Array<number>
+  hidden: Array<HiddenItem>
+  /** Visible items that contributed at least one fragment */
+  contributingItemIds: Array<number>
+} {
+  const { axes, character, items, values, knownAreaIds } = args
   const char = character
     ? joinFragments(character.fragments, values, axes).join(', ')
     : ''
+  const { visible, hidden } = visibleItems(items, values, axes, knownAreaIds)
   const outfitParts: Array<string> = []
-  for (const item of items) {
-    if (!matchesCondition(item.conditions, values, axes)) continue
-    outfitParts.push(...joinFragments(item.fragments, values, axes))
+  const contributingItemIds: Array<number> = []
+  for (const item of visible) {
+    const texts = joinFragments(item.fragments, values, axes)
+    if (texts.length > 0) contributingItemIds.push(item.id)
+    outfitParts.push(...texts)
   }
-  return { char, outfit: outfitParts.join(', ') }
+  return {
+    char,
+    outfit: outfitParts.join(', '),
+    hiddenItemIds: hidden.map((h) => h.itemId),
+    hidden,
+    contributingItemIds,
+  }
 }
 
 function escapeRe(s: string): string {

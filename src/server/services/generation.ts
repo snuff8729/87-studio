@@ -16,6 +16,7 @@ import {
   prepareVibeData,
 } from './reference'
 import { createLogger } from './logger'
+import { recordImageAxisValues, recordImageLibraryLinks } from './parts'
 import type { ReferenceData } from './nai'
 import type { ResolvedPrompts } from './prompt'
 import type { ResolvedPositions } from '@/lib/character-positions'
@@ -788,6 +789,18 @@ async function processJob(jobId: number) {
           .values({ imageId: insertedImage.id, bundleId })
           .onConflictDoNothing()
           .run()
+      }
+
+      // Record the global axis values the image was generated with
+      try {
+        recordImageAxisValues(insertedImage.id, resolvedPrompts)
+        recordImageLibraryLinks(insertedImage.id, resolvedPrompts)
+      } catch (error) {
+        log.warn('job.axisValues', 'Failed to record image axis values', {
+          jobId,
+          imageId: insertedImage.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
       }
 
       // Update progress

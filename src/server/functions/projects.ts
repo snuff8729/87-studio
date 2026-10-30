@@ -19,6 +19,7 @@ import { copyOwnerContents, remapAxisValues } from '../services/parts'
 import {
   parseAxisValues,
   parseCondition,
+  parseCoverRules,
   parseIdList,
 } from '@/lib/character-parts'
 
@@ -314,6 +315,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
           sourceId: it.sourceId,
           thumbnailImageId: null,
           conditions: '{}',
+          areaIds: it.areaIds ?? '[]',
           sortOrder: it.sortOrder,
         })
         .returning()
@@ -323,9 +325,13 @@ export const duplicateProject = createServerFn({ method: 'POST' })
         { itemId: it.id },
         { itemId: copy.id },
         parseCondition(it.conditions),
+        parseCoverRules(it.coverRules),
       )
       db.update(outfitItems)
-        .set({ conditions: JSON.stringify(r.itemConditions) })
+        .set({
+          conditions: JSON.stringify(r.itemConditions),
+          coverRules: JSON.stringify(r.coverRules),
+        })
         .where(eq(outfitItems.id, copy.id))
         .run()
       r.maps.axes.forEach((v, k) => partsMaps.axes.set(k, v))
