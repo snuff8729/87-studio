@@ -14,6 +14,7 @@ import type { GridSize } from '@/lib/use-image-grid-size'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Slider } from '@/components/ui/slider'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -33,7 +34,6 @@ import { extractPlaceholders } from '@/lib/placeholder'
 import { useTranslation } from '@/lib/i18n'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { DownloadDialog } from '@/components/common/download-dialog'
-import { GridSizeToggle } from '@/components/common/grid-size-toggle'
 import { useImageGridSize } from '@/lib/use-image-grid-size'
 
 interface SceneDetailProps {
@@ -58,9 +58,19 @@ interface SceneDetailProps {
   sceneName?: string
   sortBy?: SortBy
   onSortByChange?: (sort: SortBy) => void
+  /** Hide the scene-level actions (tournament, reset thumbnail) in the images
+   * header — used when the parent renders them in its own scene header. */
+  hideSceneActions?: boolean
+  /** Controlled select mode (optional; falls back to internal state). */
+  selectMode?: boolean
+  onSelectModeChange?: (selectMode: boolean) => void
 }
 
-type SortBy = 'newest' | 'tournament_winrate' | 'tournament_wins'
+export type SceneImageSortBy =
+  | 'newest'
+  | 'tournament_winrate'
+  | 'tournament_wins'
+type SortBy = SceneImageSortBy
 
 type SceneData = Awaited<ReturnType<typeof getSceneDetail>>
 type ImageItem = SceneData['images'][number] & {
@@ -70,32 +80,21 @@ type ImageItem = SceneData['images'][number] & {
 
 const GAP = 6 // gap-1.5 = 6px
 
-const sceneDetailSizeMap: Record<
-  GridSize,
-  [number, number, number, number, number]
-> = {
-  sm: [4, 5, 7, 6, 7],
-  md: [3, 4, 5, 4, 5],
-  lg: [2, 3, 4, 3, 4],
+const GRID_SIZES: Array<GridSize> = ['sm', 'md', 'lg']
+
+/** Minimum cell width per grid size. Columns derive from the grid's own width
+ * so the grid adapts to the (resizable) panel instead of the viewport. */
+const MIN_CELL_WIDTH: Record<GridSize, number> = {
+  sm: 112,
+  md: 160,
+  lg: 240,
 }
 
-function useGridColumns(gridSize: GridSize) {
-  const [cols, setCols] = useState(sceneDetailSizeMap[gridSize][0])
-  useEffect(() => {
-    const bp = sceneDetailSizeMap[gridSize]
-    function update() {
-      const w = window.innerWidth
-      if (w >= 1280) setCols(bp[4])
-      else if (w >= 1024) setCols(bp[3])
-      else if (w >= 768) setCols(bp[2])
-      else if (w >= 640) setCols(bp[1])
-      else setCols(bp[0])
-    }
-    update()
-    window.addEventListener('resize', update)
-    return () => window.removeEventListener('resize', update)
-  }, [gridSize])
-  return cols
+function columnsFor(width: number, gridSize: GridSize) {
+  return Math.max(
+    1,
+    Math.floor((width + GAP) / (MIN_CELL_WIDTH[gridSize] + GAP)),
+  )
 }
 
 function findScrollParent(el: HTMLElement | null): HTMLElement | null {
@@ -122,6 +121,9 @@ export function SceneDetail({
   sceneName,
   sortBy: externalSortBy,
   onSortByChange: externalOnSortByChange,
+  hideSceneActions,
+  selectMode: externalSelectMode,
+  onSelectModeChange: externalOnSelectModeChange,
 }: SceneDetailProps) {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -145,7 +147,9 @@ export function SceneDetail({
   const setSortBy = externalOnSortByChange ?? setInternalSortBy
 
   // Bulk selection
-  const [selectMode, setSelectMode] = useState(false)
+  const [internalSelectMode, setInternalSelectMode] = useState(false)
+  const selectMode = externalSelectMode ?? internalSelectMode
+  const setSelectMode = externalOnSelectModeChange ?? setInternalSelectMode
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set())
 
   // Placeholder values (general)
@@ -237,7 +241,6 @@ export function SceneDetail({
   const { gridSize, setGridSize } = useImageGridSize('scene')
 
   // ── Virtualized grid setup ──
-  const cols = useGridColumns(gridSize)
   const rootRef = useRef<HTMLDivElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
 
@@ -259,6 +262,7 @@ export function SceneDetail({
     return () => ro.disconnect()
   }, [images.length > 0]) // re-observe when images first appear
 
+  const cols = columnsFor(gridWidth, gridSize)
   const cellSize = Math.floor((gridWidth - GAP * (cols - 1)) / cols)
   const rowHeight = cellSize + GAP
 
@@ -538,7 +542,7 @@ export function SceneDetail({
                 {t('scene.images', { count: totalImageCount })}
               </Label>
               <div className="flex items-center gap-2">
-                {totalImageCount >= 2 && (
+                {!hideSceneActions && totalImageCount >= 2 && (
                   <Button
                     variant="outline"
                     size="xs"
@@ -577,8 +581,17 @@ export function SceneDetail({
                     </SelectItem>
                   </SelectContent>
                 </Select>
-                <GridSizeToggle value={gridSize} onChange={setGridSize} />
-                {thumbnailImageId !== null && (
+                <Slider
+                  className="w-16"
+                  min={0}
+                  max={GRID_SIZES.length - 1}
+                  step={1}
+                  value={[GRID_SIZES.indexOf(gridSize)]}
+                  onValueChange={([v]) => setGridSize(GRID_SIZES[v] ?? 'md')}
+                  aria-label={t('sceneView.imageSize')}
+                  title={t('sceneView.imageSize')}
+                />
+                {!hideSceneActions && thumbnailImageId !== null && (
                   <button
                     onClick={() => onThumbnailChange(null, null)}
                     className="text-xs text-muted-foreground hover:text-foreground transition-colors"
@@ -819,9 +832,11 @@ export function SceneDetail({
         )}
       </div>
 
-      {/* Bulk action bar — outside space-y-4 to prevent margin change triggering scrollbar/resize */}
+      {/* Bulk action bar — outside space-y-4 to prevent margin change triggering scrollbar/resize.
+          `absolute`: anchors to the nearest positioned ancestor (the center
+          panel), not the viewport — keep the scroll container unpositioned. */}
       {selectMode && selectedIds.size > 0 && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 lg:gap-3 flex-wrap shadow-lg max-w-[calc(100vw-1rem)]">
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-40 bg-card border border-border rounded-xl px-3 py-2 flex items-center justify-center gap-2 flex-wrap shadow-lg w-max max-w-[calc(100%-1rem)]">
           <span className="text-base font-medium">
             {t('gallery.selectedCount', { count: selectedIds.size })}
           </span>

@@ -274,6 +274,18 @@ const ko: DeepStringify<typeof en> = {
     charNegativePlaceholder: '{{name}} 네거티브...',
     expandEditor: '에디터 확대',
   },
+  sceneView: {
+    placeholders: '플레이스홀더',
+    togglePlaceholders: '플레이스홀더 보이기/숨기기',
+    imageSize: '이미지 크기',
+    selectToCompare: '이미지를 2개 이상 선택한 뒤 비교를 누르세요.',
+    boardTitle: '씬',
+    boardHint: '씬을 선택하면 플레이스홀더를 편집하고 이미지를 볼 수 있습니다.',
+    emptyTitle: '아직 씬이 없습니다',
+    emptyDesc: '씬 팩을 추가하거나 새 씬을 만들어 시작하세요.',
+    reserveCount: '생성할 이미지 수',
+    resetCount: '기본값으로 초기화',
+  },
   scene: {
     reserve: '예약',
     edit: '편집',

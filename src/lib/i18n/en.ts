@@ -268,6 +268,18 @@ const en = {
     charNegativePlaceholder: '{{name}} negative...',
     expandEditor: 'Expand editor',
   },
+  sceneView: {
+    placeholders: 'Placeholders',
+    togglePlaceholders: 'Show or hide placeholders',
+    imageSize: 'Image size',
+    selectToCompare: 'Select 2 or more images, then press Compare.',
+    boardTitle: 'Scenes',
+    boardHint: 'Pick a scene to edit its placeholders and see its images.',
+    emptyTitle: 'No scenes yet',
+    emptyDesc: 'Add a scene pack or create a scene to get started.',
+    reserveCount: 'Images to generate',
+    resetCount: 'Reset to default',
+  },
   scene: {
     reserve: 'Reserve',
     edit: 'Edit',
