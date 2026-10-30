@@ -477,8 +477,7 @@ const ko: DeepStringify<typeof en> = {
     promptPreview: '프롬프트 미리보기',
     generalPrompt: '일반 프롬프트',
     negativePrompt: '네거티브 프롬프트',
-    addPlaceholders:
-      '프롬프트에 @{slot:name}를 추가하여 키 슬롯을 만드세요.',
+    addPlaceholders: '프롬프트에 @{slot:name}를 추가하여 키 슬롯을 만드세요.',
     empty: '비어있음',
     keyAlreadyExists: '이미 존재하는 키입니다',
     failedToAddKey: '키 추가에 실패했습니다',
@@ -625,7 +624,8 @@ const ko: DeepStringify<typeof en> = {
     bookmarkDeleted: '북마크가 삭제되었습니다',
     deleteFailed: '북마크 삭제에 실패했습니다',
     deleteBookmark: '북마크 삭제',
-    deleteBookmarkDesc: '"{{name}}"을(를) 삭제하시겠습니까? 되돌릴 수 없습니다.',
+    deleteBookmarkDesc:
+      '"{{name}}"을(를) 삭제하시겠습니까? 되돌릴 수 없습니다.',
     memo: '메모',
     memoPlaceholder: '이 태그에 대한 메모를 입력하세요...',
     memoSaved: '메모가 저장되었습니다',

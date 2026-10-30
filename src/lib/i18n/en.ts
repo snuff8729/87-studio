@@ -469,8 +469,7 @@ const en = {
     promptPreview: 'Prompt Preview',
     generalPrompt: 'General Prompt',
     negativePrompt: 'Negative Prompt',
-    addPlaceholders:
-      'Add @{slot:name} to your prompts to create key slots.',
+    addPlaceholders: 'Add @{slot:name} to your prompts to create key slots.',
     empty: 'Empty',
     keyAlreadyExists: 'Key already exists',
     failedToAddKey: 'Failed to add key',
@@ -607,7 +606,8 @@ const en = {
     title: 'Tag Gallery',
     description: 'Browse and bookmark danbooru tags with thumbnails and memos.',
     noBookmarks: 'No bookmarks yet',
-    noBookmarksDesc: 'Search for a danbooru tag and bookmark it to get started.',
+    noBookmarksDesc:
+      'Search for a danbooru tag and bookmark it to get started.',
     addBookmark: 'Add Bookmark',
     searchDanbooru: 'Search danbooru tags...',
     customName: 'Custom name',
