@@ -422,6 +422,7 @@ async function newPage(width, height, opts = { queue: true }) {
     const mock = mocks[name]
     if (WRITE.test(name) && !mock) {
       page.blocked.push(name)
+      ;(page.blockedBodies ??= {})[name] = route.request().postData() ?? ''
       return route.abort()
     }
     if (mock) {
@@ -1033,7 +1034,7 @@ function pngChunk(type, data) {
   crc.writeUInt32BE(zlib.crc32(td) >>> 0)
   return Buffer.concat([len, td, crc])
 }
-function makeNaiPng(w, h, comment) {
+function makeNaiPng(w, h, comment, source) {
   const ihdr = Buffer.alloc(13)
   ihdr.writeUInt32BE(w, 0)
   ihdr.writeUInt32BE(h, 4)
@@ -1051,6 +1052,7 @@ function makeNaiPng(w, h, comment) {
   return Buffer.concat([
     Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
     pngChunk('IHDR', ihdr),
+    ...(source ? [pngChunk('tEXt', Buffer.from(`Source\0${source}`))] : []),
     pngChunk('tEXt', Buffer.from(`Comment\0${JSON.stringify(comment)}`)),
     pngChunk('IDAT', zlib.deflateSync(raw)),
     pngChunk('IEND', Buffer.alloc(0)),
@@ -1407,7 +1409,91 @@ async function metadataPage(w, h, tag) {
     await noPageOverflow(page),
     `metadata ${tag}: no horizontal page overflow`,
   )
-  check(page.blocked.length === 0, `metadata ${tag}: no writes sent`)
+
+  // ── import options: model detection + full settings sync ──
+  const v45 = makeNaiPng(
+    300,
+    300,
+    {
+      ...NAI_SAMPLE,
+      steps: 31,
+      scale: 6,
+      cfg_rescale: 0.2,
+      noise_schedule: 'karras',
+      width: 1216,
+      height: 832,
+      ucPreset: 1,
+      skip_cfg_above_sigma: 58,
+    },
+    'NovelAI Diffusion V4.5 4BDE2A90',
+  )
+  await page.evaluate(async (b64) => {
+    const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0))
+    const dt = new DataTransfer()
+    dt.items.add(new File([bytes], 'v45.png', { type: 'image/png' }))
+    document.dispatchEvent(
+      new DragEvent('dragenter', { dataTransfer: dt, bubbles: true }),
+    )
+    document.dispatchEvent(
+      new DragEvent('drop', { dataTransfer: dt, bubbles: true }),
+    )
+  }, v45.toString('base64'))
+  await settle(page, 1500)
+  await page
+    .locator('[data-app-header] button[aria-label="Create Project"]')
+    .click()
+  await settle(page, 400)
+  const dlg = page.getByRole('dialog')
+  check(
+    (await dlg.locator('[data-metadata-import-options] section').count()) === 2,
+    `metadata ${tag}: import dialog has Prompts + Settings groups`,
+  )
+  check(
+    (await dlg.locator('[data-model-detected]').count()) === 0,
+    `metadata ${tag}: settings group collapsed by default`,
+  )
+  check(
+    (await dlg.locator('[data-import-sync-all]').getAttribute('data-state')) ===
+      'checked',
+    `metadata ${tag}: sync-all master is on by default`,
+  )
+  await dlg
+    .getByRole('button', { name: /Show or hide: Sync all generation settings/ })
+    .click()
+  await settle(page, 300)
+  const detected = await dlg.locator('[data-model-detected]').innerText()
+  check(
+    /V4\.5 Full/.test(detected) && /Full assumed/.test(detected),
+    `metadata ${tag}: model detected (${detected})`,
+  )
+  check(
+    (await dlg
+      .locator('[data-import-setting="seed"]')
+      .getAttribute('data-state')) === 'unchecked',
+    `metadata ${tag}: seed off by default`,
+  )
+  check(
+    (await dlg.locator('[data-import-setting]').count()) >= 9,
+    `metadata ${tag}: per-setting rows`,
+  )
+  await shot(page, `metadata-import-dialog-${tag}`)
+  check(
+    await noPageOverflow(page),
+    `metadata ${tag}: dialog adds no horizontal overflow`,
+  )
+  await dlg.getByRole('button', { name: 'Create Project' }).click()
+  await settle(page, 600)
+  const body = page.blockedBodies?.createProjectFromMetadata ?? ''
+  check(
+    body.includes('nai-diffusion-4-5-full') &&
+      body.includes('1216') &&
+      !body.includes('1234567890'),
+    `metadata ${tag}: create payload carries model/size, not seed`,
+  )
+  check(
+    page.blocked.every((n) => n === 'createProjectFromMetadata'),
+    `metadata ${tag}: only the create-project write was attempted`,
+  )
   await ctx.close()
 }
 

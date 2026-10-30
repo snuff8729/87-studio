@@ -17,8 +17,15 @@ import {
 } from './reference'
 import { createLogger } from './logger'
 import type { ReferenceData } from './nai'
+import type { ResolvedPrompts } from './prompt'
+import type { ResolvedPositions } from '@/lib/character-positions'
+import {
+  AI_POSITION,
+  resolveCharacterPositions,
+} from '@/lib/character-positions'
 import {
   DEFAULT_NAI_MODEL,
+  getModelProfile,
   pickRandomResolution,
   resolveReferenceMode,
 } from '@/lib/nai-models'
@@ -103,6 +110,19 @@ function getNextJob(): { jobId: number; batchId: number } | null {
     .limit(1)
     .get()
   return row ? { jobId: row.jobId, batchId: row.batchId } : null
+}
+
+/** Positions for one image; undefined for models without character prompts support */
+function resolveImagePositions(
+  prompts: ResolvedPrompts,
+  parameters: { model?: string },
+): ResolvedPositions | undefined {
+  if (prompts.characterPrompts.length === 0) return undefined
+  if (getModelProfile(parameters.model ?? DEFAULT_NAI_MODEL) === 'v3')
+    return undefined
+  return resolveCharacterPositions(
+    prompts.characterPrompts.map((c) => c.position ?? AI_POSITION),
+  )
 }
 
 /** Get next max queue_order for batches */
@@ -689,11 +709,14 @@ async function processJob(jobId: number) {
         : resolvedParameters
       // Saved metadata keeps the actual width/height, not the random flag
       const { randomResolution: _random, ...savedParameters } = imageParameters
+      // Character positions are resolved per image (random differs each time)
+      const positions = resolveImagePositions(resolvedPrompts, imageParameters)
       const { imageData, seed } = await generateImage(
         apiKey,
         resolvedPrompts,
         imageParameters,
         referenceData,
+        positions,
       )
       const imageDuration = Date.now() - imageStart
 
@@ -733,6 +756,7 @@ async function processJob(jobId: number) {
           metadata: JSON.stringify({
             prompts: resolvedPrompts,
             parameters: savedParameters,
+            ...(positions && { characterPositions: positions }),
             ...(referenceMode !== 'none' &&
               referenceData && {
                 referenceMode,

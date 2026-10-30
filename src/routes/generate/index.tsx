@@ -37,6 +37,8 @@ import { ImportMetadataDialog } from '@/components/quick-generate/import-metadat
 import { useTranslation } from '@/lib/i18n'
 import { duplicateName, moveItem, nextCharacterName } from '@/lib/characters'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
+import { mergeImportedParameters } from '@/lib/nai-import'
+import { parsePositionSpec, positionCanvas } from '@/lib/character-positions'
 import { DEFAULT_NAI_MODEL } from '@/lib/nai-models'
 import {
   createQuickGenerationJob,
@@ -199,7 +201,8 @@ function QuickGeneratePage() {
     if (
       routerState.generalPrompt != null ||
       routerState.negativePrompt != null ||
-      routerState.characterPrompts != null
+      routerState.characterPrompts != null ||
+      routerState.parameters != null
     ) {
       setState((prev) => {
         const next = { ...prev }
@@ -214,11 +217,15 @@ function QuickGeneratePage() {
               name: c.name || `Character ${i + 1}`,
               prompt: c.prompt || c.charPrompt || '',
               negative: c.negative || c.charNegative || '',
+              position: parsePositionSpec(c.position) ?? undefined,
             }),
           )
         }
         if (routerState.parameters) {
-          next.parameters = { ...prev.parameters, ...routerState.parameters }
+          next.parameters = mergeImportedParameters(
+            prev.parameters,
+            routerState.parameters,
+          )
         }
         saveState(next)
         return next
@@ -322,6 +329,7 @@ function QuickGeneratePage() {
             name: c.name,
             prompt: c.prompt,
             negative: c.negative,
+            position: c.position,
           })),
           parameters: state.parameters,
           count: state.count,
@@ -501,6 +509,7 @@ function QuickGeneratePage() {
           onOpenChange={(open) => {
             if (!open) setPendingMetadata(null)
           }}
+          currentParameters={state.parameters}
           onApply={(applied) => {
             setState((prev) => {
               const next = { ...prev }
@@ -510,7 +519,10 @@ function QuickGeneratePage() {
                 next.negativePrompt = applied.negativePrompt
               if (applied.characters) next.characters = applied.characters
               if (applied.parameters)
-                next.parameters = { ...prev.parameters, ...applied.parameters }
+                next.parameters = mergeImportedParameters(
+                  prev.parameters,
+                  applied.parameters,
+                )
               saveState(next)
               return next
             })
@@ -558,6 +570,7 @@ function QuickGeneratePage() {
                 moveCharacter={moveCharacter}
                 removeCharacter={removeCharacter}
                 updateCharacter={updateCharacter}
+                positions={positionCanvas(state.parameters)}
               />
             ),
           },

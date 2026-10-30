@@ -25,7 +25,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 
 - **SQLite** (better-sqlite3) — 로컬 파일 DB (`data/studio.db`)
 - **Drizzle ORM** 0.45.1 — 타입 세이프 ORM
-  - drizzle-kit 0.31.9으로 마이그레이션 관리 (15개 마이그레이션 파일)
+  - drizzle-kit 0.31.9으로 마이그레이션 관리 (17개 마이그레이션 파일)
   - 스키마 파일에서 TypeScript 타입 자동 추론
 
 ### UI
@@ -218,7 +218,7 @@ src/
 │   ├── db/
 │   │   ├── schema.ts          # Drizzle 스키마 정의 (29개 테이블)
 │   │   ├── index.ts           # DB 연결 (better-sqlite3)
-│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0014)
+│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0016)
 │   ├── services/
 │   │   ├── prompt.ts          # 프롬프트 합성 로직
 │   │   ├── nai.ts             # NAI API 클라이언트 (모델 선택 지원)
@@ -260,6 +260,9 @@ src/
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
 │   ├── nai-metadata.ts        # NAI 이미지 메타데이터 파서 (PNG tEXt, Stealth Alpha)
+│   ├── character-positions.ts # 캐릭터 위치 스펙/해석 (순수, 테스트)
+│   ├── nai-model-detect.ts    # NAI Source/Comment → 모델 ID 감지 (Full 추정 시 assumed 표시)
+│   ├── nai-import.ts          # 메타데이터 → 프롬프트/파라미터 단일 매핑 (naiMetadataToParams, buildImport, mergeImportedParameters)
 │   ├── prompt-tags.ts         # 프롬프트 태그 토큰 매칭 (promptTag 필터, 북마크 이미지)
 │   ├── use-image-grid-size.ts # 갤러리 그리드 크기 훅 (sm/md/lg)
 │   ├── onboarding/            # 온보딩 시스템
@@ -294,6 +297,7 @@ start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js
 start.bat                      # Windows 간편 실행 스크립트
 scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단; 씬 템플릿 다이얼로그 1440/390 포함)
 scripts/smoke/templates.mjs    # 씬 템플릿 다이얼로그 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 팩/씬/키 CRUD·복제·이동·자동저장·선택 적용, DB 읽기전용 교차검증)
+scripts/smoke/positions.mjs    # 캐릭터 위치 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 기본/씬 오버라이드/일괄/터치 드래그/생성 metadata 검증, DB 읽기전용 교차검증)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
 scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
@@ -344,6 +348,18 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 같은 씬이라도 캐릭터마다 다른 플레이스홀더 값을 가질 수 있음
 - project_scenes.placeholders → general_prompt용
 - character_scene_overrides.placeholders → 해당 캐릭터의 char_prompt용
+- character_scene_overrides.position → 해당 씬에서 캐릭터 위치 오버라이드 (아래 "캐릭터 위치")
+
+### 캐릭터 위치 (Character Positions)
+
+- 스펙: `{ mode: 'ai'|'random'|'fixed', x?, y? }` (x/y 0–1 정규화, 좌상단 원점, 소수 3자리). 씬 오버라이드는 `inherit` 추가 (= 캐릭터 기본값 사용). 기본 = `ai` (기존 동작과 동일)
+- 저장: `characters.position`(기본값, NULL=ai), `character_scene_overrides.position`(NULL=inherit). Quick Generate는 로컬 상태(`87studio-quick-generate`)의 `characters[].position`
+- 순수 모듈 `src/lib/character-positions.ts` (`resolveCharacterPositions`, `applyOverride`, `positionCanvas` 등, 테스트 있음)
+  - 전부 ai → `use_coords:false`, centers 모두 0.5/0.5 (기존 페이로드와 동일)
+  - 그 외 → `use_coords:true`: fixed는 x/y 그대로, random은 [0.1,0.9] 균등 + 기존 점과 거리 ≥0.2 (최대 5회 재시도), ai는 중앙→좌→우→상→하→모서리 링에서 첫 빈 자리
+- 합성: `synthesizePrompts`가 기본값+씬 오버라이드를 합쳐 `characterPrompts[].position`에 저장 (job의 resolved_prompts). 생성 루프(`generation.ts`)가 **이미지마다** 해석하여 `generateImage(..., positions)`에 전달 → `nai-characters.ts`가 `use_coords`(최상위 + `v4_prompt`), `char_captions[].centers`(positive/negative 동일), `characterPrompts[].center`를 채움. V3 모델은 건너뜀
+- 실제 사용된 `{useCoords, centers}`는 이미지 metadata의 `characterPositions`에 저장되고 이미지 상세에 표시
+- UI: Chars 탭 "Position"(AI/Random/Fixed + 피커), SceneView "Character positions" 섹션(Default/AI/Random/Fixed, 공용 피커, Snap to grid `87studio-position-snap`), 씬 선택 헤더 "Character positions..." 일괄 적용, 메타데이터 임포트(use_coords true → Fixed)
 
 ### 토너먼트 (이상형 월드컵)
 
@@ -406,6 +422,10 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - SD Studio 프리셋 JSON 파일을 파싱하여 프로젝트/씬으로 변환
 
 ### 이미지 메타데이터 인스펙터 (/metadata)
+
+- 가져오기 대화상자(프로젝트 생성 / Quick Generate 전송 / Quick Generate 드롭)는 `components/common/metadata-import-options.tsx` 공용: Prompts 그룹(긍정/부정/캐릭터) + "모든 생성 설정 동기화" 마스터 토글(기본 ON, 시드 제외) 아래 설정별 체크박스(모델·크기·스텝·CFG·리스케일·샘플러·스케줄·UC 프리셋·SMEA/DYN·VAR+·DECRISP·시드(기본 OFF)), 현재값 → 가져올 값 표시
+- 모델은 PNG `Source` 텍스트(예: "NovelAI Diffusion V4.5 4BDE2A90")에서 버전 토큰으로 매핑, 해시 테이블(`KNOWN_SOURCE_HASHES`)에 없으면 Full 가정 + UI에 "Full assumed" 표시, 모델 정보가 전혀 없으면 현재 모델 유지 안내. 스텔스 알파도 `Source` 키 사용
+- 매핑은 `naiMetadataToParams` 한 곳(V5는 VAR+/DECRISP 제외, SMEA/DYN은 V3 프로파일만, 앱이 편집할 수 없는 샘플러는 건너뜀), 프로젝트 생성은 선택된 키만 `projects.parameters`에 저장(나머지는 기본값)
 
 - NAI 생성 이미지를 드래그 앤 드롭으로 업로드
 - PNG tEXt 청크 또는 Stealth Alpha 방식으로 메타데이터 파싱
@@ -670,6 +690,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 | name          | text (NOT NULL)                  |                                |
 | char_prompt   | text (NOT NULL, DEFAULT '')      | 플레이스홀더 포함              |
 | char_negative | text (NOT NULL, DEFAULT '')      | 캐릭터별 네거티브 프롬프트     |
+| position      | text                             | JSON PositionSpec (NULL = ai)  |
 | created_at    | text                             |                                |
 | updated_at    | text                             |                                |
 
@@ -729,6 +750,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 | project_scene_id                       | integer (FK → project_scenes, CASCADE) |                                  |
 | character_id                           | integer (FK → characters, CASCADE)     |                                  |
 | placeholders                           | text (DEFAULT '{}')                    | JSON. char_prompt용 플레이스홀더 |
+| position                               | text                                   | JSON. 씬 위치 오버라이드 (NULL = inherit) |
 | UNIQUE(project_scene_id, character_id) |                                        |                                  |
 
 ### generation_batches
@@ -1017,6 +1039,7 @@ src/
 │       ├── bundle.test.ts           # 번들 참조 추출/치환
 │       ├── sd-studio-import.test.ts # SD Studio JSON 파싱
 │       ├── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
+│       ├── nai-import.test.ts       # 모델 감지, 메타데이터 → 파라미터 매핑, 선택 적용
 │       ├── nai-models.test.ts       # 모델 프로파일/기능 판별 (V5 포함)
 │       ├── project-packs.test.ts    # 팩 이름 중복/접미사, 순서 교환
 │       └── prompt-tags.test.ts      # 프롬프트 태그 토큰 매칭 (가중치/중괄호/언더스코어)

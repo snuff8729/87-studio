@@ -9,6 +9,7 @@ import {
 } from '../db/schema'
 import { createLogger } from './logger'
 import { loadLibraryData } from './parts'
+import type { PositionSpec } from '@/lib/character-positions'
 import { resolvePlaceholders } from '@/lib/placeholder'
 import {
   applyParts,
@@ -18,6 +19,7 @@ import {
   parseIdList,
   relevantAxes,
 } from '@/lib/character-parts'
+import { applyOverride, parsePositionSpec } from '@/lib/character-positions'
 import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
 
 const log = createLogger('prompt')
@@ -30,6 +32,8 @@ export interface ResolvedPrompts {
     name: string
     prompt: string
     negative: string
+    /** Resolved (default + scene override) position; absent = ai */
+    position?: PositionSpec
   }>
   usedBundleIds?: Array<number>
 }
@@ -136,6 +140,12 @@ export function synthesizePrompts(
   // Character parts library (global + this project's project-only rows)
   const library = loadLibraryData(projectId)
   const sceneAxisValues = parseAxisValues(scene.axisValues)
+  const positionOverrideMap = new Map(
+    charOverridesData.map((o) => [
+      o.characterId,
+      parsePositionSpec(o.position, true),
+    ]),
+  )
 
   const characterPrompts = chars.map((char) => {
     const charOverrides = overrideMap.get(char.id) || {}
@@ -192,6 +202,10 @@ export function synthesizePrompts(
       negative: resolvePlaceholders(
         resolveBundlesWithTracking(char.charNegative, bundleMap, usedBundleIds),
         mergedPlaceholders,
+      ),
+      position: applyOverride(
+        parsePositionSpec(char.position),
+        positionOverrideMap.get(char.id),
       ),
     }
   })

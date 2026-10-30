@@ -353,6 +353,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
           axisValues: JSON.stringify(
             remapAxisValues(parseAxisValues(ch.axisValues), partsMaps),
           ),
+          position: ch.position,
         })
         .returning()
         .get()
@@ -420,6 +421,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
                 outfitItemIds: ovr.outfitItemIds
                   ? remapIdList(ovr.outfitItemIds)
                   : null,
+                position: ovr.position,
               })
               .run()
           }

@@ -22,6 +22,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { PlaceholderEditor } from './placeholder-editor'
 import { ScenePartsSection, slotHasParts } from './scene-parts-section'
+import { ScenePositionsSection } from './scene-positions-section'
 import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
@@ -74,6 +75,7 @@ export interface SceneViewCharacter {
   libraryCharacterId?: number | null
   outfitItemIds?: string | null
   axisValues?: string | null
+  position: string | null
 }
 
 /** One row of the route's `characterOverrides[sceneId]` array. */
@@ -83,6 +85,7 @@ export interface SceneViewCharacterOverride {
   placeholders: string
   axisValues?: string | null
   outfitItemIds?: string | null
+  position: string | null
 }
 
 export interface CharacterPlaceholderKeyEntry {
@@ -128,6 +131,8 @@ export interface SceneViewProps {
   refreshKey?: number
   imageSortBy?: SceneImageSortBy
   onImageSortByChange?: (sort: SceneImageSortBy) => void
+  /** Canvas of the position section; false hides it (V3 models) */
+  positions?: { aspect: number } | false
 }
 
 function thumbUrl(path: string) {
@@ -205,6 +210,7 @@ export function SceneView({
   refreshKey,
   imageSortBy,
   onImageSortByChange,
+  positions,
 }: SceneViewProps) {
   const { t } = useTranslation()
   const onboarding = useOnboardingMaybe()
@@ -518,6 +524,18 @@ export function SceneView({
           </ScrollFade>
         )}
       </section>
+
+      {positions && characters.length > 0 && (
+        <ScenePositionsSection
+          key={`positions-${sceneId}`}
+          projectId={projectId}
+          sceneId={sceneId}
+          characters={characters}
+          overrides={characterOverrides}
+          aspect={positions.aspect}
+          onChange={onPlaceholdersChange}
+        />
+      )}
 
       {/* ── Images (scroll container — must stay unpositioned so the bulk
           bar anchors to this panel's root) ── */}

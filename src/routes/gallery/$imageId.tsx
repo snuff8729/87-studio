@@ -19,6 +19,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import type { GalleryFilters } from '@/lib/gallery-filters'
+import { CharacterPositionsMeta } from '@/components/common/character-positions-meta'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -705,6 +706,7 @@ function ImageDetailPage() {
                 </div>
               )}
 
+              <CharacterPositionsMeta meta={meta} />
               {meta?.prompts?.generalPrompt && (
                 <div>
                   <label className="text-sm text-muted-foreground mb-1.5 block">

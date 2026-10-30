@@ -678,12 +678,14 @@ const rows = (page) =>
     await page.locator('[role="menuitem"]').allInnerTexts()
   ).map(norm)
   check(
-    moreItems.length === 4 &&
+    moreItems.length === 6 &&
+      moreItems.some((t) => /view\/framing/i.test(t)) &&
+      moreItems.some((t) => /Character positions/.test(t)) &&
       moreItems.some((t) => /Move to pack/.test(t)) &&
       moreItems.some((t) => /Save as Template/.test(t)) &&
       moreItems.some((t) => /Reset/.test(t)) &&
       moreItems.some((t) => /Delete/.test(t)),
-    `⋯ menu = template / move / reset / delete (${moreItems.join(' | ')})`,
+    `⋯ menu = template / move / reset / delete / view-framing / positions (${moreItems.join(' | ')})`,
   )
   await page.keyboard.press('Escape')
   // search in the rail narrows the grid

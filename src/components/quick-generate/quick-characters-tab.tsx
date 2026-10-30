@@ -1,6 +1,8 @@
+import { useMemo } from 'react'
 import type { CharacterEntry } from './types'
 import type { CharacterPatch } from '@/components/characters/characters-editor'
 import { CharactersEditor } from '@/components/characters/characters-editor'
+import { AI_POSITION } from '@/lib/character-positions'
 
 export function QuickCharactersTab({
   characters,
@@ -9,6 +11,7 @@ export function QuickCharactersTab({
   moveCharacter,
   removeCharacter,
   updateCharacter,
+  positions,
 }: {
   characters: Array<CharacterEntry>
   addCharacter: () => string
@@ -16,10 +19,17 @@ export function QuickCharactersTab({
   moveCharacter: (id: string, direction: -1 | 1) => void
   removeCharacter: (id: string) => void
   updateCharacter: (id: string, patch: CharacterPatch) => void
+  positions: { aspect: number } | false
 }) {
+  const items = useMemo(
+    () =>
+      characters.map((c) => ({ ...c, position: c.position ?? AI_POSITION })),
+    [characters],
+  )
   return (
     <CharactersEditor
-      characters={characters}
+      characters={items}
+      positions={positions}
       onAdd={addCharacter}
       onUpdate={updateCharacter}
       onDuplicate={duplicateCharacter}

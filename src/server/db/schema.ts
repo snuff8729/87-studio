@@ -151,6 +151,8 @@ export const characters = sqliteTable(
     outfitItemIds: text('outfit_item_ids').default('[]'),
     /** JSON: { [axisId]: valueId } local-axis defaults for this slot */
     axisValues: text('axis_values').default('{}'),
+    /** JSON PositionSpec; NULL = ai */
+    position: text('position'),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
@@ -255,6 +257,8 @@ export const characterSceneOverrides = sqliteTable(
     axisValues: text('axis_values').default('{}'),
     /** JSON number[] or NULL (= slot default outfit) */
     outfitItemIds: text('outfit_item_ids'),
+    /** JSON ScenePositionSpec; NULL = inherit the character default */
+    position: text('position'),
   },
   (table) => [
     uniqueIndex('char_scene_override_unique_idx').on(

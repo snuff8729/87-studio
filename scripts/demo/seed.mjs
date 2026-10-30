@@ -240,8 +240,10 @@ PROJECTS.forEach((p, pi) => {
     name: p.name, description: p.desc, general_prompt: p.general, negative_prompt: NEG,
     parameters: JSON.stringify(p.params), created_at: created, updated_at: created,
   })
+  // Position demo: with 2+ characters #1 is Fixed B3, #2 Random, the rest AI
+  const charPosition = (idx, n) => n < 2 ? null : idx === 0 ? JSON.stringify({ mode: 'fixed', x: 0.3, y: 0.5 }) : idx === 1 ? JSON.stringify({ mode: 'random' }) : null
   const chars = p.chars.map(([name, prompt, neg], idx) => ({
-    id: ins('characters', { project_id: id, slot_index: idx, name, char_prompt: prompt, char_negative: neg, created_at: created, updated_at: created }),
+    id: ins('characters', { project_id: id, slot_index: idx, name, char_prompt: prompt, char_negative: neg, position: charPosition(idx, p.chars.length), created_at: created, updated_at: created }),
     name, prompt, neg,
   }))
   const pscenes = []
@@ -267,8 +269,12 @@ PROJECTS.forEach((p, pi) => {
         placeholders: JSON.stringify(s.ph), sort_order: i, created_at: created, updated_at: created,
       })
       const overrides = {}
+      // First scene of the first pack: character #1 overrides its default position
+      const posOverride = pkIdx === 0 && i === 0 && chars.length > 1
+      if (posOverride) ins('character_scene_overrides', { project_scene_id: sid, character_id: chars[0].id, placeholders: '{}', position: JSON.stringify({ mode: 'fixed', x: 0.7, y: 0.5 }) })
       if (chars.length && chance(0.3)) {
         for (const c of chars) {
+          if (posOverride && c === chars[0]) continue
           if (chance(0.7)) {
             const ov = { expression: pick(EXPR).ph.expression }
             ins('character_scene_overrides', { project_scene_id: sid, character_id: c.id, placeholders: JSON.stringify(ov) })

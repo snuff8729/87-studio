@@ -7,6 +7,8 @@ import {
   BookmarkCheck01Icon,
   MoreVerticalIcon,
 } from '@hugeicons/core-free-icons'
+import { CharacterPositionField } from './character-position-field'
+import type { PositionSpec } from '@/lib/character-positions'
 import { PromptEditorHeader } from '@/components/prompt-editor/prompt-editor-header'
 import { ExpandedEditorDialog } from '@/components/prompt-editor/expanded-editor-dialog'
 import { LazyPromptEditor } from '@/components/quick-generate/lazy-prompt-editor'
@@ -36,12 +38,14 @@ export interface CharacterItem<TId extends string | number> {
   name: string
   prompt: string
   negative: string
+  position: PositionSpec
 }
 
 export interface CharacterPatch {
   name?: string
   prompt?: string
   negative?: string
+  position?: PositionSpec
 }
 
 interface CharactersEditorProps<TId extends string | number> {
@@ -61,6 +65,8 @@ interface CharactersEditorProps<TId extends string | number> {
   renderParts?: (character: CharacterItem<TId>) => React.ReactNode
   /** Workspace: hint shown right under the prompt editor */
   renderPromptHint?: (character: CharacterItem<TId>) => React.ReactNode
+  /** Show the position row (false for V3 models); aspect = width / height of the canvas */
+  positions?: { aspect: number } | false
 }
 
 export function CharactersEditor<TId extends string | number>({
@@ -74,6 +80,7 @@ export function CharactersEditor<TId extends string | number>({
   slots,
   renderParts,
   renderPromptHint,
+  positions,
 }: CharactersEditorProps<TId>) {
   const { t } = useTranslation()
   const [selectedId, setSelectedId] = useState<TId | null>(
@@ -245,6 +252,8 @@ export function CharactersEditor<TId extends string | number>({
           slots={slots}
           partsSlot={renderParts?.(selected)}
           promptHint={renderPromptHint?.(selected)}
+          positions={positions}
+          index={selectedIndex + 1}
         />
       )}
 
@@ -271,6 +280,8 @@ function CharacterBody<TId extends string | number>({
   slots,
   partsSlot,
   promptHint,
+  positions,
+  index,
 }: {
   partsSlot?: React.ReactNode
   promptHint?: React.ReactNode
@@ -279,6 +290,8 @@ function CharacterBody<TId extends string | number>({
   onUpdate: (patch: CharacterPatch) => void
   onNameBlur?: () => void
   slots?: boolean
+  positions?: { aspect: number } | false
+  index: number
 }) {
   const { t } = useTranslation()
   const bundleNames = useBundleNames()
@@ -316,6 +329,16 @@ function CharacterBody<TId extends string | number>({
           className="h-8 text-sm"
         />
       </div>
+
+      {positions && (
+        <CharacterPositionField
+          name={name}
+          index={index}
+          position={character.position}
+          aspect={positions.aspect}
+          onChange={(position) => onUpdate({ position })}
+        />
+      )}
 
       {partsSlot}
 

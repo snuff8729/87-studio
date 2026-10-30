@@ -8,9 +8,11 @@ import {
   slotHasParts,
 } from './character-parts-panel'
 import type { CharacterPatch } from '@/components/characters/characters-editor'
+import type { PositionSpec } from '@/lib/character-positions'
 import { CharactersEditor } from '@/components/characters/characters-editor'
 import { duplicateName, nextCharacterName } from '@/lib/characters'
 import { useTranslation } from '@/lib/i18n'
+import { AI_POSITION, parsePositionSpec } from '@/lib/character-positions'
 import {
   createCharacter,
   deleteCharacter,
@@ -28,12 +30,15 @@ interface ProjectCharacter {
   libraryCharacterId: number | null
   outfitItemIds: string | null
   axisValues: string | null
+  /** Stored JSON PositionSpec (NULL = ai) */
+  position: string | null
 }
 
 interface Draft {
   name: string
   prompt: string
   negative: string
+  position: PositionSpec
 }
 
 const SAVE_DELAY_MS = 1000
@@ -45,9 +50,11 @@ const SAVE_DELAY_MS = 1000
 export function CharactersPanel({
   projectId,
   characters,
+  positions,
 }: {
   projectId: number
   characters: Array<ProjectCharacter>
+  positions: { aspect: number } | false
 }) {
   const router = useRouter()
   const { t } = useTranslation()
@@ -80,6 +87,7 @@ export function CharactersPanel({
           ...(draft.name.trim() ? { name: draft.name } : {}),
           charPrompt: draft.prompt,
           charNegative: draft.negative,
+          position: draft.position,
         },
       })
       await router.invalidate()
@@ -135,7 +143,12 @@ export function CharactersPanel({
       (() => {
         const c = charactersRef.current.find((ch) => ch.id === id)
         return c
-          ? { name: c.name, prompt: c.charPrompt, negative: c.charNegative }
+          ? {
+              name: c.name,
+              prompt: c.charPrompt,
+              negative: c.charNegative,
+              position: parsePositionSpec(c.position) ?? AI_POSITION,
+            }
           : null
       })()
     if (!base) return
@@ -145,6 +158,7 @@ export function CharactersPanel({
         name: patch.name ?? base.name,
         prompt: patch.prompt ?? base.prompt,
         negative: patch.negative ?? base.negative,
+        position: patch.position ?? base.position,
       },
     })
     pendingIdRef.current = id
@@ -237,6 +251,7 @@ export function CharactersPanel({
           name: d?.name ?? c.name,
           prompt: d?.prompt ?? c.charPrompt,
           negative: d?.negative ?? c.charNegative,
+          position: d?.position ?? parsePositionSpec(c.position) ?? AI_POSITION,
         }
       }),
     [characters, drafts],
@@ -267,6 +282,7 @@ export function CharactersPanel({
         const slot = characters.find((x) => x.id === c.id)
         return slot && slotHasParts(slot) ? <PartsPromptHint /> : null
       }}
+      positions={positions}
     />
   )
 }

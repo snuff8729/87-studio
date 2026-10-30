@@ -8,7 +8,9 @@ import {
   projectScenes,
 } from '../db/schema'
 import { deleteImageFiles } from '../services/image'
+import type { ScenePositionSpec } from '@/lib/character-positions'
 import { parseAxisValues } from '@/lib/character-parts'
+import { encodePosition } from '@/lib/character-positions'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -171,6 +173,34 @@ export const updateCharacterOverrideParts = createServerFn({ method: 'POST' })
     return { success: true }
   })
 
+/** Set (or clear with null = inherit) the position override of one character in one or more scenes */
+export const setCharacterPositionOverride = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      projectSceneIds: Array<number>
+      characterId: number
+      position: ScenePositionSpec | null
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const position = encodePosition(data.position)
+    db.transaction((tx) => {
+      for (const projectSceneId of data.projectSceneIds) {
+        tx.insert(characterSceneOverrides)
+          .values({ projectSceneId, characterId: data.characterId, position })
+          .onConflictDoUpdate({
+            target: [
+              characterSceneOverrides.projectSceneId,
+              characterSceneOverrides.characterId,
+            ],
+            set: { position },
+          })
+          .run()
+      }
+    })
+    return { success: true }
+  })
+
 export const addProjectScene = createServerFn({ method: 'POST' })
   .inputValidator(
     (data: {
@@ -281,6 +311,7 @@ export const addProjectScene = createServerFn({ method: 'POST' })
               placeholders: override.placeholders,
               axisValues: override.axisValues,
               outfitItemIds: override.outfitItemIds,
+              position: override.position,
             })
             .run()
         }
@@ -386,6 +417,7 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
             placeholders: override.placeholders,
             axisValues: override.axisValues,
             outfitItemIds: override.outfitItemIds,
+            position: override.position,
           })
           .run()
       }

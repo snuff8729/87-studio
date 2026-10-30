@@ -3,7 +3,9 @@ import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { characterSceneOverrides, characters } from '../db/schema'
 import { createLogger } from '../services/logger'
+import type { PositionSpec } from '@/lib/character-positions'
 import { parseIdList } from '@/lib/character-parts'
+import { encodePosition } from '@/lib/character-positions'
 
 const log = createLogger('fn.characters')
 
@@ -25,6 +27,7 @@ export const createCharacter = createServerFn({ method: 'POST' })
       name: string
       charPrompt?: string
       charNegative?: string
+      position?: PositionSpec | null
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -43,6 +46,7 @@ export const createCharacter = createServerFn({ method: 'POST' })
         name: data.name,
         charPrompt: data.charPrompt ?? '',
         charNegative: data.charNegative ?? '',
+        position: encodePosition(data.position, true),
       })
       .returning()
       .get()
@@ -67,10 +71,12 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       outfitItemIds?: Array<number>
       /** Slot defaults for local axes: { [axisId]: valueId } */
       axisValues?: Record<string, number>
+      /** PositionSpec (null/ai = AI decides) */
+      position?: PositionSpec | null
     }) => data,
   )
   .handler(async ({ data }) => {
-    const { id, outfitItemIds, axisValues, ...rest } = data
+    const { id, outfitItemIds, axisValues, position, ...rest } = data
     db.update(characters)
       .set({
         ...rest,
@@ -79,6 +85,9 @@ export const updateCharacter = createServerFn({ method: 'POST' })
           : {}),
         ...(axisValues !== undefined
           ? { axisValues: JSON.stringify(axisValues) }
+          : {}),
+        ...(position !== undefined
+          ? { position: encodePosition(position, true) }
           : {}),
         updatedAt: new Date().toISOString(),
       })
@@ -172,6 +181,7 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
           libraryCharacterId: source.libraryCharacterId,
           outfitItemIds: source.outfitItemIds,
           axisValues: source.axisValues,
+          position: source.position,
         })
         .returning()
         .get()
@@ -188,6 +198,7 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
             placeholders: o.placeholders,
             axisValues: o.axisValues,
             outfitItemIds: o.outfitItemIds,
+            position: o.position,
           })
           .run()
       }
