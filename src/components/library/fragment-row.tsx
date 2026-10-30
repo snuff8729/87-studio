@@ -9,6 +9,7 @@ import {
 } from '@hugeicons/core-free-icons'
 import { ConditionEditor } from './condition-editor'
 import { useDebouncedSave } from './use-debounced-save'
+import { useSerialSave } from './use-serial-save'
 import type { Condition, PartsAxis } from '@/lib/character-parts'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -61,14 +62,14 @@ export function FragmentRow({
     })
   }
 
-  async function handleCondition(next: Condition) {
-    try {
+  const cond = useSerialSave<Condition>(
+    conditions,
+    async (next) => {
       await updateFragment({ data: { id, conditions: next } })
       await refresh()
-    } catch {
-      toast.error(t('library.saveFailed'))
-    }
-  }
+    },
+    () => toast.error(t('library.saveFailed')),
+  )
 
   async function handleDelete() {
     saver.cancel()
@@ -110,9 +111,9 @@ export function FragmentRow({
       <div className="flex items-center gap-1.5">
         <div className="min-w-0 flex-1">
           <ConditionEditor
-            condition={conditions}
+            condition={cond.value}
             axes={axes}
-            onChange={handleCondition}
+            onChange={cond.commit}
           />
         </div>
         <Button

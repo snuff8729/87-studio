@@ -88,6 +88,8 @@ function CharactersPage() {
   const { data: lib } = useQuery({
     queryKey: ['library', projectId ?? null],
     queryFn: () => getLibrary({ data: { projectId } }),
+    staleTime: 0,
+    refetchOnWindowFocus: 'always',
   })
   const refresh = () => qc.invalidateQueries({ queryKey: ['library'] })
   const onError = (e: Error) => toast.error(e.message || t('library.failed'))

@@ -119,6 +119,8 @@ src/
 │   │   ├── route.tsx          # 갤러리 레이아웃
 │   │   ├── index.tsx          # 갤러리 (필터링, 즐겨찾기, 다운로드)
 │   │   └── $imageId.tsx       # 이미지 상세
+│   ├── characters/
+│   │   └── index.tsx          # 캐릭터 파츠 라이브러리 (?tab=characters|outfits|presets|axes&id=&projectId=)
 │   ├── bundles/
 │   │   └── index.tsx          # 프롬프트 번들 관리
 │   ├── generate/
@@ -214,7 +216,7 @@ src/
 │       └── tournament-dialog.tsx  # 이상형 월드컵 (토너먼트)
 ├── server/
 │   ├── db/
-│   │   ├── schema.ts          # Drizzle 스키마 정의 (23개 테이블)
+│   │   ├── schema.ts          # Drizzle 스키마 정의 (29개 테이블)
 │   │   ├── index.ts           # DB 연결 (better-sqlite3)
 │   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0014)
 │   ├── services/
@@ -293,6 +295,7 @@ start.bat                      # Windows 간편 실행 스크립트
 scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단; 씬 템플릿 다이얼로그 1440/390 포함)
 scripts/smoke/templates.mjs    # 씬 템플릿 다이얼로그 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 팩/씬/키 CRUD·복제·이동·자동저장·선택 적용, DB 읽기전용 교차검증)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
+scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
 LICENSE                        # PolyForm Noncommercial 1.0.0
@@ -348,6 +351,16 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 결과: left, right, both_win, both_lose
 - 이미지별 tournament_wins / tournament_losses 집계
 - tournament_matches 테이블에 대전 기록 저장
+
+### 캐릭터 파츠 (Character Parts, `/characters`)
+
+- 스펙: `docs/superpowers/specs/2026-10-30-character-parts-design.md`
+- 글로벌 라이브러리: 캐릭터 · 의상 아이템 · 코디(아이템 묶음) · 축. 캐릭터/아이템 = 조각(fragment) 목록, 각 조각은 조건 `{축id: [허용 값id]}`(비면 항상). 아이템은 아이템 조건(모든 조각에 공통)도 가짐
+- 축: 글로벌(View: Front·Side·Back, Framing: Full body·Upper body·Face 시드, 편집 가능) + 로컬(캐릭터/아이템 소유, 예: Zipper). **첫 값이 기본값**. 값 삭제로 허용 목록이 비면 그 조각은 "절대 포함 안 됨"(경고 칩), 축 삭제 시 조건 키 제거
+- 프로젝트 캐릭터 슬롯: `library_character_id`(실시간 연결), 기본 의상 `outfit_item_ids`, 로컬 축 기본값 `axis_values`. **분리**(`detachCharacterSlot`) = 프로젝트 전용 복사본(`project_id` 설정, 글로벌 목록에 안 보임)으로 프로젝트 전체 재연결
+- 씬: `project_scenes.axis_values`(글로벌 축), 캐릭터별 `character_scene_overrides.axis_values` / `outfit_item_ids`(null = 기본 의상). 글로벌 씬 템플릿 `scenes.axis_values`는 적용 시 스냅샷 복사
+- `@{char}` / `@{outfit}` 토큰은 워크스페이스 캐릭터 프롬프트 에디터에서만 자동완성·유효 처리 (`partsTokens` prop)
+- 순수 로직 `src/lib/character-parts.ts`(테스트 있음), 서버 `src/server/functions/library.ts`, `src/server/services/parts.ts`, UI `src/components/library/`, `src/components/parts/`(AxisSegmented, OutfitItemsEditor), 워크스페이스 `character-parts-panel.tsx`, `scene-parts-section.tsx`(Parts 섹션 + 최종 프롬프트 미리보기), `scene-axes-dialog.tsx`(선택 모드 일괄 View/Framing)
 
 ### Prompt Bundle (프롬프트 번들)
 
@@ -431,6 +444,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ## 프롬프트 합성 규칙
 
+0. (캐릭터 파츠) 연결된 캐릭터 또는 기본 의상이 있는 슬롯만: 유효 축 값 = 축 기본값 ← 슬롯 기본값 ← 씬 ← 캐릭터 오버라이드. 조건을 통과한 캐릭터 조각 → `@{char}`, 의상 조각 → `@{outfit}`. 토큰이 char_prompt에 있으면 그 자리, 없으면 `char, outfit, 자유 프롬프트` 순으로 앞에 붙임. 그 뒤 아래 규칙 적용 (파츠 없는 슬롯은 기존과 동일)
 1. `@{bundle:name}` 번들 참조를 해당 번들의 content로 치환
 2. project.general_prompt의 `@{slot:name}`를 project_scenes.placeholders 값으로 치환
 3. 각 character.char_prompt의 `@{slot:name}`를 character_scene_overrides.placeholders 값으로 치환
@@ -630,7 +644,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - **ZIP 형식**으로 이미지 데이터 반환 (fflate로 압축 해제)
 - ZIP 압축 해제 후 이미지 파일 추출하여 `data/images/{projectId}/`에 저장
 
-## DB 스키마 (Drizzle ORM) — 23개 테이블
+## DB 스키마 (Drizzle ORM) — 29개 테이블 (캐릭터 파츠 6개는 "캐릭터 파츠" 절 참고)
 
 ### projects
 

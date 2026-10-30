@@ -770,7 +770,8 @@ const en = {
     reset: 'Reset to defaults',
     setAxesMenu: 'Set view/framing...',
     bulkTitle: 'Set view / framing',
-    bulkDesc: 'Applies to {{count}} selected scenes. Axes set to "Keep" are left unchanged.',
+    bulkDesc:
+      'Applies to {{count}} selected scenes. Axes set to "Keep" are left unchanged.',
     keep: 'Keep',
     noAxes: 'No global axes yet.',
     bulkApply: 'Apply',
@@ -1139,12 +1140,17 @@ const en = {
     renameAxis: 'Axis name',
     deleteAxis: 'Delete axis',
     deleteValue: 'Delete value',
+    deleteValueTitle: 'Delete value "{{name}}"?',
+    deleteValueDesc:
+      '{{count}} fragment(s)/item(s) reference this value. Where it was their only allowed value for this axis they will stop matching (they do not become unconditional).',
+    deleteValueDescNone: 'No fragment or item references this value.',
     defaultBadge: 'Default',
     editAxis: 'Edit axis {{name}}',
     itemCondition: 'Item condition',
     itemConditionHint: 'The whole item is skipped when this is not met.',
     onlyWhen: 'Only when',
     always: 'Always',
+    conditionNone: '(none)',
     fragments: 'Fragments',
     fragmentsHint:
       'Each fragment is a prompt piece with an optional condition.',

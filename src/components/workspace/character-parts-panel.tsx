@@ -8,6 +8,7 @@ import {
   ArrowDown01Icon,
   LinkSquare02Icon,
 } from '@hugeicons/core-free-icons'
+import { usePendingSave } from './pending-saves'
 import type { AxisValues } from '@/lib/character-parts'
 import { AxisSegmented } from '@/components/parts/axis-segmented'
 import { OutfitItemsEditor } from '@/components/parts/outfit-items-editor'
@@ -91,9 +92,12 @@ export function CharacterPartsPanel({
   const [detachOpen, setDetachOpen] = useState(false)
   const chainRef = useRef<Promise<void>>(Promise.resolve())
   const busyRef = useRef(0)
+  const failedRef = useRef(false)
+  const slotRef = useRef(slot)
+  slotRef.current = slot
 
   // Re-sync when the server data changes (detach, ...) and nothing is in flight
-  const serverKey = `${slot.libraryCharacterId}|${slot.outfitItemIds ?? ""}|${slot.axisValues ?? ""}`
+  const serverKey = `${slot.libraryCharacterId}|${slot.outfitItemIds ?? ''}|${slot.axisValues ?? ''}`
   useEffect(() => {
     if (busyRef.current === 0) setState(parseState(slot))
   }, [serverKey])
@@ -101,6 +105,8 @@ export function CharacterPartsPanel({
   const { data: library } = useQuery({
     queryKey: ['library', projectId],
     queryFn: () => getLibrary({ data: { projectId } }),
+    staleTime: 0,
+    refetchOnWindowFocus: 'always',
   })
 
   const linked = library?.characters.find(
@@ -138,11 +144,23 @@ export function CharacterPartsPanel({
       })
       .catch(() => {
         toast.error(t('workspace.characterSaveFailed'))
+        failedRef.current = true
       })
       .finally(() => {
         busyRef.current--
+        // Reset local state from the slot props (server truth)
+        if (busyRef.current === 0 && failedRef.current) {
+          failedRef.current = false
+          setState(parseState(slotRef.current))
+        }
       })
   }
+
+  usePendingSave({
+    flush: async () => {
+      await chainRef.current
+    },
+  })
 
   function link(id: number | null) {
     persist({ libraryCharacterId: id }, { libraryCharacterId: id })
@@ -187,7 +205,7 @@ export function CharacterPartsPanel({
     : null
 
   return (
-    <div className="space-y-3 rounded-lg border border-border/60 bg-card/40 p-3">
+    <div className="space-y-3 rounded-lg border border-border/60 bg-card/40 p-2.5">
       <div className="space-y-1.5">
         <Label className="text-sm text-muted-foreground uppercase tracking-wider">
           {t('charParts.libraryCharacter')}
@@ -198,7 +216,7 @@ export function CharacterPartsPanel({
               <Button
                 variant="outline"
                 size="sm"
-                className="max-w-full justify-between gap-2"
+                className="max-w-[11rem] justify-between gap-2 text-sm"
                 data-library-character-select
               >
                 <span className="truncate">
@@ -276,10 +294,29 @@ export function CharacterPartsPanel({
                 : t('parts.projectOnly')}
             </Badge>
           )}
+          {linked && linked.projectId === null && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-sm"
+              onClick={() => setDetachOpen(true)}
+            >
+              {t('charParts.detach')}
+            </Button>
+          )}
+          {linked && libraryHref && (
+            <Button variant="ghost" size="sm" className="text-sm" asChild>
+              <a href={libraryHref} target="_blank" rel="noreferrer">
+                <HugeiconsIcon icon={LinkSquare02Icon} className="size-3.5" />
+                {t('charParts.editInLibrary')}
+              </a>
+            </Button>
+          )}
           {!linked && (
             <Button
               variant="ghost"
               size="sm"
+              className="text-sm"
               onClick={() => void createInLibrary()}
               disabled={!library}
             >
@@ -288,30 +325,6 @@ export function CharacterPartsPanel({
             </Button>
           )}
         </div>
-        {linked && (
-          <div className="flex flex-wrap items-center gap-1.5">
-            {linked.projectId === null && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setDetachOpen(true)}
-              >
-                {t('charParts.detach')}
-              </Button>
-            )}
-            {libraryHref && (
-              <Button variant="ghost" size="sm" asChild>
-                <a href={libraryHref} target="_blank" rel="noreferrer">
-                  <HugeiconsIcon
-                    icon={LinkSquare02Icon}
-                    className="size-3.5"
-                  />
-                  {t('charParts.editInLibrary')}
-                </a>
-              </Button>
-            )}
-          </div>
-        )}
       </div>
 
       <div className="space-y-1.5">
@@ -354,6 +367,8 @@ export function CharacterPartsPanel({
         onOpenChange={setDetachOpen}
         title={t('charParts.detachTitle')}
         description={t('charParts.detachDesc')}
+        actionLabel={t('charParts.detach')}
+        variant="default"
         onConfirm={() => void detach()}
       />
     </div>

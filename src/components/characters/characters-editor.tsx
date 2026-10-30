@@ -337,6 +337,7 @@ function CharacterBody<TId extends string | number>({
           minHeight="200px"
           bundleNames={bundleNames}
           slotNames={slotNames}
+          partsTokens={!!partsSlot}
         />
         {promptHint}
         <SlotBadges names={promptSlots} />
@@ -419,6 +420,7 @@ function CharacterBody<TId extends string | number>({
           onUpdate(expand === 'negative' ? { negative: v } : { prompt: v })
         }
         bundleNames={bundleNames}
+        partsTokens={!!partsSlot && expand !== 'negative'}
       />
       {tagGallery.dialog}
     </div>

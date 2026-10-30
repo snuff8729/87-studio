@@ -90,6 +90,8 @@ export function ScenePartsSection({
   const library = useQuery({
     queryKey: ['library', projectId],
     queryFn: () => getLibrary({ data: { projectId } }),
+    staleTime: 0,
+    refetchOnWindowFocus: 'always',
   })
   const axes = library.data?.axes
   const globalAxes = useMemo(
@@ -146,6 +148,8 @@ export function ScenePartsSection({
     clearTimeout(timerRef.current)
     timerRef.current = undefined
     const saves: Array<Promise<unknown>> = []
+    const sentScene = dirtySceneRef.current
+    const sentChars = [...dirtyCharsRef.current]
     if (dirtySceneRef.current) {
       dirtySceneRef.current = false
       saves.push(
@@ -177,6 +181,9 @@ export function ScenePartsSection({
       })
       .catch(() => {
         toast.error(t('sceneParts.failedToSave'))
+        // Keep the UI value and let the next flush (Generate) retry
+        if (sentScene) dirtySceneRef.current = true
+        for (const id of sentChars) dirtyCharsRef.current.add(id)
       })
       .finally(() => {
         pendingCountRef.current -= 1

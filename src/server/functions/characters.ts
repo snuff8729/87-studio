@@ -3,6 +3,7 @@ import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { characterSceneOverrides, characters } from '../db/schema'
 import { createLogger } from '../services/logger'
+import { parseIdList } from '@/lib/character-parts'
 
 const log = createLogger('fn.characters')
 
@@ -83,6 +84,19 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       })
       .where(eq(characters.id, id))
       .run()
+    // Unlinked slot with an empty default outfit uses no parts at all: drop
+    // stale per-scene outfit overrides so they cannot resurface on relink
+    const row = db.select().from(characters).where(eq(characters.id, id)).get()
+    if (
+      row &&
+      row.libraryCharacterId === null &&
+      parseIdList(row.outfitItemIds).length === 0
+    ) {
+      db.update(characterSceneOverrides)
+        .set({ outfitItemIds: null })
+        .where(eq(characterSceneOverrides.characterId, id))
+        .run()
+    }
     return { success: true }
   })
 

@@ -7,6 +7,7 @@ import { ConditionEditor } from './condition-editor'
 import { FragmentRow } from './fragment-row'
 import { LocalAxes } from './local-axes'
 import { useDebouncedSave } from './use-debounced-save'
+import { useSerialSave } from './use-serial-save'
 import type { AxisValues, Condition, PartsAxis } from '@/lib/character-parts'
 import {
   composeParts,
@@ -63,12 +64,22 @@ export function OwnerDetail({
   const descRef = useRef(description)
   const saver = useDebouncedSave()
 
-  // Follow external renames (list menu) unless an edit is pending
+  // Only fields the user edited are sent, so a debounced save never
+  // overwrites a rename done elsewhere (list menu)
+  const dirtyNameRef = useRef(false)
+  const dirtyDescRef = useRef(false)
+
+  // Follow external renames (list menu) unless the user is editing the field
   useEffect(() => {
-    if (saver.isPending()) return
+    if (dirtyNameRef.current) return
     setName(row.name)
     nameRef.current = row.name
   }, [row.name])
+  useEffect(() => {
+    if (dirtyDescRef.current) return
+    setDescription(row.description ?? '')
+    descRef.current = row.description ?? ''
+  }, [row.description])
 
   const { data: project } = useQuery({
     queryKey: ['project', row.projectId],
@@ -80,11 +91,16 @@ export function OwnerDetail({
     const id = row.id
     saver.schedule(async () => {
       const n = nameRef.current.trim()
+      const sendName = dirtyNameRef.current && !!n
+      const sendDesc = dirtyDescRef.current
+      dirtyNameRef.current = false
+      dirtyDescRef.current = false
       const payload = {
         id,
-        description: descRef.current,
-        ...(n ? { name: n } : {}),
+        ...(sendDesc ? { description: descRef.current } : {}),
+        ...(sendName ? { name: n } : {}),
       }
+      if (!sendName && !sendDesc) return
       try {
         if (kind === 'character')
           await updateLibraryCharacter({ data: payload })
@@ -96,14 +112,14 @@ export function OwnerDetail({
     })
   }
 
-  async function saveItemCondition(conditions: Condition) {
-    try {
+  const itemCond = useSerialSave<Condition>(
+    row.conditions ?? {},
+    async (conditions) => {
       await updateOutfitItem({ data: { id: row.id, conditions } })
       await refresh()
-    } catch {
-      toast.error(t('library.saveFailed'))
-    }
-  }
+    },
+    () => toast.error(t('library.saveFailed')),
+  )
 
   const ownerAxes = axes.filter((a) =>
     kind === 'character'
@@ -162,7 +178,7 @@ export function OwnerDetail({
     character: kind === 'character' ? { id: row.id, fragments } : null,
     items:
       kind === 'item'
-        ? [{ id: row.id, conditions: row.conditions ?? {}, fragments }]
+        ? [{ id: row.id, conditions: itemCond.value, fragments }]
         : [],
     values: effective,
   })
@@ -177,6 +193,7 @@ export function OwnerDetail({
             onChange={(e) => {
               setName(e.target.value)
               nameRef.current = e.target.value
+              dirtyNameRef.current = true
               scheduleSave()
             }}
             aria-label={t('library.name')}
@@ -196,6 +213,7 @@ export function OwnerDetail({
           onChange={(e) => {
             setDescription(e.target.value)
             descRef.current = e.target.value
+            dirtyDescRef.current = true
             scheduleSave()
           }}
           aria-label={t('library.description')}
@@ -224,9 +242,9 @@ export function OwnerDetail({
           </Label>
           <div>
             <ConditionEditor
-              condition={row.conditions ?? {}}
+              condition={itemCond.value}
               axes={relevant}
-              onChange={saveItemCondition}
+              onChange={itemCond.commit}
               prefix={t('library.onlyWhen')}
             />
           </div>

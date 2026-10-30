@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useDebouncedSave } from './use-debounced-save'
+import { useSerialSave } from './use-serial-save'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -48,14 +49,14 @@ export function PresetDetail({
     })
   }
 
-  async function saveItems(ids: Array<number>) {
-    try {
+  const itemIds = useSerialSave<Array<number>>(
+    preset.itemIds,
+    async (ids) => {
       await updatePreset({ data: { id: preset.id, itemIds: ids } })
       await refresh()
-    } catch {
-      toast.error(t('library.saveFailed'))
-    }
-  }
+    },
+    () => toast.error(t('library.saveFailed')),
+  )
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -87,8 +88,8 @@ export function PresetDetail({
           {t('library.presetItems')}
         </Label>
         <OutfitItemsEditor
-          itemIds={preset.itemIds}
-          onChange={saveItems}
+          itemIds={itemIds.value}
+          onChange={(ids) => itemIds.commit(() => ids)}
           items={items}
           showPresetMenu={false}
         />

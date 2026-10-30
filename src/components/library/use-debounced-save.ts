@@ -36,5 +36,18 @@ export function useDebouncedSave(delay = 800) {
 
   useEffect(() => flush, [flush])
 
+  // Tab close / background: don't lose a pending edit
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') flush()
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onHide)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onHide)
+    }
+  }, [flush])
+
   return { schedule, flush, cancel, isPending }
 }

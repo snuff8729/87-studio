@@ -7,8 +7,14 @@ import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
-import { invalidRefHighlight, invalidRefTooltip } from './invalid-ref-highlight'
 import {
+  invalidRefHighlight,
+  invalidRefHighlightParts,
+  invalidRefTooltip,
+  invalidRefTooltipParts,
+} from './invalid-ref-highlight'
+import {
+  partsCompletion,
   setBundleNames,
   setSlotNames,
   unifiedCompletion,
@@ -53,6 +59,8 @@ interface PromptEditorProps {
   minHeight?: string
   bundleNames?: Array<{ name: string; content: string }>
   slotNames?: Array<string>
+  /** Offer / accept @{char} and @{outfit} (workspace character prompt only) */
+  partsTokens?: boolean
 }
 
 export function PromptEditor({
@@ -62,6 +70,7 @@ export function PromptEditor({
   minHeight = '200px',
   bundleNames: bundleNamesProp,
   slotNames: slotNamesProp,
+  partsTokens = false,
 }: PromptEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
@@ -132,12 +141,12 @@ export function PromptEditor({
         placeholderHighlight,
         bundleHighlight,
         weightHighlight,
-        invalidRefHighlight,
-        invalidRefTooltip,
+        partsTokens ? invalidRefHighlightParts : invalidRefHighlight,
+        partsTokens ? invalidRefTooltipParts : invalidRefTooltip,
         bundleTooltip,
         tooltips({ parent: getTooltipHost() }),
         autocompletion({
-          override: [unifiedCompletion],
+          override: [partsTokens ? partsCompletion : unifiedCompletion],
           activateOnTyping: true,
         }),
         EditorView.updateListener.of((update) => {

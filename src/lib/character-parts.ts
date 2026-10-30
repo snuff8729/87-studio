@@ -112,7 +112,8 @@ export function matchesCondition(
     const allowed = allowedRaw.filter((id) =>
       axis.values.some((v) => v.id === id),
     )
-    if (allowed.length === 0) continue
+    // Axis still exists but none of its allowed values do → never matches
+    if (allowed.length === 0) return false
     const current = values[axisKey]
     if (current === undefined || !allowed.includes(current)) return false
   }
@@ -121,6 +122,10 @@ export function matchesCondition(
 
 function cleanText(text: string): string {
   return text
+    .split(CHAR_TOKEN)
+    .join('')
+    .split(OUTFIT_TOKEN)
+    .join('')
     .trim()
     .replace(/^[\s,]+/, '')
     .replace(/[\s,]+$/, '')

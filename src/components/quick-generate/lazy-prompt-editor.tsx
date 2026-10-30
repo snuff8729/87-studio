@@ -14,6 +14,7 @@ export function LazyPromptEditor(props: {
   minHeight?: string
   bundleNames?: Array<{ name: string; content: string }>
   slotNames?: Array<string>
+  partsTokens?: boolean
 }) {
   return (
     <Suspense

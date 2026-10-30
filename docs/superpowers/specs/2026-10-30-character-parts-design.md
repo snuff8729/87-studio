@@ -34,8 +34,10 @@ across projects. Scenes only declare **context** (axis values); matching fragmen
 1. Effective value per axis = axis default (first value) ← slot default (local axes only) ← scene `axis_values`
    (global axes) ← character override `axis_values`. Unknown axis ids / value ids are ignored at every layer.
 2. Condition matching: a fragment (or item) passes when, for every axis in its condition that still exists, the effective
-   value is in the allowed list. Allowed ids that no longer exist are dropped; if an axis's list becomes empty that
-   axis is ignored (treated as no condition).
+   value is in the allowed list. Allowed ids that no longer exist are dropped; if the axis still exists but its list
+   becomes empty (e.g. its last allowed value was deleted) the condition never matches (the fragment/item is not
+   included, it does NOT become unconditional). Conditions on axes that no longer exist are ignored; deleting a whole
+   axis removes its key from all conditions. `@{char}` / `@{outfit}` tokens inside fragment texts are stripped.
 3. Item passes its item condition → its fragments are evaluated; otherwise the whole item is skipped.
 4. `char` = passing character fragments in order; `outfit` = items in outfit order × passing fragments in order.
    Fragment text is trimmed and trailing/leading commas stripped; empty ones skipped; joined with `, `.

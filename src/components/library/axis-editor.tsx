@@ -10,6 +10,7 @@ import {
   Delete02Icon,
 } from '@hugeicons/core-free-icons'
 import { CommitInput } from './commit-input'
+import type { QueryClient } from '@tanstack/react-query'
 import type { PartsAxis } from '@/lib/character-parts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,38 @@ import {
   reorderAxisValues,
 } from '@/server/functions/library'
 import { useTranslation } from '@/lib/i18n'
+
+interface CachedLibrary {
+  items?: Array<{
+    id: number
+    conditions?: Record<string, Array<number>>
+    fragments: Array<{ id: number; conditions: Record<string, Array<number>> }>
+  }>
+  characters?: Array<{
+    fragments: Array<{ id: number; conditions: Record<string, Array<number>> }>
+  }>
+}
+
+/** Fragments + items (from the cached library queries) that allow this value. */
+function countValueRefs(
+  qc: QueryClient,
+  axisId: number,
+  valueId: number,
+): number {
+  const key = String(axisId)
+  const frags = new Set<number>()
+  const items = new Set<number>()
+  for (const [, data] of qc.getQueriesData<CachedLibrary>({
+    queryKey: ['library'],
+  })) {
+    for (const owner of [...(data?.characters ?? []), ...(data?.items ?? [])])
+      for (const f of owner.fragments)
+        if (f.conditions[key]?.includes(valueId)) frags.add(f.id)
+    for (const i of data?.items ?? [])
+      if (i.conditions?.[key]?.includes(valueId)) items.add(i.id)
+  }
+  return frags.size + items.size
+}
 
 /** Rename an axis, edit its values (add / rename / delete / reorder), delete it. */
 export function AxisEditor({
@@ -138,16 +171,29 @@ export function AxisEditor({
             >
               <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
             </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              disabled={axis.values.length <= 1}
-              onClick={() => removeValue.mutate(v.id)}
-              aria-label={t('library.deleteValue')}
-            >
-              <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
-            </Button>
+            <ConfirmDialog
+              title={t('library.deleteValueTitle', { name: v.name })}
+              description={(() => {
+                const n = countValueRefs(qc, axis.id, v.id)
+                return n > 0
+                  ? t('library.deleteValueDesc', { count: n })
+                  : t('library.deleteValueDescNone')
+              })()}
+              onConfirm={async () => {
+                await removeValue.mutateAsync(v.id)
+              }}
+              trigger={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-xs"
+                  disabled={axis.values.length <= 1}
+                  aria-label={t('library.deleteValue')}
+                >
+                  <HugeiconsIcon icon={Cancel01Icon} strokeWidth={2} />
+                </Button>
+              }
+            />
           </li>
         ))}
       </ul>

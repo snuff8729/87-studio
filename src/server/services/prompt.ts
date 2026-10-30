@@ -151,10 +151,16 @@ export function synthesizePrompts(
         ? (library.characters.find((c) => c.id === char.libraryCharacterId) ??
           null)
         : null
-    const outfitIds =
-      overrideRow?.outfitItemIds != null
+    // No library character and an empty default outfit: parts are off for
+    // this slot entirely (scene overrides included)
+    const defaultOutfitIds = parseIdList(char.outfitItemIds)
+    const partsActive =
+      char.libraryCharacterId != null || defaultOutfitIds.length > 0
+    const outfitIds = !partsActive
+      ? []
+      : overrideRow?.outfitItemIds != null
         ? parseIdList(overrideRow.outfitItemIds)
-        : parseIdList(char.outfitItemIds)
+        : defaultOutfitIds
     const outfit = outfitIds
       .map((id) => library.items.find((i) => i.id === id))
       .filter((i): i is NonNullable<typeof i> => !!i)

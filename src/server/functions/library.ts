@@ -633,31 +633,65 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
         r.maps.values.forEach((v, k) => maps.values.set(k, v))
         itemMap.set(item.id, copy.id)
       }
-      const mapList = (raw: string | null) =>
+      // 3) relink EVERY slot of the project (and its scene overrides) that
+      // uses the same global character / copied items, with one shared id map
+      const charMap = new Map<number, number>()
+      if (
+        slot.libraryCharacterId != null &&
+        libraryCharacterId != null &&
+        libraryCharacterId !== slot.libraryCharacterId
+      ) {
+        charMap.set(slot.libraryCharacterId, libraryCharacterId)
+      }
+      const mapIds = (raw: string | null) =>
         JSON.stringify(parseIdList(raw).map((i) => itemMap.get(i) ?? i))
-
-      // 3) relink
-      tx.update(characters)
-        .set({
-          libraryCharacterId,
-          outfitItemIds: mapList(slot.outfitItemIds),
-          axisValues: JSON.stringify(
-            remapAxisValues(parseAxisValues(slot.axisValues), maps),
-          ),
-          updatedAt: now(),
-        })
-        .where(eq(characters.id, slot.id))
-        .run()
-      for (const o of overrides) {
-        tx.update(characterSceneOverrides)
-          .set({
-            axisValues: JSON.stringify(
-              remapAxisValues(parseAxisValues(o.axisValues), maps),
-            ),
-            outfitItemIds: o.outfitItemIds ? mapList(o.outfitItemIds) : null,
-          })
-          .where(eq(characterSceneOverrides.id, o.id))
-          .run()
+      const mapAxes = (raw: string | null) =>
+        JSON.stringify(remapAxisValues(parseAxisValues(raw), maps))
+      const projectSlots = tx
+        .select()
+        .from(characters)
+        .where(eq(characters.projectId, slot.projectId))
+        .all()
+      for (const c of projectSlots) {
+        const nextLib =
+          c.libraryCharacterId != null
+            ? (charMap.get(c.libraryCharacterId) ?? c.libraryCharacterId)
+            : null
+        const nextOutfit = mapIds(c.outfitItemIds)
+        const nextAxes = mapAxes(c.axisValues)
+        if (
+          nextLib !== c.libraryCharacterId ||
+          nextOutfit !== (c.outfitItemIds ?? '[]') ||
+          nextAxes !== (c.axisValues ?? '{}')
+        ) {
+          tx.update(characters)
+            .set({
+              libraryCharacterId: nextLib,
+              outfitItemIds: nextOutfit,
+              axisValues: nextAxes,
+              updatedAt: now(),
+            })
+            .where(eq(characters.id, c.id))
+            .run()
+        }
+        const slotOverrides =
+          c.id === slot.id
+            ? overrides
+            : tx
+                .select()
+                .from(characterSceneOverrides)
+                .where(eq(characterSceneOverrides.characterId, c.id))
+                .all()
+        for (const o of slotOverrides) {
+          const oOutfit = o.outfitItemIds ? mapIds(o.outfitItemIds) : null
+          const oAxes = mapAxes(o.axisValues)
+          if (oOutfit === o.outfitItemIds && oAxes === (o.axisValues ?? '{}'))
+            continue
+          tx.update(characterSceneOverrides)
+            .set({ axisValues: oAxes, outfitItemIds: oOutfit })
+            .where(eq(characterSceneOverrides.id, o.id))
+            .run()
+        }
       }
 
       log.info('detach', 'Character slot detached', {

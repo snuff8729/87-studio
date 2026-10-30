@@ -26,7 +26,11 @@ export function setSlotNames(names: Array<string>) {
 // Character-parts tokens (replaced by the linked library character / outfit)
 const PARTS_TOKENS = ['char', 'outfit'] as const
 
-function partsTokenOptions(query: string): Array<Completion> {
+function partsTokenOptions(
+  query: string,
+  allowParts: boolean,
+): Array<Completion> {
+  if (!allowParts) return []
   return PARTS_TOKENS.filter((t) => !query || t.includes(query)).map((t) => ({
     label: t,
     detail: 'parts',
@@ -62,8 +66,23 @@ function bundleCompletions(query: string): Array<Completion> {
     }))
 }
 
-export async function unifiedCompletion(
+/** Default completion: no @{char} / @{outfit} (only the workspace Chars tab prompt has them). */
+export function unifiedCompletion(
   context: CompletionContext,
+): Promise<CompletionResult | null> {
+  return completeRefs(context, false)
+}
+
+/** Completion for the workspace character prompt (offers @{char} / @{outfit}). */
+export function partsCompletion(
+  context: CompletionContext,
+): Promise<CompletionResult | null> {
+  return completeRefs(context, true)
+}
+
+async function completeRefs(
+  context: CompletionContext,
+  allowParts: boolean,
 ): Promise<CompletionResult | null> {
   const beforeCursor = context.state.sliceDoc(0, context.pos)
 
@@ -113,7 +132,7 @@ export async function unifiedCompletion(
 
       // No prefix yet — show both slot: and bundle: options
       const options: Array<Completion> = [
-        ...partsTokenOptions(query),
+        ...partsTokenOptions(query, allowParts),
         ...slotNames
           .filter(
             (n) =>

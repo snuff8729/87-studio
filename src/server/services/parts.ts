@@ -309,8 +309,8 @@ export function cleanConditions(
     } else {
       const next = cond[key].filter((id) => id !== removeValueId)
       if (next.length === cond[key].length) return null
-      if (next.length === 0) delete cond[key]
-      else cond[key] = next
+      // keep an empty list: the condition now never matches (not unconditional)
+      cond[key] = next
     }
     return JSON.stringify(cond)
   }

@@ -776,7 +776,8 @@ const ko: DeepStringify<typeof en> = {
     reset: '기본값으로 되돌리기',
     setAxesMenu: '시점/구도 설정...',
     bulkTitle: '시점 / 구도 설정',
-    bulkDesc: '선택한 {{count}}개 씬에 적용돼요. "유지"로 둔 항목은 바뀌지 않아요.',
+    bulkDesc:
+      '선택한 {{count}}개 씬에 적용돼요. "유지"로 둔 항목은 바뀌지 않아요.',
     keep: '유지',
     noAxes: '전역 축이 아직 없어요.',
     bulkApply: '적용',
@@ -1145,12 +1146,17 @@ const ko: DeepStringify<typeof en> = {
     renameAxis: '축 이름',
     deleteAxis: '축 삭제',
     deleteValue: '값 삭제',
+    deleteValueTitle: '값 "{{name}}" 삭제?',
+    deleteValueDesc:
+      '이 값을 참조하는 조각/아이템이 {{count}}개 있습니다. 이 축에서 허용된 값이 이것뿐이었다면 더 이상 적용되지 않습니다 (무조건 적용으로 바뀌지 않음).',
+    deleteValueDescNone: '이 값을 참조하는 조각/아이템이 없습니다.',
     defaultBadge: '기본',
     editAxis: '{{name}} 축 편집',
     itemCondition: '아이템 조건',
     itemConditionHint: '조건이 맞지 않으면 아이템 전체가 빠집니다.',
     onlyWhen: '조건',
     always: '항상',
+    conditionNone: '(없음)',
     fragments: '조각',
     fragmentsHint: '각 조각은 조건을 붙일 수 있는 프롬프트 한 덩어리입니다.',
     fragmentPlaceholder: '프롬프트 텍스트...',
@@ -1169,8 +1175,7 @@ const ko: DeepStringify<typeof en> = {
     previewOutfit: '의상',
     presetItems: '의상 아이템',
     globalAxesTitle: '공용 축',
-    globalAxesHint:
-      '모든 캐릭터와 씬이 공유합니다. 첫 번째 값이 기본값입니다.',
+    globalAxesHint: '모든 캐릭터와 씬이 공유합니다. 첫 번째 값이 기본값입니다.',
     notFound: '항목을 찾을 수 없습니다. 삭제되었을 수 있습니다.',
   },
 }

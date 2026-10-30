@@ -102,13 +102,13 @@ describe('matchesCondition', () => {
   it('ignores axes that no longer exist', () => {
     expect(matchesCondition({ '99': [1] }, values, axes)).toBe(true)
   })
-  it('drops deleted allowed ids; an emptied list is ignored', () => {
-    expect(matchesCondition({ '1': [999] }, values, axes)).toBe(true)
+  it('drops deleted allowed ids; an emptied list never matches', () => {
+    expect(matchesCondition({ '1': [999] }, values, axes)).toBe(false)
     expect(matchesCondition({ '1': [999, 10] }, values, axes)).toBe(false)
     expect(matchesCondition({ '1': [999, 11] }, values, axes)).toBe(true)
   })
-  it('explicit empty list is ignored', () => {
-    expect(matchesCondition({ '1': [] }, values, axes)).toBe(true)
+  it('explicit empty list on an existing axis never matches', () => {
+    expect(matchesCondition({ '1': [] }, values, axes)).toBe(false)
   })
 })
 
@@ -172,6 +172,19 @@ describe('composeParts', () => {
       composeParts({ axes, character: null, items: [skirt, jacket], values })
         .outfit,
     ).toBe('pleated skirt, black jacket, zipped up')
+  })
+
+  it('strips @{char} / @{outfit} tokens inside fragment texts', () => {
+    const c = {
+      id: 1,
+      fragments: [
+        { id: 1, text: '@{char}, a, @{outfit}', conditions: {} },
+        { id: 2, text: '@{outfit}', conditions: {} },
+      ],
+    }
+    expect(
+      composeParts({ axes, character: c, items: [], values: {} }).char,
+    ).toBe('a')
   })
 
   it('no character, no items → empty', () => {

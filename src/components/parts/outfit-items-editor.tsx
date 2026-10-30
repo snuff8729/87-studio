@@ -137,7 +137,7 @@ export function OutfitItemsEditor({
             <span
               key={`${id}-${index}`}
               className={cn(
-                'inline-flex h-7 items-center gap-0.5 rounded-lg border border-border bg-input/30 pl-2 text-xs',
+                'inline-flex h-7 items-center gap-0.5 rounded-lg border border-border bg-input/30 pl-2 text-sm',
                 !item && 'text-muted-foreground line-through',
               )}
             >
@@ -187,7 +187,12 @@ export function OutfitItemsEditor({
       <div className="flex flex-wrap items-center gap-1.5">
         <Popover open={addOpen} onOpenChange={setAddOpen}>
           <PopoverTrigger asChild>
-            <Button type="button" variant="outline" size="sm">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-sm"
+            >
               <HugeiconsIcon icon={Add01Icon} strokeWidth={2} />
               {t('parts.addItem')}
             </Button>
@@ -216,7 +221,12 @@ export function OutfitItemsEditor({
           <>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button type="button" variant="ghost" size="sm">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-sm"
+                >
                   <HugeiconsIcon icon={Layers01Icon} strokeWidth={2} />
                   {t('parts.loadPreset')}
                 </Button>
@@ -247,6 +257,7 @@ export function OutfitItemsEditor({
                   type="button"
                   variant="ghost"
                   size="sm"
+                  className="text-sm"
                   disabled={itemIds.length === 0}
                 >
                   <HugeiconsIcon icon={BookmarkAdd01Icon} strokeWidth={2} />

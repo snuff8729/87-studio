@@ -26,6 +26,7 @@ interface ExpandedEditorDialogProps {
   value: string
   onChange: (value: string) => void
   bundleNames?: Array<{ name: string; content: string }>
+  partsTokens?: boolean
 }
 
 /** Focus the CodeMirror editor inside `root` with the cursor at the end. */
@@ -46,6 +47,7 @@ export function ExpandedEditorDialog({
   value,
   onChange,
   bundleNames,
+  partsTokens,
 }: ExpandedEditorDialogProps) {
   const { t } = useTranslation()
   const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
@@ -96,6 +98,7 @@ export function ExpandedEditorDialog({
               onChange={onChange}
               minHeight="100%"
               bundleNames={bundleNames}
+              partsTokens={partsTokens}
             />
           </Suspense>
         </div>
