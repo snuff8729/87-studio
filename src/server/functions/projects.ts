@@ -158,7 +158,14 @@ export const deleteProject = createServerFn({ method: 'POST' })
   })
 
 export const assignScenePack = createServerFn({ method: 'POST' })
-  .inputValidator((data: { projectId: number; scenePackId: number }) => data)
+  .inputValidator(
+    (data: {
+      projectId: number
+      scenePackId: number
+      /** Only copy these scenes (default: every scene of the pack) */
+      sceneIds?: Array<number>
+    }) => data,
+  )
   .handler(async ({ data }) => {
     const pack = db
       .select()
@@ -167,12 +174,17 @@ export const assignScenePack = createServerFn({ method: 'POST' })
       .get()
     if (!pack) throw new Error('Scene pack not found')
 
-    const packScenes = db
+    const allPackScenes = db
       .select()
       .from(scenes)
       .where(eq(scenes.scenePackId, data.scenePackId))
       .orderBy(scenes.sortOrder)
       .all()
+    const wanted = data.sceneIds ? new Set(data.sceneIds) : null
+    const packScenes = wanted
+      ? allPackScenes.filter((s) => wanted.has(s.id))
+      : allPackScenes
+    if (wanted && packScenes.length === 0) throw new Error('No scenes selected')
 
     // Create project scene pack (snapshot)
     const psp = db

@@ -202,7 +202,8 @@ src/
 │       ├── scene-detail.tsx       # 씬 이미지 그리드 (정렬, 선택 모드, 일괄 작업)
 │       ├── placeholder-editor.tsx # 플레이스홀더 값 에디터 (800ms 디바운스, 씬 전환 시 flush)
 │       ├── placeholder-save-plan.ts  # 로컬 편집 → 저장 JSON 계산
-│       ├── scene-pack-dialog.tsx  # 씬 팩 선택 다이얼로그
+│       ├── scene-pack-dialog.tsx  # 씬 템플릿 다이얼로그 셸 (3패널 Packs/Scenes/Editor + 고정 Apply 푸터, 모바일 스택). 상태·서버 호출·autosave flush 조정
+│       ├── scene-templates/       # 씬 템플릿 다이얼로그 부품: packs-pane, scenes-pane(검색·체크박스·↑/↓), scene-editor(키별 CodeMirror, 800ms 자동저장, 전환/닫기 시 flush), row-menu(⋯ + 우클릭 공용 항목), text-prompt-dialog
 │       ├── compare-dialog.tsx     # 이미지 비교 다이얼로그
 │       ├── convert-to-template-dialog.tsx  # 프로젝트 씬 → 글로벌 씬 팩 변환
 │       ├── parameter-popover.tsx  # 생성 파라미터 설정 (모델 선택 포함)
@@ -227,8 +228,8 @@ src/
 │       ├── settings.ts        # API 키, 딜레이 설정
 │       ├── projects.ts        # 프로젝트 CRUD
 │       ├── characters.ts      # 캐릭터 관리 (생성/수정/삭제/복제/순서 이동)
-│       ├── scene-packs.ts     # 글로벌 씬 팩 관리
-│       ├── scenes.ts          # 글로벌 씬 관리
+│       ├── scene-packs.ts     # 글로벌 씬 팩 관리 (listScenePacks는 sceneCount 포함, duplicateScenePack)
+│       ├── scenes.ts          # 글로벌 씬 관리 (duplicateScene, reorderScenes)
 │       ├── project-scenes.ts  # 프로젝트별 씬 스냅샷
 │       ├── generation.ts      # 이미지 생성 큐
 │       ├── gallery.ts         # 이미지 조회/필터링
@@ -248,6 +249,7 @@ src/
 │   └── use-mobile.ts          # 모바일(<768px) 감지 훅 (shadcn sidebar)
 ├── lib/
 │   ├── placeholder.ts         # @{slot:name} 파싱/치환 유틸
+│   ├── scene-templates.ts     # 씬 템플릿 다이얼로그 순수 로직 (복제 이름, 이동, 키 추천/이름 변경, 레이아웃 파싱)
 │   ├── bundle.ts              # @{bundle:name} 참조 추출/치환 유틸
 │   ├── use-bundles.ts         # 번들 데이터 React Query 훅
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
@@ -285,7 +287,8 @@ public/
 └── danbooru-tags.json         # 단부루 태그 데이터 (자동완성용)
 start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js 자동 다운로드)
 start.bat                      # Windows 간편 실행 스크립트
-scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단)
+scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단; 씬 템플릿 다이얼로그 1440/390 포함)
+scripts/smoke/templates.mjs    # 씬 템플릿 다이얼로그 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 팩/씬/키 CRUD·복제·이동·자동저장·선택 적용, DB 읽기전용 교차검증)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
@@ -503,6 +506,15 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 씬 팩 변환 (프로젝트 씬 → 글로벌 템플릿)
 - SD Studio JSON 임포트
 - 이상형 월드컵 (토너먼트)
+
+### 씬 템플릿 다이얼로그 (`scene-pack-dialog.tsx`)
+
+- 워크스페이스 헤더 / 레일 ⋯ "Scene templates"로 열림. 데스크톱: `w-[min(1200px,94vw)] h-[88vh]`, 3패널 리사이즈 (Packs · Scenes · Editor, 폭은 localStorage `87studio-templates-layout`에 사용자 조절 후 저장). 모바일(<768): 전체 화면 스택 Packs → Scenes → Editor (헤더 뒤로가기, Scenes 단계에 Apply 푸터)
+- **Packs**: ＋ 팝오버(이름·설명), 행 ⋯/우클릭: Rename, Edit description, Duplicate, Delete(확인; 이미 프로젝트에 적용된 스냅샷은 영향 없음). 열면 첫 팩 자동 선택, 체크박스는 기본 전체 선택
+- **Scenes**: 검색, ＋ 팝오버(이름 + 선택 씬 값 복사), 행 = 적용 체크박스 + 이름 + 키 개수, ↑/↓ 선택 이동, ⋯/우클릭: Rename, Duplicate, Move up/down(`reorderScenes`), Delete. 편집 중인 씬 선택과 적용 체크박스는 별개
+- **Editor**: 씬 이름 클릭 → 인라인 이름 변경, 키마다 지연 로딩 CodeMirror(최소 2줄, ~12줄까지 자동 확장 후 스크롤; 단부루/번들/가중치), 키 이름 클릭 → 이름 변경(순서 유지), 키 삭제, ＋ Add key 팝오버(같은 팩 다른 씬의 키 + 프로젝트 `@{slot:…}` 이름 추천). 값은 800ms 디바운스 자동 저장, 씬 전환·다이얼로그 닫기·Apply·복제 전에 flush (편집 값은 부모 상태에도 즉시 반영)
+- **Apply**: "Apply N scenes to project" (0개면 비활성, 기본 `variant="default"`). `assignScenePack({ projectId, scenePackId, sceneIds? })` — `sceneIds`를 생략하면 팩 전체(기존 동작), 있으면 해당 씬만 스냅샷
+- Generate(Ctrl/Cmd+Enter)/씬 팔레트(Ctrl/Cmd+K) 단축키는 `[data-slot="dialog-content"]` 가드로 다이얼로그가 열려 있으면 무시
 
 ### 메타데이터 인스펙터 (/metadata)
 

@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start'
 import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
 import { scenes } from '../db/schema'
+import { nextCopyName } from '@/lib/scene-templates'
 
 export const createScene = createServerFn({ method: 'POST' })
   .inputValidator(
@@ -71,4 +72,31 @@ export const reorderScenes = createServerFn({ method: 'POST' })
         .run()
     }
     return { success: true }
+  })
+
+export const duplicateScene = createServerFn({ method: 'POST' })
+  .inputValidator((id: number) => id)
+  .handler(async ({ data: id }) => {
+    const source = db.select().from(scenes).where(eq(scenes.id, id)).get()
+    if (!source) throw new Error('Scene not found')
+    const siblings = db
+      .select()
+      .from(scenes)
+      .where(eq(scenes.scenePackId, source.scenePackId))
+      .all()
+    const maxOrder = Math.max(-1, ...siblings.map((s) => s.sortOrder ?? 0))
+    return db
+      .insert(scenes)
+      .values({
+        scenePackId: source.scenePackId,
+        name: nextCopyName(
+          source.name,
+          siblings.map((s) => s.name),
+        ),
+        description: source.description,
+        placeholders: source.placeholders,
+        sortOrder: maxOrder + 1,
+      })
+      .returning()
+      .get()
   })

@@ -297,6 +297,17 @@ function WorkspacePage() {
     [data.characters],
   )
 
+  // Slot names offered as key suggestions in the scene templates dialog
+  const templateSlotNames = useMemo(
+    () => [
+      ...new Set([
+        ...stableGeneralKeys,
+        ...characterPlaceholderKeys.flatMap((c) => c.keys),
+      ]),
+    ],
+    [stableGeneralKeys, characterPlaceholderKeys],
+  )
+
   // ── Auto-save (debounced; pending fields are merged so a prompt edit
   // followed by a parameter edit within the debounce window saves both) ──
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle')
@@ -1353,6 +1364,7 @@ function WorkspacePage() {
               <>
                 <ScenePackDialog
                   projectId={projectId}
+                  slotNames={templateSlotNames}
                   open={packDialogOpen}
                   onOpenChange={setPackDialogOpen}
                 />

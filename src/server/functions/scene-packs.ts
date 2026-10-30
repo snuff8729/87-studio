@@ -1,18 +1,28 @@
 import { createServerFn } from '@tanstack/react-start'
-import { desc, eq, inArray } from 'drizzle-orm'
+import { count, desc, eq, inArray } from 'drizzle-orm'
 import { db } from '../db'
 import { projectScenes, scenePacks, scenes } from '../db/schema'
 import { createLogger } from '../services/logger'
+import { nextCopyName } from '@/lib/scene-templates'
 
 const log = createLogger('fn.scenePacks')
 
 export const listScenePacks = createServerFn({ method: 'GET' }).handler(
   async () => {
+    const counts = new Map(
+      db
+        .select({ id: scenes.scenePackId, count: count() })
+        .from(scenes)
+        .groupBy(scenes.scenePackId)
+        .all()
+        .map((r) => [r.id, r.count]),
+    )
     return db
       .select()
       .from(scenePacks)
-      .orderBy(desc(scenePacks.createdAt))
+      .orderBy(desc(scenePacks.createdAt), desc(scenePacks.id))
       .all()
+      .map((p) => ({ ...p, sceneCount: counts.get(p.id) ?? 0 }))
   },
 )
 
@@ -116,5 +126,50 @@ export const createScenePackFromProjectScenes = createServerFn({
       },
     )
 
+    return pack
+  })
+
+export const duplicateScenePack = createServerFn({ method: 'POST' })
+  .inputValidator((id: number) => id)
+  .handler(async ({ data: id }) => {
+    const source = db
+      .select()
+      .from(scenePacks)
+      .where(eq(scenePacks.id, id))
+      .get()
+    if (!source) throw new Error('Scene pack not found')
+    const names = db.select({ name: scenePacks.name }).from(scenePacks).all()
+    const pack = db
+      .insert(scenePacks)
+      .values({
+        name: nextCopyName(
+          source.name,
+          names.map((p) => p.name),
+        ),
+        description: source.description,
+      })
+      .returning()
+      .get()
+    const sceneList = db
+      .select()
+      .from(scenes)
+      .where(eq(scenes.scenePackId, id))
+      .orderBy(scenes.sortOrder)
+      .all()
+    sceneList.forEach((s, i) => {
+      db.insert(scenes)
+        .values({
+          scenePackId: pack.id,
+          name: s.name,
+          description: s.description,
+          placeholders: s.placeholders,
+          sortOrder: i,
+        })
+        .run()
+    })
+    log.info('duplicate', 'Scene pack duplicated', {
+      scenePackId: pack.id,
+      sourceId: id,
+    })
     return pack
   })

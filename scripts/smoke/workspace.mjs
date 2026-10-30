@@ -12,6 +12,9 @@
 //   SMOKE_BASE  app URL (default: http://127.0.0.1:3100)
 //   SMOKE_OUT   screenshot dir (default: <os tmp>/87studio-smoke)
 //
+// The scene templates dialog is opened at 1440 and 390 (reads real packs,
+// writes aborted).
+//
 // Phase 5 adds: document height on editor routes, the virtualized scene board
 // and the onboarding order (settings mocked via getSetting, step transitions
 // read from the aborted setSetting requests).
@@ -1227,6 +1230,91 @@ async function phase5(w, h, tag) {
   }
 }
 
+// ───────── Scene templates dialog (mocked: writes aborted) ─────────
+async function templatesDialog(w, h, tag) {
+  console.log(`== scene templates dialog ${tag} ${w}x${h}`)
+  const { ctx, page } = await newPage(w, h)
+  await openWorkspace(page)
+  await page
+    .locator('button[data-slot="dialog-trigger"]')
+    .filter({ has: page.locator('svg') })
+    .first()
+    .click()
+  const dlg = page.locator('[data-testid="templates-dialog"]')
+  await dlg.waitFor({ timeout: 8000 })
+  await settle(page, 800)
+  const box = await dlg.boundingBox()
+  if (w >= 768) {
+    check(
+      Math.abs(box.width - Math.min(1200, w * 0.94)) < 4 &&
+        Math.abs(box.height - h * 0.88) < 4,
+      `templates ${tag}: large dialog (${Math.round(box.width)}x${Math.round(box.height)})`,
+    )
+    check(
+      (await dlg.locator('[data-slot="resizable-panel"]').count()) === 3,
+      `templates ${tag}: three panes`,
+    )
+  } else {
+    check(
+      Math.abs(box.width - w) < 2 && Math.abs(box.height - h) < 2,
+      `templates ${tag}: full-screen dialog`,
+    )
+    check(
+      (await dlg.locator('[data-testid="pack-row"]').count()) > 0 &&
+        (await dlg.locator('[data-testid="scene-row"]').count()) === 0,
+      `templates ${tag}: packs step first`,
+    )
+    await dlg.locator('[data-testid="pack-row"]').first().click()
+    await settle(page, 500)
+  }
+  await shot(page, `templates-${tag}`)
+  const sceneRows = dlg.locator('[data-testid="scene-row"]')
+  if ((await sceneRows.count()) > 0) {
+    const footer = dlg.locator('[data-testid="templates-footer"]')
+    check(
+      /(\d+)\/\1 selected/.test(await footer.innerText()),
+      `templates ${tag}: every scene is checked by default`,
+    )
+    await sceneRows.first().locator('[role="checkbox"]').click()
+    check(
+      !/(\d+)\/\1 selected/.test(await footer.innerText()),
+      `templates ${tag}: unchecking updates the footer`,
+    )
+    if (w >= 768) {
+      // Find a scene that has at least one key to edit
+      let editor = null
+      for (let i = 0; i < Math.min(6, await sceneRows.count()); i++) {
+        await sceneRows.nth(i).click()
+        await settle(page, 500)
+        if ((await dlg.locator('.cm-content').count()) > 0) {
+          editor = dlg.locator('.cm-content').first()
+          break
+        }
+      }
+      if (editor) {
+        await editor.click()
+        await page.keyboard.type(' x')
+        await settle(page, 1500)
+        check(
+          page.blocked.includes('updateScene'),
+          `templates ${tag}: edit autosaves (updateScene, blocked by the smoke)`,
+        )
+      }
+    }
+  }
+  await page.keyboard.press('Control+Enter')
+  await page.keyboard.press('Control+k')
+  await settle(page, 600)
+  check(
+    (await page.locator('[cmdk-root]').count()) === 0 &&
+      !page.blocked.some((n) => /Generation|Batch/.test(n)),
+    `templates ${tag}: Ctrl+Enter / Ctrl+K are inert while open`,
+  )
+  await ctx.close()
+}
+
+await templatesDialog(1440, 900, 'desktop')
+await templatesDialog(390, 844, 'mobile')
 await phase5(1440, 900, 'desktop')
 await phase5(390, 844, 'mobile')
 
