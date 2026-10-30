@@ -10,6 +10,7 @@ import type {
   QuickGenerateState,
   QuickImage,
 } from '@/components/quick-generate/types'
+import type { CharacterPatch } from '@/components/characters/characters-editor'
 import type { MobilePane } from '@/components/editor-shell/editor-shell'
 import {
   EditorShell,
@@ -34,6 +35,7 @@ import { ImageViewer } from '@/components/quick-generate/image-viewer'
 import { HistoryStrip } from '@/components/quick-generate/history-strip'
 import { ImportMetadataDialog } from '@/components/quick-generate/import-metadata-dialog'
 import { useTranslation } from '@/lib/i18n'
+import { duplicateName, moveItem, nextCharacterName } from '@/lib/characters'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
 import {
   createQuickGenerationJob,
@@ -45,6 +47,11 @@ import { updateImage } from '@/server/functions/gallery'
 export const Route = createFileRoute('/generate/')({
   component: QuickGeneratePage,
 })
+
+let characterSeq = 0
+function newCharacterId() {
+  return 'char-' + Date.now() + '-' + characterSeq++
+}
 
 function QuickGenerateButton({
   count,
@@ -336,18 +343,53 @@ function QuickGeneratePage() {
     !!state.generalPrompt.trim() && !cooldown,
   )
 
-  function addCharacter() {
+  function addCharacter(): string {
+    const id = newCharacterId()
     setState((prev) => ({
       ...prev,
       characters: [
         ...prev.characters,
         {
-          id: `char-${Date.now()}`,
-          name: `Character ${prev.characters.length + 1}`,
+          id,
+          name: nextCharacterName(prev.characters.map((c) => c.name)),
           prompt: '',
           negative: '',
         },
       ],
+    }))
+    return id
+  }
+
+  function duplicateCharacter(id: string): string | undefined {
+    const source = state.characters.find((c) => c.id === id)
+    if (!source) return undefined
+    const copyId = newCharacterId()
+    setState((prev) => {
+      const index = prev.characters.findIndex((c) => c.id === id)
+      if (index < 0) return prev
+      const copy: CharacterEntry = {
+        ...prev.characters[index],
+        id: copyId,
+        name: duplicateName(
+          prev.characters[index].name,
+          prev.characters.map((c) => c.name),
+        ),
+      }
+      const next = [...prev.characters]
+      next.splice(index + 1, 0, copy)
+      return { ...prev, characters: next }
+    })
+    return copyId
+  }
+
+  function moveCharacter(id: string, direction: -1 | 1) {
+    setState((prev) => ({
+      ...prev,
+      characters: moveItem(
+        prev.characters,
+        prev.characters.findIndex((c) => c.id === id),
+        direction,
+      ),
     }))
   }
 
@@ -358,15 +400,11 @@ function QuickGeneratePage() {
     }))
   }
 
-  function updateCharacterField(
-    id: string,
-    field: keyof CharacterEntry,
-    value: string,
-  ) {
+  function updateCharacter(id: string, patch: CharacterPatch) {
     setState((prev) => ({
       ...prev,
       characters: prev.characters.map((c) =>
-        c.id === id ? { ...c, [field]: value } : c,
+        c.id === id ? { ...c, ...patch } : c,
       ),
     }))
   }
@@ -516,8 +554,10 @@ function QuickGeneratePage() {
               <QuickCharactersTab
                 characters={state.characters}
                 addCharacter={addCharacter}
+                duplicateCharacter={duplicateCharacter}
+                moveCharacter={moveCharacter}
                 removeCharacter={removeCharacter}
-                updateCharacterField={updateCharacterField}
+                updateCharacter={updateCharacter}
               />
             ),
           },

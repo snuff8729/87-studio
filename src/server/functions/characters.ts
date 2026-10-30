@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start'
 import { eq, max } from 'drizzle-orm'
 import { db } from '../db'
-import { characters } from '../db/schema'
+import { characterSceneOverrides, characters } from '../db/schema'
 import { createLogger } from '../services/logger'
 
 const log = createLogger('fn.characters')
@@ -77,4 +77,91 @@ export const deleteCharacter = createServerFn({ method: 'POST' })
     log.info('delete', 'Character deleted', { characterId: id })
     db.delete(characters).where(eq(characters.id, id)).run()
     return { success: true }
+  })
+
+export const moveCharacter = createServerFn({ method: 'POST' })
+  .inputValidator((data: { id: number; direction: -1 | 1 }) => data)
+  .handler(async ({ data }) => {
+    return db.transaction((tx) => {
+      const current = tx
+        .select()
+        .from(characters)
+        .where(eq(characters.id, data.id))
+        .get()
+      if (!current) return { success: false }
+      const siblings = tx
+        .select()
+        .from(characters)
+        .where(eq(characters.projectId, current.projectId))
+        .orderBy(characters.slotIndex)
+        .all()
+      const index = siblings.findIndex((c) => c.id === current.id)
+      const other = siblings[index + data.direction]
+      if (!other) return { success: false }
+      // UNIQUE(project_id, slot_index): park one row on a temporary index
+      const a = current.slotIndex ?? 0
+      const b = other.slotIndex ?? 0
+      tx.update(characters)
+        .set({ slotIndex: -1 })
+        .where(eq(characters.id, current.id))
+        .run()
+      tx.update(characters)
+        .set({ slotIndex: a })
+        .where(eq(characters.id, other.id))
+        .run()
+      tx.update(characters)
+        .set({ slotIndex: b })
+        .where(eq(characters.id, current.id))
+        .run()
+      return { success: true }
+    })
+  })
+
+export const duplicateCharacter = createServerFn({ method: 'POST' })
+  .inputValidator((data: { id: number; name: string }) => data)
+  .handler(async ({ data }) => {
+    return db.transaction((tx) => {
+      const source = tx
+        .select()
+        .from(characters)
+        .where(eq(characters.id, data.id))
+        .get()
+      if (!source) throw new Error('Character not found')
+      const maxSlot = tx
+        .select({ max: max(characters.slotIndex) })
+        .from(characters)
+        .where(eq(characters.projectId, source.projectId))
+        .get()
+      const copy = tx
+        .insert(characters)
+        .values({
+          projectId: source.projectId,
+          slotIndex: (maxSlot?.max ?? -1) + 1,
+          name: data.name,
+          charPrompt: source.charPrompt,
+          charNegative: source.charNegative,
+        })
+        .returning()
+        .get()
+      const overrides = tx
+        .select()
+        .from(characterSceneOverrides)
+        .where(eq(characterSceneOverrides.characterId, source.id))
+        .all()
+      for (const o of overrides) {
+        tx.insert(characterSceneOverrides)
+          .values({
+            projectSceneId: o.projectSceneId,
+            characterId: copy.id,
+            placeholders: o.placeholders,
+          })
+          .run()
+      }
+      log.info('duplicate', 'Character duplicated', {
+        sourceId: source.id,
+        characterId: copy.id,
+        overrides: overrides.length,
+      })
+      return copy
+    })
   })

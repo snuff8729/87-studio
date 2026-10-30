@@ -60,6 +60,7 @@ import {
   createPendingSaves,
 } from '@/components/workspace/pending-saves'
 import { PromptPanel } from '@/components/workspace/prompt-panel'
+import { CharactersPanel } from '@/components/workspace/characters-panel'
 import {
   ReferencePanel,
   useReferenceImages,
@@ -1143,13 +1144,10 @@ function WorkspacePage() {
             onboarding: 'prompt-tab',
             content: (
               <PromptPanel
-                section="prompt"
                 generalPrompt={generalPrompt}
                 negativePrompt={negativePrompt}
-                characters={data.characters}
                 onGeneralPromptChange={handleGeneralPromptChange}
                 onNegativePromptChange={handleNegativePromptChange}
-                projectId={projectId}
               />
             ),
           },
@@ -1158,14 +1156,9 @@ function WorkspacePage() {
             label: t('editor.tabCharacters'),
             badge: data.characters.length,
             content: (
-              <PromptPanel
-                section="characters"
-                generalPrompt={generalPrompt}
-                negativePrompt={negativePrompt}
-                characters={data.characters}
-                onGeneralPromptChange={handleGeneralPromptChange}
-                onNegativePromptChange={handleNegativePromptChange}
+              <CharactersPanel
                 projectId={projectId}
+                characters={data.characters}
               />
             ),
           },
