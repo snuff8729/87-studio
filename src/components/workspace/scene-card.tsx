@@ -316,7 +316,10 @@ export function useItemInteraction({
     setMenuOpen,
     onClick: () => {
       if (selectMode) onCheckedChange?.(scene.id, !checked)
-      else onSelect(scene.id)
+      else {
+        onSelect(scene.id)
+        window.dispatchEvent(new CustomEvent('onboarding:scene-clicked'))
+      }
     },
     onContextMenu: (e: React.MouseEvent) => {
       if (!menu || selectMode) return

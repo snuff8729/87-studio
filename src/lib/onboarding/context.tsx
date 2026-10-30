@@ -155,6 +155,7 @@ export function OnboardingProvider({
     const events = [
       'onboarding:api-key-saved',
       'onboarding:project-created',
+      'onboarding:scene-clicked',
       'onboarding:generation-started',
     ]
     events.forEach((name) => window.addEventListener(name, handleEvent))

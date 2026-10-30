@@ -793,7 +793,7 @@ const en = {
     step6: {
       title: 'Edit a Scene',
       description:
-        'Open the Scenes tab and select a scene to edit its placeholder values.',
+        'Click a scene in the scene list to edit its placeholder values.',
     },
     step7: {
       title: 'Fill Placeholders',

@@ -801,7 +801,7 @@ const ko: DeepStringify<typeof en> = {
     },
     step6: {
       title: '씬 편집',
-      description: '씬 탭을 열고 씬을 선택하여 플레이스홀더 값을 편집하세요.',
+      description: '씬 목록에서 씬을 클릭하여 플레이스홀더 값을 편집하세요.',
     },
     step7: {
       title: '플레이스홀더 입력',

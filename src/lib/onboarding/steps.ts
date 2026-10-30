@@ -58,7 +58,7 @@ export const ONBOARDING_STEPS: Array<OnboardingStepDef> = [
     fallbackTarget: 'scene-rail',
     titleKey: 'onboarding.step6.title',
     descriptionKey: 'onboarding.step6.description',
-    completion: { type: 'condition', check: 'scene-selected-in-edit' },
+    completion: { type: 'event', eventName: 'onboarding:scene-clicked' },
   },
   {
     id: 7,

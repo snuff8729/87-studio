@@ -31,11 +31,6 @@ function checkCondition(check: string): boolean {
   } else if (check === 'scene-exists') {
     const items = document.querySelectorAll('[data-onboarding="scene-item"]')
     return items.length > 0
-  } else if (check === 'scene-selected-in-edit') {
-    const editor = document.querySelector(
-      '[data-onboarding="placeholder-editor"]',
-    )
-    return !!editor
   } else if (check === 'placeholder-filled') {
     const editor = document.querySelector(
       '[data-onboarding="placeholder-editor"]',
