@@ -401,6 +401,15 @@ function QuickGeneratePage() {
     }))
   }
 
+  function reorderCharacters(ids: Array<string>) {
+    setState((prev) => ({
+      ...prev,
+      characters: ids
+        .map((id) => prev.characters.find((c) => c.id === id))
+        .filter((c): c is (typeof prev.characters)[number] => !!c),
+    }))
+  }
+
   function removeCharacter(id: string) {
     setState((prev) => ({
       ...prev,
@@ -568,6 +577,7 @@ function QuickGeneratePage() {
                 addCharacter={addCharacter}
                 duplicateCharacter={duplicateCharacter}
                 moveCharacter={moveCharacter}
+                reorderCharacters={reorderCharacters}
                 removeCharacter={removeCharacter}
                 updateCharacter={updateCharacter}
                 positions={positionCanvas(state.parameters)}

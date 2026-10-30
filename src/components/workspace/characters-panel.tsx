@@ -18,6 +18,7 @@ import {
   deleteCharacter,
   duplicateCharacter,
   moveCharacter,
+  reorderCharacters,
   updateCharacter,
 } from '@/server/functions/characters'
 
@@ -224,6 +225,16 @@ export function CharactersPanel({
     }
   }
 
+  async function handleReorder(ids: Array<number>) {
+    try {
+      await flush()
+      await reorderCharacters({ data: { ids } })
+      await router.invalidate()
+    } catch {
+      toast.error(t('workspace.characterSaveFailed'))
+    }
+  }
+
   async function handleDelete(id: number) {
     const name = characters.find((c) => c.id === id)?.name ?? ''
     // A pending edit of the deleted character must not be saved afterwards
@@ -265,6 +276,7 @@ export function CharactersPanel({
       onNameBlur={handleNameBlur}
       onDuplicate={handleDuplicate}
       onMove={handleMove}
+      onReorder={handleReorder}
       onDelete={handleDelete}
       slots
       renderParts={(c) => {

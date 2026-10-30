@@ -16,6 +16,8 @@ import type {
   CoverRule,
   PartsAxis,
 } from '@/lib/character-parts'
+import { useSortableOrder } from '@/components/common/sortable-list/use-sortable-order'
+import { SortableList } from '@/components/common/sortable-list/sortable-list'
 import {
   composeParts,
   effectiveAxisValues,
@@ -151,7 +153,16 @@ export function OwnerDetail({
 
   // Text drafts (lifted from the rows) so the preview is live before saving
   const [drafts, setDrafts] = useState<Record<number, string>>({})
-  const fragments = row.fragments.map((f) => ({
+  const fragOrder = useSortableOrder(
+    row.fragments,
+    (f) => f.id,
+    async (ids) => {
+      await reorderFragments({ data: { ids: ids as Array<number> } })
+      await refresh()
+    },
+    () => toast.error(t('library.failed')),
+  )
+  const fragments = fragOrder.items.map((f) => ({
     ...f,
     text: drafts[f.id] ?? f.text,
   }))
@@ -164,19 +175,6 @@ export function OwnerDetail({
             ? { characterId: row.id, text: '' }
             : { itemId: row.id, text: '' },
       })
-      await refresh()
-    } catch {
-      toast.error(t('library.failed'))
-    }
-  }
-
-  async function moveFragment(index: number, dir: -1 | 1) {
-    const ids = row.fragments.map((f) => f.id)
-    const target = index + dir
-    if (target < 0 || target >= ids.length) return
-    ;[ids[index], ids[target]] = [ids[target], ids[index]]
-    try {
-      await reorderFragments({ data: { ids } })
       await refresh()
     } catch {
       toast.error(t('library.failed'))
@@ -298,24 +296,26 @@ export function OwnerDetail({
             {t('library.noFragments')}
           </p>
         )}
-        <div className="space-y-2">
-          {row.fragments.map((f, i) => (
-            <FragmentRow
-              key={f.id}
-              id={f.id}
-              initialText={f.text}
-              conditions={f.conditions}
-              axes={relevant}
-              index={i}
-              count={row.fragments.length}
-              bundleNames={bundleNames}
-              onMove={(dir) => moveFragment(i, dir)}
-              onTextChange={(id, text) =>
-                setDrafts((d) => ({ ...d, [id]: text }))
-              }
-            />
-          ))}
-        </div>
+        <SortableList
+          ids={fragOrder.ids}
+          onReorder={(ids) => fragOrder.reorder(ids)}
+        >
+          <div className="space-y-2">
+            {fragOrder.items.map((f) => (
+              <FragmentRow
+                key={f.id}
+                id={f.id}
+                initialText={f.text}
+                conditions={f.conditions}
+                axes={relevant}
+                bundleNames={bundleNames}
+                onTextChange={(id, text) =>
+                  setDrafts((d) => ({ ...d, [id]: text }))
+                }
+              />
+            ))}
+          </div>
+        </SortableList>
       </section>
 
       <section className="space-y-3 rounded-xl border border-border bg-card/40 p-3">

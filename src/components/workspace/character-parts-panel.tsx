@@ -337,6 +337,7 @@ export function CharacterPartsPanel({
             persist({ outfitItemIds: ids }, { outfitItemIds: ids })
           }
           items={library?.items ?? []}
+          areas={library?.areas}
           presets={library?.presets}
           projectId={projectId}
           showPresetMenu

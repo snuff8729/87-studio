@@ -21,9 +21,16 @@ interface PresetRow {
 export function PresetDetail({
   preset,
   items,
+  areas,
 }: {
   preset: PresetRow
-  items: Array<{ id: number; name: string; projectId: number | null }>
+  items: Array<{
+    id: number
+    name: string
+    projectId: number | null
+    areaIds?: Array<number>
+  }>
+  areas?: Array<{ id: number; name: string }>
 }) {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -91,6 +98,7 @@ export function PresetDetail({
           itemIds={itemIds.value}
           onChange={(ids) => itemIds.commit(() => ids)}
           items={items}
+          areas={areas}
           showPresetMenu={false}
         />
       </section>

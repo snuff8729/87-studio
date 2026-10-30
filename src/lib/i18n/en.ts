@@ -22,6 +22,8 @@ const en = {
     deselectAll: 'Deselect all',
     selectedCount: '{{count}} selected',
     copied: 'Copied',
+    dragToReorder: 'Drag to reorder',
+    remove: 'Remove',
     copy: 'Copy',
     gridSize: {
       small: 'S',
@@ -753,6 +755,7 @@ const en = {
     negative: 'Negative',
     emptyHint: '(empty)',
     unnamed: 'Unnamed',
+    dragToReorder: 'Drag to reorder {{name}}',
   },
   charParts: {
     libraryCharacter: 'Library character',
@@ -780,6 +783,7 @@ const en = {
     inheritScene: 'Scene',
     inheritDefault: 'Default',
     emptyOutfit: 'No items',
+    outfitOrder: 'Inner to outer',
     addItem: 'Add item',
     searchItems: 'Search items...',
     noItemsFound: 'No items found',
@@ -1274,6 +1278,7 @@ const en = {
       'When a rule matches, those areas of the items before this one in the outfit are hidden.',
     noRules: 'No cover rules',
     addRule: 'Rule',
+    addRuleRow: 'Add rule',
     deleteRule: 'Delete rule',
     ruleCovers: 'covers',
     noneArea: 'no areas',

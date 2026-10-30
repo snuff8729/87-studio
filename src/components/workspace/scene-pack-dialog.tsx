@@ -366,6 +366,11 @@ export function ScenePackDialog({
       direction,
     )
     if (!ids) return
+    await applySceneOrder(ids)
+  }
+
+  async function applySceneOrder(ids: Array<number>) {
+    if (!pack) return
     const byId = new Map(scenes.map((s) => [s.id, s]))
     const previous = pack.scenes
     setPack({
@@ -469,6 +474,7 @@ export function ScenePackDialog({
       setPrompt({ kind: 'scene-name', id: s.id, value: s.name }),
     onDuplicate: handleDuplicateScene,
     onMove: handleMoveScene,
+    onReorder: (ids: Array<number>) => void applySceneOrder(ids),
     onDelete: (s: SceneItem) =>
       setConfirm({ kind: 'scene', id: s.id, name: s.name }),
   }

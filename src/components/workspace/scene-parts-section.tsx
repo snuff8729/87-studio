@@ -310,6 +310,7 @@ export function ScenePartsSection({
             axes={axes}
             globalAxes={globalAxes}
             items={items}
+            areas={library.data?.areas}
             presets={presets}
             hidden={hiddenBySlot.get(slot.id)}
             projectId={projectId}
@@ -406,6 +407,7 @@ function CharacterRow({
   axes,
   globalAxes,
   items,
+  areas,
   presets,
   hidden,
   projectId,
@@ -417,7 +419,13 @@ function CharacterRow({
   state: OverrideState | undefined
   axes: Array<PartsAxis>
   globalAxes: Array<PartsAxis>
-  items: Array<{ id: number; name: string; projectId: number | null }>
+  items: Array<{
+    id: number
+    name: string
+    projectId: number | null
+    areaIds?: Array<number>
+  }>
+  areas?: Array<{ id: number; name: string }>
   presets: Array<{ id: number; name: string; itemIds: Array<number> }>
   /** Items hidden by occlusion for this character in this scene */
   hidden: Array<{ itemId: number; coveredBy: Array<number> }> | undefined
@@ -534,6 +542,7 @@ function CharacterRow({
                 itemIds={cur.outfitItemIds}
                 onChange={(ids) => onOutfit(ids)}
                 items={items}
+                areas={areas}
                 presets={presets}
                 projectId={projectId}
                 covered={covered}

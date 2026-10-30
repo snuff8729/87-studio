@@ -1,16 +1,16 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { HugeiconsIcon } from '@hugeicons/react'
 import {
-  ArrowDown01Icon,
-  ArrowUp01Icon,
-  Delete02Icon,
-} from '@hugeicons/core-free-icons'
-import { CommitInput } from './commit-input'
-import { NameForm } from './name-form'
+  DragHandle,
+  RowRemoveButton,
+  SortableList,
+  SortableRow,
+} from '@/components/common/sortable-list/sortable-list'
+import { InlineName } from '@/components/common/sortable-list/inline-name'
+import { AddNameRow } from '@/components/common/sortable-list/add-row'
+import { useSortableOrder } from '@/components/common/sortable-list/use-sortable-order'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
-import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
   createArea,
@@ -46,52 +46,20 @@ export function AreasEditor({
     onSuccess: () => refresh(),
     onError,
   })
-  // Local optimistic order + serialized saves so rapid ↑/↓ clicks compose
-  const [localOrder, setLocalOrder] = useState<Array<number> | null>(null)
-  const orderRef = useRef<Array<number> | null>(null)
-  const saveChain = useRef<Promise<unknown>>(Promise.resolve())
-  const areas = localOrder
-    ? localOrder
-        .map((id) => serverAreas.find((a) => a.id === id))
-        .filter((a): a is { id: number; name: string } => !!a)
-    : serverAreas
-  const serverKey = serverAreas.map((a) => a.id).join(',')
-  useEffect(() => {
-    // server truth arrived (once every queued save settled) — drop the override
-    const chain = saveChain.current
-    void chain.then(() => {
-      if (saveChain.current !== chain) return
-      orderRef.current = null
-      setLocalOrder(null)
-    })
-  }, [serverKey])
-  const reorder = {
-    mutate(ids: Array<number>) {
-      orderRef.current = ids
-      setLocalOrder(ids)
-      saveChain.current = saveChain.current
-        .then(() => reorderAreas({ data: { ids } }))
-        .then(() => refresh())
-        .catch((e: Error) => {
-          orderRef.current = null
-          setLocalOrder(null)
-          onError(e)
-        })
+  const order = useSortableOrder(
+    serverAreas,
+    (a) => a.id,
+    async (ids) => {
+      await reorderAreas({ data: { ids: ids as Array<number> } })
+      await refresh()
     },
-  }
+    () => toast.error(t('library.failed')),
+  )
   const remove = useMutation({
     mutationFn: (id: number) => deleteArea({ data: id }),
     onSuccess: () => refresh(),
     onError,
   })
-
-  function move(index: number, dir: -1 | 1) {
-    const ids = [...(orderRef.current ?? serverAreas.map((a) => a.id))]
-    const j = index + dir
-    if (j < 0 || j >= ids.length) return
-    ;[ids[index], ids[j]] = [ids[j], ids[index]]
-    reorder.mutate(ids)
-  }
 
   const usage = deleting
     ? items.filter((i) => i.areaIds.includes(deleting.id)).length
@@ -108,64 +76,39 @@ export function AreasEditor({
         </p>
       </div>
 
-      {areas.length === 0 && (
+      {order.items.length === 0 && (
         <p className="text-sm text-muted-foreground">
           {t('library.emptyAreas')}
         </p>
       )}
-      <div className="space-y-1.5">
-        {areas.map((a, i) => (
-          <div key={a.id} className="flex items-center gap-1" data-area-row>
-            <CommitInput
-              value={a.name}
-              onCommit={(name) => rename.mutate({ id: a.id, name })}
-              aria-label={t('library.areaName')}
-              className="h-8 min-w-0 flex-1 text-sm"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="size-8"
-              disabled={i === 0}
-              onClick={() => move(i, -1)}
-              aria-label={t('library.moveUp')}
-            >
-              <HugeiconsIcon icon={ArrowUp01Icon} strokeWidth={2} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="size-8"
-              disabled={i === areas.length - 1}
-              onClick={() => move(i, 1)}
-              aria-label={t('library.moveDown')}
-            >
-              <HugeiconsIcon icon={ArrowDown01Icon} strokeWidth={2} />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-xs"
-              className="size-8 text-muted-foreground hover:text-destructive"
-              onClick={() => setDeleting({ id: a.id, name: a.name })}
-              aria-label={t('library.deleteArea')}
-            >
-              <HugeiconsIcon icon={Delete02Icon} strokeWidth={2} />
-            </Button>
+      <div className="max-w-[32rem]">
+        <SortableList ids={order.ids} onReorder={(ids) => order.reorder(ids)}>
+          <div className="space-y-0.5">
+            {order.items.map((a) => (
+              <SortableRow
+                key={a.id}
+                id={a.id}
+                data-area-row
+                className="flex h-8 items-center gap-1 rounded-lg px-0.5 hover:bg-secondary/30"
+              >
+                <DragHandle />
+                <InlineName
+                  value={a.name}
+                  onCommit={(name) => rename.mutate({ id: a.id, name })}
+                  ariaLabel={t('library.areaName')}
+                />
+                <RowRemoveButton
+                  label={t('library.deleteArea')}
+                  onClick={() => setDeleting({ id: a.id, name: a.name })}
+                />
+              </SortableRow>
+            ))}
           </div>
-        ))}
-      </div>
-
-      <div className="max-w-sm">
-        <NameForm
-          key={areas.length}
+        </SortableList>
+        <AddNameRow
+          label={t('library.addArea')}
           placeholder={t('library.areaNamePlaceholder')}
-          actionLabel={t('library.addArea')}
-          onSubmit={async (name) => {
-            await add.mutateAsync(name)
-          }}
+          onAdd={(name) => add.mutateAsync(name)}
         />
       </div>
 

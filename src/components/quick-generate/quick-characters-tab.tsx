@@ -9,6 +9,7 @@ export function QuickCharactersTab({
   addCharacter,
   duplicateCharacter,
   moveCharacter,
+  reorderCharacters,
   removeCharacter,
   updateCharacter,
   positions,
@@ -17,6 +18,7 @@ export function QuickCharactersTab({
   addCharacter: () => string
   duplicateCharacter: (id: string) => string | undefined
   moveCharacter: (id: string, direction: -1 | 1) => void
+  reorderCharacters: (ids: Array<string>) => void
   removeCharacter: (id: string) => void
   updateCharacter: (id: string, patch: CharacterPatch) => void
   positions: { aspect: number } | false
@@ -34,6 +36,7 @@ export function QuickCharactersTab({
       onUpdate={updateCharacter}
       onDuplicate={duplicateCharacter}
       onMove={moveCharacter}
+      onReorder={reorderCharacters}
       onDelete={removeCharacter}
     />
   )

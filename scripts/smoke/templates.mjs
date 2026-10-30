@@ -403,6 +403,36 @@ async function desktop() {
     sceneNamesInDb(packName).join('|') === 'Alpha|Beta2|Gamma2|Alpha (copy)',
     `move down: order persisted (${sceneNamesInDb(packName).join('|')})`,
   )
+  // drag handle (mouse) + keyboard reorder
+  {
+    const handle = (name) => sceneRow(page, name).locator('[data-drag-handle]').first()
+    const a = await handle('Alpha (copy)').boundingBox()
+    const b = await sceneRow(page, 'Alpha').boundingBox()
+    await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(a.x + a.width / 2 + 3, a.y + a.height / 2 - 3, { steps: 3 })
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height * 0.2, { steps: 14 })
+    await settle(page, 150)
+    await page.mouse.up()
+    await settle(page, 700)
+    check(
+      sceneNamesInDb(packName).join('|') === 'Alpha (copy)|Alpha|Beta2|Gamma2',
+      `drag handle: order persisted (${sceneNamesInDb(packName).join('|')})`,
+    )
+    await shot(page, "templates-desktop-scenes-drag")
+    await handle('Alpha (copy)').focus()
+    await page.keyboard.press('Space')
+    for (let i = 0; i < 3; i++) {
+      await page.keyboard.press('ArrowDown')
+      await settle(page, 120)
+    }
+    await page.keyboard.press('Space')
+    await settle(page, 700)
+    check(
+      sceneNamesInDb(packName).join('|') === 'Alpha|Beta2|Gamma2|Alpha (copy)',
+      `drag handle keyboard: order persisted (${sceneNamesInDb(packName).join('|')})`,
+    )
+  }
   await contextAction(page, sceneRow(page, 'Alpha (copy)'), 'Delete')
   await confirmDelete(page)
   check(
