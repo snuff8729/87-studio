@@ -368,6 +368,9 @@ const ko: DeepStringify<typeof en> = {
     renameScene: '씬 이름 변경',
     resetCount: '기본 장수로 되돌리기',
     moreActions: '더 보기',
+    deleteSceneFailed: '씬 삭제에 실패했습니다',
+    decreaseCount: '장수 줄이기',
+    increaseCount: '장수 늘리기',
   },
   templates: {
     title: '씬 템플릿',

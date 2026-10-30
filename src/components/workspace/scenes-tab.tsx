@@ -141,6 +141,8 @@ function sortScenes(
   return sorted
 }
 
+const EMPTY_ID_SET: ReadonlySet<number> = new Set()
+
 interface VisiblePack {
   id: number
   name: string
@@ -152,16 +154,17 @@ function useScenesTabPrefs(
   projectId: number,
 ): [ScenesTabPrefs, (patch: Partial<ScenesTabPrefs>) => void] {
   const [prefs, setPrefs] = useState<ScenesTabPrefs>(SCENES_TAB_PREFS_DEFAULT)
+  const prefsRef = useRef(prefs)
+  prefsRef.current = prefs
   useEffect(() => {
     setPrefs(parseScenesTabPrefs(readStorage(scenesTabPrefsKey(projectId))))
   }, [projectId])
   const update = useCallback(
     (patch: Partial<ScenesTabPrefs>) => {
-      setPrefs((prev) => {
-        const next = { ...prev, ...patch }
-        writeStorage(scenesTabPrefsKey(projectId), JSON.stringify(next))
-        return next
-      })
+      const next = { ...prefsRef.current, ...patch }
+      prefsRef.current = next
+      setPrefs(next)
+      writeStorage(scenesTabPrefsKey(projectId), JSON.stringify(next))
     },
     [projectId],
   )
@@ -275,10 +278,15 @@ export const ScenesTab = memo(function ScenesTab({
   async function handleBulkDelete() {
     if (!onBulkDeleteScenes) return
     const ids = checkedVisibleIds
+    try {
+      await onBulkDeleteScenes(ids)
+    } catch {
+      // The route reports the failure; stay in select mode to retry.
+      return
+    }
     if (selectedSceneId != null && ids.includes(selectedSceneId)) {
       onSelectedSceneChange(null)
     }
-    await onBulkDeleteScenes(ids)
     exitSelectMode()
   }
 
@@ -327,8 +335,13 @@ export const ScenesTab = memo(function ScenesTab({
   async function confirmDelete() {
     if (!deleteTarget) return
     const id = deleteTarget.id
+    try {
+      await onDeleteScene(id)
+    } catch {
+      toast.error(t('scene.deleteSceneFailed'))
+      return
+    }
     if (selectedSceneId === id) onSelectedSceneChange(null)
-    await onDeleteScene(id)
   }
 
   // Menus open dialogs after the dropdown has closed (avoids focus/pointer
@@ -352,15 +365,21 @@ export const ScenesTab = memo(function ScenesTab({
     [onDuplicateScene, onSceneCountChange],
   )
 
+  // While searching, show matches even inside collapsed packs.
+  const effectiveCollapsedPacks = useMemo<ReadonlySet<number>>(
+    () => (searchQuery.trim() ? EMPTY_ID_SET : collapsedPacks),
+    [searchQuery, collapsedPacks],
+  )
+
   // ── Keyboard navigation ──
   const navigableIds = useMemo(
     () =>
       prefs.view === 'list'
         ? visiblePacks
-            .filter((p) => !collapsedPacks.has(p.id))
+            .filter((p) => !effectiveCollapsedPacks.has(p.id))
             .flatMap((p) => p.scenes.map((s) => s.id))
         : visibleScenes.map((s) => s.id),
-    [prefs.view, visiblePacks, visibleScenes, collapsedPacks],
+    [prefs.view, visiblePacks, visibleScenes, effectiveCollapsedPacks],
   )
 
   const moveSelection = useCallback(
@@ -673,7 +692,7 @@ export const ScenesTab = memo(function ScenesTab({
           <SceneListView
             {...itemProps}
             packs={visiblePacks}
-            collapsedPacks={collapsedPacks}
+            collapsedPacks={effectiveCollapsedPacks}
             onToggleCollapsed={(id) =>
               setCollapsedPacks((prev) => {
                 const next = new Set(prev)
@@ -911,7 +930,7 @@ function SceneListView({
   onMove,
 }: ItemViewProps & {
   packs: Array<VisiblePack>
-  collapsedPacks: Set<number>
+  collapsedPacks: ReadonlySet<number>
   onToggleCollapsed: (packId: number) => void
 }) {
   const scrollRef = useRef<HTMLDivElement>(null)

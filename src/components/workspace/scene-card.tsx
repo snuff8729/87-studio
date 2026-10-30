@@ -128,16 +128,27 @@ export function ReserveStepper({
   className?: string
   title?: string
 }) {
+  const { t } = useTranslation()
   const effective = value ?? placeholder
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  // Set by Escape so the blur that follows does not commit.
+  const cancelRef = useRef(false)
   const clamp = (n: number) => Math.min(max, Math.max(min, n))
 
   function commit() {
     setEditing(false)
+    if (cancelRef.current) {
+      cancelRef.current = false
+      return
+    }
     const parsed = parseInt(editValue.trim(), 10)
-    if (!isNaN(parsed)) onChange(clamp(parsed))
+    if (isNaN(parsed)) return
+    const next = clamp(parsed)
+    // Unchanged text keeps the "default" state (no explicit override).
+    if (next === effective) return
+    onChange(next)
   }
 
   const btn = size === 'xs' ? 'w-5' : 'w-6'
@@ -167,7 +178,7 @@ export function ReserveStepper({
           h,
           btn,
         )}
-        aria-label="-"
+        aria-label={t('scene.decreaseCount')}
       >
         &minus;
       </button>
@@ -179,6 +190,7 @@ export function ReserveStepper({
         value={editing ? editValue : String(effective)}
         onChange={(e) => setEditValue(e.target.value.replace(/[^0-9]/g, ''))}
         onFocus={() => {
+          cancelRef.current = false
           setEditValue(String(effective))
           setEditing(true)
           requestAnimationFrame(() => inputRef.current?.select())
@@ -188,7 +200,7 @@ export function ReserveStepper({
           e.stopPropagation()
           if (e.key === 'Enter') inputRef.current?.blur()
           if (e.key === 'Escape') {
-            setEditValue(String(effective))
+            cancelRef.current = true
             setEditing(false)
             inputRef.current?.blur()
           }
@@ -209,7 +221,7 @@ export function ReserveStepper({
           h,
           btn,
         )}
-        aria-label="+"
+        aria-label={t('scene.increaseCount')}
       >
         +
       </button>

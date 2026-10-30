@@ -360,6 +360,9 @@ const en = {
     renameScene: 'Rename Scene',
     resetCount: 'Reset to default count',
     moreActions: 'More actions',
+    deleteSceneFailed: 'Failed to delete scene',
+    decreaseCount: 'Decrease count',
+    increaseCount: 'Increase count',
   },
   templates: {
     title: 'Scene Templates',
