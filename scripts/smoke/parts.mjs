@@ -11,6 +11,10 @@
 //   6. mock generation: resolved_prompts contains the composed prompt
 //   7. detach: library unchanged, slot points to a project-only copy
 //   8. an unlinked character keeps a clean prompt (no stray commas)
+//   9-14. occlusion + gallery: body areas CRUD, item areas + cover rules,
+//      Covered badge / final preview, image axis values + library links on
+//      mock-generated images, library Images grid + thumbnail, gallery View
+//      filter (chip, prev/next, remove). Needs a FRESH seed (not re-runnable)
 // The DB is only opened read-only for cross-checks. Console / page errors fail.
 //
 // REFUSES to run unless the server shows the MOCK badge (NAI_MOCK=1) and the
@@ -140,7 +144,7 @@ async function newPage(width, height) {
 let page = await newPage(1440, 900)
 let tag = ''
 const shot = async (name, p = page) => {
-  const file = path.join(OUT, `parts-${tag}${name}.png`)
+  const file = path.join(OUT, `smoke-${tag}${name}.png`)
   await p.screenshot({ path: file })
   console.log(`  shot ${file}`)
 }
@@ -213,6 +217,16 @@ const segBtn = (scope, axis, value) =>
     .filter({ hasText: new RegExp(`^${value}`) })
     .first()
 const previewOut = () => page.locator('[data-preview-output]')
+/** Delete-value button of the axis value row named `name` (waits for the UI list to catch up with the DB). */
+async function deleteValueButton(name) {
+  const inputs = page.locator('input[aria-label="Value"]')
+  const idx = await until(async () => {
+    const vals = await inputs.evaluateAll((els) => els.map((e) => e.value))
+    const i = vals.lastIndexOf(name)
+    return i >= 0 ? i + 1 : 0
+  }, 8000, `value row "${name}" rendered`)
+  return page.getByRole('button', { name: 'Delete value' }).nth((idx ?? 1) - 1)
+}
 
 // ── 0. preflight ──
 await open("/")
@@ -418,7 +432,7 @@ try {
     'View value "Temp" added',
   )
   check(true, 'axis value added (DB count +1)')
-  await page.getByRole('button', { name: 'Delete value' }).last().click()
+  await (await deleteValueButton('Temp')).click()
   await page.getByRole('alertdialog').getByRole('button', { name: 'Delete', exact: true }).click()
   await until(
     () => q('select id from library_axis_values where axis_id = ?', axisId('View')).length === viewBefore,
@@ -446,8 +460,7 @@ try {
   )
   await open('/characters?tab=axes')
   await page.locator('[data-list-row]').filter({ hasText: /^View/ }).first().click()
-  const delBtns = page.getByRole('button', { name: 'Delete value' })
-  await delBtns.last().click()
+  await (await deleteValueButton('Tmp')).click()
   const dlg = page.getByRole('alertdialog')
   await dlg.waitFor()
   const dlgText = (await dlg.innerText()).replace(/\s+/g, ' ')
@@ -874,6 +887,367 @@ try {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+// Occlusion + library images + gallery axis filter (steps 9-14 = A-F)
+const areaId = (name) => q1('select id from library_areas where name = ?', name)?.id
+const itemRow = (id) => q1('select * from outfit_items where id = ?', id)
+let shirtId, S2
+let dImages = []
+
+step = '9' // A. Body areas section
+try {
+  await open('/characters?tab=axes')
+  await page.locator('[data-areas-entry]').click()
+  await page.locator('[data-areas-editor]').waitFor({ timeout: 8000 })
+  const rows = page.locator('[data-area-row] input')
+  const names = await rows.evaluateAll((els) => els.map((e) => e.value))
+  check(
+    names.join() === 'Top,Bottom,Outerwear,Shoes,Headwear,Accessory',
+    `Body areas lists the 6 seeded areas: ${names.join()}`,
+  )
+  const nameInput = page.getByRole('textbox', { name: 'New area name' })
+  await nameInput.fill('Smoke Area')
+  await nameInput.press('Enter')
+  await until(() => !!areaId('Smoke Area'), 6000, 'area "Smoke Area" created')
+  await until(async () => (await rows.count()) === 7, 6000, 'UI shows 7 area rows')
+  check(q('select id from library_areas').length === 7, 'area added (DB 7 rows)')
+  const last = rows.nth(6)
+  await last.fill('Smoke Area 2')
+  await last.press('Enter')
+  await until(() => !!areaId('Smoke Area 2'), 6000, 'area renamed')
+  check(!areaId('Smoke Area'), 'area renamed (DB: old name gone)')
+  await shot('9-areas')
+  await page.getByRole('button', { name: 'Delete area' }).last().click()
+  const dlg = page.getByRole('alertdialog')
+  await dlg.waitFor()
+  console.log(`  area-delete confirm: ${(await dlg.innerText()).replace(/\s+/g, ' ')}`)
+  await dlg.getByRole('button', { name: 'Delete', exact: true }).click()
+  await until(() => !areaId('Smoke Area 2'), 6000, 'area deleted')
+  check(q('select id from library_areas').length === 6, 'area deleted (DB back to 6 rows)')
+  await until(async () => (await rows.count()) === 6, 6000, 'UI back to 6 area rows')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('9-error').catch(() => {})
+}
+
+step = '10' // B. Smoke Shirt / Jacket areas + cover rules, slot outfit order
+try {
+  await open('/characters?tab=outfits')
+  await newEntry('Smoke Shirt')
+  shirtId = q1(`select id from outfit_items where name = 'Smoke Shirt'`)?.id
+  check(!!shirtId, 'outfit item "Smoke Shirt" created')
+  await addFragment('shirt_white')
+  const areaChip = (scope, name) =>
+    scope.locator('[data-area-chip]').filter({ hasText: new RegExp(`^${name}$`) })
+  await areaChip(page.locator('[data-item-areas]'), 'Top').click()
+  await until(
+    () => JSON.stringify(json(itemRow(shirtId)?.area_ids)) === JSON.stringify([areaId('Top')]),
+    6000,
+    'shirt area_ids = [Top]',
+  )
+  check(true, 'Smoke Shirt area = Top (DB)')
+  await shot('10-shirt')
+
+  await open(`/characters?tab=outfits&id=${jacketId}`)
+  await page.locator('[data-item-areas]').waitFor({ timeout: 8000 })
+  await areaChip(page.locator('[data-item-areas]'), 'Outerwear').click()
+  await until(
+    () => JSON.stringify(json(itemRow(jacketId)?.area_ids)) === JSON.stringify([areaId('Outerwear')]),
+    6000,
+    'jacket area_ids = [Outerwear]',
+  )
+  check(true, 'Smoke Jacket area = Outerwear (DB)')
+  const rules = page.locator('[data-cover-rule]')
+  for (let i = 0; i < 2; i++) {
+    await page.locator('[data-add-rule]').click()
+    await until(async () => (await rules.count()) === i + 1, 5000, `rule ${i + 1} added`)
+  }
+  await setCondition(rules.nth(0).getByRole('button', { name: 'Condition' }), ['Closed'])
+  await areaChip(rules.nth(0), 'Top').click()
+  await setCondition(rules.nth(1).getByRole('button', { name: 'Condition' }), ['Back'])
+  await areaChip(rules.nth(1), 'Top').click()
+  const zipAxis = q1('select id from library_axes where name = ? and owner_item_id = ?', 'Zipper', jacketId).id
+  const zipClosed = q1('select id from library_axis_values where axis_id = ? and name = ?', zipAxis, 'Closed').id
+  const wantRules = [
+    { conditions: { [zipAxis]: [zipClosed] }, areaIds: [areaId('Top')] },
+    { conditions: { [axisId('View')]: [valueId('View', 'Back')] }, areaIds: [areaId('Top')] },
+  ]
+  const gotRules = await until(
+    () => {
+      const r = json(itemRow(jacketId)?.cover_rules)
+      return JSON.stringify(r) === JSON.stringify(wantRules) ? r : null
+    },
+    8000,
+    `jacket cover_rules saved (${itemRow(jacketId)?.cover_rules})`,
+  )
+  check(!!gotRules, 'cover rules: Zipper Closed -> Top, View Back -> Top (DB)')
+  await shot('10-jacket-rules')
+  check(
+    JSON.stringify(json(itemRow(jacketId)?.conditions)[axisId('Framing')]) ===
+      JSON.stringify([valueId('Framing', 'Full body'), valueId('Framing', 'Upper body')]),
+    'jacket item condition untouched by rule edits',
+  )
+
+  // workspace slot (project 2, first character, linked to Hana in step 8)
+  await open(`/workspace/${PROJECT2}`)
+  await page.getByRole('tab', { name: /^Chars/ }).click()
+  await page.getByRole('button', { name: 'Add item' }).click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Shirt' }).first().click()
+  const slot2 = q1('select * from characters where project_id = ? order by slot_index limit 1', PROJECT2)
+  await until(
+    () => JSON.stringify(json(q1('select outfit_item_ids o from characters where id = ?', slot2.id).o)) === JSON.stringify([shirtId]),
+    8000,
+    'slot outfit = [shirt]',
+  )
+  await page.getByRole('button', { name: 'Add item' }).click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Jacket' }).first().click()
+  await until(
+    () => JSON.stringify(json(q1('select outfit_item_ids o from characters where id = ?', slot2.id).o)) === JSON.stringify([shirtId, jacketId]),
+    8000,
+    'slot outfit = [shirt, jacket]',
+  )
+  check(true, 'slot default outfit order = Shirt, Jacket (DB)')
+  await shot('10-chars-tab')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('10-error').catch(() => {})
+}
+
+step = '11' // C. Scene Parts: covered state
+const charRow2 = () => partsSection().locator('[data-testid="parts-character"]').first()
+async function expandChar() {
+  const b = charRow2().locator('> button')
+  if ((await b.getAttribute('aria-expanded')) !== 'true') await b.click()
+}
+const badgeCount = () => charRow2().locator('[data-covered-badge]').count()
+try {
+  await open(`/workspace/${PROJECT2}`)
+  await rail().first().waitFor({ timeout: 15000 })
+  await until(() => sceneIdFromUrl() > 0, 8000, 'scene auto-selected')
+  S2 = sceneIdFromUrl()
+  await ensurePartsOpen()
+  await expandChar()
+  await segBtn(sceneRow(), 'View', 'Front').click()
+  await segBtn(charRow2(), 'Zipper', 'Closed').click()
+  await previewMatches(
+    (s) => s.includes('jacket_base') && !s.includes('shirt_white'),
+    'View Front + Zipper Closed -> no shirt_white',
+  )
+  check(true, 'Front + Closed: final preview has no shirt_white (jacket present)')
+  await until(async () => (await badgeCount()) === 1, 5000, 'Covered badge shown')
+  check(
+    (await charRow2().locator('[data-covered]').innerText()).includes('Smoke Shirt'),
+    'Shirt chip is the dimmed one with the Covered badge',
+  )
+  await charRow2().locator('[data-covered-badge]').hover()
+  const tip = await page.getByRole('tooltip').first().innerText({ timeout: 4000 }).catch(() => '')
+  check(/Smoke Jacket/.test(tip), `Covered badge tooltip names the covering item ("${tip.trim()}")`)
+  await page.mouse.move(5, 5)
+  await shot('11-covered')
+
+  await segBtn(charRow2(), 'Zipper', 'Open').click()
+  await previewMatches((s) => s.includes('shirt_white'), 'Zipper Open -> shirt_white present')
+  await until(async () => (await badgeCount()) === 0, 5000, 'Covered badge gone')
+  check(true, 'Front + Open: shirt_white present, no Covered badge')
+  await shot('11-open')
+
+  await segBtn(sceneRow(), 'View', 'Back').click()
+  await previewMatches((s) => !s.includes('shirt_white'), 'View Back (Zipper Open) -> shirt covered again')
+  await until(async () => (await badgeCount()) === 1, 5000, 'Covered badge back')
+  check(true, 'Back + Open: shirt covered again (badge shown, no shirt_white)')
+
+  await segBtn(sceneRow(), 'Framing', 'Face').click()
+  await previewMatches(
+    (s) => s.includes('shirt_white') && !s.includes('jacket_'),
+    'Framing Face -> jacket excluded, shirt_white present',
+  )
+  await until(async () => (await badgeCount()) === 0, 5000, 'no badge at Face')
+  check(true, 'Framing Face: jacket excluded by item condition, shirt NOT covered')
+  await shot('11-face')
+
+  // back to the state used for generation: View Back, Full body, Zipper Closed
+  await segBtn(sceneRow(), 'Framing', 'Full body').click()
+  await segBtn(charRow2(), 'Zipper', 'Closed').click()
+  await previewMatches((s) => !s.includes('shirt_white') && s.includes('jacket_back_logo'), 'restored Back/Full body/Closed')
+  check(
+    (await until(() => sceneAx(S2)[axisId('View')] === valueId('View', 'Back') && sceneAx(S2)[axisId('Framing')] === valueId('Framing', 'Full body'), 6000, 'scene axis persisted')) !== null,
+    'scene axis_values: View=Back, Framing=Full body persisted',
+  )
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('11-error').catch(() => {})
+}
+
+step = '12' // D. generate 2 images with View Back
+try {
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  const inputs = page.locator('[title="Images to generate"] input')
+  await inputs.first().waitFor({ timeout: 15000 })
+  const n = await inputs.count()
+  for (let i = 0; i < n; i++) {
+    const rowScene = await inputs.nth(i).evaluate((el) => el.closest('[data-scene-id]')?.getAttribute('data-scene-id') ?? null)
+    const want = rowScene === String(S2) ? 2 : 0
+    const input = inputs.nth(i)
+    if ((await input.inputValue()) === String(want)) continue
+    await input.click()
+    await page.keyboard.press('Control+A')
+    await page.keyboard.type(String(want))
+    await page.keyboard.press('Enter')
+    await sleep(120)
+  }
+  const btn = page.getByRole('button', { name: /^Generate \d+$/ }).first()
+  const label = (await btn.innerText()).trim()
+  check(label === 'Generate 2', `footer reads "Generate 2" (is "${label}")`)
+  const jobBase = q1('select coalesce(max(id),0) m from generation_jobs').m
+  await btn.click()
+  const job = await until(
+    () => q1('select * from generation_jobs where id > ? and project_scene_id = ?', jobBase, S2),
+    10000,
+    'job created',
+  )
+  if (job) {
+    await until(() => q1('select status s from generation_jobs where id = ?', job.id).s === 'completed', 40000, 'job completed')
+    dImages = q('select id from generated_images where job_id = ? order by id', job.id).map((r) => r.id)
+    check(dImages.length === 2, `2 images generated (${dImages})`)
+    const rows = q(
+      `select a.name axis, a.owner_character_id oc, a.owner_item_id oi, v.name value
+       from image_axis_values iv join library_axes a on a.id = iv.axis_id join library_axis_values v on v.id = iv.value_id
+       where iv.image_id in (${dImages.join(',')})`,
+    )
+    check(
+      dImages.every((id) => q1('select 1 x from image_axis_values where image_id = ? and axis_id = ? and value_id = ?', id, axisId('View'), valueId('View', 'Back'))),
+      'both images have image_axis_values View=Back',
+    )
+    check(
+      rows.every((r) => r.oc === null && r.oi === null) && !rows.some((r) => r.axis === 'Zipper'),
+      `only global axes recorded (${[...new Set(rows.map((r) => r.axis + '=' + r.value))].join(', ')})`,
+    )
+    for (const id of dImages) {
+      const links = q('select kind, ref_id from image_library_links where image_id = ?', id)
+      const has = (k, r) => links.some((l) => l.kind === k && l.ref_id === r)
+      check(
+        has('character', hanaId) && has('item', jacketId) && !has('item', shirtId),
+        `image ${id} links: character Hana + item Jacket, not the covered Shirt (${JSON.stringify(links)})`,
+      )
+    }
+  }
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('12-error').catch(() => {})
+}
+
+step = '13' // E. library images + thumbnail + view in gallery
+try {
+  const hanaImgs = q("select image_id from image_library_links where kind = 'character' and ref_id = ? order by image_id desc", hanaId).map((r) => r.image_id)
+  check(hanaImgs.length >= 3 && dImages.every((i) => hanaImgs.includes(i)), `Hana has ${hanaImgs.length} linked images (DB), includes the 2 new ones`)
+  await open(`/characters?tab=characters&id=${hanaId}`)
+  const sec = page.locator('[data-library-images]')
+  await sec.waitFor({ timeout: 10000 })
+  check(
+    new RegExp(`Images \\(${hanaImgs.length}\\)`).test(await sec.innerText()),
+    `detail shows "Images (${hanaImgs.length})"`,
+  )
+  await until(async () => (await sec.locator('[data-library-image]').count()) === hanaImgs.length, 8000, 'image grid count')
+  const gridIds = await sec.locator('[data-library-image]').evaluateAll((els) => els.map((e) => Number(e.getAttribute('data-library-image'))))
+  check(gridIds.every((i) => hanaImgs.includes(i)), 'grid shows exactly the linked images')
+  const rowThumb = () =>
+    page.locator('[data-list-row]').filter({ hasText: 'Smoke Hana' }).first().locator('[data-list-thumb]')
+  const relOf = (id) => q1('select thumbnail_path p from generated_images where id = ?', id).p.replace('data/thumbnails/', '')
+  await rowThumb().waitFor({ timeout: 8000 })
+  const srcBefore = await rowThumb().getAttribute('src')
+  check(srcBefore.endsWith(relOf(hanaImgs[0])), 'list row thumbnail = latest linked image (auto)')
+  const oldest = hanaImgs[hanaImgs.length - 1]
+  await sec.locator(`[data-set-thumbnail="${oldest}"]`).click({ force: true })
+  await until(() => q1('select thumbnail_image_id t from library_characters where id = ?', hanaId).t === oldest, 6000, 'thumbnail_image_id set')
+  const changed = await until(async () => (await rowThumb().getAttribute('src')).endsWith(relOf(oldest)), 8000, 'list thumbnail changed')
+  check(!!changed, 'list row thumbnail changed to the chosen (oldest) image')
+  await shot('13-thumb-set')
+  await sec.locator('[data-reset-thumbnail]').click()
+  await until(() => q1('select thumbnail_image_id t from library_characters where id = ?', hanaId).t === null, 6000, 'thumbnail reset (DB)')
+  const back = await until(async () => (await rowThumb().getAttribute('src')).endsWith(relOf(hanaImgs[0])), 8000, 'list thumbnail back to auto')
+  check(!!back, 'Reset thumbnail restores the auto thumbnail')
+
+  // outfit item pages
+  await open(`/characters?tab=outfits&id=${shirtId}`)
+  const sSec = page.locator('[data-library-images]')
+  await sSec.waitFor({ timeout: 8000 })
+  check(/Images \(0\)/.test(await sSec.innerText()), 'covered Shirt: "Images (0)"')
+  await open(`/characters?tab=outfits&id=${jacketId}`)
+  const jN = q1("select count(*) c from image_library_links where kind = 'item' and ref_id = ?", jacketId).c
+  check(new RegExp(`Images \\(${jN}\\)`).test(await page.locator('[data-library-images]').innerText()) && jN >= 2, `Jacket: "Images (${jN})"`)
+
+  // View in gallery
+  await open(`/characters?tab=characters&id=${hanaId}`)
+  await page.locator('[data-view-in-gallery]').click()
+  await page.waitForURL(/\/gallery\?.*libraryCharacter=/, { timeout: 8000 })
+  const chip = page.locator('[data-filter-chip="library-character"]')
+  await chip.waitFor({ timeout: 8000 })
+  check(/Smoke Hana/.test(await chip.innerText()), `gallery shows chip "${(await chip.innerText()).trim()}"`)
+  const cards = page.locator('[data-gallery-grid] a[href^="/gallery/"]')
+  await until(async () => (await cards.count()) === hanaImgs.length, 10000, `gallery shows ${hanaImgs.length} cards`)
+  const gIds = (await cards.evaluateAll((els) => els.map((e) => Number(e.getAttribute('href').match(/\/gallery\/(\d+)/)[1])))).sort((a, b) => a - b)
+  check(JSON.stringify(gIds) === JSON.stringify([...hanaImgs].sort((a, b) => a - b)), 'gallery shows only Hana images')
+  await shot('13-gallery-char')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('13-error').catch(() => {})
+}
+
+step = '14' // F. gallery View filter
+try {
+  const V = axisId('View'), Bk = valueId('View', 'Back')
+  const expected = q('select distinct image_id from image_axis_values where axis_id = ? and value_id = ? order by image_id', V, Bk).map((r) => r.image_id)
+  check(dImages.every((i) => expected.includes(i)) && expected.length >= 2, `DB: ${expected.length} images with View=Back`)
+  await open('/gallery')
+  const cards = page.locator('[data-gallery-grid] a[href^="/gallery/"]')
+  await cards.first().waitFor({ timeout: 15000 })
+  const idsOf = async () => (await cards.evaluateAll((els) => els.map((e) => Number(e.getAttribute('href').match(/\/gallery\/(\d+)/)[1])))).sort((a, b) => a - b)
+  const unfilteredCount = await cards.count()
+  await page.locator('[data-add-filter]').click()
+  await page.locator(`[data-filter-menu="axis-${V}"]`).click()
+  await page.locator(`[data-filter-option="axis-${V}-${Bk}"]`).click()
+  const chip = page.locator('[data-filter-chip="axis"]')
+  await chip.waitFor({ timeout: 8000 })
+  check(/View: Back/.test(await chip.innerText()), `chip "${(await chip.innerText()).trim()}"`)
+  check(/axis=/.test(page.url()), `URL carries axis param (${new URL(page.url()).search})`)
+  await until(async () => (await cards.count()) === expected.length, 10000, `filtered gallery shows ${expected.length} cards`)
+  check(JSON.stringify(await idsOf()) === JSON.stringify(expected), 'filtered gallery = exactly the View=Back images')
+  await shot('14-gallery-axis')
+
+  // detail prev/next stays within the filter
+  await cards.first().click()
+  await page.locator('[data-image-detail]').waitFor({ timeout: 10000 })
+  const curId = () => Number(new URL(page.url()).pathname.match(/\/gallery\/(\d+)/)?.[1])
+  const seen = new Set([curId()])
+  let bad = false
+  for (const key of ['ArrowRight', 'ArrowLeft']) {
+    for (let i = 0; i < expected.length + 2; i++) {
+      const before = curId()
+      await page.keyboard.press(key)
+      await sleep(900)
+      const now = curId()
+      if (now === before) break
+      seen.add(now)
+      if (!expected.includes(now)) bad = true
+    }
+  }
+  check(!bad && [...seen].every((i) => expected.includes(i)), `detail prev/next stayed in the filter (visited ${[...seen]})`)
+  check(seen.size === expected.length, `prev/next reached all ${expected.length} filtered images (${seen.size})`)
+  check(/axis=/.test(page.url()), 'detail URL keeps the axis filter')
+  await shot('14-detail')
+
+  await page.goto(`${BASE}/gallery?axis=${V}:${Bk}`, { waitUntil: 'networkidle' })
+  await page.locator('[data-filter-chip="axis"]').waitFor({ timeout: 8000 })
+  await page.locator('[data-filter-chip="axis"] button').click()
+  await until(async () => (await page.locator('[data-filter-chip="axis"]').count()) === 0, 5000, 'chip removed')
+  await until(async () => (await cards.count()) > expected.length, 10000, 'unfiltered gallery restored')
+  check(!/axis=/.test(page.url()), 'axis param removed from URL')
+  check((await cards.count()) > expected.length, `removing the chip restores the gallery (${await cards.count()} cards, was ${unfilteredCount})`)
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('14-error').catch(() => {})
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
 step = 'm'
 try {
   const mp = await newPage(390, 844)
@@ -886,6 +1260,18 @@ try {
   await open(`/workspace/${PROJECT}?scene=${A}`, mp)
   await sleep(1500)
   await shot('workspace', mp)
+  await open('/characters?tab=axes&areas=true', mp)
+  await mp.locator('[data-areas-editor]').waitFor({ timeout: 10000 })
+  await shot('areas', mp)
+  await open('/characters?tab=outfits&id=' + jacketId, mp)
+  await mp.locator('[data-cover-rules]').waitFor({ timeout: 10000 })
+  await shot('jacket-rules', mp)
+  await open('/characters?tab=characters&id=' + hanaId, mp)
+  await mp.locator('[data-library-images]').waitFor({ timeout: 10000 })
+  await shot('library-images', mp)
+  await open('/gallery?axis=' + axisId('View') + ':' + valueId('View', 'Back'), mp)
+  await mp.locator('[data-filter-chip="axis"]').waitFor({ timeout: 10000 })
+  await shot('gallery-axis', mp)
   check(true, '390px screenshots taken')
   tag = ''
 } catch (e) {

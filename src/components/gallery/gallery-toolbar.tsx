@@ -102,6 +102,7 @@ export function GalleryToolbar({
   tags,
   bundles,
   library,
+  libraryNames,
   gridSize,
   onGridSizeChange,
   onChange,
@@ -113,6 +114,8 @@ export function GalleryToolbar({
   tags: Array<Option>
   bundles: Array<Option>
   library: GalleryLibrary
+  /** Names for the active character/outfit filter ids (may be outside this project's library) */
+  libraryNames?: { characters: Array<Option>; items: Array<Option> }
   gridSize: GridSize
   onGridSizeChange: (size: GridSize) => void
   /** Merges a partial filter set; `undefined` values remove a filter */
@@ -132,10 +135,14 @@ export function GalleryToolbar({
   const axisEntries = parseAxisParam(filters.axis)
   const characterName = filters.libraryCharacter
     ? (library.characters.find((c) => c.id === filters.libraryCharacter)
-        ?.name ?? `#${filters.libraryCharacter}`)
+        ?.name ??
+      libraryNames?.characters.find((c) => c.id === filters.libraryCharacter)
+        ?.name ??
+      `#${filters.libraryCharacter}`)
     : undefined
   const itemName = filters.outfitItem
     ? (library.items.find((c) => c.id === filters.outfitItem)?.name ??
+      libraryNames?.items.find((c) => c.id === filters.outfitItem)?.name ??
       `#${filters.outfitItem}`)
     : undefined
 

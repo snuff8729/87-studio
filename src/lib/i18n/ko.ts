@@ -193,8 +193,6 @@ const ko: DeepStringify<typeof en> = {
     characterChip: '캐릭터: {{name}}',
     outfitChip: '의상: {{name}}',
     axisFilterHint: '이번 업데이트 이후 생성한 이미지에만 구도/프레이밍 정보가 있어요.',
-    exportLibraryFilterNote:
-      '캐릭터/의상 필터는 내보내기에 적용되지 않아요. (프로젝트·축 필터는 적용돼요)',
     applyFilter: '적용',
     winRatePlus: '승률 {{count}}% 이상',
     tagImages: '이미지 태그',

@@ -254,6 +254,13 @@ export function ScenePartsSection({
   const libraryKey = JSON.stringify([
     library.data?.areas.map((a) => a.id),
     library.data?.items.map((i) => [i.id, i.areaIds, i.coverRules]),
+    // Chars tab edits: library character / default outfit / axis defaults
+    slots.map((s) => [
+      s.id,
+      s.libraryCharacterId,
+      s.outfitItemIds,
+      s.axisValues,
+    ]),
   ])
   const preview = useQuery({
     queryKey: ['scene-preview', projectId, sceneId, version, libraryKey],
@@ -567,7 +574,7 @@ function CharacterRow({
 
           <Button
             variant="ghost"
-            size="sm"
+            size="xs"
             disabled={!modified}
             onClick={onReset}
           >

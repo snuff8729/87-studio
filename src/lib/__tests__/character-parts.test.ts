@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   applyParts,
+  cleanCoverRuleConditions,
   composeParts,
   effectiveAxisValues,
   matchesCondition,
@@ -10,7 +11,8 @@ import {
   relevantAxes,
   visibleItems,
 } from '../character-parts'
-import type { PartsAxis, PartsFragment, PartsItem } from '../character-parts'
+import type { CoverRule, PartsAxis, PartsFragment, PartsItem  } from '../character-parts'
+
 
 const view: PartsAxis = {
   id: 1,
@@ -433,5 +435,21 @@ describe('parse helpers', () => {
       parseCoverRules('[{"conditions":{"1":[2]},"areaIds":[3,"x"]},5,null]'),
     ).toEqual([{ conditions: { '1': [2] }, areaIds: [3] }])
     expect(parseCoverRules('nope')).toEqual([])
+  })
+})
+
+describe('cleanCoverRuleConditions', () => {
+  const rules: Array<CoverRule> = [
+    { conditions: { '1': [10, 11] }, areaIds: [1] },
+    { conditions: { '2': [20] }, areaIds: [2] },
+    { conditions: {}, areaIds: [3] },
+  ]
+  it('drops rules referencing a deleted axis', () => {
+    expect(cleanCoverRuleConditions(rules, 1)).toEqual([rules[1], rules[2]])
+  })
+  it('removes a deleted value but keeps the rule (empty = never)', () => {
+    const out = cleanCoverRuleConditions(rules, 2, 20)
+    expect(out[1]).toEqual({ conditions: { '2': [] }, areaIds: [2] })
+    expect(out).toHaveLength(3)
   })
 })

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useNavigate, useRouter, useSearch } from '@tanstack/react-router'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -144,6 +145,7 @@ function ImageDetailContent({
 }) {
   const { t } = useTranslation()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [memo, setMemo] = useState(detail.memo || '')
   const [memoExpanded, setMemoExpanded] = useState(false)
   const [newTag, setNewTag] = useState('')
@@ -187,6 +189,7 @@ function ImageDetailContent({
     try {
       await bulkUpdateImages({ data: { imageIds: [detail.id], delete: true } })
       toast.success(t('imageDetail.deleted'))
+      void queryClient.invalidateQueries({ queryKey: ['library'] })
       if (detail.nextId) goToImage(detail.nextId)
       else if (detail.prevId) goToImage(detail.prevId)
       else goBack()

@@ -14,6 +14,8 @@ User-facing:
 - An outfit item has **cover rules**: list of `{ condition, areaIds }` — "when <condition> → covers <areas>". Condition
   uses the same editor/semantics as fragment conditions (global axes + this item's local axes; empty = always).
   Example padding: `Zipper: Closed → covers Top`; `View: Back → covers Top`.
+  Deleting an axis drops every cover rule whose condition referenced it (a rule never silently becomes "always
+  covers"); deleting a single axis value keeps the rule with that value removed (empty list = never matches).
 - Outfit order = inner → outer. An item is **hidden** when it has ≥1 area and every one of its areas is covered by a
   matching cover rule of some item **later** in the outfit list that itself passes its item condition (an outer item
   that is hidden by something even further out still covers — it is still worn). Items without areas are never hidden.

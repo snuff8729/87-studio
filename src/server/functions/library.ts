@@ -52,7 +52,34 @@ const now = () => new Date().toISOString()
 
 export const getLibrary = createServerFn({ method: 'GET' })
   .inputValidator((data: { projectId?: number | null } | undefined) => data)
-  .handler(async ({ data }) => loadLibraryData(data?.projectId ?? null))
+  .handler(async ({ data }) => loadLibraryData(data?.projectId ?? null, { includeImageStats: true }),
+  )
+
+/** Names for specific ids regardless of project scope (gallery filter chips). */
+export const getLibraryNames = createServerFn({ method: 'GET' })
+  .inputValidator(
+    (data: { characterIds?: Array<number>; itemIds?: Array<number> }) => data,
+  )
+  .handler(async ({ data }) => {
+    const characterIds = data.characterIds ?? []
+    const itemIds = data.itemIds ?? []
+    return {
+      characters: characterIds.length
+        ? db
+            .select({ id: libraryCharacters.id, name: libraryCharacters.name })
+            .from(libraryCharacters)
+            .where(inArray(libraryCharacters.id, characterIds))
+            .all()
+        : [],
+      items: itemIds.length
+        ? db
+            .select({ id: outfitItems.id, name: outfitItems.name })
+            .from(outfitItems)
+            .where(inArray(outfitItems.id, itemIds))
+            .all()
+        : [],
+    }
+  })
 
 export const getLibraryUsage = createServerFn({ method: 'GET' })
   .inputValidator((data: { kind: 'character' | 'item'; id: number }) => data)
@@ -199,7 +226,7 @@ export const duplicateLibraryCharacter = createServerFn({ method: 'POST' })
           name: nextCopyName(src.name, names),
           description: src.description,
           projectId: src.projectId,
-          thumbnailImageId: src.thumbnailImageId,
+          thumbnailImageId: null,
           sortOrder: (src.sortOrder ?? 0) + 1,
         })
         .returning()
@@ -307,7 +334,7 @@ export const duplicateOutfitItem = createServerFn({ method: 'POST' })
           name: nextCopyName(src.name, names),
           description: src.description,
           projectId: src.projectId,
-          thumbnailImageId: src.thumbnailImageId,
+          thumbnailImageId: null,
           conditions: '{}',
           areaIds: src.areaIds ?? '[]',
           sortOrder: (src.sortOrder ?? 0) + 1,
@@ -697,7 +724,7 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
               description: lib.description,
               projectId: slot.projectId,
               sourceId: lib.id,
-              thumbnailImageId: lib.thumbnailImageId,
+              thumbnailImageId: null,
               sortOrder: lib.sortOrder,
             })
             .returning()
@@ -743,7 +770,7 @@ export const detachCharacterSlot = createServerFn({ method: 'POST' })
             description: item.description,
             projectId: slot.projectId,
             sourceId: item.id,
-            thumbnailImageId: item.thumbnailImageId,
+            thumbnailImageId: null,
             conditions: '{}',
             areaIds: item.areaIds ?? '[]',
             sortOrder: item.sortOrder,

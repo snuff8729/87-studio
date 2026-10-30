@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -22,7 +22,7 @@ import { useTranslation } from '@/lib/i18n'
 
 /** "Body areas" section of the Axes tab: add / rename / reorder / delete. */
 export function AreasEditor({
-  areas,
+  areas: serverAreas,
   items,
 }: {
   areas: Array<{ id: number; name: string }>
@@ -46,11 +46,39 @@ export function AreasEditor({
     onSuccess: () => refresh(),
     onError,
   })
-  const reorder = useMutation({
-    mutationFn: (ids: Array<number>) => reorderAreas({ data: { ids } }),
-    onSuccess: () => refresh(),
-    onError,
-  })
+  // Local optimistic order + serialized saves so rapid ↑/↓ clicks compose
+  const [localOrder, setLocalOrder] = useState<Array<number> | null>(null)
+  const orderRef = useRef<Array<number> | null>(null)
+  const saveChain = useRef<Promise<unknown>>(Promise.resolve())
+  const areas = localOrder
+    ? localOrder
+        .map((id) => serverAreas.find((a) => a.id === id))
+        .filter((a): a is { id: number; name: string } => !!a)
+    : serverAreas
+  const serverKey = serverAreas.map((a) => a.id).join(',')
+  useEffect(() => {
+    // server truth arrived (once every queued save settled) — drop the override
+    const chain = saveChain.current
+    void chain.then(() => {
+      if (saveChain.current !== chain) return
+      orderRef.current = null
+      setLocalOrder(null)
+    })
+  }, [serverKey])
+  const reorder = {
+    mutate(ids: Array<number>) {
+      orderRef.current = ids
+      setLocalOrder(ids)
+      saveChain.current = saveChain.current
+        .then(() => reorderAreas({ data: { ids } }))
+        .then(() => refresh())
+        .catch((e: Error) => {
+          orderRef.current = null
+          setLocalOrder(null)
+          onError(e)
+        })
+    },
+  }
   const remove = useMutation({
     mutationFn: (id: number) => deleteArea({ data: id }),
     onSuccess: () => refresh(),
@@ -58,7 +86,7 @@ export function AreasEditor({
   })
 
   function move(index: number, dir: -1 | 1) {
-    const ids = areas.map((a) => a.id)
+    const ids = [...(orderRef.current ?? serverAreas.map((a) => a.id))]
     const j = index + dir
     if (j < 0 || j >= ids.length) return
     ;[ids[index], ids[j]] = [ids[j], ids[index]]

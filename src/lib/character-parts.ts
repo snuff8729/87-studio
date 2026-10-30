@@ -313,3 +313,34 @@ export function relevantAxes(
     return a.ownerItemId !== null && itemIds.includes(a.ownerItemId)
   })
 }
+
+/**
+ * Clean cover rules after an axis / axis value deletion. Deleting a whole axis
+ * drops every rule that conditioned on it (removing the key would silently turn
+ * the rule into "always covers"). Deleting a value keeps the rule with the value
+ * removed (an empty list = never matches).
+ */
+export function cleanCoverRuleConditions(
+  rules: Array<CoverRule>,
+  axisId: number,
+  removeValueId?: number,
+): Array<CoverRule> {
+  const key = String(axisId)
+  const out: Array<CoverRule> = []
+  for (const r of rules) {
+    if (!(key in r.conditions)) {
+      out.push(r)
+    } else if (removeValueId === undefined) {
+      continue
+    } else {
+      out.push({
+        ...r,
+        conditions: {
+          ...r.conditions,
+          [key]: r.conditions[key].filter((id) => id !== removeValueId),
+        },
+      })
+    }
+  }
+  return out
+}

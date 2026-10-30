@@ -216,7 +216,7 @@ src/
 │       └── tournament-dialog.tsx  # 이상형 월드컵 (토너먼트)
 ├── server/
 │   ├── db/
-│   │   ├── schema.ts          # Drizzle 스키마 정의 (29개 테이블)
+│   │   ├── schema.ts          # Drizzle 스키마 정의 (32개 테이블)
 │   │   ├── index.ts           # DB 연결 (better-sqlite3)
 │   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0016)
 │   ├── services/
@@ -375,6 +375,8 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 축: 글로벌(View: Front·Side·Back, Framing: Full body·Upper body·Face 시드, 편집 가능) + 로컬(캐릭터/아이템 소유, 예: Zipper). **첫 값이 기본값**. 값 삭제로 허용 목록이 비면 그 조각은 "절대 포함 안 됨"(경고 칩), 축 삭제 시 조건 키 제거
 - 프로젝트 캐릭터 슬롯: `library_character_id`(실시간 연결), 기본 의상 `outfit_item_ids`, 로컬 축 기본값 `axis_values`. **분리**(`detachCharacterSlot`) = 프로젝트 전용 복사본(`project_id` 설정, 글로벌 목록에 안 보임)으로 프로젝트 전체 재연결
 - 씬: `project_scenes.axis_values`(글로벌 축), 캐릭터별 `character_scene_overrides.axis_values` / `outfit_item_ids`(null = 기본 의상). 글로벌 씬 템플릿 `scenes.axis_values`는 적용 시 스냅샷 복사
+- **가림(occlusion)**: 부위(`library_areas`, Axes 탭 "Body areas", 시드 Top·Bottom·Outerwear·Shoes·Headwear·Accessory) + 아이템 `area_ids` / `cover_rules`(`{conditions, areaIds}`). 의상 순서 = 안→밖. 바깥(뒤쪽) 아이템의 통과한 규칙이 안쪽 아이템의 **모든** 부위를 가리면 숨김. 아이템 조건 미통과 아이템은 가리지 않음, 숨겨진 겉옷도 가림. 축 삭제 시 그 축을 쓰던 가림 규칙은 삭제. 씬 Parts에 "가려짐" 배지
+- **이미지 기록**: 생성 이미지마다 `image_axis_values`(글로벌 축), `image_library_links`(연결 캐릭터 + 실제로 조각이 들어간 아이템). 이전 이미지는 기록 없음. 갤러리 `?axis=<axisId>:<valueId>,…`, `?libraryCharacter=`, `?outfitItem=` 필터(내보내기에도 적용). 라이브러리 상세 "Images (N)" + 썸네일 지정/초기화(자동 = 최신 연결 이미지)
 - `@{char}` / `@{outfit}` 토큰은 워크스페이스 캐릭터 프롬프트 에디터에서만 자동완성·유효 처리 (`partsTokens` prop)
 - 순수 로직 `src/lib/character-parts.ts`(테스트 있음), 서버 `src/server/functions/library.ts`, `src/server/services/parts.ts`, UI `src/components/library/`, `src/components/parts/`(AxisSegmented, OutfitItemsEditor), 워크스페이스 `character-parts-panel.tsx`, `scene-parts-section.tsx`(Parts 섹션 + 최종 프롬프트 미리보기), `scene-axes-dialog.tsx`(선택 모드 일괄 View/Framing)
 
@@ -664,7 +666,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - **ZIP 형식**으로 이미지 데이터 반환 (fflate로 압축 해제)
 - ZIP 압축 해제 후 이미지 파일 추출하여 `data/images/{projectId}/`에 저장
 
-## DB 스키마 (Drizzle ORM) — 29개 테이블 (캐릭터 파츠 6개는 "캐릭터 파츠" 절 참고)
+## DB 스키마 (Drizzle ORM) — 32개 테이블 (캐릭터 파츠 6개는 "캐릭터 파츠" 절 참고)
 
 ### projects
 

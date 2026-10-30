@@ -5,6 +5,8 @@ import {
   generatedImages,
   imageBundles,
   imageTags,
+  libraryCharacters,
+  outfitItems,
   projectScenes,
   projects,
   promptBundles,
@@ -376,9 +378,20 @@ export const bulkUpdateImages = createServerFn({ method: 'POST' })
         .from(generatedImages)
         .where(inArray(generatedImages.id, data.imageIds))
         .all()
-      db.delete(generatedImages)
-        .where(inArray(generatedImages.id, data.imageIds))
-        .run()
+      db.transaction((tx) => {
+        // pinned library thumbnails pointing at deleted images fall back to auto
+        tx.update(libraryCharacters)
+          .set({ thumbnailImageId: null })
+          .where(inArray(libraryCharacters.thumbnailImageId, data.imageIds))
+          .run()
+        tx.update(outfitItems)
+          .set({ thumbnailImageId: null })
+          .where(inArray(outfitItems.thumbnailImageId, data.imageIds))
+          .run()
+        tx.delete(generatedImages)
+          .where(inArray(generatedImages.id, data.imageIds))
+          .run()
+      })
       deleteImageFiles(files)
       return { success: true }
     }

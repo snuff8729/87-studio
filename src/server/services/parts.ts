@@ -15,6 +15,7 @@ import {
 import type { AnyColumn } from 'drizzle-orm'
 import type { Condition, CoverRule, PartsAxis } from '@/lib/character-parts'
 import {
+  cleanCoverRuleConditions,
   parseCondition,
   parseCoverRules,
   parseIdList,
@@ -94,7 +95,11 @@ export function fragmentOut(f: typeof fragments.$inferSelect): LibraryFragment {
  * Load the whole parts library. Global rows always; project-only rows only for
  * `projectId`. Axes: all global + local axes of the returned characters/items.
  */
-export function loadLibraryData(projectId?: number | null): LibraryData {
+export function loadLibraryData(
+  projectId?: number | null,
+  opts?: { includeImageStats?: boolean },
+): LibraryData {
+  const includeImageStats = opts?.includeImageStats === true
   const scope = (col: AnyColumn) =>
     projectId != null ? or(isNull(col), eq(col, projectId)) : isNull(col)
 
@@ -178,22 +183,25 @@ export function loadLibraryData(projectId?: number | null): LibraryData {
     }))
 
   const linkCounts = new Map<string, number>()
-  for (const r of db
-    .select({
-      kind: imageLibraryLinks.kind,
-      refId: imageLibraryLinks.refId,
-      n: sql<number>`count(*)`,
-    })
-    .from(imageLibraryLinks)
-    .groupBy(imageLibraryLinks.kind, imageLibraryLinks.refId)
-    .all()) {
-    linkCounts.set(`${r.kind}:${r.refId}`, r.n)
+  if (includeImageStats) {
+    for (const r of db
+      .select({
+        kind: imageLibraryLinks.kind,
+        refId: imageLibraryLinks.refId,
+        n: sql<number>`count(*)`,
+      })
+      .from(imageLibraryLinks)
+      .groupBy(imageLibraryLinks.kind, imageLibraryLinks.refId)
+      .all()) {
+      linkCounts.set(`${r.kind}:${r.refId}`, r.n)
+    }
   }
   const thumbOf = (
     kind: 'character' | 'item',
     id: number,
     thumbnailImageId: number | null,
   ): string | null => {
+    if (!includeImageStats) return null
     if (thumbnailImageId != null) {
       const img = db
         .select({ t: generatedImages.thumbnailPath })
@@ -420,13 +428,8 @@ export function cleanConditions(
         .run()
     // cover rule conditions are cleaned exactly like fragment conditions
     const rules = parseCoverRules(i.coverRules)
-    let changed = false
-    const nextRules = rules.map((r) => {
-      const c = fix(JSON.stringify(r.conditions))
-      if (c === null) return r
-      changed = true
-      return { ...r, conditions: JSON.parse(c) as Condition }
-    })
+    const nextRules = cleanCoverRuleConditions(rules, axisId, removeValueId)
+    const changed = JSON.stringify(nextRules) !== JSON.stringify(rules)
     if (changed)
       tx.update(outfitItems)
         .set({ coverRules: JSON.stringify(nextRules) })

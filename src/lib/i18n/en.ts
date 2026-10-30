@@ -191,8 +191,6 @@ const en = {
     outfitChip: 'Outfit: {{name}}',
     axisFilterHint:
       'Only images generated after this update have view/framing info.',
-    exportLibraryFilterNote:
-      'The character/outfit filter is not applied to export. Other gallery filters (project, axis) are.',
     applyFilter: 'Apply',
     winRatePlus: '{{count}}%+ win rate',
     tagImages: 'Tag images',

@@ -52,7 +52,7 @@ import {
   serializeAxisParam,
   toImageQuery,
 } from '@/lib/gallery-filters'
-import { getLibrary } from '@/server/functions/library'
+import { getLibrary, getLibraryNames } from '@/server/functions/library'
 import { DownloadDialog } from '@/components/common/download-dialog'
 import { BulkTagPopover } from '@/components/gallery/bulk-tag-popover'
 import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
@@ -112,13 +112,19 @@ export const Route = createFileRoute('/gallery')({
   }),
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
-    const [images, allTags, allProjects, allBundles, library] =
+    const [images, allTags, allProjects, allBundles, library, libraryNames] =
       await Promise.all([
       listImages({ data: { page: 1, limit: 40, ...toImageQuery(deps) } }),
       listTags(),
       listProjectsForFilter(),
       listBundleNames(),
       getLibrary({ data: { projectId: deps.project } }),
+      getLibraryNames({
+        data: {
+          characterIds: deps.libraryCharacter ? [deps.libraryCharacter] : [],
+          itemIds: deps.outfitItem ? [deps.outfitItem] : [],
+        },
+      }),
     ])
     return {
       initialImages: images,
@@ -126,6 +132,7 @@ export const Route = createFileRoute('/gallery')({
       allProjects,
       allBundles,
       library,
+      libraryNames,
     }
   },
   component: GalleryLayout,
@@ -155,6 +162,7 @@ function GalleryLayout() {
     allProjects,
     allBundles,
     library,
+    libraryNames,
   } = Route.useLoaderData()
   const search = Route.useSearch()
   const navigate = Route.useNavigate()
@@ -381,9 +389,8 @@ function GalleryLayout() {
             projectName={allProjects.find((p) => p.id === search.project)?.name}
             scenes={projectScenes}
             axes={parseAxisParam(search.axis)}
-            hasLibraryFilter={Boolean(
-              search.libraryCharacter || search.outfitItem,
-            )}
+            libraryCharacterId={search.libraryCharacter}
+            outfitItemId={search.outfitItem}
           />
         )}
 
@@ -394,6 +401,7 @@ function GalleryLayout() {
           tags={allTags}
           bundles={allBundles}
           library={library}
+          libraryNames={libraryNames}
           gridSize={gridSize}
           onGridSizeChange={setGridSize}
           onChange={handleFilterChange}
@@ -510,7 +518,8 @@ function GalleryHeader({
   projectName,
   scenes,
   axes,
-  hasLibraryFilter,
+  libraryCharacterId,
+  outfitItemId,
 }: {
   count: number | string
   selectMode: boolean
@@ -528,7 +537,8 @@ function GalleryHeader({
   projectName: string | undefined
   scenes: Array<{ id: number; name: string }>
   axes: Array<{ axisId: number; valueId: number }>
-  hasLibraryFilter: boolean
+  libraryCharacterId: number | undefined
+  outfitItemId: number | undefined
 }) {
   const { t } = useTranslation()
   usePageHeader({ count })
@@ -648,7 +658,8 @@ function GalleryHeader({
             projectName={projectName}
             availableScenes={scenes}
             axes={axes}
-            libraryFilterIgnored={hasLibraryFilter}
+            libraryCharacterId={libraryCharacterId}
+            outfitItemId={outfitItemId}
           />
         </>
       )}
