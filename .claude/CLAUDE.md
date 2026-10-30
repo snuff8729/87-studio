@@ -140,15 +140,17 @@ src/
 │   ├── quick-generate/        # 빠른 생성 컴포넌트 (프롬프트/캐릭터 탭, ImageViewer, HistoryStrip, 메타데이터 임포트)
 │   ├── common/                # 공통 컴포넌트
 │   │   ├── confirm-dialog.tsx     # 확인 다이얼로그
-│   │   ├── page-header.tsx        # 페이지 헤더
+│   │   ├── master-detail.tsx      # 목록/상세 프레임 (리사이즈·접기, 폭 localStorage 87studio-master-detail:<id>, 모바일 목록→상세 + 뒤로가기)
+│   │   ├── selection-bar.tsx      # 선택 모드 헤더 (✕·전체 선택·"n selected"·액션 슬롯) — 헤더 액션 영역에 렌더
 │   │   ├── download-dialog.tsx    # 다운로드 다이얼로그
-│   │   ├── grid-size-toggle.tsx   # 그리드 크기 토글
 │   │   ├── expanded-textarea-dialog.tsx  # 전체 화면 텍스트 편집
 │   │   └── image-detail-overlay.tsx     # 이미지 상세 오버레이
+│   ├── gallery/               # 갤러리 컴포넌트
+│   │   └── gallery-toolbar.tsx    # 필터 칩 툴바 (칩·＋ Filter·정렬·카드 크기 슬라이더)
 │   ├── layout/                # 레이아웃 (앱 셸)
 │   │   ├── app-sidebar.tsx        # 글로벌 사이드바 (collapsible icon, Create/Library 그룹, 큐 배지)
 │   │   ├── app-header.tsx         # 상단 헤더 (SidebarTrigger + 브레드크럼)
-│   │   ├── breadcrumb-context.tsx # BreadcrumbProvider, useBreadcrumb()
+│   │   ├── breadcrumb-context.tsx # BreadcrumbProvider, usePageHeader({items,count}), useBreadcrumb(), <HeaderActions selecting?> (헤더 우측 포털)
 │   │   ├── sidebar-route-sync.tsx # 에디터 라우트 진입 시 사이드바 자동 접힘, 모바일 시트 닫기
 │   │   └── nav-items.ts           # 네비게이션 항목, getActiveNavItem, isEditorRoute, shouldAutoCollapse
 │   ├── onboarding/            # 온보딩 시스템
@@ -280,6 +282,7 @@ public/
 start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js 자동 다운로드)
 start.bat                      # Windows 간편 실행 스크립트
 scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단)
+scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐, server fn 응답 목업, 1440·390, 쓰기 차단)
 LICENSE                        # PolyForm Noncommercial 1.0.0
 ```
 
@@ -448,17 +451,25 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - **태그**: 사용자가 직접 수동으로 이미지에 태그 부여
 - 각 이미지에 생성 시 사용된 전체 프롬프트, 파라미터, 시드값 등 메타데이터 보존
 - 이미지는 로컬 파일시스템에 저장, 썸네일 자동 생성
-- **갤러리 레이아웃**: 무한 스크롤 그리드
+- **갤러리 레이아웃**: 무한 스크롤 그리드 (헤더 "Gallery {n}", 액션 Select·Export, 툴바 = 필터 칩 + ＋ Filter + 정렬 + 카드 크기 슬라이더 `87studio-grid-gallery`)
 - **이미지 상세**: 별도 라우트 (`/gallery/$imageId`)
 - **일괄 다운로드**: 필터/선택 기반 ZIP 다운로드 (파일명 템플릿 지원)
 
 ## 프론트엔드 UI 세부사항
 
+### 페이지 프레임 (브라우즈 페이지 공통)
+
+- 페이지 제목/개수/액션은 **앱 헤더**(h-12)에 둔다: `usePageHeader({ items?, count? })`(개수는 muted, 마지막 크럼 뒤) + `<HeaderActions>`(헤더 우측 포털; 모바일에서는 아이콘 버튼으로 축소, 줄바꿈 없음). 페이지 내부 큰 제목/설명 문단 없음 (`PageHeader` 삭제)
+- 콘텐츠는 전폭 + `p-4 md:p-6` (중앙 좁은 컬럼 없음)
+- 선택 모드: `<HeaderActions selecting>` + `<SelectionBar>`가 헤더 액션 영역을 대체 (브레드크럼 숨김, 헤더 배경 primary 소프트) — 떠다니는 벌크 바 없음
+- 레이아웃 라우트가 자식 라우트(`/gallery/$imageId`)를 품으면 자식 상세 중에는 부모 헤더 컴포넌트를 렌더하지 않는다 (헤더 상태 덮어쓰기 방지)
+
 ### 대시보드 (/)
 
-- 프로젝트 목록
-- 현재 진행 중인 Job 상태
-- 최근 생성된 이미지 미리보기
+- 헤더 "Projects {n}", 액션: 이름 검색(클라이언트) + ＋ New Project(`default`, 온보딩 앵커 `new-project-btn`)
+- 실행 스트립(`data-running-strip`): 큐에 대기/진행 작업이 있을 때만 — 상태 점, 배치 라벨, 진행바(brand gradient), 완료/전체, `/queue` 링크
+- 프로젝트 카드 그리드(auto-fill 220px): 3:2 커버(썸네일/최근 이미지, 없으면 아이콘), 이름, "{씬} scenes · {이미지} images · 상대 시간"(`listProjects`가 `sceneCount` 포함), ⋯ 메뉴(이름 변경/복제/삭제), 마지막 칸 점선 ＋ New 카드. 빈 상태: 환영 + New + 메타데이터 임포트 링크
+- API 키 미설정이면 설정으로 가는 얇은 안내 줄
 
 ### 워크스페이스 (/workspace/$projectId)
 
@@ -502,6 +513,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - 프롬프트 스니펫 라이브러리 관리
 - 번들 CRUD, 태그 분류
 - 번들 갤러리 이미지 연결
+- `MasterDetail`: 좌측 리사이즈 목록(검색 + ＋ New, 썸네일·이름·태그 칩 행), 우측 상세(`PromptEditorHeader` + 프롬프트 에디터). 모바일은 목록 → 상세(뒤로가기)
 
 ### 빠른 생성 (/generate)
 
@@ -511,14 +523,16 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ### 큐 (/queue)
 
-- 생성 큐 실시간 상태 시각화
-- 배치별 진행 현황
+- 전폭. 헤더 "Queue {활성 배치 수}", 액션: Pause/Resume
+- "Now generating" 카드(`data-now-generating`): 실행 중 배치의 최신 씬 이미지 미리보기, 프로젝트 · 씬, 진행바(brand gradient), 완료/전체, 배치 취소
+- 대기 배치 목록(드래그 재정렬, 확장 시 작업 재정렬·프롬프트 보기, 취소), 완료/실패/취소 히스토리는 기본 접힘(개수 표시, 실패 재시도 유지)
 
 ### 태그 갤러리 (/tags)
 
 - Danbooru 태그 검색 및 상세 정보 조회
-- 태그 북마크 컬렉션 관리
+- 태그 북마크 컬렉션 관리 (검색 옆 ＋ New → 태그 이름 입력으로 북마크 생성)
 - 북마크별 참고 이미지 갤러리
+- 번들과 같은 `MasterDetail` (페이지 `87studio-master-detail:tags`, 프롬프트 에디터 다이얼로그 `tag-dialog`)
 
 ### 캐릭터 편집 (Quick Generate Chars 탭 / 워크스페이스 Chars 탭 공용 `CharactersEditor`)
 
