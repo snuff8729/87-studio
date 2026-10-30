@@ -33,6 +33,8 @@ const en = {
     bundles: 'Bundles',
     tags: 'Tags',
     settings: 'Settings',
+    groupCreate: 'Create',
+    groupLibrary: 'Library',
   },
   error: {
     occurred: 'An error occurred',

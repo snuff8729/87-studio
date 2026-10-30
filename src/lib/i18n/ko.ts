@@ -36,6 +36,8 @@ const ko: DeepStringify<typeof en> = {
     bundles: '번들',
     tags: '태그',
     settings: '설정',
+    groupCreate: '생성',
+    groupLibrary: '라이브러리',
   },
   error: {
     occurred: '오류가 발생했습니다',
