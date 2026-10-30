@@ -21,6 +21,7 @@ import {
   QueueStatusWidget,
   useQueueSummary,
 } from '@/components/queue/queue-status-widget'
+import { SidebarAccountRow } from '@/components/account/nai-account'
 import { useTranslation } from '@/lib/i18n'
 import { getAppInfo } from '@/server/functions/settings'
 
@@ -139,6 +140,7 @@ export function AppSidebar() {
           </div>
         )}
         {(isMobile || state !== 'collapsed') && <QueueStatusWidget />}
+        <SidebarAccountRow />
         <SidebarMenu>{renderGroup('footer')}</SidebarMenu>
       </SidebarFooter>
       <SidebarRail />

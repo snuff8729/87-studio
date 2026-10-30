@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useQueryClient } from '@tanstack/react-query'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
@@ -24,6 +25,11 @@ import {
   validateApiKey,
 } from '@/server/functions/settings'
 import { cleanupOrphanFiles, getStorageStats } from '@/server/functions/storage'
+import {
+  AccountSummary,
+  NAI_ACCOUNT_KEY,
+  useNaiAccount,
+} from '@/components/account/nai-account'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
 import { cn } from '@/lib/utils'
@@ -192,6 +198,8 @@ function StatTile({
 
 function SettingsPage() {
   const { apiKey: initialApiKey, delay: initialDelay } = Route.useLoaderData()
+  const queryClient = useQueryClient()
+  const { data: account } = useNaiAccount()
   const [apiKey, setApiKey] = useState(initialApiKey)
   const [showKey, setShowKey] = useState(false)
   const [keyValid, setKeyValid] = useState(false)
@@ -263,6 +271,7 @@ function SettingsPage() {
       setKeyValid(false)
       try {
         await setSetting({ data: { key: 'nai_api_key', value } })
+        void queryClient.invalidateQueries({ queryKey: NAI_ACCOUNT_KEY })
         toast.success(t('settings.saved'))
         if (value.trim()) {
           window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
@@ -271,7 +280,7 @@ function SettingsPage() {
         toast.error(t('settings.saveFailed'))
       }
     },
-    [t],
+    [t, queryClient],
   )
 
   const saveDelay = useCallback(
@@ -340,6 +349,7 @@ function SettingsPage() {
       }
       const result = await validateApiKey({ data: apiKey })
       if (result.valid) {
+        queryClient.setQueryData(NAI_ACCOUNT_KEY, result.account)
         setKeyValid(true)
         toast.success(t('settings.apiKeyValid'))
         window.dispatchEvent(new CustomEvent('onboarding:api-key-saved'))
@@ -492,6 +502,11 @@ function SettingsPage() {
               </Button>
             </div>
           </SettingRow>
+          {account && apiKey.trim() && (
+            <div className="mt-4">
+              <AccountSummary account={account} />
+            </div>
+          )}
         </SectionCard>
 
         <SectionCard
