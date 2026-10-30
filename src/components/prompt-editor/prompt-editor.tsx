@@ -8,14 +8,15 @@ import { placeholderHighlight } from './placeholder-highlight'
 import { bundleHighlight } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
 import { invalidRefHighlight, invalidRefTooltip } from './invalid-ref-highlight'
-import { setBundleNames, setSlotNames, unifiedCompletion } from './bundle-completion'
-import { bundleTooltip } from './bundle-tooltip'
-import type { ViewUpdate } from '@codemirror/view'
 import {
-  EditorContextMenu,
-  detectTokenAt,
-  type ContextMenuTarget,
-} from './editor-context-menu'
+  setBundleNames,
+  setSlotNames,
+  unifiedCompletion,
+} from './bundle-completion'
+import { bundleTooltip } from './bundle-tooltip'
+import { EditorContextMenu, detectTokenAt } from './editor-context-menu'
+import type { ContextMenuTarget } from './editor-context-menu'
+import type { ViewUpdate } from '@codemirror/view'
 
 // CM mounts its tooltip container as an in-flow 2px child of the parent. On
 // document.body that made every editor route 2px taller per editor than the
@@ -74,28 +75,32 @@ export function PromptEditor({
     y: number
   } | null>(null)
 
-  const handleContextMenuDelete = useCallback(
-    (from: number, to: number) => {
-      const view = viewRef.current
-      if (!view) return
-      const doc = view.state.doc.toString()
-      // Clean surrounding comma/whitespace
-      let delFrom = from
-      let delTo = to
-      // Remove trailing comma + space
-      if (doc[delTo] === ',' || doc[delTo] === ' ') {
-        delTo++
-        while (delTo < doc.length && doc[delTo] === ' ') delTo++
-      }
-      // Or leading comma + space if at end
-      else if (delFrom > 0 && (doc[delFrom - 1] === ',' || doc[delFrom - 1] === ' ')) {
+  const handleContextMenuDelete = useCallback((from: number, to: number) => {
+    const view = viewRef.current
+    if (!view) return
+    const doc = view.state.doc.toString()
+    // Clean surrounding comma/whitespace
+    let delFrom = from
+    let delTo = to
+    // Remove trailing comma + space
+    if (doc[delTo] === ',' || doc[delTo] === ' ') {
+      delTo++
+      while (delTo < doc.length && doc[delTo] === ' ') delTo++
+    }
+    // Or leading comma + space if at end
+    else if (
+      delFrom > 0 &&
+      (doc[delFrom - 1] === ',' || doc[delFrom - 1] === ' ')
+    ) {
+      delFrom--
+      while (
+        delFrom > 0 &&
+        (doc[delFrom - 1] === ',' || doc[delFrom - 1] === ' ')
+      )
         delFrom--
-        while (delFrom > 0 && (doc[delFrom - 1] === ',' || doc[delFrom - 1] === ' ')) delFrom--
-      }
-      view.dispatch({ changes: { from: delFrom, to: delTo } })
-    },
-    [],
-  )
+    }
+    view.dispatch({ changes: { from: delFrom, to: delTo } })
+  }, [])
 
   useEffect(() => {
     if (bundleNamesProp) {
@@ -179,7 +184,6 @@ export function PromptEditor({
       viewRef.current = null
     }
     // Only recreate on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Sync external value changes (skip if editor is focused to avoid cursor jumps)

@@ -1,9 +1,9 @@
+import { searchTags } from './danbooru-completion'
 import type {
   Completion,
   CompletionContext,
   CompletionResult,
 } from '@codemirror/autocomplete'
-import { searchTags } from './danbooru-completion'
 
 // Module-level cache, updated externally
 let bundleNames: Array<{ name: string; content: string }> = []
@@ -82,9 +82,7 @@ export async function unifiedCompletion(
       if (query.startsWith('bundle:')) {
         const nameQuery = query.slice(7)
         const options: Array<Completion> = bundleNames
-          .filter(
-            (b) => !nameQuery || b.name.toLowerCase().includes(nameQuery),
-          )
+          .filter((b) => !nameQuery || b.name.toLowerCase().includes(nameQuery))
           .slice(0, 15)
           .map((b) => ({
             label: `bundle:${b.name}`,
@@ -136,9 +134,7 @@ export async function unifiedCompletion(
           })),
       ]
 
-      return options.length > 0
-        ? { from, options, validFor: /^[^}]*$/ }
-        : null
+      return options.length > 0 ? { from, options, validFor: /^[^}]*$/ } : null
     }
   }
 

@@ -238,7 +238,7 @@ function SortableBatchRow({
           <button
             onClick={() => setCancelDialogOpen(true)}
             className="p-1 text-muted-foreground hover:text-destructive rounded"
-            aria-label={t('queue.cancelBatch' as any)}
+            aria-label={t('queue.cancelBatch')}
           >
             <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
           </button>
@@ -268,9 +268,9 @@ function SortableBatchRow({
       <ConfirmDialog
         open={cancelDialogOpen}
         onOpenChange={setCancelDialogOpen}
-        title={t('queue.cancelBatch' as any)}
-        description={t('queue.cancelBatchConfirm' as any)}
-        actionLabel={t('queue.cancelBatch' as any)}
+        title={t('queue.cancelBatch')}
+        description={t('queue.cancelBatchConfirm')}
+        actionLabel={t('queue.cancelBatch')}
         onConfirm={() => onCancel(batch.id)}
         variant="destructive"
       />
@@ -320,7 +320,7 @@ function JobPromptDisplay({ jobId }: { jobId: number }) {
       {prompts.generalPrompt && (
         <div>
           <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-            {t('queue.promptGeneral' as any)}
+            {t('queue.promptGeneral')}
           </span>
           <p className="text-[11px] text-foreground/80 whitespace-pre-wrap break-all leading-relaxed mt-0.5">
             {prompts.generalPrompt}
@@ -354,7 +354,7 @@ function JobPromptDisplay({ jobId }: { jobId: number }) {
       {prompts.negativePrompt && (
         <div>
           <span className="text-[10px] font-medium text-destructive/60 uppercase tracking-wide">
-            {t('queue.promptNegative' as any)}
+            {t('queue.promptNegative')}
           </span>
           <p className="text-[11px] text-destructive/50 whitespace-pre-wrap break-all leading-relaxed mt-0.5">
             {prompts.negativePrompt}
@@ -589,10 +589,10 @@ function RecentBatchRow({
             {batch.completedImages}/{batch.totalImages}
             {' · '}
             {isCompleted
-              ? t('queue.completed' as any)
+              ? t('queue.completed')
               : isFailed
-                ? t('queue.failed' as any)
-                : t('queue.cancelled' as any)}
+                ? t('queue.failed')
+                : t('queue.cancelled')}
           </span>
         </div>
 
@@ -601,7 +601,7 @@ function RecentBatchRow({
             <button
               onClick={() => onRetry(batch.id)}
               className="p-1.5 text-muted-foreground hover:text-foreground rounded text-xs flex items-center gap-1"
-              title={t('queue.retryBatch' as any)}
+              title={t('queue.retryBatch')}
             >
               <HugeiconsIcon
                 icon={ArrowReloadHorizontalIcon}

@@ -7,8 +7,8 @@ import {
   ArrowLeft02Icon,
   BookmarkAdd01Icon,
   Cancel01Icon,
-  PinIcon,
   Delete02Icon,
+  PinIcon,
 } from '@hugeicons/core-free-icons'
 import type { NAIMetadata } from '@/lib/nai-metadata'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
@@ -36,7 +36,7 @@ type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
 
 export function ImageDetailOverlay({ imageId }: { imageId: number }) {
   const router = useRouter()
-  const { detailBundle } = useSearch({ from: '__root__' })
+  const { detailBundle, detailTag } = useSearch({ from: '__root__' })
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -45,13 +45,16 @@ export function ImageDetailOverlay({ imageId }: { imageId: number }) {
     getImageDetailPage({
       data: {
         imageId,
-        filters: detailBundle ? { bundleId: detailBundle } : undefined,
+        filters:
+          detailBundle || detailTag
+            ? { bundleId: detailBundle, promptTag: detailTag }
+            : undefined,
       },
     })
       .then(setData)
       .catch(() => toast.error('Failed to load image'))
       .finally(() => setLoading(false))
-  }, [imageId, detailBundle])
+  }, [imageId, detailBundle, detailTag])
 
   useEffect(() => {
     document.body.style.overflow = 'hidden'

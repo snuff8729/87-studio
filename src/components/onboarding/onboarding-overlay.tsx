@@ -64,7 +64,6 @@ function OnboardingActiveOverlay() {
   const isStepInRange = active && step >= 1 && step <= TOTAL_STEPS
 
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!isStepInRange || !stepDef) return
 
     let selector = `[data-onboarding="${stepDef.target}"]`
@@ -141,7 +140,6 @@ function OnboardingActiveOverlay() {
 
   // Condition polling — local to overlay, doesn't re-render the main tree
   useEffect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
     if (!isStepInRange || !stepDef || stepDef.completion.type !== 'condition')
       return
 

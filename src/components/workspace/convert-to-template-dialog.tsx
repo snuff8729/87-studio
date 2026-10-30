@@ -42,7 +42,6 @@ export function ConvertToTemplateDialog({
     if (!open) return
     setName('')
     setCheckedIds(new Set(scenes.map((s) => s.id)))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open])
 
   function toggleScene(id: number) {

@@ -36,8 +36,8 @@ import {
   deleteBundle,
   getBundle,
   listBundleImages,
-  listBundles,
   listBundleTags,
+  listBundles,
   setBundleTags,
   setBundleThumbnail,
   updateBundle,
@@ -110,7 +110,7 @@ function BundlesPage() {
     const bundleName = id ? bundles.find((b) => b.id === id)?.name : null
     navigate({
       to: '/bundles',
-      search: bundleName ? { bundle: bundleName } : {},
+      search: { bundle: bundleName ?? undefined, imageDetail: undefined },
       // Opening a detail from the mobile list is a real step: phone Back
       // returns to the list. Everything else replaces.
       replace: !(isMobile && id !== null && selectedId === null),
@@ -124,7 +124,6 @@ function BundlesPage() {
         ? (bundles.find((b) => b.name === urlBundle)?.id ?? null)
         : null,
     )
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlBundle])
   usePageHeader({ count: bundles.length })
   const [searchText, setSearchText] = useState('')

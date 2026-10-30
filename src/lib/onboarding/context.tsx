@@ -161,7 +161,7 @@ export function OnboardingProvider({
     events.forEach((name) => window.addEventListener(name, handleEvent))
     return () =>
       events.forEach((name) => window.removeEventListener(name, handleEvent))
-  }, [state.active]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [state.active])
 
   // Route-based completion
   useEffect(() => {
@@ -172,7 +172,7 @@ export function OnboardingProvider({
     if (pathname.includes(stepDef.completion.pattern)) {
       doAdvance()
     }
-  }, [pathname, state.step, state.active]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [pathname, state.step, state.active])
 
   function doAdvance() {
     setState((prev) => {
@@ -185,14 +185,14 @@ export function OnboardingProvider({
     navigatedStepRef.current = -1
   }
 
-  const advance = useCallback(() => doAdvance(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const advance = useCallback(() => doAdvance(), [])
 
   const skip = useCallback(() => {
     setSetting({ data: { key: 'onboarding_completed', value: 'true' } })
     setState((prev) => ({ ...prev, active: false, showWelcome: false }))
   }, [])
 
-  const skipStep = useCallback(() => doAdvance(), []) // eslint-disable-line react-hooks/exhaustive-deps
+  const skipStep = useCallback(() => doAdvance(), [])
 
   const restart = useCallback(async () => {
     await Promise.all([

@@ -11,9 +11,9 @@ import {
 import { useTranslation } from '@/lib/i18n'
 import { fetchQueueSummary, listQueueBatches } from '@/server/functions/queue'
 import {
+  dismissGenerationError,
   pauseGeneration,
   resumeGeneration,
-  dismissGenerationError,
 } from '@/server/functions/generation'
 
 function formatDuration(ms: number): string {
@@ -50,7 +50,7 @@ export function GenerationProgress() {
   const startRef = useRef<number | null>(null)
 
   // Self-polling state
-  const [batches, setBatches] = useState<BatchInfo[]>([])
+  const [batches, setBatches] = useState<Array<BatchInfo>>([])
   const [summary, setSummary] = useState<Awaited<
     ReturnType<typeof fetchQueueSummary>
   > | null>(null)
@@ -328,7 +328,7 @@ export function GenerationProgress() {
               className="text-xs text-primary hover:underline"
               onClick={() => setOpen(false)}
             >
-              {t('queue.viewFullQueue' as any)}
+              {t('queue.viewFullQueue')}
             </Link>
           </div>
 

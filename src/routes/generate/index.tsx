@@ -225,7 +225,7 @@ function QuickGeneratePage() {
       // Clear the router state to prevent re-applying on navigation
       window.history.replaceState({}, '')
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Persist state ──
   useEffect(() => {
@@ -240,7 +240,7 @@ function QuickGeneratePage() {
         setSelectedImageId(imgs[0].id)
       }
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Polling ──
   const startPolling = useCallback(() => {
@@ -301,7 +301,7 @@ function QuickGeneratePage() {
       setGenerating(active)
       if (active || jobData.queueStatus.processing) startPolling()
     })
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── Handlers ──
   async function handleGenerate() {

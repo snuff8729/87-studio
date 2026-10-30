@@ -93,6 +93,9 @@ export const Route = createFileRoute('/gallery')({
     bundle: search.bundle ? Number(search.bundle) : undefined,
     sortBy: (search.sortBy as SearchParams['sortBy']) || undefined,
     quick: search.quick === true || search.quick === 'true' ? true : undefined,
+    promptTag: search.promptTag
+      ? String(search.promptTag).trim() || undefined
+      : undefined,
     imageDetail: search.imageDetail ? Number(search.imageDetail) : undefined,
   }),
   loaderDeps: ({ search }) => search,

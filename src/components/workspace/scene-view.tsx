@@ -531,7 +531,6 @@ function useSceneCardSize(
   useEffect(() => {
     const stored = readStorage(key)
     setSizeState(stored ? parseSceneCardSize(stored) : fallback)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key])
   const setSize = useCallback(
     (next: SceneCardSize) => {

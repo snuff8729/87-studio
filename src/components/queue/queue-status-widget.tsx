@@ -62,10 +62,10 @@ export function QueueStatusWidget() {
       <div className="flex items-center justify-between gap-2 mb-1.5">
         <span className={`text-xs font-medium ${textColor}`}>
           {isPaused
-            ? t('queue.paused' as any)
+            ? t('queue.paused')
             : isError
-              ? t('queue.error' as any)
-              : t('queue.title' as any)}
+              ? t('queue.error')
+              : t('queue.title')}
         </span>
         <span className="text-xs text-muted-foreground tabular-nums">
           {completedImages}/{totalImages}
@@ -79,7 +79,7 @@ export function QueueStatusWidget() {
       </div>
       {etaMs != null && !isPaused && !isError && (
         <p className="text-[11px] text-muted-foreground mt-1">
-          {t('queue.eta' as any, { time: formatDuration(etaMs) })}
+          {t('queue.eta', { time: formatDuration(etaMs) })}
         </p>
       )}
     </Link>

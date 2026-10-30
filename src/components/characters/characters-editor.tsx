@@ -100,7 +100,7 @@ export function CharactersEditor<TId extends string | number>({
     wantNameFocusRef.current = false
     nameInputRef.current?.focus()
     nameInputRef.current?.select()
-  }, [selected?.id, focusTick]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected?.id, focusTick])
 
   function select(id: TId | undefined) {
     if (id === undefined) return

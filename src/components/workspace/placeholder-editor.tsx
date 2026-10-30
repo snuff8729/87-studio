@@ -18,6 +18,8 @@ import {
   Cancel01Icon,
   TextIcon,
 } from '@hugeicons/core-free-icons'
+import { planPlaceholderSaves } from './placeholder-save-plan'
+import { usePendingSave } from './pending-saves'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { TagGalleryDialog } from '@/components/tag-gallery/tag-gallery-dialog'
 import { Badge } from '@/components/ui/badge'
@@ -28,8 +30,6 @@ import { resolvePlaceholders } from '@/lib/placeholder'
 import { resolveBundles } from '@/lib/bundle'
 import { useBundleMap, useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
-import { planPlaceholderSaves } from './placeholder-save-plan'
-import { usePendingSave } from './pending-saves'
 
 const PromptEditor = lazy(() =>
   import('@/components/prompt-editor/prompt-editor').then((m) => ({
@@ -258,7 +258,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
         } else {
           const charId = Number(parts[1])
           const placeholder = parts[2]
-          // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition
+
           serverValue = characterOverrides[charId]?.[placeholder] ?? ''
         }
         if (serverValue !== v) {
@@ -353,7 +353,6 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   }
 
   // ── Classification: use SERVER data + pin focused field in its section ──
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const classifiedKeys = useMemo(() => {
     const pinned = pinnedCellRef.current
 
@@ -447,7 +446,6 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
     blurTick,
   ])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const filledCounts = useMemo(() => {
     let filled = 0
     let total = 0

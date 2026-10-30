@@ -124,7 +124,7 @@ export function InstructionTooltip({
     if (!targetRect) {
       // Center on screen
       return {
-        placement: 'bottom' as Placement,
+        placement: 'bottom',
         top: window.innerHeight / 2 - 100,
         left: Math.max(
           VIEWPORT_PADDING,

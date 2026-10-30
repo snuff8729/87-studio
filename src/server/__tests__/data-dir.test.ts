@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
 import { join, resolve } from 'node:path'
+import { describe, expect, it } from 'vitest'
 import { resolveDataPath } from '../data-dir'
 
 describe('resolveDataPath', () => {

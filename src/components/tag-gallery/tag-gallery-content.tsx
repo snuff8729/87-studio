@@ -10,6 +10,7 @@ import {
   Search01Icon,
   Upload04Icon,
 } from '@hugeicons/core-free-icons'
+import type { DanbooruTagDetail } from '@/server/functions/danbooru'
 import { MasterDetail } from '@/components/common/master-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,23 +19,23 @@ import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
+import { PromptTagImages } from '@/components/tag-gallery/prompt-tag-images'
 import { useTranslation } from '@/lib/i18n'
 import {
-  listTagBookmarks,
-  getTagBookmark,
-  createTagBookmark,
-  updateTagBookmark,
-  deleteTagBookmark,
   addBookmarkImageUpload,
-  removeBookmarkImage,
-  setBookmarkThumbnail,
+  createTagBookmark,
+  deleteTagBookmark,
+  getTagBookmark,
   listBookmarkTags,
+  listTagBookmarks,
+  removeBookmarkImage,
   setBookmarkTags,
+  setBookmarkThumbnail,
+  updateTagBookmark,
 } from '@/server/functions/tag-bookmarks'
 import {
-  searchDanbooruTags,
   getDanbooruTagDetail,
-  type DanbooruTagDetail,
+  searchDanbooruTags,
 } from '@/server/functions/danbooru'
 
 interface TagGalleryContentProps {
@@ -912,6 +913,13 @@ export function TagGalleryContent({
                   </div>
                 )}
               </div>
+
+              {!embedded && (
+                <>
+                  <Separator />
+                  <PromptTagImages tag={bookmarkDetail.name} />
+                </>
+              )}
 
               <Separator />
 

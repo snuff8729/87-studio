@@ -1,9 +1,10 @@
 import * as React from 'react'
-import { cva, type VariantProps } from 'class-variance-authority'
-import { cn } from '@/lib/utils'
+import { cva } from 'class-variance-authority'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { SidebarLeftIcon } from '@hugeicons/core-free-icons'
 import { Slot } from 'radix-ui'
+import type { VariantProps } from 'class-variance-authority'
+import { cn } from '@/lib/utils'
 
 import { useIsMobile } from '@/hooks/use-mobile'
 import { useTranslation } from '@/lib/i18n'

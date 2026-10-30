@@ -16,9 +16,9 @@ import {
   imageOrder,
   sortValues,
 } from '../services/image-query'
-import type { ImageFilters, ImageSort } from '../services/image-query'
 import { createLogger } from '../services/logger'
 import { deleteImageFiles } from '../services/image'
+import type { ImageFilters, ImageSort } from '../services/image-query'
 
 const log = createLogger('fn.gallery')
 
@@ -50,6 +50,30 @@ export const listImages = createServerFn({ method: 'GET' })
     }
 
     return query.all()
+  })
+
+/** Newest images whose positive prompt contains the tag, plus the total. */
+export const listImagesByPromptTag = createServerFn({ method: 'GET' })
+  .inputValidator((data: { tag: string; limit?: number }) => data)
+  .handler(async ({ data }) => {
+    const where = and(...buildImageConditions({ promptTag: data.tag }))
+    const images = db
+      .select({
+        id: generatedImages.id,
+        thumbnailPath: generatedImages.thumbnailPath,
+        filePath: generatedImages.filePath,
+      })
+      .from(generatedImages)
+      .where(where)
+      .orderBy(...imageOrder('newest'))
+      .limit(data.limit ?? 24)
+      .all()
+    const total = db
+      .select({ count: sql<number>`count(*)` })
+      .from(generatedImages)
+      .where(where)
+      .get()
+    return { total: total?.count ?? 0, images }
   })
 
 export const updateImage = createServerFn({ method: 'POST' })

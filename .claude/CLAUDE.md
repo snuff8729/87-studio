@@ -45,7 +45,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 - `I18nProvider` + `useTranslation()` 훅
 - localStorage 저장 (`87studio-locale` 키), `<html lang>` 자동 설정
 - dot-notation 키 경로, `{{param}}` 파라미터 보간 지원
-- 기본 언어: English
+- 기본 언어: 저장된 선택이 없으면 브라우저/OS 언어를 따르며(`navigator.languages`), 지원하지 않는 언어면 English로 폴백
 
 ### 프롬프트 에디터
 
@@ -253,6 +253,7 @@ src/
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
 │   ├── nai-metadata.ts        # NAI 이미지 메타데이터 파서 (PNG tEXt, Stealth Alpha)
+│   ├── prompt-tags.ts         # 프롬프트 태그 토큰 매칭 (promptTag 필터, 북마크 이미지)
 │   ├── use-image-grid-size.ts # 갤러리 그리드 크기 훅 (sm/md/lg)
 │   ├── onboarding/            # 온보딩 시스템
 │   │   ├── index.ts           # 공개 API
@@ -452,6 +453,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 - 생성된 이미지는 자동으로 프로젝트 + 씬 태그가 붙어 저장
 - 필터링 축: 프로젝트별, 씬(포즈)별, 즐겨찾기, 태그별, 글로벌 씬 기준 크로스 프로젝트
+- **프롬프트 태그 필터** (`promptTag` URL 파라미터): "＋ Filter → Prompt tag" (단부루 자동완성 다이얼로그). `foo_bar`/`foo bar`, 대소문자 무시, `1.2::tag::`·`{tag}`·`[tag]`·`\(` 이스케이프를 제거한 뒤 쉼표 토큰 단위로 일치. `src/lib/prompt-tags.ts`(순수 함수, 테스트 있음) + `image-query.ts`에서 SQL LIKE 사전 필터 후 SQLite 사용자 함수 `prompt_has_tag`로 정확 일치 (페이지네이션·이전/다음 키셋과 호환)
 - 즐겨찾기 토글, 별점(1~5), 메모 기능
 - **태그**: 사용자가 직접 수동으로 이미지에 태그 부여
 - 각 이미지에 생성 시 사용된 전체 프롬프트, 파라미터, 시드값 등 메타데이터 보존
@@ -545,6 +547,7 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 - Danbooru 태그 검색 및 상세 정보 조회
 - 태그 북마크 컬렉션 관리 (검색 옆 ＋ New → 태그 이름 입력으로 북마크 생성)
 - 북마크별 참고 이미지 갤러리
+- 북마크 상세 "이 태그를 쓴 이미지": 결과 프롬프트(general + 캐릭터, 네거티브 제외)에 태그가 쉼표 구분 토큰으로 포함된 갤러리 이미지의 개수 + 최신 24장 썸네일 (클릭 → 이미지 오버레이, `detailTag`로 이전/다음이 해당 목록을 순회), "갤러리에서 보기" → `/gallery?promptTag=<tag>` (다이얼로그 내장 모드에서는 숨김)
 - 번들과 같은 `MasterDetail` (페이지 `87studio-master-detail:tags`, 프롬프트 에디터 다이얼로그 `tag-dialog`)
 
 ### 캐릭터 편집 (Quick Generate Chars 탭 / 워크스페이스 Chars 탭 공용 `CharactersEditor`)
@@ -970,7 +973,8 @@ src/
 │       ├── placeholder.test.ts      # 플레이스홀더 추출/치환
 │       ├── bundle.test.ts           # 번들 참조 추출/치환
 │       ├── sd-studio-import.test.ts # SD Studio JSON 파싱
-│       └── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
+│       ├── nai-metadata.test.ts     # NAI 메타데이터 파싱 (PNG tEXt, A1111)
+│       └── prompt-tags.test.ts      # 프롬프트 태그 토큰 매칭 (가중치/중괄호/언더스코어)
 └── server/
     └── services/
         └── __tests__/
