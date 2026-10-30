@@ -31,6 +31,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 ### UI
 
 - **shadcn/ui** (radix-maia 스타일)
+  - 앱 셸: `Sidebar` (collapsible="icon"), `Breadcrumb`, `Sheet`, `ScrollArea`
 - **Radix UI** (@base-ui/react)
 - **Tailwind CSS** 4.0.6
 - **Figtree** 폰트 (@fontsource-variable/figtree)
@@ -90,7 +91,12 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 ### 스타일링
 
 - Tailwind CSS 4 (Vite 플러그인)
-- **다크 테마 기본** (단일 테마, `<html className="dark">`)
+- **다크 전용** (라이트 모드/테마 토글 없음, `<html className="dark">`, `:root`에 다크 값 정의)
+  - 뉴트럴 그래파이트 베이스 (`--background: #111113`, `--card: #18181b`, `--sidebar: #0c0c0e`) + Rose→Coral 그라디언트 액센트 (`--primary: #ff6b8b`)
+  - 브랜드 토큰: `--brand-from: #ff4d7d`, `--brand-to: #ff8a5c`, `--brand-gradient`, `--brand-glow`
+  - 유틸리티 클래스: `.bg-brand-gradient`, `.shadow-brand-glow`
+  - `<Button variant="brand">`는 화면당 단일 주 액션(Generate)에만 사용, 그 외는 `default`(solid `--primary`)
+  - UI 스케일 설정은 유지
 - **반응형 디자인**: 데스크톱 + 태블릿 + 모바일 대응
 
 ## 프로젝트 구조
@@ -123,7 +129,7 @@ src/
 │   └── settings/
 │       └── index.tsx          # 설정 (NAI API 키, 생성 딜레이, 언어 등)
 ├── components/
-│   ├── ui/                    # shadcn/ui 컴포넌트 (23개)
+│   ├── ui/                    # shadcn/ui 컴포넌트 (27개)
 │   ├── common/                # 공통 컴포넌트
 │   │   ├── confirm-dialog.tsx     # 확인 다이얼로그
 │   │   ├── page-header.tsx        # 페이지 헤더
@@ -131,7 +137,12 @@ src/
 │   │   ├── grid-size-toggle.tsx   # 그리드 크기 토글
 │   │   ├── expanded-textarea-dialog.tsx  # 전체 화면 텍스트 편집
 │   │   └── image-detail-overlay.tsx     # 이미지 상세 오버레이
-│   ├── layout/                # 레이아웃 (sidebar, bottom-nav)
+│   ├── layout/                # 레이아웃 (앱 셸)
+│   │   ├── app-sidebar.tsx        # 글로벌 사이드바 (collapsible icon, Create/Library 그룹, 큐 배지)
+│   │   ├── app-header.tsx         # 상단 헤더 (SidebarTrigger + 브레드크럼)
+│   │   ├── breadcrumb-context.tsx # BreadcrumbProvider, useBreadcrumb()
+│   │   ├── sidebar-route-sync.tsx # 에디터 라우트 진입 시 사이드바 자동 접힘, 모바일 시트 닫기
+│   │   └── nav-items.ts           # 네비게이션 항목, getActiveNavItem, isEditorRoute, shouldAutoCollapse
 │   ├── onboarding/            # 온보딩 시스템
 │   │   ├── welcome-dialog.tsx     # 환영 다이얼로그
 │   │   ├── onboarding-overlay.tsx # 메인 오버레이 컨트롤러
@@ -209,6 +220,8 @@ src/
 │       ├── queue.ts           # 큐 상태 조회 및 관리
 │       ├── references.ts      # 참조 이미지 관리 (업로드, 삭제, 파라미터 업데이트)
 │       └── tag-bookmarks.ts   # 태그 북마크 CRUD 및 이미지 연결
+├── hooks/
+│   └── use-mobile.ts          # 모바일(<768px) 감지 훅 (shadcn sidebar)
 ├── lib/
 │   ├── placeholder.ts         # @{slot:name} 파싱/치환 유틸
 │   ├── bundle.ts              # @{bundle:name} 참조 추출/치환 유틸
@@ -217,10 +230,6 @@ src/
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
 │   ├── nai-metadata.ts        # NAI 이미지 메타데이터 파서 (PNG tEXt, Stealth Alpha)
 │   ├── use-image-grid-size.ts # 갤러리 그리드 크기 훅 (sm/md/lg)
-│   ├── theme/                 # 테마 시스템
-│   │   ├── index.ts           # 공개 API
-│   │   ├── context.tsx        # React Context 프로바이더
-│   │   └── types.ts           # 타입 정의
 │   ├── onboarding/            # 온보딩 시스템
 │   │   ├── index.ts           # 공개 API
 │   │   ├── context.tsx        # React Context 프로바이더
@@ -493,9 +502,9 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 
 ### 반응형 디자인
 
-- **데스크톱**: 풀 레이아웃, 사이드바 네비게이션
-- **태블릿**: 축소된 사이드바, 적응형 그리드
-- **모바일**: 하단 네비게이션 바, 단일 컬럼 레이아웃, 터치 최적화
+- **데스크톱**: 풀 레이아웃, 사이드바 네비게이션 (`/workspace`, `/generate` 진입 시 자동 접힘)
+- **태블릿**: 아이콘 모드로 축소된 사이드바, 적응형 그리드
+- **모바일**: 헤더의 `SidebarTrigger`로 여는 offcanvas 사이드바 시트 (하단 네비게이션 없음, 이동 시 자동 닫힘), 단일 컬럼 레이아웃, 터치 최적화
 
 ## NAI API 세부사항
 
@@ -867,6 +876,10 @@ pnpm db:studio                  # Drizzle Studio (DB 브라우저)
 
 ```
 src/
+├── components/
+│   └── layout/
+│       └── __tests__/
+│           └── nav-items.test.ts    # 네비게이션 활성 항목, 에디터 라우트 판별, 자동 접힘
 ├── lib/
 │   └── __tests__/
 │       ├── placeholder.test.ts      # 플레이스홀더 추출/치환
@@ -887,6 +900,7 @@ src/
 | `src/lib/bundle.ts`               | `extractBundleReferences`, `resolveBundles` — `@{bundle:name}` 구문 추출/치환                                         |
 | `src/lib/sd-studio-import.ts`     | `parseSdStudioFile` — 입력 검증, 카테시안 곱, 라이브러리 참조, 이름 중복 처리, 프롬프트 정리                          |
 | `src/lib/nai-metadata.ts`         | `parseNAIMetadata`, `getUcPresetLabel` — PNG 바이너리 tEXt 청크 파싱, NAI/A1111 형식 변환, V4 프롬프트, Vibe Transfer |
+| `src/components/layout/nav-items.ts` | `getActiveNavItem`, `isEditorRoute`, `shouldAutoCollapse` — 경로 기반 활성 항목 판별, 에디터 라우트 자동 접힘 조건 |
 | `src/server/services/download.ts` | `resolveFilenameTemplate` — 변수 치환, 금지 문자 제거, 빈 결과 폴백                                                   |
 
 ### 테스트 작성 규칙
