@@ -16,7 +16,6 @@ import {
   ArrowRight01Icon,
   Cancel01Icon,
   DashboardSquare01Icon,
-  FileExportIcon,
   Film02Icon,
   Image02Icon,
   MoreVerticalIcon,
@@ -25,7 +24,9 @@ import {
   SortingDownIcon,
   Tick02Icon,
 } from '@hugeicons/core-free-icons'
-import { ConvertToTemplateDialog } from './convert-to-template-dialog'
+import { AddScenePopover } from './add-scene-popover'
+import { CompactSelectionHeader } from './scene-selection-header'
+import { SceneSearchFilter } from './scene-search-filter'
 import {
   ReserveStepper,
   SceneMenuButton,
@@ -34,7 +35,7 @@ import {
   sceneThumbnailUrl,
   useItemInteraction,
 } from './scene-card'
-import { SCENE_FILTERS, SCENE_SORT_OPTIONS } from './scene-filters'
+import { SCENE_SORT_OPTIONS } from './scene-filters'
 import {
   RAIL_WIDTH_COMPACT,
   RAIL_WIDTH_EXPANDED,
@@ -42,10 +43,10 @@ import {
   parseCollapsedPacks,
   parseRailPref,
   railPrefKey,
-  shouldCompact,
 } from './scene-rail-prefs'
 import type { ReactNode } from 'react'
 import type { SceneCardScene } from './scene-card'
+import type { AddSceneConfig } from './add-scene-popover'
 import type {
   SceneFilter,
   SceneFilterCounts,
@@ -56,13 +57,7 @@ import type { TranslationKeys } from '@/lib/i18n/types'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from '@/components/ui/input-group'
-import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
@@ -73,11 +68,6 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover'
 import {
   Dialog,
   DialogContent,
@@ -110,12 +100,6 @@ const SORT_LABEL_KEYS: Record<SceneSortBy, TranslationKeys> = {
   created_desc: 'scene.sortCreatedDesc',
 }
 
-const FILTER_LABEL_KEYS: Record<SceneFilter, TranslationKeys> = {
-  all: 'sceneRail.filterAll',
-  reserved: 'sceneRail.filterReserved',
-  noImages: 'sceneRail.filterNoImages',
-}
-
 /** A pack group as shown by the rail / board (sorted + filtered scenes). */
 export interface RailPack {
   id: number
@@ -136,47 +120,27 @@ export function effectiveCollapsed(
 // ── Hooks ──
 
 /**
- * Rail width: the user's explicit choice (persisted per project) wins;
- * without one the rail compacts when the measured container (the center
- * panel, whose width does not depend on the rail) is narrower than 720px.
+ * Rail width: a manual 216 ↔ 56px toggle, persisted per project (default
+ * expanded). The width never changes on its own.
  */
 export function useRailCompact(projectId: number) {
   const key = railPrefKey(projectId)
-  const [pref, setPref] = useState<RailPref>(null)
-  const [el, setEl] = useState<HTMLElement | null>(null)
-  const [width, setWidth] = useState<number | null>(null)
+  const [pref, setPref] = useState<RailPref>('expanded')
 
   // Before paint: no 216→56px flash for a saved compact choice
   useLayoutEffect(() => {
     setPref(parseRailPref(readStorage(key)))
   }, [key])
 
-  useLayoutEffect(() => {
-    if (!el) return
-    const measure = () => setWidth(el.clientWidth)
-    measure()
-    const ro = new ResizeObserver(measure)
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [el])
+  const compact = pref === 'compact'
 
-  const compact = width !== null && shouldCompact(width, pref)
+  const toggle = useCallback(() => {
+    const next: RailPref = compact ? 'expanded' : 'compact'
+    setPref(next)
+    writeStorage(key, next)
+  }, [compact, key])
 
-  const savePref = useCallback(
-    (next: RailPref) => {
-      setPref(next)
-      writeStorage(key, next ?? '')
-    },
-    [key],
-  )
-
-  const toggle = useCallback(
-    () => savePref(compact ? 'expanded' : 'compact'),
-    [compact, savePref],
-  )
-  const resetAuto = useCallback(() => savePref(null), [savePref])
-
-  return { containerRef: setEl, compact, pref, toggle, resetAuto }
+  return { compact, toggle }
 }
 
 /** Collapsed pack groups, persisted per project. */
@@ -233,14 +197,19 @@ export interface SceneRailProps {
   selectedSceneId: number | null
   /** `replace`: keyboard ↑/↓ moves do not add history entries. */
   onSelect: (id: number, opts?: { replace?: boolean }) => void
-  onAddScene: (name: string) => Promise<void>
+  addScene: AddSceneConfig
   onDeleteScene: (sceneId: number) => Promise<void>
   onRenameScene: (id: number, name: string) => Promise<void>
   onDuplicateScene: (sceneId: number) => Promise<void>
-  /** Bulk delete for select mode; hidden when not provided. */
-  onBulkDeleteScenes?: (sceneIds: Array<number>) => Promise<void>
-  /** Renders an export trigger + dialog for the checked scenes (bulk bar). */
-  exportDialog?: (sceneIds: Array<number>) => ReactNode
+  /** Selection state lives in the route (shared with the selection grid). */
+  selectMode: boolean
+  checkedIds: ReadonlySet<number>
+  onCheckedChange: (sceneId: number, checked: boolean) => void
+  onEnterSelectMode: () => void
+  onExitSelectMode: () => void
+  /** Selection header for the expanded / sheet rail (the compact one is built in). */
+  selectionHeader: ReactNode
+  checkedCount: number
   onOpenBoard: () => void
   onOpenScenePacks: () => void
   /** Opens the Ctrl/Cmd+K scene palette (header button). */
@@ -248,9 +217,7 @@ export interface SceneRailProps {
   /** `rail`: center column (216 / 56px). `sheet`: full width, always expanded. */
   variant?: 'rail' | 'sheet'
   compact?: boolean
-  railPref?: RailPref
   onToggleCompact?: () => void
-  onAutoWidth?: () => void
   /** Sheet variant: close button in the header. */
   onClose?: () => void
   className?: string
@@ -275,76 +242,32 @@ export const SceneRail = memo(function SceneRail({
   onSceneCountChange,
   selectedSceneId,
   onSelect,
-  onAddScene,
+  addScene,
   onDeleteScene,
   onRenameScene,
   onDuplicateScene,
-  onBulkDeleteScenes,
-  exportDialog,
+  selectMode,
+  checkedIds,
+  onCheckedChange,
+  onEnterSelectMode,
+  onExitSelectMode,
+  selectionHeader,
+  checkedCount,
   onOpenBoard,
   onOpenScenePacks,
   onOpenPalette,
   variant = 'rail',
   compact: compactProp = false,
-  railPref = null,
   onToggleCompact,
-  onAutoWidth,
   onClose,
   className,
 }: SceneRailProps) {
   const { t } = useTranslation()
   const isSheet = variant === 'sheet'
 
-  // ── Select mode (forces the expanded width: checkboxes + bulk bar) ──
-  const [selectMode, setSelectMode] = useState(false)
-  const [checkedIds, setCheckedIds] = useState<Set<number>>(() => new Set())
-  const [bulkCount, setBulkCount] = useState(1)
-  const [convertOpen, setConvertOpen] = useState(false)
-  const compact = compactProp && !isSheet && !selectMode
+  const compact = compactProp && !isSheet
 
   const visibleScenes = useMemo(() => packs.flatMap((p) => p.scenes), [packs])
-  const visibleIdSet = useMemo(
-    () => new Set(visibleScenes.map((s) => s.id)),
-    [visibleScenes],
-  )
-  // Checked ids that are still visible (deleted / filtered out are dropped)
-  const checkedVisibleIds = useMemo(
-    () => [...checkedIds].filter((id) => visibleIdSet.has(id)),
-    [checkedIds, visibleIdSet],
-  )
-  const allChecked =
-    visibleScenes.length > 0 &&
-    checkedVisibleIds.length === visibleScenes.length
-
-  const exitSelectMode = useCallback(() => {
-    setSelectMode(false)
-    setCheckedIds(new Set())
-  }, [])
-
-  const handleCheckedChange = useCallback((id: number, checked: boolean) => {
-    setCheckedIds((prev) => {
-      const next = new Set(prev)
-      if (checked) next.add(id)
-      else next.delete(id)
-      return next
-    })
-  }, [])
-
-  function applyBulkCount() {
-    for (const id of checkedVisibleIds) onSceneCountChange(id, bulkCount)
-  }
-
-  async function handleBulkDelete() {
-    if (!onBulkDeleteScenes) return
-    try {
-      await onBulkDeleteScenes(checkedVisibleIds)
-    } catch {
-      // The route reports the failure; stay in select mode to retry.
-      return
-    }
-    // A deleted selection falls back to the first scene (route).
-    exitSelectMode()
-  }
 
   // ── Rename / delete (one dialog each, opened from item menus) ──
   const [renameTarget, setRenameTarget] = useState<SceneCardScene | null>(null)
@@ -434,8 +357,20 @@ export const SceneRail = memo(function SceneRail({
 
   const addButton = (
     <AddScenePopover
-      onAddScene={onAddScene}
+      config={addScene}
       side={compact ? 'right' : 'bottom'}
+      onboarding
+      trigger={
+        <button
+          type="button"
+          title={t('scene.addScene')}
+          aria-label={t('scene.addScene')}
+          data-onboarding="add-scene-btn"
+          className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
+        >
+          <HugeiconsIcon icon={Add01Icon} className="size-4" />
+        </button>
+      }
     />
   )
   const boardButton = (
@@ -473,28 +408,14 @@ export const SceneRail = memo(function SceneRail({
     >
       {/* ── Header ── */}
       {selectMode ? (
-        <div className="flex h-10 shrink-0 items-center gap-2 border-b px-2">
-          <span className="text-xs font-medium whitespace-nowrap">
-            {t('scene.selectedCount', { count: checkedVisibleIds.length })}
-          </span>
-          <button
-            type="button"
-            onClick={() =>
-              setCheckedIds(
-                allChecked
-                  ? new Set()
-                  : new Set(visibleScenes.map((s) => s.id)),
-              )
-            }
-            className="text-xs whitespace-nowrap text-primary hover:underline"
-          >
-            {allChecked ? t('scene.deselectAll') : t('scene.selectAll')}
-          </button>
-          <div className="flex-1" />
-          <Button size="xs" variant="ghost" onClick={exitSelectMode}>
-            {t('common.cancel')}
-          </Button>
-        </div>
+        compact ? (
+          <CompactSelectionHeader
+            count={checkedCount}
+            onExit={onExitSelectMode}
+          />
+        ) : (
+          selectionHeader
+        )
       ) : compact ? (
         <div
           data-onboarding="scene-rail"
@@ -558,7 +479,7 @@ export const SceneRail = memo(function SceneRail({
                 </DropdownMenuSubContent>
               </DropdownMenuSub>
               {totalCount > 0 && (
-                <DropdownMenuItem onSelect={() => setSelectMode(true)}>
+                <DropdownMenuItem onSelect={onEnterSelectMode}>
                   <HugeiconsIcon icon={Tick02Icon} />
                   {t('scene.selectMode')}
                 </DropdownMenuItem>
@@ -581,17 +502,6 @@ export const SceneRail = memo(function SceneRail({
                   size="xs"
                 />
               </div>
-              {onAutoWidth && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuCheckboxItem
-                    checked={railPref === null}
-                    onCheckedChange={() => onAutoWidth()}
-                  >
-                    {t('sceneRail.autoWidth')}
-                  </DropdownMenuCheckboxItem>
-                </>
-              )}
             </DropdownMenuContent>
           </DropdownMenu>
           {compactToggle}
@@ -605,43 +515,15 @@ export const SceneRail = memo(function SceneRail({
         </div>
       )}
 
-      {/* ── Search + filter chips (expanded only) ── */}
+      {/* ── Search + filter (expanded only) ── */}
       {!compact && (
-        <div className="flex shrink-0 flex-col gap-1.5 border-b px-2 py-2">
-          <InputGroup className="h-7">
-            <InputGroupAddon>
-              <HugeiconsIcon icon={Search01Icon} className="size-3.5" />
-            </InputGroupAddon>
-            <InputGroupInput
-              value={searchQuery}
-              onChange={(e) => onSearchQueryChange(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Escape' && searchQuery) {
-                  e.stopPropagation()
-                  onSearchQueryChange('')
-                }
-              }}
-              placeholder={t('scene.searchPlaceholder')}
-              aria-label={t('scene.searchScenes')}
-              className="h-7 px-0 text-xs"
-            />
-            {searchQuery && (
-              <InputGroupAddon align="inline-end">
-                <button
-                  type="button"
-                  onClick={() => onSearchQueryChange('')}
-                  className="text-muted-foreground hover:text-foreground"
-                  aria-label={t('common.clear')}
-                >
-                  <HugeiconsIcon icon={Cancel01Icon} className="size-3.5" />
-                </button>
-              </InputGroupAddon>
-            )}
-          </InputGroup>
-          <FilterChips
+        <div className="shrink-0 border-b px-2 py-2">
+          <SceneSearchFilter
+            query={searchQuery}
+            onQueryChange={onSearchQueryChange}
             filter={filter}
+            onFilterChange={onFilterChange}
             counts={filterCounts}
-            onChange={onFilterChange}
           />
         </div>
       )}
@@ -679,73 +561,12 @@ export const SceneRail = memo(function SceneRail({
             onSelect={onSelect}
             selectMode={selectMode}
             checkedIds={checkedIds}
-            onCheckedChange={handleCheckedChange}
+            onCheckedChange={onCheckedChange}
             buildMenu={buildMenu}
             onMove={moveSelection}
           />
         )}
       </div>
-
-      {/* ── Bulk bar (select mode) ── */}
-      {selectMode && (
-        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-t bg-card px-2 py-2">
-          <div className="flex items-center gap-1">
-            <ReserveStepper
-              value={bulkCount}
-              onChange={setBulkCount}
-              size="xs"
-              title={t('scene.setCountTitle')}
-            />
-            <Button
-              size="xs"
-              variant="outline"
-              onClick={applyBulkCount}
-              disabled={checkedVisibleIds.length === 0}
-              title={t('scene.setCountTitle')}
-            >
-              {t('scene.setCount')}
-            </Button>
-          </div>
-          {exportDialog && checkedVisibleIds.length > 0
-            ? exportDialog(checkedVisibleIds)
-            : null}
-          <Button
-            size="xs"
-            variant="outline"
-            onClick={() => setConvertOpen(true)}
-            disabled={checkedVisibleIds.length === 0}
-          >
-            <HugeiconsIcon icon={FileExportIcon} className="size-3.5" />
-            {t('scene.convertToTemplate')}
-          </Button>
-          {onBulkDeleteScenes && (
-            <ConfirmDialog
-              trigger={
-                <Button
-                  size="xs"
-                  variant="destructive"
-                  disabled={checkedVisibleIds.length === 0}
-                >
-                  {t('common.delete')}
-                </Button>
-              }
-              title={t('scene.bulkDelete')}
-              description={t('scene.bulkDeleteDesc', {
-                count: checkedVisibleIds.length,
-              })}
-              onConfirm={handleBulkDelete}
-            />
-          )}
-          <Button
-            size="xs"
-            variant="ghost"
-            onClick={() => setCheckedIds(new Set())}
-            disabled={checkedVisibleIds.length === 0}
-          >
-            {t('common.clear')}
-          </Button>
-        </div>
-      )}
 
       {/* ── Dialogs ── */}
       <Dialog
@@ -789,14 +610,6 @@ export const SceneRail = memo(function SceneRail({
         })}
         onConfirm={confirmDelete}
       />
-
-      <ConvertToTemplateDialog
-        open={convertOpen}
-        onOpenChange={setConvertOpen}
-        scenes={visibleScenes
-          .filter((s) => checkedVisibleIds.includes(s.id))
-          .map((s) => ({ id: s.id, name: s.name }))}
-      />
     </div>
   )
 })
@@ -833,125 +646,6 @@ function RailIconButton({
   )
 }
 
-export function FilterChips({
-  filter,
-  counts,
-  onChange,
-  className,
-}: {
-  filter: SceneFilter
-  counts: SceneFilterCounts
-  onChange: (filter: SceneFilter) => void
-  className?: string
-}) {
-  const { t } = useTranslation()
-  return (
-    <div
-      role="radiogroup"
-      aria-label={t('sceneRail.filters')}
-      className={cn('flex flex-wrap items-center gap-1', className)}
-    >
-      {SCENE_FILTERS.map((f) => {
-        const active = filter === f
-        return (
-          <button
-            key={f}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(f)}
-            className={cn(
-              'inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[11px] whitespace-nowrap transition-colors',
-              active
-                ? 'border-primary/50 bg-primary/15 text-primary'
-                : 'border-border text-muted-foreground hover:bg-secondary/60 hover:text-foreground',
-            )}
-          >
-            {t(FILTER_LABEL_KEYS[f])}
-            <span className="tabular-nums opacity-70">{counts[f]}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
-
-function AddScenePopover({
-  onAddScene,
-  side,
-}: {
-  onAddScene: (name: string) => Promise<void>
-  side: 'bottom' | 'right'
-}) {
-  const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [name, setName] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submit() {
-    const trimmed = name.trim()
-    if (!trimmed || busy) return
-    setBusy(true)
-    try {
-      await onAddScene(trimmed)
-      setName('')
-      setOpen(false)
-    } catch {
-      toast.error(t('scene.addSceneFailed'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Popover
-      open={open}
-      onOpenChange={(next) => {
-        setOpen(next)
-        if (!next) setName('')
-      }}
-    >
-      <PopoverTrigger asChild>
-        <button
-          type="button"
-          title={t('scene.addScene')}
-          aria-label={t('scene.addScene')}
-          data-onboarding="add-scene-btn"
-          className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-secondary/80 hover:text-foreground"
-        >
-          <HugeiconsIcon icon={Add01Icon} className="size-4" />
-        </button>
-      </PopoverTrigger>
-      <PopoverContent
-        side={side}
-        align="start"
-        className="w-64 gap-2 p-2"
-        data-onboarding="add-scene-form"
-      >
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') submit()
-          }}
-          placeholder={t('scene.sceneName')}
-          aria-label={t('scene.sceneName')}
-          className="h-8 text-sm"
-          autoFocus
-        />
-        <Button
-          size="sm"
-          onClick={submit}
-          disabled={!name.trim() || busy}
-          className="w-full"
-        >
-          {t('scene.addScene')}
-        </Button>
-      </PopoverContent>
-    </Popover>
-  )
-}
-
 // ── Virtual list ──
 
 interface RailListProps {
@@ -965,7 +659,7 @@ interface RailListProps {
   selectedSceneId: number | null
   onSelect: (id: number) => void
   selectMode: boolean
-  checkedIds: Set<number>
+  checkedIds: ReadonlySet<number>
   onCheckedChange: (id: number, checked: boolean) => void
   buildMenu: (scene: SceneCardScene, hasOverride: boolean) => ReactNode
   /** Moves the selection by `delta` rows in navigation order. */
@@ -1052,7 +746,7 @@ function RailList({
       onKeyDown={(e) => {
         // React bubbles events from portaled menus through this list
         if (!e.currentTarget.contains(e.target as Node)) return
-        if (isTypingTarget(e.target)) return
+        if (isTypingTarget(e.target) || selectMode) return
         if (e.key === 'ArrowDown') {
           e.preventDefault()
           onMove(1)
@@ -1278,7 +972,8 @@ const RailRow = memo(function RailRow(props: RailRowProps) {
 })
 
 const CompactRailRow = memo(function CompactRailRow(props: RailRowProps) {
-  const { scene, count, defaultCount, selected, menu, selectMode } = props
+  const { scene, count, defaultCount, selected, menu, selectMode, checked } =
+    props
   const { t } = useTranslation()
   const { menuOpen, setMenuOpen, onClick, onContextMenu } =
     useItemInteraction(props)
@@ -1289,7 +984,7 @@ const CompactRailRow = memo(function CompactRailRow(props: RailRowProps) {
       <TooltipTrigger asChild>
         <div
           role="option"
-          aria-selected={selected}
+          aria-selected={selectMode ? checked : selected}
           aria-label={scene.name}
           data-onboarding="scene-item"
           data-scene-id={scene.id}
@@ -1297,7 +992,7 @@ const CompactRailRow = memo(function CompactRailRow(props: RailRowProps) {
           onContextMenu={onContextMenu}
           className={cn(
             'relative mx-auto flex h-full w-11 cursor-pointer items-center justify-center rounded-md transition-colors select-none',
-            selected
+            (selectMode ? checked : selected)
               ? 'bg-primary/15 ring-1 ring-primary/60 ring-inset'
               : 'hover:bg-secondary/60',
           )}

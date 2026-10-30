@@ -1,5 +1,5 @@
 import { createServerFn } from '@tanstack/react-start'
-import { eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { db } from '../db'
 import {
   characterSceneOverrides,
@@ -86,44 +86,101 @@ export const upsertCharacterOverride = createServerFn({ method: 'POST' })
   })
 
 export const addProjectScene = createServerFn({ method: 'POST' })
-  .inputValidator((data: { projectId: number; name: string }) => data)
+  .inputValidator(
+    (data: {
+      projectId: number
+      name: string
+      /** Target pack; default = the project's first pack (created if none) */
+      packId?: number
+      /** Copy placeholders and character overrides from this scene */
+      copyFromSceneId?: number
+    }) => data,
+  )
   .handler(async ({ data }) => {
-    // Find or create default project_scene_pack
-    let pack = db
-      .select()
-      .from(projectScenePacks)
-      .where(eq(projectScenePacks.projectId, data.projectId))
-      .get()
+    return db.transaction((tx) => {
+      let pack = data.packId
+        ? tx
+            .select()
+            .from(projectScenePacks)
+            .where(eq(projectScenePacks.id, data.packId))
+            .get()
+        : tx
+            .select()
+            .from(projectScenePacks)
+            .where(eq(projectScenePacks.projectId, data.projectId))
+            .get()
+      if (pack && pack.projectId !== data.projectId) {
+        throw new Error('Pack not found')
+      }
+      if (data.packId && !pack) throw new Error('Pack not found')
 
-    if (!pack) {
-      pack = db
-        .insert(projectScenePacks)
+      if (!pack) {
+        pack = tx
+          .insert(projectScenePacks)
+          .values({
+            projectId: data.projectId,
+            name: 'Scenes',
+          })
+          .returning()
+          .get()
+      }
+
+      const duplicate = tx
+        .select({ id: projectScenes.id })
+        .from(projectScenes)
+        .where(
+          and(
+            eq(projectScenes.projectScenePackId, pack.id),
+            eq(projectScenes.name, data.name),
+          ),
+        )
+        .get()
+      if (duplicate) throw new Error('DUPLICATE_SCENE_NAME')
+
+      const source = data.copyFromSceneId
+        ? tx
+            .select()
+            .from(projectScenes)
+            .where(eq(projectScenes.id, data.copyFromSceneId))
+            .get()
+        : undefined
+
+      // Shift existing scenes' sort order to make room at the front
+      tx.update(projectScenes)
+        .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })
+        .where(eq(projectScenes.projectScenePackId, pack.id))
+        .run()
+
+      const scene = tx
+        .insert(projectScenes)
         .values({
-          projectId: data.projectId,
-          name: 'Scenes',
+          projectScenePackId: pack.id,
+          name: data.name,
+          placeholders: source?.placeholders ?? '{}',
+          sortOrder: 0,
         })
         .returning()
         .get()
-    }
 
-    // Shift existing scenes' sort order to make room at the front
-    db.update(projectScenes)
-      .set({ sortOrder: sql`${projectScenes.sortOrder} + 1` })
-      .where(eq(projectScenes.projectScenePackId, pack.id))
-      .run()
+      if (source) {
+        const overrides = tx
+          .select()
+          .from(characterSceneOverrides)
+          .where(eq(characterSceneOverrides.projectSceneId, source.id))
+          .all()
+        for (const override of overrides) {
+          tx.insert(characterSceneOverrides)
+            .values({
+              projectSceneId: scene.id,
+              characterId: override.characterId,
+              placeholders: override.placeholders,
+            })
+            .run()
+        }
+      }
 
-    const scene = db
-      .insert(projectScenes)
-      .values({
-        projectScenePackId: pack.id,
-        name: data.name,
-        placeholders: '{}',
-        sortOrder: 0,
-      })
-      .returning()
-      .get()
-
-    return scene
+      return scene
+    })
   })
 
 export const deleteProjectScene = createServerFn({ method: 'POST' })

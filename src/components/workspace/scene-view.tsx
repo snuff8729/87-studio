@@ -16,13 +16,16 @@ import {
   PencilEdit02Icon,
   Search01Icon,
   Tick01Icon,
+  Tick02Icon,
 } from '@hugeicons/core-free-icons'
 import { PlaceholderEditor } from './placeholder-editor'
 import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
 import { SceneCard } from './scene-card'
-import { FilterChips, effectiveCollapsed } from './scene-rail'
+import { effectiveCollapsed } from './scene-rail'
+import { AddScenePopover } from './add-scene-popover'
+import { SceneSearchFilter } from './scene-search-filter'
 import {
   SCENE_CARD_MIN_WIDTH,
   SCENE_CARD_SIZES,
@@ -31,16 +34,13 @@ import {
   sceneBoardSizeKey,
 } from './scene-board-prefs'
 import type { SceneCardSize } from './scene-board-prefs'
+import type { ReactNode } from 'react'
+import type { AddSceneConfig } from './add-scene-popover'
 import type { SceneFilter, SceneFilterCounts } from './scene-filters'
 import type { RailPack } from './scene-rail'
 import type { SceneImageSortBy } from './scene-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from '@/components/ui/input-group'
 import { Slider } from '@/components/ui/slider'
 import {
   readStorage,
@@ -478,10 +478,10 @@ export function SceneView({
 // ── Empty project (no scenes) ──
 
 export function SceneEmptyState({
-  onAddScene,
+  addScene,
   onOpenScenePacks,
 }: {
-  onAddScene: (name: string) => Promise<void>
+  addScene: AddSceneConfig
   onOpenScenePacks: () => void
 }) {
   const { t } = useTranslation()
@@ -504,7 +504,16 @@ export function SceneEmptyState({
           <HugeiconsIcon icon={Film02Icon} className="size-4" />
           {t('templates.title')}
         </Button>
-        <AddSceneInline onAddScene={onAddScene} onboarding />
+        <AddScenePopover
+          config={addScene}
+          onboarding
+          trigger={
+            <Button variant="outline" size="sm" data-onboarding="add-scene-btn">
+              <HugeiconsIcon icon={Add01Icon} className="size-4" />
+              {t('scene.addScene')}
+            </Button>
+          }
+        />
       </div>
     </div>
   )
@@ -549,8 +558,15 @@ export interface SceneBoardProps {
   selectedSceneId: number | null
   /** Card click: select the scene and return to scene mode. */
   onSelect: (sceneId: number) => void
-  onAddScene: (name: string) => Promise<void>
-  onClose: () => void
+  addScene: AddSceneConfig
+  /** Board mode: closes the board. Omitted for the selection grid. */
+  onClose?: () => void
+  selectMode: boolean
+  checkedIds: ReadonlySet<number>
+  onCheckedChange: (sceneId: number, checked: boolean) => void
+  onEnterSelectMode: () => void
+  /** Selection header (replaces the toolbar while selecting); `end` = card size slider. */
+  renderSelectionHeader: (end: ReactNode) => ReactNode
 }
 
 export function SceneBoard({
@@ -570,8 +586,13 @@ export function SceneBoard({
   onSceneCountChange,
   selectedSceneId,
   onSelect,
-  onAddScene,
+  addScene,
   onClose,
+  selectMode,
+  checkedIds,
+  onCheckedChange,
+  onEnterSelectMode,
+  renderSelectionHeader,
 }: SceneBoardProps) {
   const { t } = useTranslation()
   const [size, setSize] = useSceneCardSize(projectId)
@@ -579,60 +600,75 @@ export function SceneBoard({
   const shownCollapsed = effectiveCollapsed(collapsedPacks, searchQuery)
   const filtersActive = filter !== 'all' || searchQuery.trim() !== ''
 
+  const sizeSlider = (
+    <Slider
+      className="w-20 shrink-0"
+      min={0}
+      max={SCENE_CARD_SIZES.length - 1}
+      step={1}
+      value={[sizeIndex < 0 ? SCENE_CARD_SIZES.length - 1 : sizeIndex]}
+      onValueChange={([v]) => setSize(SCENE_CARD_SIZES[v])}
+      aria-label={t('scene.cardSize')}
+    />
+  )
+
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      {/* ── Toolbar ── */}
-      <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2">
-        <div className="text-sm font-semibold whitespace-nowrap">
-          {t('sceneView.boardTitle')}
-          <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
-            {totalCount}
-          </span>
-        </div>
-        <InputGroup className="h-7 w-44">
-          <InputGroupAddon>
-            <HugeiconsIcon icon={Search01Icon} className="size-3.5" />
-          </InputGroupAddon>
-          <InputGroupInput
-            value={searchQuery}
-            onChange={(e) => onSearchQueryChange(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Escape' && searchQuery) {
-                e.stopPropagation()
-                onSearchQueryChange('')
-              }
-            }}
-            placeholder={t('scene.searchPlaceholder')}
-            aria-label={t('scene.searchScenes')}
-            className="h-7 px-0 text-xs"
+    <div className="flex h-full min-h-0 flex-col" data-scene-board>
+      {/* ── Toolbar (the selection header while selecting) ── */}
+      {selectMode ? (
+        renderSelectionHeader(sizeSlider)
+      ) : (
+        <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-2 border-b px-4 py-2">
+          <div className="text-sm font-semibold whitespace-nowrap">
+            {t('sceneView.boardTitle')}
+            <span className="ml-1.5 font-normal text-muted-foreground tabular-nums">
+              {totalCount}
+            </span>
+          </div>
+          <SceneSearchFilter
+            query={searchQuery}
+            onQueryChange={onSearchQueryChange}
+            filter={filter}
+            onFilterChange={onFilterChange}
+            counts={filterCounts}
+            className="w-56"
           />
-        </InputGroup>
-        <FilterChips
-          filter={filter}
-          counts={filterCounts}
-          onChange={onFilterChange}
-        />
-        <div className="flex-1" />
-        <Slider
-          className="w-20 shrink-0"
-          min={0}
-          max={SCENE_CARD_SIZES.length - 1}
-          step={1}
-          value={[sizeIndex < 0 ? SCENE_CARD_SIZES.length - 1 : sizeIndex]}
-          onValueChange={([v]) => setSize(SCENE_CARD_SIZES[v])}
-          aria-label={t('scene.cardSize')}
-        />
-        <AddSceneInline onAddScene={onAddScene} />
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onClose}
-          title={t('sceneRail.closeBoard')}
-        >
-          <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-          <span className="hidden sm:inline">{t('sceneRail.closeBoard')}</span>
-        </Button>
-      </div>
+          <div className="flex-1" />
+          {sizeSlider}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onEnterSelectMode}
+            title={t('scene.selectMode')}
+          >
+            <HugeiconsIcon icon={Tick02Icon} className="size-4" />
+            <span className="hidden sm:inline">{t('scene.selectMode')}</span>
+          </Button>
+          <AddScenePopover
+            config={addScene}
+            align="end"
+            trigger={
+              <Button variant="outline" size="sm">
+                <HugeiconsIcon icon={Add01Icon} className="size-4" />
+                <span className="hidden sm:inline">{t('scene.addScene')}</span>
+              </Button>
+            }
+          />
+          {onClose && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onClose}
+              title={t('sceneRail.closeBoard')}
+            >
+              <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
+              <span className="hidden sm:inline">
+                {t('sceneRail.closeBoard')}
+              </span>
+            </Button>
+          )}
+        </div>
+      )}
 
       {/* ── Groups ── */}
       <div className="min-h-0 flex-1 overflow-y-auto">
@@ -689,6 +725,9 @@ export function SceneBoard({
                           selected={scene.id === selectedSceneId}
                           onSelect={onSelect}
                           size={size}
+                          selectMode={selectMode}
+                          checked={checkedIds.has(scene.id)}
+                          onCheckedChange={onCheckedChange}
                         />
                       ))}
                     </div>
@@ -699,86 +738,6 @@ export function SceneBoard({
           </div>
         )}
       </div>
-    </div>
-  )
-}
-
-function AddSceneInline({
-  onAddScene,
-  onboarding,
-}: {
-  onAddScene: (name: string) => Promise<void>
-  /** Onboarding anchors (empty project: the rail with its ＋ is hidden). */
-  onboarding?: boolean
-}) {
-  const { t } = useTranslation()
-  const [adding, setAdding] = useState(false)
-  const [name, setName] = useState('')
-  const [busy, setBusy] = useState(false)
-
-  async function submit() {
-    const trimmed = name.trim()
-    if (!trimmed || busy) return
-    setBusy(true)
-    try {
-      await onAddScene(trimmed)
-      setName('')
-      setAdding(false)
-    } catch {
-      toast.error(t('scene.addSceneFailed'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  if (!adding) {
-    return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => setAdding(true)}
-        data-onboarding={onboarding ? 'add-scene-btn' : undefined}
-      >
-        <HugeiconsIcon icon={Add01Icon} className="size-4" />
-        {t('scene.addScene')}
-      </Button>
-    )
-  }
-
-  return (
-    <div
-      className="flex items-center gap-1"
-      data-onboarding={onboarding ? 'add-scene-form' : undefined}
-    >
-      <Input
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') submit()
-          if (e.key === 'Escape') {
-            setAdding(false)
-            setName('')
-          }
-        }}
-        placeholder={t('scene.sceneName')}
-        aria-label={t('scene.sceneName')}
-        className="h-8 w-40 text-sm"
-        autoFocus
-      />
-      <Button size="sm" onClick={submit} disabled={!name.trim() || busy}>
-        {t('common.add')}
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onClick={() => {
-          setAdding(false)
-          setName('')
-        }}
-        aria-label={t('common.cancel')}
-      >
-        <HugeiconsIcon icon={Cancel01Icon} className="size-4" />
-      </Button>
     </div>
   )
 }

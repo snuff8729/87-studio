@@ -22,6 +22,10 @@ import type {
   SceneSortBy,
 } from '@/components/workspace/scene-filters'
 import type { RailPack } from '@/components/workspace/scene-rail'
+import type {
+  AddSceneConfig,
+  AddSceneInput,
+} from '@/components/workspace/add-scene-popover'
 import type { SceneImageSortBy } from '@/components/workspace/scene-detail'
 import type {
   SceneViewCharacterOverride,
@@ -82,6 +86,13 @@ import {
   sortScenes,
 } from '@/components/workspace/scene-filters'
 import { toSceneCardScene } from '@/components/workspace/scene-card'
+import { SceneSelectionHeader } from '@/components/workspace/scene-selection-header'
+import { ConvertToTemplateDialog } from '@/components/workspace/convert-to-template-dialog'
+import {
+  selectAllState,
+  setChecked,
+  visibleChecked,
+} from '@/components/workspace/scene-selection'
 import {
   SceneBoard,
   SceneEmptyState,
@@ -418,7 +429,11 @@ function WorkspacePage() {
   const allScenes = useMemo(
     () =>
       scenePacks.flatMap((pack) =>
-        pack.scenes.map((s) => ({ ...s, packName: pack.name })),
+        pack.scenes.map((s) => ({
+          ...s,
+          packName: pack.name,
+          packId: pack.id,
+        })),
       ),
     [scenePacks],
   )
@@ -554,14 +569,6 @@ function WorkspacePage() {
   )
 
   // ── Scene management handlers ──
-  const handleAddScene = useCallback(
-    async (name: string) => {
-      await addProjectScene({ data: { projectId, name } })
-      router.invalidate()
-    },
-    [projectId, router],
-  )
-
   // A pending placeholder edit of a scene being deleted is dropped, not saved
   const handleDeleteScene = useCallback(
     async (sceneId: number) => {
@@ -749,6 +756,155 @@ function WorkspacePage() {
     setSceneSearch('')
   }, [setSceneSearch])
 
+  // ── Add scene (＋ popover): the new scene is selected and revealed ──
+  const handleAddScene = useCallback(
+    async (input: AddSceneInput) => {
+      const scene = await addProjectScene({
+        data: {
+          projectId,
+          name: input.name,
+          packId: input.packId ?? undefined,
+          copyFromSceneId: input.copyFromSceneId ?? undefined,
+        },
+      })
+      // Load the new scene first: an unknown `?scene=` would be reset
+      await router.invalidate()
+      if (input.packId != null && collapsedPacks.has(input.packId)) {
+        toggleCollapsedPack(input.packId)
+      }
+      if (sceneFilter !== 'all' || sceneSearch) clearSceneFilters()
+      navigate({ search: (prev) => ({ ...prev, scene: scene.id }) })
+      if (!boardMode) setMobilePane('result')
+    },
+    [
+      projectId,
+      router,
+      collapsedPacks,
+      toggleCollapsedPack,
+      sceneFilter,
+      sceneSearch,
+      clearSceneFilters,
+      navigate,
+      boardMode,
+    ],
+  )
+
+  const addPacks = useMemo(
+    () =>
+      scenePacks.map((pack) => ({
+        id: pack.id,
+        name: pack.name,
+        sceneNames: pack.scenes.map((sc) => sc.name),
+      })),
+    [scenePacks],
+  )
+  const addSceneConfig = useMemo<AddSceneConfig>(
+    () => ({
+      packs: addPacks,
+      selectedScene: selectedSceneEntry
+        ? {
+            id: selectedSceneEntry.id,
+            name: selectedSceneEntry.name,
+            packId: selectedSceneEntry.packId,
+          }
+        : null,
+      onAdd: handleAddScene,
+    }),
+    [addPacks, selectedSceneEntry, handleAddScene],
+  )
+  // Mobile sheet: the new scene closes it
+  const sheetAddSceneConfig = useMemo<AddSceneConfig>(
+    () => ({
+      ...addSceneConfig,
+      onAdd: async (input) => {
+        await handleAddScene(input)
+        setScenesSheetOpen(false)
+      },
+    }),
+    [addSceneConfig, handleAddScene],
+  )
+
+  // ── Scene selection (rail + selection grid / board share it) ──
+  const [selectMode, setSelectMode] = useState(false)
+  const [checkedIds, setCheckedIds] = useState<ReadonlySet<number>>(
+    () => new Set(),
+  )
+  const [convertIds, setConvertIds] = useState<Array<number> | null>(null)
+
+  const visibleSceneIds = useMemo(
+    () => visiblePacks.flatMap((pack) => pack.scenes.map((sc) => sc.id)),
+    [visiblePacks],
+  )
+  const checkedVisibleIds = useMemo(
+    () => visibleChecked(checkedIds, visibleSceneIds),
+    [checkedIds, visibleSceneIds],
+  )
+
+  const enterSelectMode = useCallback(() => setSelectMode(true), [])
+  const exitSelectMode = useCallback(() => {
+    setSelectMode(false)
+    setCheckedIds(new Set())
+  }, [])
+  const handleCheckedChange = useCallback((id: number, checked: boolean) => {
+    setCheckedIds((prev) => setChecked(prev, id, checked))
+  }, [])
+  const toggleAllChecked = useCallback(() => {
+    setCheckedIds(
+      selectAllState(checkedVisibleIds.length, visibleSceneIds.length) === 'all'
+        ? new Set()
+        : new Set(visibleSceneIds),
+    )
+  }, [checkedVisibleIds.length, visibleSceneIds])
+
+  const handleBulkDelete = useCallback(async () => {
+    try {
+      await handleBulkDeleteScenes(checkedVisibleIds)
+    } catch {
+      // handleBulkDeleteScenes reports the failure; stay in select mode to retry
+      return
+    }
+    // A deleted selection falls back to the first scene (effect below)
+    exitSelectMode()
+  }, [handleBulkDeleteScenes, checkedVisibleIds, exitSelectMode])
+
+  const renderSelectionHeader = useCallback(
+    (end?: ReactNode) => (
+      <SceneSelectionHeader
+        count={checkedVisibleIds.length}
+        total={visibleSceneIds.length}
+        onExit={exitSelectMode}
+        onToggleAll={toggleAllChecked}
+        onApplyCount={(n) => {
+          for (const id of checkedVisibleIds) handleSceneCountChange(id, n)
+        }}
+        onResetCount={() => {
+          for (const id of checkedVisibleIds) handleSceneCountChange(id, null)
+        }}
+        onSaveTemplate={() => setConvertIds(checkedVisibleIds)}
+        onDelete={handleBulkDelete}
+        renderExport={(trigger) => (
+          <DownloadDialog
+            trigger={trigger}
+            projectId={projectId}
+            projectName={data.project.name}
+            projectSceneIds={checkedVisibleIds}
+          />
+        )}
+        end={end}
+      />
+    ),
+    [
+      checkedVisibleIds,
+      visibleSceneIds.length,
+      exitSelectMode,
+      toggleAllChecked,
+      handleSceneCountChange,
+      handleBulkDelete,
+      projectId,
+      data.project.name,
+    ],
+  )
+
   // No valid selection in scene mode (first visit, deleted scene, `?scene=`
   // of another project) → first scene in rail order, replacing the entry.
   // Board mode only drops an invalid `?scene=`.
@@ -925,23 +1081,6 @@ function WorkspacePage() {
     [allScenes],
   )
 
-  const exportDialog = useCallback(
-    (sceneIds: Array<number>) => (
-      <DownloadDialog
-        trigger={
-          <Button size="xs" variant="outline">
-            <HugeiconsIcon icon={Download04Icon} className="size-3.5" />
-            {t('export.export')}
-          </Button>
-        }
-        projectId={projectId}
-        projectName={data.project.name}
-        projectSceneIds={sceneIds}
-      />
-    ),
-    [projectId, data.project.name, t],
-  )
-
   const openImageDetail = useCallback(
     (id: number) => {
       navigate({ search: (prev) => ({ ...prev, imageDetail: id }) })
@@ -968,19 +1107,24 @@ function WorkspacePage() {
     onDefaultCountChange: setCountPerScene,
     onSceneCountChange: handleSceneCountChange,
     selectedSceneId,
-    onAddScene: handleAddScene,
+    addScene: addSceneConfig,
     onDeleteScene: handleDeleteScene,
     onRenameScene: handleRenameScene,
     onDuplicateScene: handleDuplicateScene,
-    onBulkDeleteScenes: handleBulkDeleteScenes,
-    exportDialog,
+    selectMode,
+    checkedIds,
+    onCheckedChange: handleCheckedChange,
+    onEnterSelectMode: enterSelectMode,
+    onExitSelectMode: exitSelectMode,
+    selectionHeader: renderSelectionHeader(),
+    checkedCount: checkedVisibleIds.length,
   }
 
   let center: ReactNode
   if (railOrderScenes.length === 0) {
     center = (
       <SceneEmptyState
-        onAddScene={handleAddScene}
+        addScene={addSceneConfig}
         onOpenScenePacks={openScenePacks}
       />
     )
@@ -1003,16 +1147,18 @@ function WorkspacePage() {
         onSceneCountChange={handleSceneCountChange}
         selectedSceneId={selectedSceneId}
         onSelect={handleSceneSelect}
-        onAddScene={handleAddScene}
+        addScene={addSceneConfig}
         onClose={closeBoard}
+        selectMode={selectMode}
+        checkedIds={checkedIds}
+        onCheckedChange={handleCheckedChange}
+        onEnterSelectMode={enterSelectMode}
+        renderSelectionHeader={renderSelectionHeader}
       />
     )
   } else {
     center = (
-      <div
-        ref={railWidth.containerRef}
-        className="flex h-full min-h-0 flex-col md:flex-row"
-      >
+      <div className="flex h-full min-h-0 flex-col md:flex-row">
         {/* Mobile: the rail lives in a bottom sheet */}
         <div className="flex shrink-0 items-center gap-1 border-b px-2 py-1.5 md:hidden">
           <Button
@@ -1051,13 +1197,36 @@ function WorkspacePage() {
           onOpenScenePacks={openScenePacks}
           onOpenPalette={openPalette}
           compact={railWidth.compact}
-          railPref={railWidth.pref}
           onToggleCompact={railWidth.toggle}
-          onAutoWidth={railWidth.resetAuto}
           className="hidden md:flex"
         />
         <div className="min-h-0 min-w-0 flex-1">
-          {selectedScene ? (
+          {selectMode ? (
+            <SceneBoard
+              projectId={projectId}
+              packs={visiblePacks}
+              totalCount={railOrderScenes.length}
+              filterCounts={filterCounts}
+              filter={sceneFilter}
+              onFilterChange={setSceneFilter}
+              searchQuery={sceneSearch}
+              onSearchQueryChange={setSceneSearch}
+              onClearFilters={clearSceneFilters}
+              collapsedPacks={collapsedPacks}
+              onToggleCollapsed={toggleCollapsedPack}
+              sceneCounts={sceneCounts}
+              defaultCount={countPerScene}
+              onSceneCountChange={handleSceneCountChange}
+              selectedSceneId={selectedSceneId}
+              onSelect={handleSceneSelect}
+              addScene={addSceneConfig}
+              selectMode
+              checkedIds={checkedIds}
+              onCheckedChange={handleCheckedChange}
+              onEnterSelectMode={enterSelectMode}
+              renderSelectionHeader={renderSelectionHeader}
+            />
+          ) : selectedScene ? (
             <SceneView
               projectId={projectId}
               scene={selectedScene}
@@ -1261,6 +1430,7 @@ function WorkspacePage() {
           </SheetHeader>
           <SceneRail
             {...railProps}
+            addScene={sheetAddSceneConfig}
             variant="sheet"
             onSelect={handleSheetSelect}
             onOpenBoard={handleSheetOpenBoard}
@@ -1281,7 +1451,20 @@ function WorkspacePage() {
         sceneCounts={sceneCounts}
         defaultCount={countPerScene}
         selectedSceneId={selectedSceneId}
-        onSelect={handleSceneSelect}
+        onSelect={(id) => {
+          exitSelectMode()
+          handleSceneSelect(id)
+        }}
+      />
+      <ConvertToTemplateDialog
+        open={convertIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setConvertIds(null)
+        }}
+        scenes={(convertIds ?? []).map((id) => ({
+          id,
+          name: allScenes.find((sc) => sc.id === id)?.name ?? '',
+        }))}
       />
     </PendingSavesProvider>
   )
