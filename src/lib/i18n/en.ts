@@ -139,6 +139,7 @@ const en = {
     sectionGeneration: 'Generation',
     sectionAppearance: 'Appearance',
     sectionStorage: 'Storage',
+    sectionData: 'Data',
     sectionHelp: 'Help',
     naiApiKeyDesc:
       'Used to request images from NovelAI. Stored on this machine only.',
@@ -1400,14 +1401,68 @@ const en = {
       categories: 'Categories',
     },
   },
+  data: {
+    section: 'Data',
+    title: 'Optional data',
+    description:
+      'Nothing is downloaded automatically. Install only what you need; everything else in the app works without it.',
+    checkUpdates: 'Check for updates',
+    checking: 'Checking…',
+    lastChecked: 'Last checked: {{time}}',
+    neverChecked: 'Not checked yet',
+    builtinNote:
+      'Could not reach the update server; showing the versions known to this app.',
+    installedVersion: 'Installed: v{{version}}',
+    sizeValue: '{{size}}',
+    stateNotInstalled: 'Not installed',
+    stateDownloading: 'Downloading {{pct}}%',
+    stateDownloadingNoPct: 'Downloading…',
+    stateInstalled: 'Installed (latest)',
+    stateUpdate: 'Update available (v{{version}})',
+    stateError: 'Error: {{message}}',
+    install: 'Download',
+    update: 'Update',
+    redownload: 'Re-download',
+    delete: 'Delete',
+    cancel: 'Cancel',
+    needsDanbooru: 'The Danbooru tag database is needed first',
+    deleted: 'Deleted',
+    danbooruName: 'Danbooru tag database',
+    danbooruPurpose:
+      'Tag autocomplete, descriptions, categories and the Tag Search window.',
+    koName: 'Korean tag data',
+    koPurpose:
+      'Korean descriptions, keywords and categories; search tags in Korean.',
+    semanticName: 'Natural-language search',
+    semanticPurpose:
+      'Describe what you want and find matching tags (local AI model).',
+    semanticSize: 'Model about 300 MB + index {{size}}',
+    deleteTitle: 'Delete {{name}}?',
+    deleteDesc:
+      'The downloaded files are removed. You can download them again any time.',
+    deleteDanbooruDesc:
+      'Tag autocomplete, tag descriptions, Tag Search, the Korean data and natural-language search stop working until you download it again. Your projects and images are not affected.',
+    redownloadHint: 'Downloads the file again and checks its integrity.',
+    needTitle: 'Tag data is needed',
+    needBody:
+      'Download the tag data (about {{size}}) for autocomplete, descriptions and search. Nothing else in the app needs it.',
+    needInstall: 'Download now',
+    needDownloading: 'Downloading… {{pct}}%',
+    needOpenSettings: 'Open Settings › Data',
+    dashboardHint:
+      'To use tag autocomplete, descriptions and search, download the tag data ({{size}}).',
+    dashboardAction: 'Open Data settings',
+    dismiss: 'Dismiss',
+    koHint: 'To search in Korean, download the Korean data ({{size}}).',
+    koHintAction: 'Download',
+    toggleNeedsData:
+      'The tag info card needs the tag data. Download it in Settings › Data.',
+    toggleNeedsDataAction: 'Open',
+  },
   koTags: {
     title: 'Korean tag data',
     description:
       'Korean descriptions, search keywords and categories for tags. Search tags in Korean while the language is set to Korean.',
-    statusReady: 'Ready · {{count}} tags',
-    statusDownloading: 'Downloading…',
-    statusUnavailable:
-      'Not available (offline or not published yet). Retries automatically.',
   },
   semantic: {
     section: 'Tag search',

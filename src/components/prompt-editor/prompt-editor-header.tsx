@@ -1,4 +1,6 @@
 import { useSyncExternalStore } from 'react'
+import { useNavigate } from '@tanstack/react-router'
+import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   ArrowExpand01Icon,
@@ -12,6 +14,7 @@ import {
   subscribeTagInfoEnabled,
 } from './tag-info-client'
 import { Label } from '@/components/ui/label'
+import { useDataset } from '@/components/data/use-data-files'
 import { useTagSearch } from '@/components/tag-search/tag-search-provider'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
@@ -32,6 +35,9 @@ export function PromptEditorHeader({
 }: PromptEditorHeaderProps) {
   const { t } = useTranslation()
   const { openSearch } = useTagSearch()
+  const navigate = useNavigate()
+  const tagDb = useDataset('danbooru')
+  const noTagData = !!tagDb && tagDb.installedVersion == null
   const cardOn = useSyncExternalStore(
     subscribeTagInfoEnabled,
     isTagInfoEnabled,
@@ -51,7 +57,23 @@ export function PromptEditorHeader({
         <div className="flex gap-0.5">
           <button
             type="button"
-            onClick={() => setTagInfoEnabled(!cardOn)}
+            onClick={() => {
+              if (noTagData) {
+                toast(t('data.toggleNeedsData'), {
+                  action: {
+                    label: t('data.toggleNeedsDataAction'),
+                    onClick: () =>
+                      void navigate({
+                        to: '/settings',
+                        search: { imageDetail: undefined },
+                        hash: 'settings-data',
+                      }),
+                  },
+                })
+                return
+              }
+              setTagInfoEnabled(!cardOn)
+            }}
             aria-pressed={cardOn}
             data-tag-info-toggle
             data-state={cardOn ? 'on' : 'off'}

@@ -30,6 +30,7 @@ import {
   NAI_ACCOUNT_KEY,
   useNaiAccount,
 } from '@/components/account/nai-account'
+import { DataSettingsCard } from '@/components/data/data-settings-card'
 import { SemanticSettingsCard } from '@/components/semantic/semantic-settings-card'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
@@ -102,6 +103,7 @@ const SECTION_IDS = [
   'generation',
   'appearance',
   'tagsearch',
+  'data',
   'storage',
   'help',
 ] as const
@@ -374,6 +376,7 @@ function SettingsPage() {
     { id: 'generation', label: t('settings.sectionGeneration') },
     { id: 'appearance', label: t('settings.sectionAppearance') },
     { id: 'tagsearch', label: t('semantic.section') },
+    { id: 'data', label: t('settings.sectionData') },
     { id: 'storage', label: t('settings.sectionStorage') },
     { id: 'help', label: t('settings.sectionHelp') },
   ]
@@ -615,6 +618,8 @@ function SettingsPage() {
         </SectionCard>
 
         <SemanticSettingsCard id="settings-tagsearch" />
+
+        <DataSettingsCard id="settings-data" />
 
         <SectionCard
           id="storage"

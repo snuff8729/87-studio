@@ -1,6 +1,3 @@
-import { useQuery } from '@tanstack/react-query'
-import { HugeiconsIcon } from '@hugeicons/react'
-import { Loading03Icon } from '@hugeicons/core-free-icons'
 import {
   Card,
   CardContent,
@@ -8,46 +5,36 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { getKoTagsStatus } from '@/server/functions/tag-assist'
+import { Button } from '@/components/ui/button'
+import { useDataset } from '@/components/data/use-data-files'
 import { useTranslation } from '@/lib/i18n'
-import { cn } from '@/lib/utils'
 
-/** Settings > Tag search: status of the Korean tag data (NAIA2.0) + credit. */
+/** Settings > Tag search: pointer to the Korean tag data row in Settings > Data. */
 export function KoTagsCard() {
   const { t } = useTranslation()
-  const { data: s } = useQuery({
-    queryKey: ['ko-tags-status'],
-    queryFn: () => getKoTagsStatus(),
-    // keep polling while the background download may still be running
-    refetchInterval: (q) => (q.state.data?.state === 'ready' ? false : 4000),
-  })
+  const ko = useDataset('ko')
   const text =
-    s?.state === 'ready'
-      ? t('koTags.statusReady', { count: s.tags.toLocaleString() })
-      : s?.state === 'unavailable'
-        ? t('koTags.statusUnavailable')
-        : t('koTags.statusDownloading')
+    ko?.installedVersion != null
+      ? t('data.stateInstalled')
+      : t('data.stateNotInstalled')
   return (
     <Card data-ko-tags-card>
       <CardHeader>
         <CardTitle>{t('koTags.title')}</CardTitle>
         <CardDescription>{t('koTags.description')}</CardDescription>
       </CardHeader>
-      <CardContent>
-        <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm">
-          {(!s || s.state === 'downloading') && (
-            <HugeiconsIcon
-              icon={Loading03Icon}
-              className="size-4 animate-spin text-muted-foreground"
-            />
-          )}
-          <span
-            className={cn(s?.state === 'ready' && 'text-primary')}
-            data-ko-tags-status={s?.state ?? 'loading'}
-          >
-            {text}
-          </span>
-        </div>
+      <CardContent className="flex flex-wrap items-center justify-between gap-2">
+        <span
+          className="text-sm text-muted-foreground"
+          data-ko-tags-status={
+            ko?.installedVersion != null ? 'ready' : 'missing'
+          }
+        >
+          {text}
+        </span>
+        <Button size="sm" variant="outline" asChild>
+          <a href="#settings-data">{t('data.needOpenSettings')}</a>
+        </Button>
       </CardContent>
     </Card>
   )

@@ -11,6 +11,8 @@ import {
   Upload04Icon,
 } from '@hugeicons/core-free-icons'
 import type { DanbooruTagDetail } from '@/server/functions/danbooru'
+import { useDataset } from '@/components/data/use-data-files'
+import { NeedsTagData } from '@/components/data/needs-tag-data'
 import { MasterDetail } from '@/components/common/master-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -79,6 +81,8 @@ export function TagGalleryContent({
   >([])
 
   // Danbooru search results
+  const tagDb = useDataset('danbooru')
+  const noTagData = !!tagDb && tagDb.installedVersion == null
   const [danbooruResults, setDanbooruResults] = useState<
     Array<{
       name: string
@@ -598,6 +602,10 @@ export function TagGalleryContent({
           </>
         )}
 
+        {noTagData && searchText.trim().length >= 2 && (
+          <NeedsTagData className="border-t" />
+        )}
+
         {filtered.length === 0 && danbooruResults.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center px-4">
             <p className="text-sm text-muted-foreground">
@@ -621,6 +629,9 @@ export function TagGalleryContent({
         </div>
       ) : (
         <div className="space-y-5 p-4 md:p-6">
+          {noTagData && (
+            <NeedsTagData className="rounded-lg border border-dashed" />
+          )}
           {/* Header */}
           <div className="space-y-2">
             <div className="flex items-center gap-2 flex-wrap">
