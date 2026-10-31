@@ -362,8 +362,8 @@ try {
   await until(async () => (await prev()) === 'jacket_base', 5000, 'jacket preview Front + Zipper Open = base')
   await segBtn(page, 'Zipper', 'Closed').click()
   await segBtn(page, 'Framing', 'Face').click()
-  await until(async () => /Nothing is included/.test(await prev()), 5000, 'jacket preview Framing Face = empty (item skipped)')
-  check(/Nothing is included/.test(await previewOut().innerText()), 'empty preview shows the "nothing included" hint')
+  await until(async () => /Smoke Jacket is empty|This item is empty for .*Face/.test(await prev()), 5000, 'jacket preview Framing Face = empty (item skipped)')
+  check(/This item is empty for .*Face./.test(await previewOut().innerText()), 'empty preview names the values ("This item is empty for ... Face.")')
   await shot('1-outfit')
 
   // #11: reload, preview at pure defaults (nothing clicked) must include the jacket
@@ -1689,6 +1689,175 @@ try {
 }
 
 // ═════════════════════════════════════════════════════════════════════════════
+step = '20' // empty-item indicators: library combination grid + scene Parts
+let scarfId, capId, muteId
+const cell = (label) => page.locator(`[data-combo-cell][aria-label="${label}"]`)
+try {
+  // A. library: one referenced global axis -> a single row
+  await open('/characters?tab=outfits')
+  await newEntry('Smoke Scarf')
+  scarfId = q1(`select id from outfit_items where name = 'Smoke Scarf'`)?.id
+  check(!!scarfId, 'outfit item "Smoke Scarf" created')
+  check((await page.locator('[data-combo-grid]').count()) === 0, 'no combination grid while no condition references a global axis')
+  const sRow = await addFragment('scarf_front')
+  await setCondition(sRow.getByRole('button', { name: 'Condition' }), ['Front', 'Side'])
+  await page.locator('[data-combo-grid]').waitFor({ timeout: 8000 })
+  check((await page.locator('[data-combo-cell]').count()) === 3, 'one axis (View): single row of 3 cells')
+  check(
+    (await cell('Front: OK').count()) === 1 &&
+      (await cell('Side: OK').count()) === 1 &&
+      (await cell('Back: Empty').count()) === 1,
+    'Front/Side cells filled, Back cell empty',
+  )
+  check(
+    (await cell('Back: Empty').getAttribute('data-empty')) !== null &&
+      /Empty/.test(await cell('Back: Empty').innerText()),
+    'empty cell shows "– Empty"',
+  )
+  check((await cell('Front: OK').getAttribute('data-current')) !== null, 'cell matching the current preview (Front) is highlighted')
+  await cell('Back: Empty').click()
+  const emptyTxt = await until(
+    async () => {
+      const s = (await page.locator('[data-preview-empty]').innerText().catch(() => '')).trim()
+      return /Back/.test(s) ? s : null
+    },
+    5000,
+    'preview empty text names Back',
+  )
+  check(/This item is empty for Back/.test(emptyTxt ?? ''), `clicking the Back cell sets the preview: "${emptyTxt}"`)
+  check((await cell('Back: Empty').getAttribute('data-current')) !== null, 'Back cell now highlighted')
+
+  // B. second axis referenced -> 2D, updates live
+  const sRow2 = await addFragment('scarf_upper')
+  await setCondition(sRow2.getByRole('button', { name: 'Condition' }), ['Upper body'])
+  await until(async () => (await page.locator('[data-combo-cell]').count()) === 9, 8000, '3x3 grid')
+  check(true, 'two axes (View x Framing): 3x3 grid appears live')
+  check(
+    (await cell('Front · Full body: OK').count()) === 1 &&
+      (await cell('Back · Upper body: OK').count()) === 1 &&
+      (await cell('Back · Full body: Empty').count()) === 1 &&
+      (await cell('Back · Face: Empty').count()) === 1,
+    'cells: Front/Full ok, Back/Upper ok (2nd fragment), Back/Full + Back/Face empty',
+  )
+  await cell('Back · Face: Empty').click()
+  const t2 = await until(
+    async () => {
+      const s = (await page.locator('[data-preview-empty]').innerText().catch(() => '')).trim()
+      return /Back · Face/.test(s) ? s : null
+    },
+    5000,
+    'preview empty names Back · Face',
+  )
+  check(!!t2, `empty text names both axes: "${t2}"`)
+  await shot('20-grid')
+
+  // C. item condition counts: Cap only in Full/Upper body
+  await newEntry('Smoke Cap')
+  capId = q1(`select id from outfit_items where name = 'Smoke Cap'`)?.id
+  await setCondition(page.getByRole('button', { name: 'Condition' }).first(), ['Full body', 'Upper body'])
+  await addFragment('cap_a')
+  await page.locator('[data-combo-grid]').waitFor({ timeout: 8000 })
+  check(
+    (await cell('Full body: OK').count()) === 1 && (await cell('Face: Empty').count()) === 1,
+    'item condition (Framing != Face) makes the Face cell empty',
+  )
+
+  // D. a character (Hana): conditions reference View only; nothing empty
+  await open(`/characters?tab=characters&id=${hanaId}`)
+  await page.locator('[data-combo-grid]').waitFor({ timeout: 8000 })
+  check(
+    (await page.locator('[data-combo-cell]').count()) === 3 && (await page.locator('[data-combo-cell][data-empty]').count()) === 0,
+    'character grid: View row, every cell filled',
+  )
+
+  // E. scene Parts (project 2, slot default outfit = [Shirt, Jacket])
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  await ensurePartsOpen()
+  await expandChar()
+  const resetBtn = charRow2().getByRole('button', { name: 'Reset to defaults' })
+  if (await resetBtn.isEnabled()) await resetBtn.click()
+  const infoBox = () => page.locator('[data-testid="parts-empty-info"]')
+  const emptyBadges = () => charRow2().locator('[data-empty-badge]')
+  await segBtn(sceneRow(), 'View', 'Back').click()
+  await segBtn(sceneRow(), 'Framing', 'Face').click()
+  await until(async () => (await emptyBadges().count()) === 1, 8000, 'Empty badge on default-outfit chip at Face')
+  const chipTxt = await emptyBadges().first().evaluate((el) => el.parentElement.innerText)
+  check(/Smoke Jacket/.test(chipTxt) && (await charRow2().locator('[data-covered-badge]').count()) === 0, `Face: default-outfit chip "Smoke Jacket" has the Empty badge (item condition) -> "${chipTxt.replace(/\s+/g, ' ')}"`)
+  const infoTxt = await infoBox().innerText()
+  check(/Smoke Jacket — empty in this scene \(Back · Face\)/.test(infoTxt), `info line above the preview: "${infoTxt.trim()}"`)
+
+  // F. Back + Full body + Zipper Closed: shirt covered (Covered, not Empty), nothing empty
+  await segBtn(sceneRow(), 'Framing', 'Full body').click()
+  await segBtn(charRow2(), 'Zipper', 'Closed').click()
+  await until(async () => (await charRow2().locator('[data-covered-badge]').count()) === 1, 8000, 'Covered badge')
+  check(
+    (await emptyBadges().count()) === 0 && (await infoBox().count()) === 0,
+    'covered shirt shows Covered, not Empty; no info line',
+  )
+
+  // G. replace outfit [Shirt, Jacket, Scarf]: scarf empty at Back/Full body, shirt still just Covered
+  await charRow2().getByRole('radio', { name: 'Replace for this scene' }).click()
+  await charRow2().getByRole('button', { name: 'Add item' }).click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Scarf' }).first().click()
+  await until(async () => (await emptyBadges().count()) === 1, 8000, 'Empty badge on the scarf chip')
+  const sc = await emptyBadges().first().evaluate((el) => el.parentElement.parentElement.innerText)
+  check(/Smoke Scarf/.test(sc), 'only the scarf chip is Empty (editor chips)')
+  check(
+    (await charRow2().locator('[data-covered-badge]').count()) === 1 &&
+      /Smoke Scarf — empty in this scene \(Back · Full body\)/.test(await infoBox().innerText()),
+    'shirt keeps Covered; info line names the scarf with the scene values',
+  )
+  await emptyBadges().first().hover()
+  const tip2 = await page.getByRole('tooltip').first().innerText({ timeout: 4000 }).catch(() => '')
+  check(/No fragments in this scene \(Back · Full body\)/.test(tip2), `Empty badge tooltip: "${tip2.trim()}"`)
+  await page.mouse.move(5, 5)
+  await shot('20-scene-empty')
+
+  // H. every worn item empty at Face -> one line, no badges
+  for (const n of ['Smoke Shirt', 'Smoke Scarf']) await charRow2().getByRole('button', { name: `Remove ${n}` }).click()
+  await charRow2().getByRole('button', { name: 'Add item' }).click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Cap' }).first().click()
+  await segBtn(sceneRow(), 'Framing', 'Face').click()
+  await until(async () => /entirely empty/.test(await infoBox().innerText().catch(() => '')), 8000, 'single "entirely empty" line')
+  check(
+    (await emptyBadges().count()) === 0 && (await infoBox().locator('[data-empty-line]').count()) === 1,
+    'Face + [Jacket, Cap] all empty: one line, no per-item badges',
+  )
+  check(/outfit is entirely empty in this scene/.test(await infoBox().innerText()), `single line: "${(await infoBox().innerText()).trim()}"`)
+  await shot('20-scene-all-empty')
+  await charRow2().getByRole('button', { name: 'Reset to defaults' }).click()
+  await until(
+    () => q1('select outfit_item_ids o from character_scene_overrides where project_scene_id = ? and character_id = ?', S2, q1('select id from characters where project_id = ? order by slot_index limit 1', PROJECT2).id)?.o === null,
+    8000,
+    'scene outfit override reset',
+  )
+
+  // I. library character with no matching fragment: slot linked to "Smoke Mute" (fragment only for View Front)
+  await open('/characters')
+  await newEntry('Smoke Mute')
+  muteId = q1(`select id from library_characters where name = 'Smoke Mute'`)?.id
+  const mRow = await addFragment('mute_front')
+  await setCondition(mRow.getByRole('button', { name: 'Condition' }), ['Front'])
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  const slotM = q1('select * from characters where project_id = ? order by slot_index limit 1', PROJECT2)
+  await page.getByRole('tab', { name: /^Chars/ }).click()
+  await page.locator('[data-library-character-select]').click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Mute' }).first().click()
+  await until(() => q1('select library_character_id l from characters where id = ?', slotM.id).l === muteId, 8000, 'slot linked to Smoke Mute')
+  await open(`/workspace/${PROJECT2}?scene=${S2}`)
+  await ensurePartsOpen()
+  await until(async () => /no character fragments in this scene/.test(await infoBox().innerText().catch(() => '')), 10000, 'character-empty line')
+  check(true, `character with no matching fragment: "${(await infoBox().innerText()).trim().split('\n')[0]}"`)
+  // restore the link to Hana
+  await page.getByRole('tab', { name: /^Chars/ }).click()
+  await page.locator('[data-library-character-select]').click()
+  await page.locator('[cmdk-item]').filter({ hasText: 'Smoke Hana' }).first().click()
+  await until(() => q1('select library_character_id l from characters where id = ?', slotM.id).l === hanaId, 8000, 'slot relinked to Hana')
+} catch (e) {
+  check(false, `exception: ${e.message.slice(0, 900)}`)
+  await shot('20-error').catch(() => {})
+}
+
 step = 'm'
 try {
   const mp = await newPage(390, 844)
@@ -1733,6 +1902,36 @@ try {
   await open('/gallery?outfitPreset=' + redId, mp)
   await mp.locator('[data-filter-chip="outfit-preset"]').waitFor({ timeout: 10000 })
   await shot('gallery-preset', mp)
+  await open('/characters?tab=outfits&id=' + scarfId, mp)
+  await mp.locator('[data-combo-grid]').waitFor({ timeout: 10000 })
+  await mp.locator('[data-combo-grid]').scrollIntoViewIfNeeded()
+  await shot('20-grid', mp)
+  check(
+    await mp.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+    '390px: combination grid causes no page horizontal scroll',
+  )
+  await open(`/workspace/${PROJECT2}?scene=${S2}`, mp)
+  await sleep(1500)
+  await mp.getByRole('tab', { name: 'Result' }).click().catch(() => {})
+  const mParts = mp.locator('[data-testid="scene-parts"]')
+  const mSec = mp.locator('[data-testid="scene-parts-section"] > button').first()
+  if ((await mSec.getAttribute('aria-expanded')) !== 'true') await mSec.click()
+  const mChar = mp.locator('[data-testid="parts-character"] > button').first()
+  if ((await mChar.getAttribute('aria-expanded')) !== 'true') await mChar.click()
+  await mParts.scrollIntoViewIfNeeded().catch(() => {})
+  await mp.locator('[data-testid="parts-empty-info"]').scrollIntoViewIfNeeded()
+  await sleep(500)
+  await shot('20-scene-parts', mp)
+  const kp = await newPage(390, 844)
+  await kp.addInitScript(() => {
+    try {
+      localStorage.setItem('87studio-locale', 'ko')
+    } catch {}
+  })
+  await open('/characters?tab=outfits&id=' + scarfId, kp)
+  await kp.locator('[data-combo-cell][data-empty]').first().click()
+  const koTxt = await kp.locator('[data-preview-empty]').innerText({ timeout: 5000 }).catch(() => '')
+  check(/비어 있어요/.test(koTxt), `ko: "${koTxt.trim()}"`)
   check(true, '390px screenshots taken')
   tag = ''
 } catch (e) {

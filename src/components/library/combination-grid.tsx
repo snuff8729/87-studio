@@ -22,9 +22,10 @@ export function CombinationGrid({
   onPick: (pick: AxisValues) => void
 }) {
   const { t } = useTranslation()
-  const [rowAxis, colAxis] = axes
-  const cols = colAxis ? colAxis.values : [null]
-  const key = (a: PartsAxis, id: number) => String(a.id) + ':' + id
+  // One axis: a single row of cells (columns = its values)
+  const rowAxis = axes.length > 1 ? axes[0] : null
+  const colAxis = axes.length > 1 ? axes[1] : axes[0]
+  const rows = rowAxis ? rowAxis.values : [null]
 
   return (
     <div className="space-y-1.5" data-combo-grid>
@@ -33,51 +34,49 @@ export function CombinationGrid({
       </div>
       <div className="max-w-full overflow-x-auto rounded-md border border-border">
         <table className="border-collapse text-xs">
-          {colAxis && (
-            <thead>
-              <tr>
-                <th className="px-2 py-1.5 text-left font-normal text-muted-foreground">
-                  {rowAxis.name} \ {colAxis.name}
+          <thead>
+            <tr>
+              <th className="px-2 py-1.5 text-left font-normal text-muted-foreground">
+                {rowAxis ? `${rowAxis.name} / ${colAxis.name}` : colAxis.name}
+              </th>
+              {colAxis.values.map((c) => (
+                <th
+                  key={c.id}
+                  className="px-2 py-1.5 text-left font-medium whitespace-nowrap"
+                >
+                  {c.name}
                 </th>
-                {colAxis.values.map((c) => (
-                  <th
-                    key={c.id}
-                    className="px-2 py-1.5 text-left font-medium whitespace-nowrap"
-                  >
-                    {c.name}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-          )}
+              ))}
+            </tr>
+          </thead>
           <tbody>
-            {rowAxis.values.map((r) => (
-              <tr key={r.id} className="border-t border-border">
+            {rows.map((r) => (
+              <tr key={r?.id ?? 'one'} className="border-t border-border">
                 <th className="px-2 py-1.5 text-left font-medium whitespace-nowrap">
-                  {r.name}
+                  {r?.name ?? ''}
                 </th>
-                {cols.map((c) => {
-                  const pick: AxisValues = { [String(rowAxis.id)]: r.id }
-                  if (colAxis && c) pick[String(colAxis.id)] = c.id
+                {colAxis.values.map((c) => {
+                  const pick: AxisValues = { [String(colAxis.id)]: c.id }
+                  if (rowAxis && r) pick[String(rowAxis.id)] = r.id
                   const empty = isEmpty(pick)
-                  const current =
-                    effective[String(rowAxis.id)] === r.id &&
-                    (!colAxis || !c || effective[String(colAxis.id)] === c.id)
+                  const current = Object.entries(pick).every(
+                    ([k, v]) => effective[k] === v,
+                  )
                   return (
-                    <td key={c ? key(colAxis, c.id) : 'one'} className="p-1">
+                    <td key={c.id} className="p-1">
                       <button
                         type="button"
                         data-combo-cell
                         data-empty={empty ? '' : undefined}
                         data-current={current ? '' : undefined}
                         aria-label={
-                          [r.name, c?.name].filter(Boolean).join(' · ') +
+                          [r?.name, c.name].filter(Boolean).join(' · ') +
                           ': ' +
                           (empty ? t('library.comboEmpty') : 'OK')
                         }
                         onClick={() => onPick(pick)}
                         className={cn(
-                          'inline-flex h-7 w-full min-w-16 items-center justify-center gap-1 rounded-md px-2 whitespace-nowrap transition-colors',
+                          'inline-flex h-7 w-full min-w-16 items-center justify-center rounded-md px-2 whitespace-nowrap transition-colors',
                           'focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
                           empty
                             ? 'text-muted-foreground/70 hover:bg-muted'
