@@ -40,6 +40,14 @@ const DATA = path.resolve(process.argv[3] ?? 'demo-mock-tags/data')
 const OUT = process.env.SMOKE_OUT ?? path.join(os.tmpdir(), '87studio-smoke')
 fs.mkdirSync(OUT, { recursive: true })
 
+// the sections before the Korean one expect the rule-based fallback: drop a
+// Korean db left by an earlier run (use a fresh server per run)
+try {
+  fs.rmSync(path.join(DATA, 'naia-ko-v1.db'), { force: true })
+} catch {
+  /* held open by a running server */
+}
+
 let failures = 0
 let consoleErrors = 0
 const check = (cond, msg) => {
