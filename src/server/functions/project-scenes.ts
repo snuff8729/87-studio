@@ -10,9 +10,9 @@ import {
 import { deleteImageFiles } from '../services/image'
 import type { ScenePositionSpec } from '@/lib/character-positions'
 import type { OutfitEntry } from '@/lib/character-parts'
+import type { PresenceSetting } from '@/lib/scene-characters'
 import { parseAxisValues, stringifyOutfitEntries } from '@/lib/character-parts'
 import { encodePosition } from '@/lib/character-positions'
-import type { PresenceSetting } from '@/lib/scene-characters'
 import { parsePresenceSetting } from '@/lib/scene-characters'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
@@ -111,10 +111,8 @@ export const updateSceneParts = createServerFn({ method: 'POST' })
 /** Merge: given keys are set on every scene, other keys stay untouched. */
 export const bulkSetSceneAxisValues = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: {
-      sceneIds: Array<number>
-      axisValues: Record<string, number>
-    }) => data,
+    (data: { sceneIds: Array<number>; axisValues: Record<string, number> }) =>
+      data,
   )
   .handler(async ({ data }) => {
     if (data.sceneIds.length === 0) return { success: true, updated: 0 }
@@ -126,7 +124,10 @@ export const bulkSetSceneAxisValues = createServerFn({ method: 'POST' })
         .where(inArray(projectScenes.id, data.sceneIds))
         .all()
       for (const row of rows) {
-        const merged = { ...parseAxisValues(row.axisValues), ...data.axisValues }
+        const merged = {
+          ...parseAxisValues(row.axisValues),
+          ...data.axisValues,
+        }
         tx.update(projectScenes)
           .set({ axisValues: JSON.stringify(merged), updatedAt: now })
           .where(eq(projectScenes.id, row.id))

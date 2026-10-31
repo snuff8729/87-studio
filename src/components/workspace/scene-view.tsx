@@ -23,6 +23,7 @@ import {
 import { PlaceholderEditor } from './placeholder-editor'
 import { ScenePartsSection, slotHasParts } from './scene-parts-section'
 import { ScenePositionsSection } from './scene-positions-section'
+import { SceneCharactersSection } from './scene-characters-section'
 import { SceneDetail } from './scene-detail'
 import { TournamentDialog } from './tournament-dialog'
 import { ConvertToTemplateDialog } from './convert-to-template-dialog'
@@ -49,6 +50,7 @@ import type { AddSceneConfig } from './add-scene-popover'
 import type { SceneFilter, SceneFilterCounts } from './scene-filters'
 import type { RailPack } from './scene-rail'
 import type { SceneImageSortBy } from './scene-detail'
+import { effectivePresence } from '@/lib/scene-characters'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Slider } from '@/components/ui/slider'
@@ -76,6 +78,8 @@ export interface SceneViewCharacter {
   outfitItemIds?: string | null
   axisValues?: string | null
   position: string | null
+  /** 'all' | 'selected' (scene appearance default) */
+  appearance?: string | null
 }
 
 /** One row of the route's `characterOverrides[sceneId]` array. */
@@ -86,6 +90,9 @@ export interface SceneViewCharacterOverride {
   axisValues?: string | null
   outfitItemIds?: string | null
   position: string | null
+  presence?: string | null
+  replacePrompt?: string | null
+  replaceNegative?: string | null
 }
 
 export interface CharacterPlaceholderKeyEntry {
@@ -221,9 +228,34 @@ export function SceneView({
   // Onboarding step 7 targets the placeholder editor — never hide it then
   // (the collapse toggle is disabled meanwhile).
   const forcedOpen = !!onboarding?.state.active
+  // Scene cast: Off characters are hidden from the per-character sections,
+  // Replace ones have no parts
+  const presenceById = useMemo(() => {
+    const rows = new Map(characterOverrides.map((o) => [o.characterId, o]))
+    return new Map(
+      characters.map((c) => [
+        c.id,
+        effectivePresence(c.appearance, rows.get(c.id)?.presence),
+      ]),
+    )
+  }, [characters, characterOverrides])
+  const presentCharacters = useMemo(
+    () => characters.filter((c) => presenceById.get(c.id) !== 'off'),
+    [characters, presenceById],
+  )
+  const presentPlaceholderKeys = useMemo(
+    () =>
+      characterPlaceholderKeys.filter(
+        (k) => presenceById.get(k.characterId) !== 'off',
+      ),
+    [characterPlaceholderKeys, presenceById],
+  )
   const partsSlots = useMemo(
-    () => characters.filter(slotHasParts),
-    [characters],
+    () =>
+      characters.filter(
+        (c) => slotHasParts(c) && presenceById.get(c.id) === 'on',
+      ),
+    [characters, presenceById],
   )
   const [partsOpen, setPartsOpen] = usePersistedOpen(
     `87studio-scene-parts-open:${projectId}`,
@@ -266,7 +298,7 @@ export function SceneView({
 
   const placeholderCount =
     generalPlaceholderKeys.length +
-    new Set(characterPlaceholderKeys.flatMap((c) => c.keys)).size
+    new Set(presentPlaceholderKeys.flatMap((c) => c.keys)).size
 
   // ── Inline rename ──
   const [editingName, setEditingName] = useState(false)
@@ -437,6 +469,18 @@ export function SceneView({
         </div>
       </div>
 
+      {/* ── Characters in this scene (presence / replace) ── */}
+      {characters.length > 0 && (
+        <SceneCharactersSection
+          key={`cast-${sceneId}`}
+          projectId={projectId}
+          sceneId={sceneId}
+          characters={characters}
+          overrides={characterOverrides}
+          onChange={onPlaceholdersChange}
+        />
+      )}
+
       {/* ── Parts (view/framing, per-character axes and outfit) ── */}
       {partsSlots.length > 0 && (
         <section
@@ -514,8 +558,8 @@ export function SceneView({
               scenePlaceholders={parsedPlaceholders}
               characterOverrides={parsedCharOverrides}
               generalPlaceholderKeys={generalPlaceholderKeys}
-              characterPlaceholderKeys={characterPlaceholderKeys}
-              characters={characters}
+              characterPlaceholderKeys={presentPlaceholderKeys}
+              characters={presentCharacters}
               onSaveGeneral={handleSaveGeneral}
               onSaveCharOverride={handleSaveCharOverride}
               onPlaceholdersChange={onPlaceholdersChange}
@@ -525,12 +569,12 @@ export function SceneView({
         )}
       </section>
 
-      {positions && characters.length > 0 && (
+      {positions && presentCharacters.length > 0 && (
         <ScenePositionsSection
           key={`positions-${sceneId}`}
           projectId={projectId}
           sceneId={sceneId}
-          characters={characters}
+          characters={presentCharacters}
           overrides={characterOverrides}
           aspect={positions.aspect}
           onChange={onPlaceholdersChange}

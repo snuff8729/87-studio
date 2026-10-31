@@ -71,6 +71,8 @@ interface CharactersEditorProps<TId extends string | number> {
   slots?: boolean
   /** Workspace: library parts UI shown above the prompt editor */
   renderParts?: (character: CharacterItem<TId>) => React.ReactNode
+  /** Workspace: scene appearance control shown under the name */
+  renderAppearance?: (character: CharacterItem<TId>) => React.ReactNode
   /** Workspace: hint shown right under the prompt editor */
   renderPromptHint?: (character: CharacterItem<TId>) => React.ReactNode
   /** Show the position row (false for V3 models); aspect = width / height of the canvas */
@@ -88,6 +90,7 @@ export function CharactersEditor<TId extends string | number>({
   onDelete,
   slots,
   renderParts,
+  renderAppearance,
   renderPromptHint,
   positions,
 }: CharactersEditorProps<TId>) {
@@ -298,6 +301,7 @@ export function CharactersEditor<TId extends string | number>({
           onNameBlur={() => onNameBlur?.(selected.id)}
           slots={slots}
           partsSlot={renderParts?.(selected)}
+          appearanceSlot={renderAppearance?.(selected)}
           promptHint={renderPromptHint?.(selected)}
           positions={positions}
           index={selectedIndex + 1}
@@ -326,11 +330,13 @@ function CharacterBody<TId extends string | number>({
   onNameBlur,
   slots,
   partsSlot,
+  appearanceSlot,
   promptHint,
   positions,
   index,
 }: {
   partsSlot?: React.ReactNode
+  appearanceSlot?: React.ReactNode
   promptHint?: React.ReactNode
   character: CharacterItem<TId>
   nameInputRef: React.RefObject<HTMLInputElement | null>
@@ -376,6 +382,8 @@ function CharacterBody<TId extends string | number>({
           className="h-8 text-sm"
         />
       </div>
+
+      {appearanceSlot}
 
       {positions && (
         <CharacterPositionField

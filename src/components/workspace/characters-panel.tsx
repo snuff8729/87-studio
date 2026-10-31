@@ -9,7 +9,11 @@ import {
 } from './character-parts-panel'
 import type { CharacterPatch } from '@/components/characters/characters-editor'
 import type { PositionSpec } from '@/lib/character-positions'
+import type { Appearance } from '@/lib/scene-characters'
 import { CharactersEditor } from '@/components/characters/characters-editor'
+import { Segmented } from '@/components/common/segmented'
+import { Label } from '@/components/ui/label'
+import { parseAppearance } from '@/lib/scene-characters'
 import { duplicateName, nextCharacterName } from '@/lib/characters'
 import { useTranslation } from '@/lib/i18n'
 import { AI_POSITION, parsePositionSpec } from '@/lib/character-positions'
@@ -33,6 +37,8 @@ interface ProjectCharacter {
   axisValues: string | null
   /** Stored JSON PositionSpec (NULL = ai) */
   position: string | null
+  /** 'all' | 'selected' */
+  appearance?: string | null
 }
 
 interface Draft {
@@ -52,10 +58,13 @@ export function CharactersPanel({
   projectId,
   characters,
   positions,
+  appearsIn,
 }: {
   projectId: number
   characters: Array<ProjectCharacter>
   positions: { aspect: number } | false
+  /** Scenes each "Only selected scenes" character appears in */
+  appearsIn?: Record<number, number>
 }) {
   const router = useRouter()
   const { t } = useTranslation()
@@ -133,6 +142,15 @@ export function CharactersPanel({
       void flushRef.current()
     }
   }, [])
+
+  async function handleAppearance(id: number, appearance: Appearance) {
+    try {
+      await updateCharacter({ data: { id, appearance } })
+      await router.invalidate()
+    } catch {
+      toast.error(t('sceneCast.saveFailed'))
+    }
+  }
 
   function handleUpdate(id: number, patch: CharacterPatch) {
     // Another character's pending edit is saved before switching targets
@@ -289,6 +307,34 @@ export function CharactersPanel({
             slot={slot}
           />
         ) : null
+      }}
+      renderAppearance={(c) => {
+        const slot = characters.find((x) => x.id === c.id)
+        if (!slot) return null
+        const appearance = parseAppearance(slot.appearance)
+        return (
+          <div className="space-y-1.5" data-character-appearance>
+            <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+              {t('sceneCast.appearance')}
+            </Label>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+              <Segmented
+                value={appearance}
+                label={t('sceneCast.appearance')}
+                onChange={(v) => void handleAppearance(slot.id, v)}
+                options={[
+                  { value: 'all', label: t('sceneCast.allScenes') },
+                  { value: 'selected', label: t('sceneCast.selectedScenes') },
+                ]}
+              />
+              {appearance === 'selected' && appearsIn && (
+                <span className="text-xs text-muted-foreground" data-appears-in>
+                  {t('sceneCast.appearsIn', { count: appearsIn[slot.id] ?? 0 })}
+                </span>
+              )}
+            </div>
+          </div>
+        )
       }}
       renderPromptHint={(c) => {
         const slot = characters.find((x) => x.id === c.id)

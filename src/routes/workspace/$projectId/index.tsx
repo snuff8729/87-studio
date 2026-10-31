@@ -34,6 +34,7 @@ import type {
 } from '@/components/workspace/scene-view'
 import type { SaveStatus } from '@/components/workspace/workspace-title'
 import type { ScenePositionSpec } from '@/lib/character-positions'
+import type { BulkCastChange } from '@/components/workspace/bulk-characters-dialog'
 import { extractPlaceholders } from '@/lib/placeholder'
 import { useStableArray } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n'
@@ -62,6 +63,7 @@ import { getSetting } from '@/server/functions/settings'
 import {
   addProjectScene,
   bulkDeleteProjectScenes,
+  bulkSetCharacterPresence,
   deleteProjectScene,
   duplicateProjectScene,
   getAllCharacterOverrides,
@@ -104,6 +106,7 @@ import {
 } from '@/components/workspace/scene-filters'
 import { toSceneCardScene } from '@/components/workspace/scene-card'
 import { SceneSelectionHeader } from '@/components/workspace/scene-selection-header'
+import { countAppearances } from '@/lib/scene-characters'
 import { ProjectPackProvider } from '@/components/workspace/project-pack-provider'
 import { ConvertToTemplateDialog } from '@/components/workspace/convert-to-template-dialog'
 import { SceneAxesDialog } from '@/components/workspace/scene-axes-dialog'
@@ -500,6 +503,9 @@ function WorkspacePage() {
           axisValues: o.axisValues,
           outfitItemIds: o.outfitItemIds,
           position: o.position,
+          presence: o.presence,
+          replacePrompt: o.replacePrompt,
+          replaceNegative: o.replaceNegative,
         })
       }
       setCharacterOverrides(grouped)
@@ -1120,6 +1126,50 @@ function WorkspacePage() {
     ],
   )
 
+  const bulkCast = useMemo(
+    () =>
+      data.characters.length > 0
+        ? {
+            characters: data.characters.map((c) => ({
+              id: c.id,
+              name: c.name,
+            })),
+            onApply: async (changes: Array<BulkCastChange>) => {
+              try {
+                await bulkSetCharacterPresence({
+                  data: { sceneIds: checkedVisibleIds, changes },
+                })
+                toast.success(
+                  t('sceneCast.bulkSuccess', {
+                    count: checkedVisibleIds.length,
+                  }),
+                )
+                await loadCharacterOverrides()
+              } catch (err) {
+                toast.error(t('sceneCast.saveFailed'))
+                throw err
+              }
+            },
+          }
+        : undefined,
+    [data.characters, checkedVisibleIds, loadCharacterOverrides, t],
+  )
+
+  // "Appears in N scenes" per character (Chars tab hint)
+  const appearsIn = useMemo(() => {
+    const out: Record<number, number> = {}
+    for (const c of data.characters) {
+      const presences = allSceneIds.flatMap((sid) => {
+        const o = (characterOverrides[sid] ?? []).find(
+          (x) => x.characterId === c.id,
+        )
+        return o ? [o.presence] : []
+      })
+      out[c.id] = countAppearances(c.appearance, presences, allSceneIds.length)
+    }
+    return out
+  }, [data.characters, allSceneIds, characterOverrides])
+
   const renderSelectionHeader = useCallback(
     (end?: ReactNode) => (
       <SceneSelectionHeader
@@ -1141,6 +1191,7 @@ function WorkspacePage() {
         onDelete={handleBulkDelete}
         deleteImageCount={checkedImageCount}
         positions={bulkPositions}
+        cast={bulkCast}
         renderExport={(trigger) => (
           <DownloadDialog
             trigger={trigger}
@@ -1160,6 +1211,8 @@ function WorkspacePage() {
       handleSceneCountChange,
       handleBulkDelete,
       handleMoveScenes,
+      bulkPositions,
+      bulkCast,
       projectId,
       data.project.name,
     ],
@@ -1622,6 +1675,7 @@ function WorkspacePage() {
                   projectId={projectId}
                   characters={data.characters}
                   positions={positionCanvas(params)}
+                  appearsIn={appearsIn}
                 />
               ),
             },

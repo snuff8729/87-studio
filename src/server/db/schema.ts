@@ -1,15 +1,14 @@
 import {
-  
   index,
   integer,
   primaryKey,
   real,
   sqliteTable,
   text,
-  uniqueIndex
+  uniqueIndex,
 } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
-import type {AnySQLiteColumn} from 'drizzle-orm/sqlite-core';
+import type { AnySQLiteColumn } from 'drizzle-orm/sqlite-core'
 
 // ─── Projects ───────────────────────────────────────────────────────────────
 export const projects = sqliteTable('projects', {
