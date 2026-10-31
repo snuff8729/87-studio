@@ -139,6 +139,7 @@ export function getDataStatus(): DataStatus {
 /** Re-check the remote manifest now (the "check for updates" button). */
 export async function checkForUpdates(): Promise<DataStatus> {
   await checkManifest()
+  errors.clear()
   return getDataStatus()
 }
 

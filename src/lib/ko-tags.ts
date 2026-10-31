@@ -3,12 +3,6 @@
  * pure helpers for Korean keyword search. No I/O.
  */
 
-/** Bump when a new naia-ko-v<N>.db is uploaded (format or contents changed). */
-export const KO_TAGS_VERSION = '1'
-export const KO_TAGS_FILE = `naia-ko-v${KO_TAGS_VERSION}.db`
-export const KO_TAGS_BASE_URL =
-  'https://huggingface.co/datasets/snuff8729/87-studio/resolve/main/'
-
 const HANGUL_RE = /[가-힣]/
 
 /** Whether the text contains a Hangul syllable (jamo alone do not count). */

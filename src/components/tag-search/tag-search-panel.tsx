@@ -231,26 +231,30 @@ export function TagSearchPanel({
           data-tag-search-input
         />
       </div>
-      {locale === 'ko' && koData?.state === 'notInstalled' && (
-        <div
-          className="mx-3 mt-2 flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground"
-          data-ko-hint
-        >
-          <span className="min-w-0 flex-1">
-            {t('data.koHint', { size: formatBytes(koData.size) })}
-          </span>
-          <Button
-            size="sm"
-            variant="outline"
-            className="h-6 px-2 text-xs"
-            disabled={installData.isPending}
-            onClick={() => installData.mutate('ko')}
-            data-ko-hint-install
+      {locale === 'ko' &&
+        (koData?.state === 'notInstalled' ||
+          koData?.state === 'downloading') && (
+          <div
+            className="mx-3 mt-2 flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground"
+            data-ko-hint
           >
-            {t('data.koHintAction')}
-          </Button>
-        </div>
-      )}
+            <span className="min-w-0 flex-1">
+              {t('data.koHint', { size: formatBytes(koData.size) })}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              disabled={installData.isPending || koData.state === 'downloading'}
+              onClick={() => installData.mutate('ko')}
+              data-ko-hint-install
+            >
+              {koData.state === 'downloading'
+                ? t('data.stateDownloading', { pct: koData.pct ?? 0 })
+                : t('data.koHintAction')}
+            </Button>
+          </div>
+        )}
       <SemanticToggle className="px-3 pt-2" />
       <div
         className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-1 [scrollbar-width:thin]"
