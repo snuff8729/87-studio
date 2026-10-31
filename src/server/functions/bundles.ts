@@ -9,6 +9,8 @@ import {
   promptBundles,
 } from '../db/schema'
 import { createLogger } from '../services/logger'
+import type { BundleKind, WildcardMode } from '@/lib/wildcard'
+import { normalizeKind, normalizeMode } from '@/lib/wildcard'
 
 const log = createLogger('fn.bundles')
 
@@ -57,6 +59,8 @@ export const listBundleNames = createServerFn({ method: 'GET' }).handler(
         id: promptBundles.id,
         name: promptBundles.name,
         content: promptBundles.content,
+        kind: promptBundles.kind,
+        wildcardMode: promptBundles.wildcardMode,
       })
       .from(promptBundles)
       .orderBy(asc(promptBundles.name))
@@ -151,7 +155,13 @@ export const getBundle = createServerFn({ method: 'GET' })
 
 export const createBundle = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: { name: string; description?: string; content?: string }) => data,
+    (data: {
+      name: string
+      description?: string
+      content?: string
+      kind?: BundleKind
+      wildcardMode?: WildcardMode
+    }) => data,
   )
   .handler(async ({ data }) => {
     const result = db
@@ -160,6 +170,8 @@ export const createBundle = createServerFn({ method: 'POST' })
         name: data.name.trim(),
         description: data.description,
         content: data.content ?? '',
+        kind: normalizeKind(data.kind),
+        wildcardMode: normalizeMode(data.wildcardMode),
       })
       .returning()
       .get()
@@ -177,6 +189,8 @@ export const updateBundle = createServerFn({ method: 'POST' })
       name?: string
       description?: string
       content?: string
+      kind?: BundleKind
+      wildcardMode?: WildcardMode
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -188,6 +202,9 @@ export const updateBundle = createServerFn({ method: 'POST' })
     if (updates.description !== undefined)
       setValues.description = updates.description
     if (updates.content !== undefined) setValues.content = updates.content
+    if (updates.kind !== undefined) setValues.kind = normalizeKind(updates.kind)
+    if (updates.wildcardMode !== undefined)
+      setValues.wildcardMode = normalizeMode(updates.wildcardMode)
 
     db.update(promptBundles)
       .set(setValues)

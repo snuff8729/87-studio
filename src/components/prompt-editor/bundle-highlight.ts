@@ -1,17 +1,36 @@
 import { Decoration, ViewPlugin } from '@codemirror/view'
+import { StateEffect } from '@codemirror/state'
+import { getBundleNames, lookupBundleRef } from './bundle-completion'
 import type { DecorationSet, ViewUpdate } from '@codemirror/view'
 
-const bundleDeco = Decoration.mark({ class: 'cm-bundle-highlight' })
+/** Dispatch after the bundle list changed so refs are re-classified */
+export const refreshBundleRefs = StateEffect.define<null>()
 
-function findBundles(doc: { toString: () => string }) {
-  const decorations: Array<{ from: number; to: number }> = []
+const bundleDeco = Decoration.mark({ class: 'cm-bundle-highlight' })
+const wildcardDeco = Decoration.mark({ class: 'cm-bundle-wildcard-highlight' })
+const invalidDeco = Decoration.mark({ class: 'cm-invalid-ref-highlight' })
+
+function buildDecorations(doc: { toString: () => string }): DecorationSet {
   const text = doc.toString()
-  const re = /@\{bundle:[^}]+\}/g
+  const known = getBundleNames().length > 0
+  const re = /@\{bundle:([^}]+)\}/g
+  const ranges = []
   let match
   while ((match = re.exec(text)) !== null) {
-    decorations.push({ from: match.index, to: match.index + match[0].length })
+    const from = match.index
+    const to = from + match[0].length
+    const ref = lookupBundleRef(match[1])
+    // Unknown refs are only flagged once the bundle list is loaded
+    const deco = ref
+      ? ref.bundle.kind === 'wildcard'
+        ? wildcardDeco
+        : bundleDeco
+      : known
+        ? invalidDeco
+        : bundleDeco
+    ranges.push(deco.range(from, to))
   }
-  return decorations
+  return Decoration.set(ranges)
 }
 
 export const bundleHighlight = ViewPlugin.fromClass(
@@ -19,18 +38,17 @@ export const bundleHighlight = ViewPlugin.fromClass(
     decorations: DecorationSet
 
     constructor(view: { state: { doc: { toString: () => string } } }) {
-      this.decorations = Decoration.set(
-        findBundles(view.state.doc).map((d) => bundleDeco.range(d.from, d.to)),
-      )
+      this.decorations = buildDecorations(view.state.doc)
     }
 
     update(update: ViewUpdate) {
-      if (update.docChanged) {
-        this.decorations = Decoration.set(
-          findBundles(update.state.doc).map((d) =>
-            bundleDeco.range(d.from, d.to),
-          ),
+      if (
+        update.docChanged ||
+        update.transactions.some((tr) =>
+          tr.effects.some((e) => e.is(refreshBundleRefs)),
         )
+      ) {
+        this.decorations = buildDecorations(update.state.doc)
       }
     }
   },

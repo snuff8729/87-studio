@@ -218,7 +218,7 @@ src/
 │   ├── db/
 │   │   ├── schema.ts          # Drizzle 스키마 정의 (32개 테이블)
 │   │   ├── index.ts           # DB 연결 (better-sqlite3)
-│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0016)
+│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0021)
 │   ├── services/
 │   │   ├── prompt.ts          # 프롬프트 합성 로직
 │   │   ├── nai.ts             # NAI API 클라이언트 (모델 선택 지원)
@@ -256,6 +256,7 @@ src/
 │   ├── project-packs.ts       # 프로젝트 팩 순수 헬퍼 (이름 중복, " (2)" 접미사, 순서 교환)
 │   ├── scene-templates.ts     # 씬 템플릿 다이얼로그 순수 로직 (복제 이름, 이동, 키 추천/이름 변경, 레이아웃 파싱)
 │   ├── bundle.ts              # @{bundle:name} 참조 추출/치환 유틸
+│   ├── wildcard.ts            # 와일드카드 번들 순수 로직 (참조·모드·고정 옵션 파싱, 이미지별 선택, 마커 치환, 미리보기; 테스트)
 │   ├── use-bundles.ts         # 번들 데이터 React Query 훅
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
 │   ├── sd-studio-import.ts    # SD Studio JSON 파서
@@ -302,6 +303,7 @@ scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/
 scripts/smoke/quick-parts.mjs  # Quick Generate 파츠 스모크 (NAI_MOCK 서버 전용, 새 seed 필요: 라이브러리 데이터는 DB에 직접 삽입, 연결·의상·글로벌 축·미리보기·Empty 배지·생성 resolved_prompts·image_axis_values/links·라이브러리 Images(N)·새로고침 유지·연결 끊김·일반 캐릭터)
 scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (중첩 부위·조각 부위·변수·코디 이미지 포함; NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
+scripts/smoke/wildcard.mjs     # 와일드카드 번들 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 번들 에디터(스위치·모드·개수·배지·Add bundle)·워크스페이스 순차 4장·Quick :random/:seq/고정 옵션/번들 참조 줄·갤러리 promptTag, DB 읽기전용 교차검증)
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
 LICENSE                        # GPL-3.0
 THIRD_PARTY_NOTICES.md         # NAIA2.0 (DNT-LAB, GPL-3.0) 출처·커밋 SHA·변환 내용
@@ -396,6 +398,10 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 - 생성된 이미지와 연결 (image_bundles 테이블)
 - 에디터에서 자동완성, 하이라이팅, 호버 툴팁 지원
 - 대표 썸네일 이미지 설정 가능
+- **와일드카드 번들** (스펙: `docs/superpowers/specs/2026-10-31-wildcard-bundles.md`): 에디터의 Wildcard 스위치로 `kind='wildcard'` — 비어 있지 않은 각 줄(`#` 주석 제외)이 옵션 하나(줄 전체가 하나, 쉼표 태그 가능), 줄이 `@{bundle:x}` 하나면 그 텍스트 번들 내용으로 한 단계 치환(옵션 안 와일드카드는 빈 문자열, `@{slot:}`은 유효). 기본 모드 `wildcard_mode` random|sequential(Segmented), 사용처 재정의 `@{bundle:x:random}` / `:seq`(`:sequential`), 고정 옵션 `@{bundle:x:<옵션 이름>}`(번호 선택 없음; 참조 줄의 이름 = 참조한 번들 이름; 못 찾으면 빈 문자열 + invalid-ref 경고). 우선순위: 정확한 번들 이름 > 모드 키워드 > 옵션 이름. "Add bundle" 버튼(Popover+Command)이 텍스트 번들을 `@{bundle:name}` 줄로 추가
+  - 합성(`BundleResolver`)은 프롬프트에 `@{wc:N}` 마커를 남기고 옵션 목록을 `ResolvedPrompts.wildcards`에 저장(와일드카드 선택이 번들/슬롯 치환보다 먼저). **선택은 `generation.ts` 루프에서 이미지마다**(sequential = 루프 인덱스 `i` % 개수 → 재시작 복구 유지, 여러 sequential은 함께 진행). 이미지 metadata는 선택이 반영된 최종 `prompts` + `wildcards: [{bundle, mode(random|sequential|fixed), option, index}]`(promptTag 필터가 선택 결과에 일치), `image_bundles`는 와일드카드 번들만 연결. 미리보기/큐 프롬프트 보기는 `{a | b | c}` / `{seq: a | b | c}`
+  - 에디터: 와일드카드 참조는 보라 점선 하이라이트, 알 수 없는 번들/옵션은 invalid-ref 경고, 호버에 타입·모드·옵션 목록, 자동완성 `wildcard · n options` 및 `bundle:name:` 뒤 `random`/`seq`/옵션 이름. 목록 행에 옵션 수 배지
+  - 순수 로직 `src/lib/wildcard.ts`(테스트 있음), 스모크 `scripts/smoke/wildcard.mjs`
 
 ### Reference Image (참조 이미지)
 
@@ -859,6 +865,8 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 | id                 | integer (PK, autoincrement) |                   |
 | name               | text (NOT NULL, UNIQUE)     |                   |
 | description        | text                        |                   |
+| kind               | text (NOT NULL, DEFAULT 'text') | 'text' 또는 'wildcard' (목록, 마이그레이션 0021) |
+| wildcard_mode      | text (NOT NULL, DEFAULT 'random') | 와일드카드 기본 모드 'random' / 'sequential' |
 | content            | text (NOT NULL, DEFAULT '') | 번들 프롬프트     |
 | thumbnail_image_id | integer                     | 대표 썸네일       |
 | created_at         | text                        |                   |

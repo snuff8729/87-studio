@@ -148,6 +148,13 @@
       "when": 1793388305872,
       "tag": "0020_tag_remote_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "6",
+      "when": 1793430952131,
+      "tag": "0021_wildcard_bundles",
+      "breakpoints": true
     }
   ]
 }

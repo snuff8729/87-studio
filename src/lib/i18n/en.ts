@@ -995,6 +995,18 @@ const en = {
     searchBundles: 'Search bundles...',
     selectBundle: 'Select a bundle to edit',
     contentPlaceholder: 'Enter prompt text...',
+    wildcard: 'Wildcard',
+    wildcardDesc:
+      'One option per line; each image gets one. Lines starting with # are comments.',
+    wildcardMode: 'Default mode',
+    modeRandom: 'Random',
+    modeSequential: 'Sequential',
+    optionCount: '{{count}} options',
+    wildcardBadge: '{{count}} opts',
+    addBundleLine: 'Add bundle',
+    noTextBundles: 'No text bundles found.',
+    wildcardPlaceholder:
+      'smile\n@{bundle:crying}\nangry, red face',
     descriptionPlaceholder: 'Description (optional)',
     usage: 'Usage: @{{{name}}}',
     tags: 'Tags',

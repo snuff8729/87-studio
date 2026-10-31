@@ -12,6 +12,8 @@ import {
   Search01Icon,
 } from '@hugeicons/core-free-icons'
 import { useQueryClient } from '@tanstack/react-query'
+import type { BundleKind, WildcardMode } from '@/lib/wildcard'
+import type { EditorBundle } from '@/components/prompt-editor/bundle-completion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -25,6 +27,25 @@ import {
 import { GRID_SIZES } from '@/components/gallery/gallery-toolbar'
 import { useImageGridSize } from '@/lib/use-image-grid-size'
 import { Separator } from '@/components/ui/separator'
+import { Switch } from '@/components/ui/switch'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command'
+import { Segmented } from '@/components/common/segmented'
+import {
+  normalizeKind,
+  normalizeMode,
+  parseWildcardOptions,
+} from '@/lib/wildcard'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { MasterDetail } from '@/components/common/master-detail'
@@ -60,7 +81,7 @@ function LazyPromptEditor(props: {
   onChange: (v: string) => void
   placeholder?: string
   minHeight?: string
-  bundleNames?: Array<{ name: string; content: string }>
+  bundleNames?: Array<EditorBundle>
 }) {
   return (
     <Suspense
@@ -143,6 +164,8 @@ function BundlesPage() {
     name: string
     description: string | null
     content: string
+    kind: string
+    wildcardMode: string
     thumbnailImageId: number | null
     imageCount: number
   } | null>(null)
@@ -150,6 +173,8 @@ function BundlesPage() {
   const [editName, setEditName] = useState('')
   const [editDescription, setEditDescription] = useState('')
   const [editContent, setEditContent] = useState('')
+  const [editKind, setEditKind] = useState<BundleKind>('text')
+  const [editMode, setEditMode] = useState<WildcardMode>('random')
   const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
   const [expandOpen, setExpandOpen] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
@@ -190,6 +215,8 @@ function BundlesPage() {
       setEditName(d.name)
       setEditDescription(d.description ?? '')
       setEditContent(d.content)
+      setEditKind(normalizeKind(d.kind))
+      setEditMode(normalizeMode(d.wildcardMode))
       const bundleInList = bundles.find((b) => b.id === selectedId)
       setEditTags(
         bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [],
@@ -218,13 +245,26 @@ function BundlesPage() {
   }, [refreshTags])
 
   // Debounced save
-  function scheduleSave(name: string, description: string, content: string) {
+  function scheduleSave(
+    name: string,
+    description: string,
+    content: string,
+    kind: BundleKind = editKind,
+    wildcardMode: WildcardMode = editMode,
+  ) {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(async () => {
       if (!selectedId) return
       try {
         await updateBundle({
-          data: { id: selectedId, name, description, content },
+          data: {
+            id: selectedId,
+            name,
+            description,
+            content,
+            kind,
+            wildcardMode,
+          },
         })
         refreshList()
       } catch {
@@ -317,6 +357,22 @@ function BundlesPage() {
   function handleContentChange(content: string) {
     setEditContent(content)
     scheduleSave(editName, editDescription, content)
+  }
+
+  function handleKindChange(wildcard: boolean) {
+    const kind: BundleKind = wildcard ? 'wildcard' : 'text'
+    setEditKind(kind)
+    scheduleSave(editName, editDescription, editContent, kind, editMode)
+  }
+
+  function handleModeChange(mode: WildcardMode) {
+    setEditMode(mode)
+    scheduleSave(editName, editDescription, editContent, editKind, mode)
+  }
+
+  function handleAddBundleLine(name: string) {
+    const base = editContent.replace(/\s+$/, '')
+    handleContentChange((base ? base + '\n' : '') + `@{bundle:${name}}`)
   }
 
   function scheduleTagSave(tags: Array<string>) {
@@ -579,6 +635,16 @@ function BundlesPage() {
                       <span className="truncate text-sm font-medium">
                         {bundle.name}
                       </span>
+                      {bundle.kind === 'wildcard' && (
+                        <span
+                          data-wildcard-badge
+                          className="shrink-0 rounded border border-dashed border-violet-400/50 bg-violet-400/10 px-1 text-[10px] text-violet-300 tabular-nums"
+                        >
+                          {t('bundles.wildcardBadge', {
+                            count: parseWildcardOptions(bundle.content).length,
+                          })}
+                        </span>
+                      )}
                       {bundle.imageCount > 0 && (
                         <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
                           {bundle.imageCount}
@@ -754,6 +820,53 @@ function BundlesPage() {
 
           <Separator />
 
+          {/* Wildcard type */}
+          <div className="space-y-2" data-bundle-kind>
+            <div className="flex items-center gap-3">
+              <Switch
+                id="bundle-wildcard"
+                checked={editKind === 'wildcard'}
+                onCheckedChange={handleKindChange}
+                data-wildcard-switch
+              />
+              <div className="min-w-0">
+                <Label htmlFor="bundle-wildcard" className="text-sm">
+                  {t('bundles.wildcard')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('bundles.wildcardDesc')}
+                </p>
+              </div>
+            </div>
+            {editKind === 'wildcard' && (
+              <div className="flex flex-wrap items-center gap-2">
+                <Segmented
+                  label={t('bundles.wildcardMode')}
+                  value={editMode}
+                  onChange={handleModeChange}
+                  options={[
+                    { value: 'random', label: t('bundles.modeRandom') },
+                    { value: 'sequential', label: t('bundles.modeSequential') },
+                  ]}
+                />
+                <span
+                  className="text-xs text-muted-foreground tabular-nums"
+                  data-wildcard-count
+                >
+                  {t('bundles.optionCount', {
+                    count: parseWildcardOptions(editContent).length,
+                  })}
+                </span>
+                <div className="flex-1" />
+                <AddBundleLinePopover
+                  bundles={bundleNamesForEditor}
+                  selfName={editName}
+                  onPick={handleAddBundleLine}
+                />
+              </div>
+            )}
+          </div>
+
           {/* Content */}
           <div className="space-y-1.5">
             <PromptEditorHeader
@@ -765,7 +878,11 @@ function BundlesPage() {
             <LazyPromptEditor
               value={editContent}
               onChange={handleContentChange}
-              placeholder={t('bundles.contentPlaceholder')}
+              placeholder={
+                editKind === 'wildcard'
+                  ? t('bundles.wildcardPlaceholder')
+                  : t('bundles.contentPlaceholder')
+              }
               minHeight="200px"
               bundleNames={bundleNamesForEditor}
             />
@@ -941,5 +1058,57 @@ function BundlesPage() {
         }}
       />
     </>
+  )
+}
+
+/** Append an existing text bundle as a new option line (`@{bundle:name}`) */
+function AddBundleLinePopover({
+  bundles,
+  selfName,
+  onPick,
+}: {
+  bundles: Array<EditorBundle>
+  selfName: string
+  onPick: (name: string) => void
+}) {
+  const { t } = useTranslation()
+  const [open, setOpen] = useState(false)
+  const candidates = bundles.filter(
+    (b) => normalizeKind(b.kind) === 'text' && b.name !== selfName,
+  )
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8"
+          data-add-bundle-line
+        >
+          <HugeiconsIcon icon={Add01Icon} className="size-3.5" />
+          {t('bundles.addBundleLine')}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-64 p-0">
+        <Command>
+          <CommandInput placeholder={t('bundles.searchBundles')} />
+          <CommandList>
+            <CommandEmpty>{t('bundles.noTextBundles')}</CommandEmpty>
+            {candidates.map((b) => (
+              <CommandItem
+                key={b.name}
+                value={b.name}
+                onSelect={() => {
+                  onPick(b.name)
+                  setOpen(false)
+                }}
+              >
+                <span className="truncate">{b.name}</span>
+              </CommandItem>
+            ))}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   )
 }

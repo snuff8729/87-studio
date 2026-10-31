@@ -999,6 +999,18 @@ const ko: DeepStringify<typeof en> = {
     searchBundles: '번들 검색...',
     selectBundle: '편집할 번들을 선택하세요',
     contentPlaceholder: '프롬프트 텍스트를 입력하세요...',
+    wildcard: '와일드카드',
+    wildcardDesc:
+      '한 줄에 옵션 하나, 이미지마다 하나씩 선택됩니다. # 로 시작하는 줄은 주석입니다.',
+    wildcardMode: '기본 모드',
+    modeRandom: '랜덤',
+    modeSequential: '순차',
+    optionCount: '옵션 {{count}}개',
+    wildcardBadge: '옵션 {{count}}',
+    addBundleLine: '번들 추가',
+    noTextBundles: '추가할 수 있는 텍스트 번들이 없어요.',
+    wildcardPlaceholder:
+      'smile\n@{bundle:crying}\nangry, red face',
     descriptionPlaceholder: '설명 (선택)',
     usage: '사용법: @{{{name}}}',
     tags: '태그',

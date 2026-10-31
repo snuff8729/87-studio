@@ -1,4 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
+import { normalizeKind, normalizeMode } from './wildcard'
+import type { BundleDef } from './wildcard'
 import { listBundleNames } from '@/server/functions/bundles'
 
 export function useBundleNames() {
@@ -9,6 +12,24 @@ export function useBundleNames() {
   })
 
   return data ?? []
+}
+
+/** name → bundle definition (kind / wildcard mode included) */
+export function useBundleDefs(): Record<string, BundleDef> {
+  const names = useBundleNames()
+  return useMemo(() => {
+    const map: Record<string, BundleDef> = {}
+    for (const b of names) {
+      map[b.name] = {
+        id: b.id,
+        name: b.name,
+        content: b.content,
+        kind: normalizeKind(b.kind),
+        wildcardMode: normalizeMode(b.wildcardMode),
+      }
+    }
+    return map
+  }, [names])
 }
 
 export function useBundleMap() {

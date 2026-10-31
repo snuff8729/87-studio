@@ -452,6 +452,10 @@ export const promptBundles = sqliteTable('prompt_bundles', {
   name: text('name').notNull().unique(),
   description: text('description'),
   content: text('content').notNull().default(''),
+  /** 'text' (fixed) | 'wildcard' (one option per line, picked per image) */
+  kind: text('kind').notNull().default('text'),
+  /** Default pick mode of a wildcard bundle: 'random' | 'sequential' */
+  wildcardMode: text('wildcard_mode').notNull().default('random'),
   thumbnailImageId: integer('thumbnail_image_id'),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),

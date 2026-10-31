@@ -1,6 +1,7 @@
 import { Suspense, lazy, useState } from 'react'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { BookmarkCheck01Icon, Search01Icon } from '@hugeicons/core-free-icons'
+import type { EditorBundle } from './bundle-completion'
 import {
   Dialog,
   DialogContent,
@@ -26,7 +27,7 @@ interface ExpandedEditorDialogProps {
   title: string
   value: string
   onChange: (value: string) => void
-  bundleNames?: Array<{ name: string; content: string }>
+  bundleNames?: Array<EditorBundle>
   partsTokens?: boolean
 }
 

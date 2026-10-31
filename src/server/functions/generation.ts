@@ -7,7 +7,7 @@ import {
   projectScenes,
   projects,
 } from '../db/schema'
-import { synthesizePrompts } from '../services/prompt'
+import { previewResolvedPrompts, synthesizePrompts } from '../services/prompt'
 import {
   cancelPendingJobs,
   dismissError,
@@ -193,7 +193,9 @@ export const dismissGenerationError = createServerFn({
 export const previewPrompts = createServerFn({ method: 'GET' })
   .inputValidator((data: { projectId: number; projectSceneId: number }) => data)
   .handler(async ({ data }) => {
-    return synthesizePrompts(data.projectId, data.projectSceneId)
+    return previewResolvedPrompts(
+      synthesizePrompts(data.projectId, data.projectSceneId),
+    )
   })
 
 export const retryJob = createServerFn({ method: 'POST' })

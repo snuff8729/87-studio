@@ -4,20 +4,82 @@ import type {
   CompletionContext,
   CompletionResult,
 } from '@codemirror/autocomplete'
+import type { BundleDef } from '@/lib/wildcard'
 import { extractTagQuery } from '@/lib/tag-query'
+import {
+  normalizeKind,
+  normalizeMode,
+  optionName,
+  parseBundleRef,
+  parseWildcardOptions,
+} from '@/lib/wildcard'
+
+/** Bundle info the editor needs (kind / mode are absent for older callers) */
+export interface EditorBundle {
+  name: string
+  content: string
+  kind?: string
+  wildcardMode?: string
+}
 
 // Module-level cache, updated externally
-let bundleNames: Array<{ name: string; content: string }> = []
+let bundleNames: Array<EditorBundle> = []
 let slotNames: Array<string> = []
 
-export function setBundleNames(
-  names: Array<{ name: string; content: string }>,
-) {
+export function setBundleNames(names: Array<EditorBundle>) {
   bundleNames = names
 }
 
-export function getBundleNames(): Array<{ name: string; content: string }> {
+export function getBundleNames(): Array<EditorBundle> {
   return bundleNames
+}
+
+export function toBundleDef(b: EditorBundle): BundleDef {
+  return {
+    id: 0,
+    name: b.name,
+    content: b.content,
+    kind: normalizeKind(b.kind),
+    wildcardMode: normalizeMode(b.wildcardMode),
+  }
+}
+
+/** Resolve a raw `@{bundle:...}` name against the cached bundles */
+export function lookupBundleRef(raw: string) {
+  return parseBundleRef(raw, (n) => {
+    const b = bundleNames.find((x) => x.name === n)
+    return b ? toBundleDef(b) : undefined
+  })
+}
+
+function bundleDetail(b: EditorBundle): string {
+  if (normalizeKind(b.kind) === 'wildcard') {
+    const n = parseWildcardOptions(b.content).length
+    return `wildcard · ${n} option${n === 1 ? '' : 's'}`
+  }
+  return b.content.length > 30 ? b.content.slice(0, 30) + '...' : b.content
+}
+
+/** After `bundle:name:` — mode keywords, then each option of a wildcard */
+function modeCompletions(query: string): Array<Completion> | null {
+  const m = /^bundle:(.+?):([^:}]*)$/.exec(query)
+  if (!m) return null
+  const base = bundleNames.find((b) => b.name.toLowerCase() === m[1])
+  if (!base || normalizeKind(base.kind) !== 'wildcard') return null
+  const typed = m[2]
+  const options: Array<Completion> = [
+    { label: 'random', detail: 'mode', apply: 'random}' },
+    { label: 'seq', detail: 'mode (sequential)', apply: 'seq}' },
+    ...parseWildcardOptions(base.content).map((o) => ({
+      label: optionName(o),
+      detail: o === optionName(o) ? 'option' : 'bundle',
+      apply: `${optionName(o)}}`,
+    })),
+  ]
+    .filter((o) => !typed || o.label.toLowerCase().includes(typed))
+    .slice(0, 30)
+    .map((o, i) => ({ ...o, type: 'enum', boost: 30 - i }))
+  return options.length > 0 ? options : null
 }
 
 export function setSlotNames(names: Array<string>) {
@@ -60,7 +122,7 @@ function bundleCompletions(query: string): Array<Completion> {
     .slice(0, 10)
     .map((b) => ({
       label: b.name,
-      detail: 'bundle',
+      detail: bundleDetail(b),
       type: 'variable',
       apply: `@{bundle:${b.name}}`,
       boost: 1,
@@ -113,16 +175,18 @@ async function completeRefs(
 
       // Already typed "bundle:" prefix
       if (query.startsWith('bundle:')) {
+        const modeOptions = modeCompletions(query)
+        if (modeOptions) {
+          const optFrom = openIdx + 2 + afterOpen.lastIndexOf(':') + 1
+          return { from: optFrom, options: modeOptions, validFor: /^[^}:]*$/ }
+        }
         const nameQuery = query.slice(7)
         const options: Array<Completion> = bundleNames
           .filter((b) => !nameQuery || b.name.toLowerCase().includes(nameQuery))
           .slice(0, 15)
           .map((b) => ({
             label: `bundle:${b.name}`,
-            detail:
-              b.content.length > 30
-                ? b.content.slice(0, 30) + '...'
-                : b.content,
+            detail: bundleDetail(b),
             type: 'variable',
             apply: `bundle:${b.name}}`,
           }))
@@ -158,10 +222,7 @@ async function completeRefs(
           .slice(0, 8)
           .map((b) => ({
             label: `bundle:${b.name}`,
-            detail:
-              b.content.length > 30
-                ? b.content.slice(0, 30) + '...'
-                : b.content,
+            detail: bundleDetail(b),
             type: 'variable' as const,
             apply: `bundle:${b.name}}`,
             boost: 1,

@@ -13,7 +13,7 @@ import {
   getQueueStatus,
 } from '../services/generation'
 import { createLogger } from '../services/logger'
-import { composeQuickPrompts } from '../services/prompt'
+import { composeQuickPrompts, previewResolvedPrompts } from '../services/prompt'
 import type { QuickPromptInput } from '../services/prompt'
 
 const log = createLogger('fn.quickGeneration')
@@ -23,7 +23,9 @@ const quickPromptInput = (data: QuickPromptInput) => data
 /** Final composed prompts for the Chars tab preview (no job is created). */
 export const previewQuickPrompts = createServerFn({ method: 'POST' })
   .inputValidator(quickPromptInput)
-  .handler(async ({ data }) => composeQuickPrompts(data))
+  .handler(async ({ data }) =>
+    previewResolvedPrompts(composeQuickPrompts(data)),
+  )
 
 export const createQuickGenerationJob = createServerFn({ method: 'POST' })
   .inputValidator(
