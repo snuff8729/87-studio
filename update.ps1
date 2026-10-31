@@ -3,7 +3,7 @@
 # runs migrations, and rebuilds the application.
 #
 # Refuses to run when: the server is still listening on :3000, the folder is
-# not a git checkout, or tracked files (other than src/routeTree.gen.ts, which
+# not a git checkout, or tracked files (other than src/routeTree.gen.ts / package-lock.json, which
 # is restored) are modified. Asks for confirmation when HEAD is on a branch.
 # UPDATE_DRY_RUN=1 : exit right after the checkout step (for testing).
 
@@ -105,10 +105,11 @@ if ($LASTEXITCODE -eq 0) {
 }
 
 # Generated files rewritten by builds: restore before checkout
-$genFile = "src/routeTree.gen.ts"
-$genChanged = & $GIT_CMD status --porcelain --untracked-files=no -- $genFile
-if ($genChanged) {
-    & $GIT_CMD checkout -- $genFile
+foreach ($genFile in @("src/routeTree.gen.ts", "package-lock.json")) {
+    $genChanged = & $GIT_CMD status --porcelain --untracked-files=no -- $genFile
+    if ($genChanged) {
+        & $GIT_CMD checkout -- $genFile
+    }
 }
 
 # Any other tracked modifications: stop (never discard user work)

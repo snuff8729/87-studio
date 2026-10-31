@@ -1,6 +1,6 @@
 #!/bin/bash
 # Refuses to run when: the server is still listening on :3000, the folder is
-# not a git checkout, or tracked files (other than src/routeTree.gen.ts, which
+# not a git checkout, or tracked files (other than src/routeTree.gen.ts / package-lock.json, which
 # is restored) are modified. Asks for confirmation when HEAD is on a branch.
 # UPDATE_DRY_RUN=1 : exit right after the checkout step (for testing).
 set -e
@@ -84,10 +84,11 @@ if git symbolic-ref -q HEAD >/dev/null 2>&1; then
 fi
 
 # Generated files rewritten by builds: restore before checkout
-GEN_FILE="src/routeTree.gen.ts"
-if [ -n "$(git status --porcelain --untracked-files=no -- "$GEN_FILE")" ]; then
-    git checkout -- "$GEN_FILE"
-fi
+for GEN_FILE in src/routeTree.gen.ts package-lock.json; do
+    if [ -n "$(git status --porcelain --untracked-files=no -- "$GEN_FILE")" ]; then
+        git checkout -- "$GEN_FILE"
+    fi
+done
 
 # Any other tracked modifications: stop (never discard user work)
 DIRTY=$(git status --porcelain --untracked-files=no)
