@@ -23,7 +23,7 @@ import {
 } from '@/components/queue/queue-status-widget'
 import { SidebarAccountRow } from '@/components/account/nai-account'
 import { useTranslation } from '@/lib/i18n'
-import { useDataStatus } from '@/components/data/use-data-files'
+import { useDataStatus } from '@/components/datasets/use-data-files'
 import { getAppInfo } from '@/server/functions/settings'
 
 function NavMenuItem({

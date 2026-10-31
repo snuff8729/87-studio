@@ -11,8 +11,8 @@ import {
   Upload04Icon,
 } from '@hugeicons/core-free-icons'
 import type { DanbooruTagDetail } from '@/server/functions/danbooru'
-import { useDataset } from '@/components/data/use-data-files'
-import { NeedsTagData } from '@/components/data/needs-tag-data'
+import { useDataset } from '@/components/datasets/use-data-files'
+import { NeedsTagData } from '@/components/datasets/needs-tag-data'
 import { MasterDetail } from '@/components/common/master-detail'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'

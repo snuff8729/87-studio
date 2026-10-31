@@ -30,7 +30,7 @@ import {
   NAI_ACCOUNT_KEY,
   useNaiAccount,
 } from '@/components/account/nai-account'
-import { DataSettingsCard } from '@/components/data/data-settings-card'
+import { DataSettingsCard } from '@/components/datasets/data-settings-card'
 import { SemanticSettingsCard } from '@/components/semantic/semantic-settings-card'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'

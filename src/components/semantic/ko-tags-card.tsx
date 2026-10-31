@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { useDataset } from '@/components/data/use-data-files'
+import { useDataset } from '@/components/datasets/use-data-files'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 

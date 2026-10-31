@@ -5,8 +5,11 @@ import { Copy01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { toast } from 'sonner'
 import { insertTagIntoLastEditor, useHasPromptEditor } from './editor-registry'
 import { RemoteSections } from './remote-sections'
-import { NeedsTagData } from '@/components/data/needs-tag-data'
-import { useDataActions, useDataset } from '@/components/data/use-data-files'
+import { NeedsTagData } from '@/components/datasets/needs-tag-data'
+import {
+  useDataActions,
+  useDataset,
+} from '@/components/datasets/use-data-files'
 import { SemanticToggle } from '@/components/semantic/semantic-toggle'
 import { useSemanticRows } from '@/components/semantic/use-semantic-rows'
 import { Button } from '@/components/ui/button'

@@ -9,7 +9,7 @@ import {
   useSemanticStatus,
 } from './use-semantic'
 import { KoTagsCard } from './ko-tags-card'
-import { useDataset } from '@/components/data/use-data-files'
+import { useDataset } from '@/components/datasets/use-data-files'
 import {
   Card,
   CardContent,

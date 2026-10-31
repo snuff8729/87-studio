@@ -14,7 +14,7 @@ import {
   subscribeTagInfoEnabled,
 } from './tag-info-client'
 import { Label } from '@/components/ui/label'
-import { useDataset } from '@/components/data/use-data-files'
+import { useDataset } from '@/components/datasets/use-data-files'
 import { useTagSearch } from '@/components/tag-search/tag-search-provider'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'

@@ -207,7 +207,7 @@ $RECYCLE.BIN/
 .DS_Store
 
 # App data
-data/
+/data/
 
 # Build output
 .output/
