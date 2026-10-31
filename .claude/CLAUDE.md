@@ -1019,6 +1019,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 - **간편 실행**: `start.sh` (Linux/macOS) / `start.bat` (Windows)
   - Node.js v22.12.0 자동 다운로드 (`./runtime/node/`), 의존성 설치, DB 마이그레이션, 빌드, 서버 실행 (브라우저는 자동으로 열지 않음, http://localhost:3000)
   - Node.js가 설치되지 않은 환경에서도 사용 가능
+- **업데이트**: `update.bat` / `update.sh` — 최신 버전 태그로 체크아웃(detached) 후 의존성·마이그레이션·빌드. git clone으로 받은 폴더에서만 동작(ZIP은 안내 후 중단). 시작 시 포트 3000이 열려 있으면(서버 실행 중) 중단, 브랜치 위에 있으면 태그로 전환된다는 경고 + y/N 확인(기본 No), `src/routeTree.gen.ts`만 수정된 경우 자동 복원하고 그 외 추적 파일 수정이 있으면 목록 표시 후 중단(stash/reset 없음). `UPDATE_DRY_RUN=1`이면 체크아웃 직후 종료(테스트용)
 
 ## 개발 명령어
 

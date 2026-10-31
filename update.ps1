@@ -1,6 +1,11 @@
 ﻿# 87 Studio - Update Script
 # This script pulls the latest release, updates dependencies,
 # runs migrations, and rebuilds the application.
+#
+# Refuses to run when: the server is still listening on :3000, the folder is
+# not a git checkout, or tracked files (other than src/routeTree.gen.ts, which
+# is restored) are modified. Asks for confirmation when HEAD is on a branch.
+# UPDATE_DRY_RUN=1 : exit right after the checkout step (for testing).
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $Host.UI.RawUI.WindowTitle = "87 Studio - Update"
@@ -24,6 +29,30 @@ Write-Host "   ======================================="
 Write-Host "          87 Studio - Update"
 Write-Host "   ======================================="
 Write-Host ""
+
+# ============================================================
+#  Pre-checks (before any git change)
+# ============================================================
+# 1) Server still running?
+$listening = $null
+try { $listening = Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue } catch {}
+if ($listening) {
+    Write-Host "   [ERROR] 서버가 실행 중입니다. start.bat 창을 먼저 닫고 다시 실행해주세요."
+    Write-Host ""
+    Read-Host "   Enter 키를 누르면 종료합니다"
+    exit 1
+}
+
+# 2) Git checkout?
+if (-not (Test-Path (Join-Path $ROOT_DIR ".git"))) {
+    Write-Host "   [ERROR] 이 폴더는 git으로 받은 경우에만 업데이트할 수 있어요."
+    Write-Host "   (ZIP으로 내려받은 폴더는 업데이트할 수 없습니다.)"
+    Write-Host "   아래 명령으로 새로 받은 뒤 그 폴더에서 start.bat 을 실행해주세요:"
+    Write-Host "     git clone https://github.com/snuff8729/87-studio.git"
+    Write-Host ""
+    Read-Host "   Enter 키를 누르면 종료합니다"
+    exit 1
+}
 
 # ============================================================
 #  Step 1: Git Pull
@@ -59,6 +88,40 @@ if ($gitPath) {
         Read-Host "   Enter 키를 누르면 종료합니다"
         exit 1
     }
+}
+
+# On a branch (developer use): updating leaves the branch
+& $GIT_CMD symbolic-ref -q HEAD *> $null
+if ($LASTEXITCODE -eq 0) {
+    $BRANCH = & $GIT_CMD symbolic-ref --short HEAD
+    Write-Host ""
+    Write-Host "   [주의] 현재 '$BRANCH' 브랜치에 있습니다."
+    Write-Host "   업데이트하면 이 폴더가 릴리스 태그로 전환되어 '$BRANCH' 브랜치에서 벗어납니다."
+    $answer = Read-Host "   계속할까요? (y/N)"
+    if ($answer -notmatch '^[yY]') {
+        Write-Host "   취소했습니다. 변경된 내용은 없습니다."
+        exit 0
+    }
+}
+
+# Generated files rewritten by builds: restore before checkout
+$genFile = "src/routeTree.gen.ts"
+$genChanged = & $GIT_CMD status --porcelain --untracked-files=no -- $genFile
+if ($genChanged) {
+    & $GIT_CMD checkout -- $genFile
+}
+
+# Any other tracked modifications: stop (never discard user work)
+$dirty = & $GIT_CMD status --porcelain --untracked-files=no
+if ($dirty) {
+    Write-Host ""
+    Write-Host "   [ERROR] 수정된 파일이 있어 업데이트할 수 없습니다:"
+    foreach ($line in $dirty) { Write-Host "     $line" }
+    Write-Host ""
+    Write-Host "   직접 수정한 내용이 사라지지 않도록 업데이트를 중단했습니다."
+    Write-Host "   변경을 커밋하거나 되돌린 뒤 다시 실행해주세요."
+    Read-Host "   Enter 키를 누르면 종료합니다"
+    exit 1
 }
 
 Write-Host "   [1/5] 최신 릴리스 가져오는 중..."
@@ -101,6 +164,11 @@ if ($CURRENT_COMMIT -eq $LATEST_TAG_COMMIT) {
     }
 }
 Write-Host "         완료!"
+
+if ($env:UPDATE_DRY_RUN -eq "1") {
+    Write-Host "   (UPDATE_DRY_RUN) 체크아웃 후 종료합니다."
+    exit 0
+}
 
 # ============================================================
 #  Step 2: Node.js Runtime

@@ -1,4 +1,8 @@
 #!/bin/bash
+# Refuses to run when: the server is still listening on :3000, the folder is
+# not a git checkout, or tracked files (other than src/routeTree.gen.ts, which
+# is restored) are modified. Asks for confirmation when HEAD is on a branch.
+# UPDATE_DRY_RUN=1 : exit right after the checkout step (for testing).
 set -e
 cd "$(dirname "$0")"
 
@@ -37,15 +41,68 @@ echo ""
 # =============================================================
 #  Step 1: Fetch latest release tag
 # =============================================================
+# Server still running? (skip the check when no tool is available)
+PORT_BUSY=0
+if command -v lsof &>/dev/null; then
+    lsof -iTCP:3000 -sTCP:LISTEN -t >/dev/null 2>&1 && PORT_BUSY=1
+elif command -v ss &>/dev/null; then
+    ss -ltn 2>/dev/null | awk '{print $4}' | grep -Eq '[:.]3000$' && PORT_BUSY=1
+elif command -v nc &>/dev/null; then
+    nc -z 127.0.0.1 3000 >/dev/null 2>&1 && PORT_BUSY=1
+fi
+if [ "$PORT_BUSY" = "1" ]; then
+    echo "  [ERROR] 서버가 실행 중입니다. start.sh 를 실행한 터미널에서 Ctrl+C 로 먼저 종료하고 다시 실행해주세요."
+    exit 1
+fi
+
+# Git checkout?
+if [ ! -e .git ]; then
+    echo "  [ERROR] 이 폴더는 git으로 받은 경우에만 업데이트할 수 있어요."
+    echo "  (ZIP으로 내려받은 폴더는 업데이트할 수 없습니다.)"
+    echo "  아래 명령으로 새로 받은 뒤 그 폴더에서 ./start.sh 를 실행해주세요:"
+    echo "    git clone https://github.com/snuff8729/87-studio.git"
+    exit 1
+fi
+
 if ! command -v git &>/dev/null; then
     echo "  [ERROR] Git이 설치되어 있지 않습니다."
     echo "  Git을 설치한 후 다시 실행해주세요."
     exit 1
 fi
 
+# On a branch (developer use): updating leaves the branch
+if git symbolic-ref -q HEAD >/dev/null 2>&1; then
+    BRANCH=$(git symbolic-ref --short HEAD)
+    echo ""
+    echo "  [주의] 현재 '$BRANCH' 브랜치에 있습니다."
+    echo "  업데이트하면 이 폴더가 릴리스 태그로 전환되어 '$BRANCH' 브랜치에서 벗어납니다."
+    read -r -p "  계속할까요? (y/N) " ANSWER || ANSWER=""
+    case "$ANSWER" in
+        y|Y|yes|YES) ;;
+        *) echo "  취소했습니다. 변경된 내용은 없습니다."; exit 0 ;;
+    esac
+fi
+
+# Generated files rewritten by builds: restore before checkout
+GEN_FILE="src/routeTree.gen.ts"
+if [ -n "$(git status --porcelain --untracked-files=no -- "$GEN_FILE")" ]; then
+    git checkout -- "$GEN_FILE"
+fi
+
+# Any other tracked modifications: stop (never discard user work)
+DIRTY=$(git status --porcelain --untracked-files=no)
+if [ -n "$DIRTY" ]; then
+    echo ""
+    echo "  [ERROR] 수정된 파일이 있어 업데이트할 수 없습니다:"
+    echo "$DIRTY" | sed 's/^/    /'
+    echo ""
+    echo "  직접 수정한 내용이 사라지지 않도록 업데이트를 중단했습니다."
+    echo "  변경을 커밋하거나 되돌린 뒤 다시 실행해주세요."
+    exit 1
+fi
+
 echo "  [1/5] 최신 릴리스 가져오는 중..."
-git fetch origin --tags --force
-if [ $? -ne 0 ]; then
+if ! git fetch origin --tags --force; then
     echo "  [ERROR] Git fetch에 실패했습니다."
     echo "  인터넷 연결 또는 저장소 상태를 확인해주세요."
     exit 1
@@ -73,6 +130,11 @@ else
     git checkout "$LATEST_TAG"
 fi
 echo "        완료!"
+
+if [ "$UPDATE_DRY_RUN" = "1" ]; then
+    echo "  (UPDATE_DRY_RUN) 체크아웃 후 종료합니다."
+    exit 0
+fi
 
 # =============================================================
 #  Step 2: Node.js Runtime
