@@ -1,6 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import { Tick02Icon, ViewIcon, ViewOffIcon } from '@hugeicons/core-free-icons'
@@ -18,6 +24,12 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Slider } from '@/components/ui/slider'
+import { Switch } from '@/components/ui/switch'
+import {
+  isSdPasteConvertEnabled,
+  setSdPasteConvertEnabled,
+  subscribeSdPasteConvert,
+} from '@/components/prompt-editor/sd-paste-pref'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import {
   getSetting,
@@ -110,6 +122,22 @@ const SECTION_IDS = [
 type SectionId = (typeof SECTION_IDS)[number]
 
 /** Label + description on the left, control on the right (stacked on mobile). */
+function SdPasteConvertSwitch() {
+  const on = useSyncExternalStore(
+    subscribeSdPasteConvert,
+    isSdPasteConvertEnabled,
+    () => true,
+  )
+  return (
+    <Switch
+      id="sd-paste-convert"
+      checked={on}
+      onCheckedChange={setSdPasteConvertEnabled}
+      data-sd-paste-switch
+    />
+  )
+}
+
 function SettingRow({
   label,
   description,
@@ -553,6 +581,13 @@ function SettingsPage() {
                 className="w-24 shrink-0 font-mono"
               />
             </div>
+          </SettingRow>
+          <SettingRow
+            label={t('settings.sdPasteConvert')}
+            description={t('settings.sdPasteConvertHint')}
+            htmlFor="sd-paste-convert"
+          >
+            <SdPasteConvertSwitch />
           </SettingRow>
         </SectionCard>
 

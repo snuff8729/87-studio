@@ -152,6 +152,9 @@ const ko: DeepStringify<typeof en> = {
     generationDesc: '이미지 생성 시 요청 간격을 조절합니다.',
     delaySeconds: '딜레이 (ms)',
     delayHint: '생성 사이의 대기 시간입니다 (0~30000ms).',
+    sdPasteConvert: '붙여넣을 때 SD 가중치 변환',
+    sdPasteConvertHint:
+      '프롬프트 에디터에 (tag:1.2) 같은 Stable Diffusion 문법을 붙여넣으면 NovelAI 문법(1.2::tag::)으로 바꿔줘요.',
     appearanceDesc: '언어와 인터페이스 크기를 설정합니다.',
     cleanupConfirmTitle: '고아 파일을 삭제할까요?',
     cleanupConfirmDesc:
@@ -1349,6 +1352,10 @@ const ko: DeepStringify<typeof en> = {
     imagePrev: '이전 이미지',
     imageNext: '다음 이미지',
     openGalleryImage: '갤러리 상세로 열기',
+  },
+  promptEditor: {
+    sdConverted: 'SD 문법을 NAI 문법으로 변환했어요',
+    sdConvertedUndo: '되돌리기',
   },
   tagAssist: {
     posts: '{{count}}개 게시물',

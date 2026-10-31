@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { EditorState } from '@codemirror/state'
+import { toast } from 'sonner'
 import { EditorView, ViewPlugin, keymap, tooltips } from '@codemirror/view'
-import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import {
+  defaultKeymap,
+  history,
+  historyKeymap,
+  isolateHistory,
+} from '@codemirror/commands'
 import { acceptCompletion, autocompletion } from '@codemirror/autocomplete'
 import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
@@ -23,6 +29,7 @@ import { bundleTooltip } from './bundle-tooltip'
 import { refreshVarRefs, varCompletionSource, varRefExtension } from './var-ref'
 import { tagRowDecorations } from './danbooru-completion'
 import { tagCaretInfo } from './tag-caret-info'
+import { isSdPasteConvertEnabled } from './sd-paste-pref'
 import { EditorContextMenu, detectTokenAt } from './editor-context-menu'
 import type { ContextMenuTarget } from './editor-context-menu'
 import type { ViewUpdate } from '@codemirror/view'
@@ -30,6 +37,8 @@ import {
   registerFocusedEditor,
   unregisterEditor,
 } from '@/components/tag-search/editor-registry'
+import { useTranslation } from '@/lib/i18n'
+import { convertSdPrompt } from '@/lib/sd-to-nai'
 
 // CM mounts its tooltip container as an in-flow 2px child of the parent. On
 // document.body that made every editor route 2px taller per editor than the
@@ -85,6 +94,9 @@ export function PromptEditor({
   partsTokens = false,
   varNames,
 }: PromptEditorProps) {
+  const { t } = useTranslation()
+  const tRef = useRef(t)
+  tRef.current = t
   const varNamesRef = useRef<Array<string>>(varNames ?? [])
   varNamesRef.current = varNames ?? []
   const containerRef = useRef<HTMLDivElement>(null)
@@ -179,6 +191,48 @@ export function PromptEditor({
         EditorView.domEventHandlers({
           focus: (_e, v) => {
             registerFocusedEditor(v)
+          },
+          paste: (e, v) => {
+            if (!isSdPasteConvertEnabled()) return false
+            const raw = e.clipboardData?.getData('text/plain')
+            if (!raw) return false
+            const conv = convertSdPrompt(raw)
+            if (!conv.changed) return false
+            e.preventDefault()
+            const { from, to } = v.state.selection.main
+            // Two isolated steps so one Ctrl+Z restores the raw paste
+            v.dispatch({
+              changes: { from, to, insert: raw },
+              selection: { anchor: from + raw.length },
+              userEvent: 'input.paste',
+              annotations: isolateHistory.of('full'),
+            })
+            v.dispatch({
+              changes: { from, to: from + raw.length, insert: conv.text },
+              selection: { anchor: from + conv.text.length },
+              userEvent: 'input.paste',
+              annotations: isolateHistory.of('full'),
+            })
+            const convText = conv.text
+            toast(tRef.current('promptEditor.sdConverted'), {
+              action: {
+                label: tRef.current('promptEditor.sdConvertedUndo'),
+                onClick: () => {
+                  if (!v.dom.isConnected) return
+                  if (
+                    v.state.doc.sliceString(from, from + convText.length) !==
+                    convText
+                  )
+                    return
+                  v.dispatch({
+                    changes: { from, to: from + convText.length, insert: raw },
+                    selection: { anchor: from + raw.length },
+                    annotations: isolateHistory.of('full'),
+                  })
+                },
+              },
+            })
+            return true
           },
         }),
         EditorView.updateListener.of((update) => {

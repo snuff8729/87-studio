@@ -299,6 +299,7 @@ scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (play
 scripts/smoke/templates.mjs    # 씬 템플릿 다이얼로그 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 팩/씬/키 CRUD·복제·이동·자동저장·선택 적용, DB 읽기전용 교차검증)
 scripts/smoke/positions.mjs    # 캐릭터 위치 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 기본/씬 오버라이드/일괄/터치 드래그/생성 metadata 검증, DB 읽기전용 교차검증)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
+scripts/smoke/sd-paste.mjs     # SD→NAI 붙여넣기 변환 스모크 (NAI_MOCK 서버 전용, 쓰기 없음: 변환·토스트 되돌리기·Ctrl+Z·NAI 텍스트 무변환·설정 토글 OFF)
 scripts/smoke/quick-parts.mjs  # Quick Generate 파츠 스모크 (NAI_MOCK 서버 전용, 새 seed 필요: 라이브러리 데이터는 DB에 직접 삽입, 연결·의상·글로벌 축·미리보기·Empty 배지·생성 resolved_prompts·image_axis_values/links·라이브러리 Images(N)·새로고침 유지·연결 끊김·일반 캐릭터)
 scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (중첩 부위·조각 부위·변수·코디 이미지 포함; NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
@@ -625,6 +626,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 - `@{bundle:name}` 번들 참조 하이라이팅, 자동완성, 호버 툴팁
 - 존재하지 않는 참조 경고 하이라이팅
 - 가중치 구문 하이라이팅
+- **SD 문법 붙여넣기 변환**: 붙여넣은 텍스트가 A1111 문법이면 NAI 문법으로 자동 변환 (`(a:1.2)`→`1.2::a::`, `(a)`→`1.1::a::`, `[a]`→`0.91::a::`, `(` `)`→`(` `)`, `<lora:…>`·`BREAK` 제거, 중첩 가중치는 곱해 구간별로 평탄화). 순수 로직 `src/lib/sd-to-nai.ts`(`convertSdPrompt`, `looksLikeSd`; 테스트 있음), 괄호 불균형이면 변경 없음. 에디터는 원본 삽입 → 변환 2단계(`isolateHistory`)라 Ctrl+Z 한 번이면 원문 복원 + 토스트 "되돌리기". 설정 › 생성의 토글, localStorage `87studio-sd-paste-convert`(기본 ON, `sd-paste-pref.ts`). 스모크 `scripts/smoke/sd-paste.mjs`(NAI_MOCK 서버 전용, DB 쓰기 없음)
 - 우클릭 컨텍스트 메뉴 (태그 정보, 복사, 삭제, Danbooru 페이지)
 - 전체 화면 확장 편집 (에디터가 다이얼로그 본문 높이를 채움, 헤더에 태그 갤러리 버튼)
 - 모든 프롬프트 입력(Quick Generate prompt/negative/캐릭터, 워크스페이스 prompt/negative/캐릭터, 플레이스홀더)에 태그 갤러리 버튼 (`useTagGallery`)

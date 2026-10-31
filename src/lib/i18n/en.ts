@@ -149,6 +149,9 @@ const en = {
     generationDesc: 'How requests are paced when generating images.',
     delaySeconds: 'Delay (ms)',
     delayHint: 'Wait between two generations (0 to 30000 ms).',
+    sdPasteConvert: 'Convert SD weights on paste',
+    sdPasteConvertHint:
+      'When you paste Stable Diffusion syntax such as (tag:1.2) into a prompt editor, convert it to NovelAI syntax (1.2::tag::).',
     appearanceDesc: 'Language and interface size.',
     cleanupConfirmTitle: 'Delete orphan files?',
     cleanupConfirmDesc:
@@ -1348,6 +1351,10 @@ const en = {
     imagePrev: 'Previous image',
     imageNext: 'Next image',
     openGalleryImage: 'Open in gallery detail',
+  },
+  promptEditor: {
+    sdConverted: 'Converted SD syntax to NAI',
+    sdConvertedUndo: 'Undo',
   },
   tagAssist: {
     posts: '{{count}} posts',
