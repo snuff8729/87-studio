@@ -10,8 +10,10 @@ import {
 import { deleteImageFiles } from '../services/image'
 import type { ScenePositionSpec } from '@/lib/character-positions'
 import type { OutfitEntry } from '@/lib/character-parts'
+import type { PresenceSetting } from '@/lib/scene-characters'
 import { parseAxisValues, stringifyOutfitEntries } from '@/lib/character-parts'
 import { encodePosition } from '@/lib/character-positions'
+import { parsePresenceSetting } from '@/lib/scene-characters'
 
 export const listProjectScenePacks = createServerFn({ method: 'GET' })
   .inputValidator((projectId: number) => projectId)
@@ -109,10 +111,8 @@ export const updateSceneParts = createServerFn({ method: 'POST' })
 /** Merge: given keys are set on every scene, other keys stay untouched. */
 export const bulkSetSceneAxisValues = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: {
-      sceneIds: Array<number>
-      axisValues: Record<string, number>
-    }) => data,
+    (data: { sceneIds: Array<number>; axisValues: Record<string, number> }) =>
+      data,
   )
   .handler(async ({ data }) => {
     if (data.sceneIds.length === 0) return { success: true, updated: 0 }
@@ -124,7 +124,10 @@ export const bulkSetSceneAxisValues = createServerFn({ method: 'POST' })
         .where(inArray(projectScenes.id, data.sceneIds))
         .all()
       for (const row of rows) {
-        const merged = { ...parseAxisValues(row.axisValues), ...data.axisValues }
+        const merged = {
+          ...parseAxisValues(row.axisValues),
+          ...data.axisValues,
+        }
         tx.update(projectScenes)
           .set({ axisValues: JSON.stringify(merged), updatedAt: now })
           .where(eq(projectScenes.id, row.id))
@@ -315,6 +318,9 @@ export const addProjectScene = createServerFn({ method: 'POST' })
               axisValues: override.axisValues,
               outfitItemIds: override.outfitItemIds,
               position: override.position,
+              presence: override.presence,
+              replacePrompt: override.replacePrompt,
+              replaceNegative: override.replaceNegative,
             })
             .run()
         }
@@ -421,6 +427,9 @@ export const duplicateProjectScene = createServerFn({ method: 'POST' })
             axisValues: override.axisValues,
             outfitItemIds: override.outfitItemIds,
             position: override.position,
+            presence: override.presence,
+            replacePrompt: override.replacePrompt,
+            replaceNegative: override.replaceNegative,
           })
           .run()
       }
@@ -489,4 +498,91 @@ export const getAllCharacterOverrides = createServerFn({ method: 'GET' })
       .from(characterSceneOverrides)
       .where(inArray(characterSceneOverrides.projectSceneId, projectSceneIds))
       .all()
+  })
+
+/**
+ * Set a character's presence in one scene (null = Default) and optionally its
+ * Replace prompt/negative. Omitted fields are untouched.
+ */
+export const setCharacterPresence = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      sceneId: number
+      characterId: number
+      presence?: PresenceSetting
+      replacePrompt?: string
+      replaceNegative?: string
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const patch: {
+      presence?: PresenceSetting
+      replacePrompt?: string
+      replaceNegative?: string
+    } = {}
+    if (data.presence !== undefined) {
+      patch.presence = parsePresenceSetting(data.presence)
+    }
+    if (data.replacePrompt !== undefined) {
+      patch.replacePrompt = data.replacePrompt
+    }
+    if (data.replaceNegative !== undefined) {
+      patch.replaceNegative = data.replaceNegative
+    }
+    if (Object.keys(patch).length === 0) return { success: true }
+    db.insert(characterSceneOverrides)
+      .values({
+        projectSceneId: data.sceneId,
+        characterId: data.characterId,
+        ...patch,
+      })
+      .onConflictDoUpdate({
+        target: [
+          characterSceneOverrides.projectSceneId,
+          characterSceneOverrides.characterId,
+        ],
+        set: patch,
+      })
+      .run()
+    return { success: true }
+  })
+
+/**
+ * Bulk presence: set Default/On/Off for the listed characters on every scene
+ * (one transaction). Stored Replace text is kept.
+ */
+export const bulkSetCharacterPresence = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      sceneIds: Array<number>
+      changes: Array<{
+        characterId: number
+        presence: Exclude<PresenceSetting, 'replace'>
+      }>
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    db.transaction((tx) => {
+      for (const sceneId of data.sceneIds) {
+        for (const c of data.changes) {
+          const presence = parsePresenceSetting(c.presence)
+          if (presence === 'replace') continue
+          tx.insert(characterSceneOverrides)
+            .values({
+              projectSceneId: sceneId,
+              characterId: c.characterId,
+              presence,
+            })
+            .onConflictDoUpdate({
+              target: [
+                characterSceneOverrides.projectSceneId,
+                characterSceneOverrides.characterId,
+              ],
+              set: { presence },
+            })
+            .run()
+        }
+      }
+    })
+    return { success: true, updated: data.sceneIds.length }
   })

@@ -11,12 +11,17 @@ import {
   UserMultiple02Icon,
   ViewIcon,
 } from '@hugeicons/core-free-icons'
+import { BulkCharactersDialog } from './bulk-characters-dialog'
 import { BulkPositionsDialog } from './bulk-positions-dialog'
 import { ReserveStepper } from './scene-card'
 import { MoveToPackSub } from './project-pack-provider'
 import { selectAllState } from './scene-selection'
 import type { ReactNode } from 'react'
 import type { BulkPositionCharacter } from './bulk-positions-dialog'
+import type {
+  BulkCastChange,
+  BulkCastCharacter,
+} from './bulk-characters-dialog'
 import type { ScenePositionSpec } from '@/lib/character-positions'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -59,6 +64,7 @@ export function SceneSelectionHeader({
   deleteImageCount,
   renderExport,
   positions,
+  cast,
   end,
   className,
 }: {
@@ -87,6 +93,11 @@ export function SceneSelectionHeader({
     aspect: number
     onApply: (characterId: number, position: ScenePositionSpec) => Promise<void>
   }
+  /** Bulk scene cast (omitted = no action, e.g. no characters) */
+  cast?: {
+    characters: Array<BulkCastCharacter>
+    onApply: (changes: Array<BulkCastChange>) => Promise<void>
+  }
   /** Trailing slot (e.g. the card size slider) */
   end?: ReactNode
   className?: string
@@ -97,6 +108,7 @@ export function SceneSelectionHeader({
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [deleteFiles, setDeleteFiles] = useState(false)
   const [positionsOpen, setPositionsOpen] = useState(false)
+  const [castOpen, setCastOpen] = useState(false)
   const empty = count === 0
   const state = selectAllState(count, total)
 
@@ -217,6 +229,15 @@ export function SceneSelectionHeader({
               {t('positions.bulkAction')}
             </DropdownMenuItem>
           )}
+          {cast && cast.characters.length > 0 && (
+            <DropdownMenuItem
+              data-bulk-cast-item
+              onSelect={() => setTimeout(() => setCastOpen(true), 0)}
+            >
+              <HugeiconsIcon icon={UserMultiple02Icon} />
+              {t('sceneCast.bulkAction')}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={onResetCount}>
             <HugeiconsIcon icon={RotateLeft01Icon} />
             {t('scene.resetCount')}
@@ -237,6 +258,16 @@ export function SceneSelectionHeader({
         </DropdownMenuContent>
       </DropdownMenu>
       {end}
+
+      {cast && (
+        <BulkCharactersDialog
+          open={castOpen}
+          onOpenChange={setCastOpen}
+          count={count}
+          characters={cast.characters}
+          onApply={cast.onApply}
+        />
+      )}
 
       {positions && (
         <BulkPositionsDialog

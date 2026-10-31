@@ -36,6 +36,7 @@ import {
   replaceBundleRefs,
   wildcardMarker,
 } from '@/lib/wildcard'
+import { effectivePresence } from '@/lib/scene-characters'
 
 const log = createLogger('prompt')
 
@@ -349,7 +350,12 @@ export function synthesizePrompts(
     ]),
   )
 
-  const characterPrompts = chars.map((char) => {
+  // Scene cast: characters that are Off in this scene are omitted entirely
+  const presenceOf = (char: (typeof chars)[number]) =>
+    effectivePresence(char.appearance, overrideRowMap.get(char.id)?.presence)
+  const presentChars = chars.filter((c) => presenceOf(c) !== 'off')
+
+  const characterPrompts = presentChars.map((char) => {
     const charOverrides = overrideMap.get(char.id) || {}
     // General values as base, non-empty character overrides take priority
     const nonEmptyOverrides = Object.fromEntries(
@@ -358,6 +364,25 @@ export function synthesizePrompts(
     const mergedPlaceholders = { ...scenePlaceholders, ...nonEmptyOverrides }
     // Compose library character / outfit fragments into the slot prompt
     const overrideRow = overrideRowMap.get(char.id)
+    if (presenceOf(char) === 'replace') {
+      // Replace: scene-only prompt instead of char prompt/negative and parts
+      return {
+        characterId: char.id,
+        name: char.name,
+        prompt: resolver.resolve(
+          overrideRow?.replacePrompt ?? '',
+          mergedPlaceholders,
+        ),
+        negative: resolver.resolve(
+          overrideRow?.replaceNegative ?? '',
+          mergedPlaceholders,
+        ),
+        position: applyOverride(
+          parsePositionSpec(char.position),
+          positionOverrideMap.get(char.id),
+        ),
+      }
+    }
     const slotParts = composeSlotParts(library, {
       charPrompt: char.charPrompt,
       libraryCharacterId: char.libraryCharacterId,
@@ -390,7 +415,7 @@ export function synthesizePrompts(
   log.debug('synthesize', 'Prompts synthesized', {
     projectId,
     sceneId: projectSceneId,
-    characterCount: chars.length,
+    characterCount: presentChars.length,
     placeholderCount: Object.keys(scenePlaceholders).length,
     bundleCount: resolver.usedIds.size,
   })
