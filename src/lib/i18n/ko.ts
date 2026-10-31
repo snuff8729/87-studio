@@ -266,6 +266,7 @@ const ko: DeepStringify<typeof en> = {
     partOutfit: '의상',
     partPreset: '코디',
     partBundle: '번들',
+    partWildcard: '와일드카드',
     seed: '시드',
     created: '생성일',
     parameters: '파라미터',

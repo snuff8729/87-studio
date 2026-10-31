@@ -262,6 +262,7 @@ const en = {
     partOutfit: 'Outfit',
     partPreset: 'Coordination',
     partBundle: 'Bundles',
+    partWildcard: 'Wildcards',
     seed: 'Seed',
     created: 'Created',
     parameters: 'Parameters',

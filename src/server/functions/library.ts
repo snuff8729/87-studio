@@ -191,6 +191,8 @@ export type ImageLibraryInfo = {
   presets: Array<{ id: number; name: string }>
   axes: Array<{ axisName: string; valueName: string }>
   bundles: Array<{ id: number; name: string }>
+  /** Wildcard picks stored with the image (metadata.wildcards) */
+  wildcards: Array<{ bundle: string; mode: string; option: string }>
 }
 
 /** Library data an image was generated from (deleted library rows are skipped). */
@@ -256,7 +258,28 @@ export const getImageLibraryInfo = createServerFn({ method: 'GET' })
       .innerJoin(promptBundles, eq(imageBundles.bundleId, promptBundles.id))
       .where(eq(imageBundles.imageId, data.imageId))
       .all()
-    return { characters, items, presets, axes, bundles }
+    const row = db
+      .select({ metadata: generatedImages.metadata })
+      .from(generatedImages)
+      .where(eq(generatedImages.id, data.imageId))
+      .get()
+    let wildcards: ImageLibraryInfo['wildcards'] = []
+    try {
+      const raw = (JSON.parse(row?.metadata ?? '{}') as { wildcards?: unknown })
+        .wildcards
+      if (Array.isArray(raw)) {
+        wildcards = raw
+          .filter((w) => w && typeof w.bundle === 'string')
+          .map((w) => ({
+            bundle: w.bundle as string,
+            mode: String(w.mode ?? 'random'),
+            option: String(w.option ?? ''),
+          }))
+      }
+    } catch {
+      // unreadable metadata: no wildcard picks
+    }
+    return { characters, items, presets, axes, bundles, wildcards }
   })
 
 // ─── Characters ─────────────────────────────────────────────────────────────

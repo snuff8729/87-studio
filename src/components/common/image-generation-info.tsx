@@ -18,13 +18,14 @@ export function ImageLinkedParts({ imageId }: { imageId: number }) {
     queryFn: () => getImageLibraryInfo({ data: { imageId } }),
   })
   if (!data) return null
-  const { characters, items, presets, axes, bundles } = data
+  const { characters, items, presets, axes, bundles, wildcards } = data
   if (
     !characters.length &&
     !items.length &&
     !presets.length &&
     !axes.length &&
-    !bundles.length
+    !bundles.length &&
+    !wildcards.length
   )
     return null
 
@@ -93,6 +94,33 @@ export function ImageLinkedParts({ imageId }: { imageId: number }) {
               </Link>
             </Badge>
           )),
+        )}
+        {wildcards.length > 0 && (
+          <div className="space-y-1" data-linked-wildcards>
+            <span className="text-xs text-muted-foreground">
+              {t('imageDetail.partWildcard')}
+            </span>
+            {wildcards.map((w, i) => (
+              <div
+                key={i}
+                className="flex flex-wrap items-center gap-1.5 text-sm"
+                data-linked-wildcard={w.bundle}
+              >
+                <Link
+                  to="/bundles"
+                  search={{ bundle: w.bundle, imageDetail: undefined }}
+                  className="text-primary hover:underline"
+                >
+                  {w.bundle}
+                </Link>
+                <span className="text-muted-foreground">→</span>
+                <span className="break-words">{w.option || '—'}</span>
+                <span className="text-xs text-muted-foreground">
+                  {w.mode === 'sequential' ? 'seq' : w.mode}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
         {axes.length > 0 && (
           <div className="flex flex-wrap gap-1">

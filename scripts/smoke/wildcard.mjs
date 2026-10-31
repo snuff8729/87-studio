@@ -335,6 +335,32 @@ check(
   'images are linked to the wildcard bundle (image_bundles)',
 )
 
+// image detail: Linked section shows the pick with a link to the bundle
+await open(`/gallery/${wsImgs[1].id}`)
+const pickRow = page.locator('[data-linked-wildcard="wcexpression"]')
+check(
+  await pickRow
+    .waitFor({ timeout: 10000 })
+    .then(() => true)
+    .catch(() => false),
+  'image detail: Linked section has a wildcard row',
+)
+const pickText = (await pickRow.innerText().catch(() => '')).replace(
+  /\s+/g,
+  ' ',
+)
+check(
+  /wcexpression → wccrying seq/.test(pickText),
+  `image detail row reads "bundle → option mode" (${JSON.stringify(pickText)})`,
+)
+check(
+  (await pickRow.locator('a[href*="/bundles"]').getAttribute('href'))?.includes(
+    'bundle=wcexpression',
+  ),
+  'image detail: bundle name links to /bundles?bundle=...',
+)
+await shot('image-detail')
+
 // scene preview shows the readable wildcard
 const job = q1(
   'select resolved_prompts r from generation_jobs where batch_id = ?',
@@ -374,7 +400,12 @@ async function quick(prompt, count, label) {
     10000,
     `${label}: batch created`,
   )
-  await until(() => idle(), 60000, `${label}: finished`, 400)
+  await until(
+    () => b && idle() && imgsOf(b.id).length >= count,
+    60000,
+    `${label}: finished`,
+    400,
+  )
   return b ? imgsOf(b.id) : []
 }
 const gp = (imgs) => imgs.map((i) => i.meta.prompts.generalPrompt)
