@@ -217,7 +217,7 @@ export function TagSearchPanel({
       className={cn('flex min-h-0 flex-1 flex-col', className)}
       data-tag-search-panel
     >
-      <div className="relative px-3 pt-3">
+      <div className="relative shrink-0 px-3 pt-3">
         <HugeiconsIcon
           icon={Search01Icon}
           className="pointer-events-none absolute top-1/2 left-5.5 size-4 translate-y-[-30%] text-muted-foreground"
@@ -238,7 +238,7 @@ export function TagSearchPanel({
         (koData?.state === 'notInstalled' ||
           koData?.state === 'downloading') && (
           <div
-            className="mx-3 mt-2 flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground"
+            className="mx-3 mt-2 flex shrink-0 items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground"
             data-ko-hint
           >
             <span className="min-w-0 flex-1">
@@ -258,15 +258,15 @@ export function TagSearchPanel({
             </Button>
           </div>
         )}
-      <SemanticToggle className="px-3 pt-2" />
+      <SemanticToggle className="shrink-0 px-3 pt-2" />
       <div
-        className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-1 [scrollbar-width:thin]"
+        className="flex shrink-0 gap-1.5 overflow-x-auto px-3 pt-2 pb-1 [scrollbar-width:thin]"
         data-tag-tabs
       >
         {tabs.map((tb) => chip(tb.id, tb.label))}
       </div>
       {subTabs.length > 0 && (
-        <div className="flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:thin]">
+        <div className="flex shrink-0 gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:thin]">
           {chip(tab, tabs.find((x) => x.id === tab)?.label ?? tab, true)}
           {subTabs.map((c) => chip(c.key, c.label, true))}
         </div>
