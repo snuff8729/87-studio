@@ -6,13 +6,20 @@ export type SuggestionKind =
   | 'prefix'
   | 'alias_prefix'
   | 'substring'
+  // Korean keyword matches (NAIA data); `via` is the matched keyword
+  | 'ko_exact'
+  | 'ko_prefix'
+  | 'ko_substring'
 
 const KIND_ORDER: Record<SuggestionKind, number> = {
   exact: 0,
   alias_exact: 1,
+  ko_exact: 1,
   prefix: 2,
+  ko_prefix: 2,
   alias_prefix: 3,
   substring: 4,
+  ko_substring: 4,
 }
 
 export interface TagCandidate {

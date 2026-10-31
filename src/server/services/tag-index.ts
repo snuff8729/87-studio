@@ -4,8 +4,16 @@ import { existsSync } from '../data-fs'
 import { dataPath } from '../data-dir'
 import { db } from '../db'
 import { tagDescriptions } from '../db/schema'
+import { koKeywordCandidates, koTagFor, onKoTagsReady } from './ko-tags'
 import type { TagCandidate } from '@/lib/tag-query'
-import { GROUP_RULES, classifyTag, groupKey } from '@/lib/tag-categories'
+import type { KoMatch } from '@/lib/ko-tags'
+import { hasHangul, rankKoMatches } from '@/lib/ko-tags'
+import {
+  GROUP_RULES,
+  classifyTag,
+  groupKey,
+  koFineKey,
+} from '@/lib/tag-categories'
 import { wikiSummary } from '@/lib/dtext'
 import {
   allowsSubstring,
@@ -56,11 +64,16 @@ export function categorize(
   const key = `${category}:${name}`
   const hit = classCache.get(key)
   if (hit) return hit
-  const value = classifyTag({
-    name,
-    category,
-    groups: getGroupMap(d).get(name),
-  })
+  // general tags in the NAIA data use its group and small category
+  const ko = category === 0 ? koTagFor(name) : null
+  const value =
+    ko?.groupKey && ko.small
+      ? { top: ko.groupKey, fine: koFineKey(ko.small) }
+      : classifyTag({
+          name,
+          category,
+          groups: getGroupMap(d).get(name),
+        })
   if (classCache.size > 50_000) classCache.clear()
   classCache.set(key, value)
   return value
@@ -169,6 +182,16 @@ export function suggestTagsFor(
     }
   }
 
+  if (hasHangul(q)) {
+    const get = d.prepare(
+      'SELECT name, post_count, category FROM tags WHERE name = ? AND is_deprecated = 0',
+    )
+    for (const m of rankKoMatches(koKeywordCandidates(q), q, limit * 2)) {
+      const r = get.get(m.tag) as TagRow | undefined
+      if (r) cands.push(toCandidate(r, m.match, m.keyword))
+    }
+  }
+
   const have = new Set(cands.map((c) => c.name))
   if (have.size < limit && allowsSubstring(q)) {
     const rows = d
@@ -195,6 +218,14 @@ export interface TagSearchRow {
   category: number
   top: string
   fine: string
+  /** Matched Korean keyword, when found through the Korean tag data */
+  via?: string
+}
+
+const KO_SORT: Record<KoMatch['match'], number> = {
+  ko_exact: 1,
+  ko_prefix: 2,
+  ko_substring: 3,
 }
 
 const DAN_TABS: Record<string, number> = {
@@ -230,6 +261,7 @@ export function searchTagsFor(
   const add = (list: Array<TagRow>) => {
     for (const r of list) if (!rows.has(r.name)) rows.set(r.name, r)
   }
+  const koHits = new Map<string, KoMatch>()
 
   if (!q) {
     add(
@@ -277,6 +309,17 @@ export function searchTagsFor(
           .all(q, q + '￿', scan) as Array<TagRow>,
       )
     }
+    if (hasHangul(q)) {
+      const get = d.prepare(
+        'SELECT name, post_count, category FROM tags WHERE name = ? AND is_deprecated = 0',
+      )
+      for (const m of rankKoMatches(koKeywordCandidates(q), q, scan)) {
+        const r = get.get(m.tag) as TagRow | undefined
+        if (!r) continue
+        koHits.set(m.tag, m)
+        add([r])
+      }
+    }
     const phrase = ftsPhrase(q, 'other_names')
     if (phrase) {
       try {
@@ -308,13 +351,15 @@ export function searchTagsFor(
       category: r.category,
       top: c.top,
       fine: c.fine,
+      via: koHits.get(r.name)?.keyword,
     })
   }
-  out.sort((a, b) => {
-    const ea = a.name === q ? 0 : 1
-    const eb = b.name === q ? 0 : 1
-    return ea - eb || b.postCount - a.postCount
-  })
+  const rank = (r: TagSearchRow) => {
+    if (r.name === q) return 0
+    const hit = koHits.get(r.name)
+    return hit ? KO_SORT[hit.match] : 5
+  }
+  out.sort((a, b) => rank(a) - rank(b) || b.postCount - a.postCount)
   out = out.slice(0, limit)
   return out
 }
@@ -331,7 +376,7 @@ export interface TagInfo {
   fine: string
   deprecated: boolean
   description: string | null
-  descriptionSource: 'custom' | 'wiki' | null
+  descriptionSource: 'custom' | 'naia' | 'wiki' | null
   aliases: Array<string>
   implies: Array<string>
   impliedBy: Array<string>
@@ -347,12 +392,15 @@ function localeBase(locale: string): string {
   return locale.toLowerCase().split('-')[0]
 }
 
-/** Description for a tag: stored locale text, else English wiki summary. */
+/**
+ * Description for a tag: stored locale text, else (ko UI only) the NAIA Korean
+ * description, else the English wiki summary.
+ */
 export function resolveDescription(
   d: Database.Database,
   name: string,
   locale: string,
-): { text: string | null; source: 'custom' | 'wiki' | null } {
+): { text: string | null; source: 'custom' | 'naia' | 'wiki' | null } {
   const loc = localeBase(locale)
   const custom = db
     .select({ text: tagDescriptions.text })
@@ -360,6 +408,10 @@ export function resolveDescription(
     .where(and(eq(tagDescriptions.tag, name), eq(tagDescriptions.locale, loc)))
     .get()
   if (custom?.text) return { text: custom.text, source: 'custom' }
+  if (loc === 'ko') {
+    const ko = koTagFor(name)
+    if (ko?.description) return { text: ko.description, source: 'naia' }
+  }
   const wiki = d
     .prepare('SELECT body FROM wiki_pages WHERE title = ?')
     .get(name) as { body: string | null } | undefined
@@ -510,3 +562,9 @@ export function getTagInfoFor(rawName: string, locale: string): TagInfo | null {
 export function clearTagInfoCache() {
   infoCache.clear()
 }
+
+// classifications and infos computed before the Korean data arrived are stale
+onKoTagsReady(() => {
+  classCache.clear()
+  infoCache.clear()
+})

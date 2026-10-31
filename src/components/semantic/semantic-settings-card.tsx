@@ -8,6 +8,7 @@ import {
   useSemanticActions,
   useSemanticStatus,
 } from './use-semantic'
+import { KoTagsCard } from './ko-tags-card'
 import {
   Card,
   CardContent,
@@ -39,7 +40,7 @@ export function SemanticSettingsCard({ id }: { id: string }) {
   const hasFiles = !!s && (s.indexDownloaded || s.modelBytes > 0)
 
   return (
-    <section id={id} className="scroll-mt-28" data-semantic-card>
+    <section id={id} className="scroll-mt-28 space-y-4" data-semantic-card>
       <Card>
         <CardHeader>
           <CardTitle>{t('semantic.title')}</CardTitle>
@@ -146,6 +147,7 @@ export function SemanticSettingsCard({ id }: { id: string }) {
           )}
         </CardContent>
       </Card>
+      <KoTagsCard />
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}

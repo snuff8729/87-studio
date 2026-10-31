@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import {
+  GENERAL_TOP_CATEGORIES,
   GROUP_RULES,
   TAG_CATEGORIES,
   classifyTag,
+  fineLabel,
   getCategoryDef,
+  isKoFine,
+  koFineKey,
   topCategoryOf,
 } from '../tag-categories'
 
@@ -38,7 +42,7 @@ describe('tag categories', () => {
     expect(fine('brown_footwear')).toBe('cloth_footwear')
     expect(fine('striped_bikini')).toBe('cloth_swim')
     expect(fine('white_panties')).toBe('cloth_under')
-    expect(topCategoryOf(fine('white_hat'))).toBe('clothing')
+    expect(topCategoryOf(fine('white_hat'))).toBe('fashion')
   })
 
   it('separates hair color from hair style and eyes', () => {
@@ -64,14 +68,36 @@ describe('tag categories', () => {
     ).toBe('gesture')
   })
 
-  it('falls back to uncategorized', () => {
+  it('falls back to misc', () => {
     expect(classifyTag({ name: 'zzzz_unknown', category: 0 })).toEqual({
-      top: 'uncategorized',
-      fine: 'uncategorized',
+      top: 'misc',
+      fine: 'misc',
     })
   })
 
   it('does not mistake _body composition tags for body type', () => {
     expect(fine('full_body')).toBe('composition')
+  })
+
+  it('rule sub categories roll up into the NAIA groups', () => {
+    expect(topCategoryOf(fine('1girl'))).toBe('people')
+    expect(topCategoryOf(fine('blonde_hair'))).toBe('body')
+    expect(topCategoryOf(fine('full_body'))).toBe('situation')
+    expect(topCategoryOf('expression')).toBe('emotion')
+    expect(topCategoryOf(fine('nude'))).toBe('sexual')
+    for (const c of GENERAL_TOP_CATEGORIES) {
+      expect(getCategoryDef(c)?.parent, c).toBe(c)
+    }
+    expect(GENERAL_TOP_CATEGORIES).toHaveLength(12)
+  })
+
+  it('NAIA small categories become ko: fine keys with locale labels', () => {
+    expect(koFineKey('패션 > 헤어스타일')).toBe('ko:헤어스타일')
+    expect(koFineKey('소품')).toBe('ko:소품')
+    expect(isKoFine('ko:소품')).toBe(true)
+    expect(isKoFine('cloth_top')).toBe(false)
+    expect(fineLabel('ko:헤어스타일', 'body', 'ko')).toBe('헤어스타일')
+    expect(fineLabel('ko:헤어스타일', 'body', 'en')).toBe('Body')
+    expect(fineLabel('cloth_top', 'fashion', 'en')).toBe('Top')
   })
 })

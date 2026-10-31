@@ -4,6 +4,7 @@ import {
   categoryColor,
   categoryLabel,
   danbooruColor,
+  fineLabel,
   getCategoryDef,
 } from '@/lib/tag-categories'
 import { formatCount, tagDisplayName } from '@/lib/tag-query'
@@ -23,12 +24,21 @@ export function el<TTag extends keyof HTMLElementTagNameMap>(
 export function categoryBadge(fine: string, top?: string): HTMLElement {
   const locale = currentLocale()
   const def = getCategoryDef(fine)
-  const text = categoryLabel(fine, locale)
+  const text = fineLabel(fine, top ?? def?.parent ?? fine, locale)
   const badge = el('span', 'cm-tag-badge', text)
   const color = categoryColor(def?.parent ?? top ?? fine)
   badge.style.color = color
   badge.style.borderColor = `color-mix(in oklch, ${color} 40%, transparent)`
   return badge
+}
+
+/** Small "NAIA" label for descriptions that come from the NAIA2.0 data. */
+export function sourceLabel(info: TagInfo): HTMLElement | null {
+  if (info.descriptionSource !== 'naia') return null
+  const t = translator()
+  const label = el('span', 'cm-tag-source', t('tagAssist.naiaLabel'))
+  label.title = t('tagAssist.naiaTitle')
+  return label
 }
 
 /** Category + fine category + post count line. */
@@ -65,13 +75,14 @@ export function buildInfoPanel(info: TagInfo): HTMLElement {
   const title = el('div', 'cm-tag-info-title', tagDisplayName(info.name))
   title.style.color = danbooruColor(info.category)
   root.append(title, metaLine(info))
-  root.append(
-    el(
-      'div',
-      info.description ? 'cm-tag-desc' : 'cm-tag-desc cm-tag-muted',
-      info.description ?? t('tagAssist.noDescription'),
-    ),
+  const desc = el(
+    'div',
+    info.description ? 'cm-tag-desc' : 'cm-tag-desc cm-tag-muted',
+    info.description ?? t('tagAssist.noDescription'),
   )
+  const source = sourceLabel(info)
+  if (source) desc.append(source)
+  root.append(desc)
   const lists: Array<[string, Array<string>]> = [
     [t('tagAssist.aliases'), info.aliases.slice(0, 4)],
     [t('tagAssist.implies'), info.implies.slice(0, 4)],

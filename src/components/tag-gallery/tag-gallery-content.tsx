@@ -21,7 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { PromptTagImages } from '@/components/tag-gallery/prompt-tag-images'
 import { useTranslation } from '@/lib/i18n'
-import { categoryLabel } from '@/lib/tag-categories'
+import { fineLabel } from '@/lib/tag-categories'
 import { useTagSearch } from '@/components/tag-search/tag-search-provider'
 import {
   addBookmarkImageUpload,
@@ -84,6 +84,7 @@ export function TagGalleryContent({
       name: string
       postCount: number
       category: number
+      top: string
       fine: string
     }>
   >([])
@@ -585,7 +586,7 @@ export function TagGalleryContent({
                     <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                       {r.category === 0 && (
                         <span className="text-[10px]">
-                          {categoryLabel(r.fine, locale)}
+                          {fineLabel(r.fine, r.top, locale)}
                         </span>
                       )}
                       {r.postCount.toLocaleString()}
@@ -633,7 +634,7 @@ export function TagGalleryContent({
                   </Badge>
                   {danbooruInfo.category === 0 && (
                     <Badge variant="secondary" className="text-xs">
-                      {categoryLabel(danbooruInfo.fine, locale)}
+                      {fineLabel(danbooruInfo.fine, danbooruInfo.top, locale)}
                     </Badge>
                   )}
                   <span className="text-xs text-muted-foreground">

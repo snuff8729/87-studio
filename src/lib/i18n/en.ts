@@ -1303,12 +1303,12 @@ const en = {
     variableNamePlaceholder: 'Variable name, e.g. color',
     variableDuplicate: 'A variable with that name already exists',
     variablesHint:
-      'Use @{var:name} in this item\'s fragments. Each outfit entry can set its own value; empty uses the default here.',
+      "Use @{var:name} in this item's fragments. Each outfit entry can set its own value; empty uses the default here.",
     fragmentAreas: 'Fragment areas',
     fragmentAreasInherit: 'Areas: inherits item',
     fragmentAreasOwn: 'Areas: {{names}}',
     fragmentAreasHint:
-      'Pick the body areas this fragment occupies. Empty inherits the item\'s areas. The fragment is hidden when all of them are covered.',
+      "Pick the body areas this fragment occupies. Empty inherits the item's areas. The fragment is hidden when all of them are covered.",
     fragmentAreasClear: 'Clear (inherit item)',
     areaMenu: 'Area menu',
     setParent: 'Set parent',
@@ -1329,6 +1329,8 @@ const en = {
     posts: '{{count}} posts',
     deprecated: 'deprecated',
     noDescription: 'No description',
+    naiaLabel: 'NAIA',
+    naiaTitle: 'NAIA2.0 (GPL-3.0)',
     aliases: 'Aliases',
     implies: 'Implies',
     impliedBy: 'Implied by',
@@ -1376,6 +1378,18 @@ const en = {
       results: '{{count}} results',
       categories: 'Categories',
     },
+  },
+  koTags: {
+    title: 'Korean tag data',
+    description:
+      'Korean descriptions, search keywords and categories for tags (NAIA2.0). Search tags in Korean while the language is set to Korean.',
+    statusReady: 'Ready · {{count}} tags',
+    statusDownloading: 'Downloading…',
+    statusUnavailable:
+      'Not available (offline or not published yet). Retries automatically.',
+    attribution:
+      'Korean tag descriptions and categories: NAIA2.0 (DNT-LAB), GPL-3.0',
+    source: 'NAIA2.0',
   },
   semantic: {
     section: 'Tag search',

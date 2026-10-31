@@ -106,6 +106,16 @@ export const darkTheme = EditorView.theme(
       color: 'var(--muted-foreground)',
       whiteSpace: 'nowrap',
     },
+    '.cm-tag-source': {
+      fontSize: '9px',
+      color: 'var(--muted-foreground)',
+      border: '1px solid var(--border)',
+      borderRadius: '4px',
+      padding: '0 4px',
+      marginLeft: '6px',
+      lineHeight: '14px',
+      whiteSpace: 'nowrap',
+    },
     '.cm-tag-badge': {
       fontSize: '9px',
       border: '1px solid',

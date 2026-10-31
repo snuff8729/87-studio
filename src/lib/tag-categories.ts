@@ -1,28 +1,39 @@
 /**
- * Fine tag categories (our own mapping; the taxonomy's top level follows the
- * axes people expect from tag pickers, the rules are derived from Danbooru's
- * `tag_groups` table plus name heuristics).
+ * Tag categories. The general-tag taxonomy follows NAIA2.0's 12 groups
+ * (https://github.com/DNT-LAB/NAIA2.0, GPL-3.0; see THIRD_PARTY_NOTICES.md).
  *
  * ── Category list ────────────────────────────────────────────────────────────
  * Non-general Danbooru tags keep their Danbooru category:
  *   character, artist, copyright, meta(*)           (* Danbooru "meta" tags)
- * General tags (Danbooru category 0) get one top-level category and a fine one:
- *   subject         people_count, occupation, creature
- *   expression      (expression)
- *   pose_action     posture, gesture, gaze, action
- *   location        indoor, outdoor, background
- *   object          food, animal, plant, weapon, item, symbol
- *   clothing        cloth_outfit, cloth_top, cloth_bottom, cloth_legwear,
- *                   cloth_footwear, cloth_headwear, cloth_under, cloth_swim,
- *                   cloth_accessory
- *   characteristic  hair_style, hair_color, bangs, eyes, ears, body_type,
- *                   skin, body_feature
- *   meta            composition, style, lighting, text
- *   nsfw            nudity, sex_act, sex_gear
- *   uncategorized   (general tags no rule could place)
- * A tag with no finer information gets fineCategory === its top-level key.
+ * General tags (Danbooru category 0) get one top-level NAIA group (stable ascii
+ * keys; the Korean name is the group's NAIA name) and a fine category:
+ *   fashion       의상/패션    outfit and accessory sub keys (cloth_*), clothing
+ *   body          신체/외형    hair_style, hair_color, bangs, eyes, ears,
+ *                              body_type, skin, body_feature
+ *   pose          포즈/동작    posture, gesture, gaze, action
+ *   emotion       표정/감정    expression
+ *   place         배경/장소    indoor, outdoor, background
+ *   object        사물/오브젝트 food, animal, plant, weapon, item, symbol
+ *   people        인물/종족    people_count, occupation, creature
+ *   situation     상황/연출    composition, lighting
+ *   concept       컨셉/스타일  style, text
+ *   presentation  표현/연출    (NAIA only)
+ *   sexual        성적 요소    nudity, sex_act, sex_gear
+ *   misc          기타         (no rule fired / NAIA "메타" etc.)
  *
- * ── Mapping rules (classifyTag) ──────────────────────────────────────────────
+ * ── Where the group and fine category come from ──────────────────────────────
+ *  1. The tag exists in the Korean tag data (naia-ko-v*.db, NAIA's KR_tags +
+ *     category mapping): top = its group key, fine = `ko:<small category>`
+ *     (see koFineKey). The small category is shown as the fine label in ko; in
+ *     other locales only the group label is shown (fineLabel).
+ *  2. Otherwise the rule-based classification below picks a fine key and its
+ *     group is the sub-category's parent, so filters stay consistent:
+ *     subject -> people, expression -> emotion, pose_action -> pose,
+ *     location -> place, object -> object, clothing -> fashion,
+ *     characteristic -> body, composition/lighting -> situation,
+ *     style/text -> concept, nsfw -> sexual, uncategorized -> misc.
+ *
+ * ── Rule mapping (classifyTag) ───────────────────────────────────────────────
  * Every rule that fires produces a candidate (category, score); the highest
  * score wins (ties: the earlier rule).
  *  1. `tag_group:*` membership (GROUP_RULES): each Danbooru tag group maps to a
@@ -32,7 +43,7 @@
  *  2. Name rules (NAME_RULES, score 50 = beats any group): regexes on the
  *     normalised tag (underscores kept); color words are stripped first for the
  *     `<color> <item>` family (black_skirt, blue_eyes, ...).
- *  3. Nothing fired -> `uncategorized`.
+ *  3. Nothing fired -> `misc`.
  * Danbooru categories 1/3/4/5 never go through the rules.
  */
 
@@ -62,59 +73,65 @@ const TOP_DEFS: Array<TagCategoryDef> = [
   top('character', 'Character', '캐릭터', 145),
   top('artist', 'Artist', '작가', 25),
   top('copyright', 'Copyright', '작품', 310),
-  top('subject', 'Subject', '대상', 90),
-  top('expression', 'Expression', '표정', 350),
-  top('pose_action', 'Pose / action', '포즈·동작', 200),
-  top('location', 'Location', '장소', 165),
-  top('object', 'Object', '사물', 70),
-  top('clothing', 'Clothing', '의상', 280),
-  top('characteristic', 'Characteristic', '외형', 230),
   top('meta', 'Meta', '메타', 260),
-  top('nsfw', 'NSFW', 'NSFW', 15),
-  top('uncategorized', 'Uncategorized', '미분류', 250),
+  // NAIA groups (general tags); the ko label is NAIA's group name
+  top('fashion', 'Fashion', '의상/패션', 280),
+  top('body', 'Body', '신체/외형', 230),
+  top('pose', 'Pose / action', '포즈/동작', 200),
+  top('emotion', 'Expression', '표정/감정', 350),
+  top('place', 'Place', '배경/장소', 165),
+  top('object', 'Objects', '사물/오브젝트', 70),
+  top('people', 'People / species', '인물/종족', 90),
+  top('situation', 'Situation', '상황/연출', 120),
+  top('concept', 'Concept / style', '컨셉/스타일', 335),
+  top('presentation', 'Presentation', '표현/연출', 45),
+  top('sexual', 'Sexual', '성적 요소', 15),
+  top('misc', 'Misc', '기타', 250),
 ]
 
 const SUB_DEFS: Array<TagCategoryDef> = [
-  sub('people_count', 'subject', 'People count', '인원'),
-  sub('occupation', 'subject', 'Occupation', '직업'),
-  sub('creature', 'subject', 'Creature', '크리처'),
-  sub('posture', 'pose_action', 'Posture', '자세'),
-  sub('gesture', 'pose_action', 'Gesture', '제스처'),
-  sub('gaze', 'pose_action', 'Gaze', '시선'),
-  sub('action', 'pose_action', 'Action', '동작'),
-  sub('indoor', 'location', 'Indoor', '실내'),
-  sub('outdoor', 'location', 'Outdoor', '야외'),
-  sub('background', 'location', 'Background', '배경'),
+  sub('expression', 'emotion', 'Expression', '표정'),
+  sub('clothing', 'fashion', 'Clothing', '의상'),
+  sub('people_count', 'people', 'People count', '인원'),
+  sub('occupation', 'people', 'Occupation', '직업'),
+  sub('creature', 'people', 'Creature', '크리처'),
+  sub('posture', 'pose', 'Posture', '자세'),
+  sub('gesture', 'pose', 'Gesture', '제스처'),
+  sub('gaze', 'pose', 'Gaze', '시선'),
+  sub('action', 'pose', 'Action', '동작'),
+  sub('indoor', 'place', 'Indoor', '실내'),
+  sub('outdoor', 'place', 'Outdoor', '야외'),
+  sub('background', 'place', 'Background', '배경'),
   sub('food', 'object', 'Food', '음식'),
   sub('animal', 'object', 'Animal', '동물'),
   sub('plant', 'object', 'Plant', '식물'),
   sub('weapon', 'object', 'Weapon', '무기'),
   sub('item', 'object', 'Item', '소품'),
   sub('symbol', 'object', 'Symbol', '기호'),
-  sub('cloth_outfit', 'clothing', 'Outfit', '의상 세트'),
-  sub('cloth_top', 'clothing', 'Top', '상의'),
-  sub('cloth_bottom', 'clothing', 'Bottom', '하의'),
-  sub('cloth_legwear', 'clothing', 'Legwear', '레그웨어'),
-  sub('cloth_footwear', 'clothing', 'Footwear', '신발'),
-  sub('cloth_headwear', 'clothing', 'Headwear', '모자·머리장식'),
-  sub('cloth_under', 'clothing', 'Underwear', '속옷'),
-  sub('cloth_swim', 'clothing', 'Swimwear', '수영복'),
-  sub('cloth_accessory', 'clothing', 'Accessory', '액세서리'),
-  sub('hair_style', 'characteristic', 'Hair style', '헤어스타일'),
-  sub('hair_color', 'characteristic', 'Hair color', '머리색'),
-  sub('bangs', 'characteristic', 'Bangs', '앞머리'),
-  sub('eyes', 'characteristic', 'Eyes', '눈'),
-  sub('ears', 'characteristic', 'Ears', '귀'),
-  sub('body_type', 'characteristic', 'Body type', '체형'),
-  sub('skin', 'characteristic', 'Skin', '피부'),
-  sub('body_feature', 'characteristic', 'Body feature', '신체 특징'),
-  sub('composition', 'meta', 'Composition', '구도'),
-  sub('style', 'meta', 'Style', '화풍'),
-  sub('lighting', 'meta', 'Lighting', '조명'),
-  sub('text', 'meta', 'Text', '텍스트'),
-  sub('nudity', 'nsfw', 'Nudity', '노출'),
-  sub('sex_act', 'nsfw', 'Sex act', '성행위'),
-  sub('sex_gear', 'nsfw', 'Sex gear', '성인 소품'),
+  sub('cloth_outfit', 'fashion', 'Outfit', '의상 세트'),
+  sub('cloth_top', 'fashion', 'Top', '상의'),
+  sub('cloth_bottom', 'fashion', 'Bottom', '하의'),
+  sub('cloth_legwear', 'fashion', 'Legwear', '레그웨어'),
+  sub('cloth_footwear', 'fashion', 'Footwear', '신발'),
+  sub('cloth_headwear', 'fashion', 'Headwear', '모자·머리장식'),
+  sub('cloth_under', 'fashion', 'Underwear', '속옷'),
+  sub('cloth_swim', 'fashion', 'Swimwear', '수영복'),
+  sub('cloth_accessory', 'fashion', 'Accessory', '액세서리'),
+  sub('hair_style', 'body', 'Hair style', '헤어스타일'),
+  sub('hair_color', 'body', 'Hair color', '머리색'),
+  sub('bangs', 'body', 'Bangs', '앞머리'),
+  sub('eyes', 'body', 'Eyes', '눈'),
+  sub('ears', 'body', 'Ears', '귀'),
+  sub('body_type', 'body', 'Body type', '체형'),
+  sub('skin', 'body', 'Skin', '피부'),
+  sub('body_feature', 'body', 'Body feature', '신체 특징'),
+  sub('composition', 'situation', 'Composition', '구도'),
+  sub('style', 'concept', 'Style', '화풍'),
+  sub('lighting', 'situation', 'Lighting', '조명'),
+  sub('text', 'concept', 'Text', '텍스트'),
+  sub('nudity', 'sexual', 'Nudity', '노출'),
+  sub('sex_act', 'sexual', 'Sex act', '성행위'),
+  sub('sex_gear', 'sexual', 'Sex gear', '성인 소품'),
 ]
 
 export const TAG_CATEGORIES: Array<TagCategoryDef> = [...TOP_DEFS, ...SUB_DEFS]
@@ -126,7 +143,7 @@ export function getCategoryDef(key: string): TagCategoryDef | undefined {
 }
 
 export function topCategoryOf(key: string): string {
-  return BY_KEY.get(key)?.parent ?? 'uncategorized'
+  return BY_KEY.get(key)?.parent ?? 'misc'
 }
 
 export function categoryLabel(key: string, locale: string): string {
@@ -137,17 +154,48 @@ export function categoryLabel(key: string, locale: string): string {
 
 /** Top-level categories that carry general tags (tab chips in Tag Search). */
 export const GENERAL_TOP_CATEGORIES = [
-  'subject',
-  'expression',
-  'pose_action',
-  'location',
+  'fashion',
+  'body',
+  'pose',
+  'emotion',
+  'place',
   'object',
-  'clothing',
-  'characteristic',
-  'meta',
-  'nsfw',
-  'uncategorized',
+  'people',
+  'situation',
+  'concept',
+  'presentation',
+  'sexual',
+  'misc',
 ] as const
+
+/** Prefix of fine keys that come from the Korean tag data's small categories. */
+export const KO_FINE_PREFIX = 'ko:'
+
+/**
+ * Fine key for a NAIA small category ("패션 > 헤어스타일" -> "ko:헤어스타일";
+ * a category without a sub part is used as is).
+ */
+export function koFineKey(smallCategory: string): string {
+  const parts = smallCategory.split('>').map((p) => p.trim())
+  return KO_FINE_PREFIX + (parts[parts.length - 1] || smallCategory.trim())
+}
+
+export function isKoFine(key: string): boolean {
+  return key.startsWith(KO_FINE_PREFIX)
+}
+
+/**
+ * Label of a fine category. NAIA small categories are Korean only: in ko they
+ * are shown as is, elsewhere the group label stands in for them.
+ */
+export function fineLabel(fine: string, group: string, locale: string): string {
+  if (isKoFine(fine)) {
+    return locale === 'ko'
+      ? fine.slice(KO_FINE_PREFIX.length)
+      : categoryLabel(group, locale)
+  }
+  return categoryLabel(fine, locale)
+}
 
 /** Danbooru category id -> our category key for non-general tags. */
 export const DANBOORU_CATEGORY_KEY: Record<number, string> = {
@@ -520,7 +568,7 @@ export function classifyTag(input: ClassifyInput): TagClassification {
   const dan = DANBOORU_CATEGORY_KEY[input.category]
   if (dan) return { top: dan, fine: dan }
   const hit = matchRules(input.name, input.groups)
-  if (!hit) return { top: 'uncategorized', fine: 'uncategorized' }
+  if (!hit) return { top: 'misc', fine: 'misc' }
   return { top: topCategoryOf(hit.category), fine: hit.category }
 }
 

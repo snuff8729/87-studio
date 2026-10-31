@@ -11,7 +11,7 @@ import {
   subscribeTagInfoEnabled,
   translator,
 } from './tag-info-client'
-import { el, metaLine } from './tag-info-dom'
+import { el, metaLine, sourceLabel } from './tag-info-dom'
 import {
   getPinnedPos,
   isCompactViewport,
@@ -230,6 +230,8 @@ function buildCard(
     info.description ? 'cm-tag-desc cm-tag-clamp' : 'cm-tag-desc cm-tag-muted',
     info.description ?? t('tagAssist.noDescription'),
   )
+  const source = sourceLabel(info)
+  if (source) desc.append(source)
   root.append(desc)
   if (info.description && info.description.length > 150) {
     const more = el('button', 'cm-tag-link', t('tagAssist.more'))

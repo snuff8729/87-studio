@@ -1293,7 +1293,8 @@ const ko: DeepStringify<typeof en> = {
     imagesTitle: '이미지 ({{count}})',
     imagesEmptyCharacter:
       '이 캐릭터로 생성한 이미지가 여기에 표시돼요 (지금부터).',
-    imagesEmptyItem: '이 아이템으로 생성한 이미지가 여기에 표시돼요 (지금부터).',
+    imagesEmptyItem:
+      '이 아이템으로 생성한 이미지가 여기에 표시돼요 (지금부터).',
     imagesEmptyPreset:
       '이 의상으로 생성한 이미지가 여기에 표시돼요 (지금부터).',
     variables: '변수',
@@ -1332,6 +1333,8 @@ const ko: DeepStringify<typeof en> = {
     posts: '{{count}}개 게시물',
     deprecated: '폐기됨',
     noDescription: '설명 없음',
+    naiaLabel: 'NAIA',
+    naiaTitle: 'NAIA2.0 (GPL-3.0)',
     aliases: '별칭',
     implies: '함의',
     impliedBy: '피함의',
@@ -1379,6 +1382,17 @@ const ko: DeepStringify<typeof en> = {
       results: '결과 {{count}}개',
       categories: '카테고리',
     },
+  },
+  koTags: {
+    title: '한국어 태그 데이터',
+    description:
+      '태그의 한국어 설명, 검색 키워드, 카테고리 (NAIA2.0). 언어가 한국어일 때 한글로 태그를 검색할 수 있습니다.',
+    statusReady: '사용 가능 · 태그 {{count}}개',
+    statusDownloading: '다운로드 중…',
+    statusUnavailable:
+      '사용할 수 없음 (오프라인이거나 아직 공개되지 않음). 자동으로 다시 시도합니다.',
+    attribution: '한국어 태그 설명·카테고리: NAIA2.0 (DNT-LAB), GPL-3.0',
+    source: 'NAIA2.0',
   },
   semantic: {
     section: '태그 검색',

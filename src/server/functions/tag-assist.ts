@@ -10,9 +10,11 @@ import {
   suggestTagsFor,
 } from '../services/tag-index'
 import { getTagRemoteFor } from '../services/tag-remote'
+import { getKoStatus, koCategories } from '../services/ko-tags'
 import type { RemoteKind } from '@/lib/tag-remote'
 
 export type { RemoteResult } from '../services/tag-remote'
+export type { KoTagsStatus, KoCategoryCount } from '../services/ko-tags'
 export type {
   TagInfo,
   TagSearchRow,
@@ -53,6 +55,16 @@ export const searchTagsWindow = createServerFn({ method: 'GET' })
 /** Whether the Danbooru tag DB is installed. */
 export const hasTagDb = createServerFn({ method: 'GET' }).handler(
   () => getDanbooruDb() !== null,
+)
+
+/** Korean tag data (NAIA2.0) status; polling it also starts the download. */
+export const getKoTagsStatus = createServerFn({ method: 'GET' }).handler(() =>
+  getKoStatus(),
+)
+
+/** Small categories of the Korean tag data per group (Tag Search sub filters). */
+export const getKoTagCategories = createServerFn({ method: 'GET' }).handler(
+  () => koCategories(),
 )
 
 /** Store a localized description (for a future import / translation). */

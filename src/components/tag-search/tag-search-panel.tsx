@@ -4,22 +4,25 @@ import { HugeiconsIcon } from '@hugeicons/react'
 import { Copy01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { toast } from 'sonner'
 import { insertTagIntoLastEditor, useHasPromptEditor } from './editor-registry'
+import { RemoteSections } from './remote-sections'
 import { SemanticToggle } from '@/components/semantic/semantic-toggle'
 import { useSemanticRows } from '@/components/semantic/use-semantic-rows'
-import { RemoteSections } from './remote-sections'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useTranslation } from '@/lib/i18n'
 import {
   GENERAL_TOP_CATEGORIES,
+  KO_FINE_PREFIX,
   TAG_CATEGORIES,
   categoryColor,
   categoryLabel,
   danbooruColor,
+  fineLabel,
 } from '@/lib/tag-categories'
 import { formatCount, tagDisplayName } from '@/lib/tag-query'
 import { cn } from '@/lib/utils'
 import {
+  getKoTagCategories,
   getTagInfo,
   hasTagDb,
   searchTagsWindow,
@@ -50,7 +53,7 @@ function FineBadge({ fine, top }: { fine: string; top: string }) {
         borderColor: `color-mix(in oklch, ${color} 40%, transparent)`,
       }}
     >
-      {categoryLabel(fine, locale)}
+      {fineLabel(fine, top, locale)}
     </span>
   )
 }
@@ -84,17 +87,34 @@ export function TagSearchPanel({
       { id: 'artist', label: categoryLabel('artist', locale) },
       { id: 'copyright', label: categoryLabel('copyright', locale) },
       { id: 'general', label: t('tagAssist.search.tabGeneral') },
-      ...GENERAL_TOP_CATEGORIES.filter((c) => c !== 'uncategorized').map(
-        (c) => ({ id: c, label: categoryLabel(c, locale) }),
-      ),
+      ...GENERAL_TOP_CATEGORIES.map((c) => ({
+        id: c,
+        label: categoryLabel(c, locale),
+      })),
     ],
     [t, locale],
   )
 
-  const subTabs = useMemo(
-    () => TAG_CATEGORIES.filter((c) => c.parent === tab && c.key !== tab),
-    [tab],
-  )
+  // NAIA small categories (Korean names) when the Korean data is installed
+  const koCats = useQuery({
+    queryKey: ['ko-tag-categories'],
+    queryFn: () => getKoTagCategories(),
+    staleTime: 60_000,
+  })
+  const subTabs = useMemo(() => {
+    const cats = koCats.data ?? []
+    if (cats.length > 0) {
+      // small categories are Korean only: other locales filter by group
+      if (locale !== 'ko') return []
+      return cats
+        .filter((c) => c.group === tab)
+        .slice(0, 14)
+        .map((c) => ({ key: KO_FINE_PREFIX + c.small, label: c.small }))
+    }
+    return TAG_CATEGORIES.filter((c) => c.parent === tab && c.key !== tab).map(
+      (c) => ({ key: c.key, label: categoryLabel(c.key, locale) }),
+    )
+  }, [tab, koCats.data, locale])
 
   const results = useQuery({
     queryKey: ['tag-search', debounced, tab],
@@ -220,7 +240,7 @@ export function TagSearchPanel({
       {subTabs.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto px-3 pb-1 [scrollbar-width:thin]">
           {chip(tab, tabs.find((x) => x.id === tab)?.label ?? tab, true)}
-          {subTabs.map((c) => chip(c.key, categoryLabel(c.key, locale), true))}
+          {subTabs.map((c) => chip(c.key, c.label, true))}
         </div>
       )}
       <div
@@ -265,17 +285,25 @@ export function TagSearchPanel({
               >
                 {tagDisplayName(r.name)}
               </span>
+              {'via' in r && r.via && (
+                <span
+                  className="shrink-0 text-[10px] text-muted-foreground"
+                  data-tag-via
+                >
+                  ← {r.via}
+                </span>
+              )}
               <FineBadge fine={r.fine} top={r.top} />
               {'score' in r && (
                 <span
                   className="h-1 w-8 shrink-0 overflow-hidden rounded-full bg-muted"
-                  title={(r.score as number).toFixed(2)}
+                  title={r.score.toFixed(2)}
                   data-semantic-score
                 >
                   <span
                     className="block h-full bg-primary"
                     style={{
-                      width: `${Math.round(Math.max(0, Math.min(1, ((r.score as number) - 0.25) / 0.5)) * 100)}%`,
+                      width: `${Math.round(Math.max(0, Math.min(1, (r.score - 0.25) / 0.5)) * 100)}%`,
                     }}
                   />
                 </span>
@@ -319,6 +347,15 @@ export function TagSearchPanel({
                 )}
               >
                 {info?.description ?? t('tagAssist.noDescription')}
+                {info?.descriptionSource === 'naia' && (
+                  <span
+                    className="ml-1.5 rounded border px-1 text-[9px] leading-[14px] whitespace-nowrap text-muted-foreground"
+                    title={t('tagAssist.naiaTitle')}
+                    data-tag-source="naia"
+                  >
+                    {t('tagAssist.naiaLabel')}
+                  </span>
+                )}
               </p>
               {info && (
                 <div className="space-y-1">
