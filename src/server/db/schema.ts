@@ -176,6 +176,8 @@ export const characters = sqliteTable(
     axisValues: text('axis_values').default('{}'),
     /** JSON PositionSpec; NULL = ai */
     position: text('position'),
+    /** 'all' = every scene (default) | 'selected' = only scenes that turn it on */
+    appearance: text('appearance').notNull().default('all'),
     createdAt: text('created_at').default(sql`(datetime('now'))`),
     updatedAt: text('updated_at').default(sql`(datetime('now'))`),
   },
@@ -282,6 +284,11 @@ export const characterSceneOverrides = sqliteTable(
     outfitItemIds: text('outfit_item_ids'),
     /** JSON ScenePositionSpec; NULL = inherit the character default */
     position: text('position'),
+    /** NULL = default (follow characters.appearance) | 'on' | 'off' | 'replace' */
+    presence: text('presence'),
+    /** Prompt used instead of the character's own when presence = 'replace' */
+    replacePrompt: text('replace_prompt'),
+    replaceNegative: text('replace_negative'),
   },
   (table) => [
     uniqueIndex('char_scene_override_unique_idx').on(

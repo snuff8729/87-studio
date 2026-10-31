@@ -5,6 +5,7 @@ import { characterSceneOverrides, characters } from '../db/schema'
 import { createLogger } from '../services/logger'
 import type { PositionSpec } from '@/lib/character-positions'
 import type { OutfitEntry } from '@/lib/character-parts'
+import type { Appearance } from '@/lib/scene-characters'
 import {
   parseOutfitEntries,
   stringifyOutfitEntries,
@@ -77,6 +78,8 @@ export const updateCharacter = createServerFn({ method: 'POST' })
       axisValues?: Record<string, number>
       /** PositionSpec (null/ai = AI decides) */
       position?: PositionSpec | null
+      /** Scene appearance default (all scenes / only selected scenes) */
+      appearance?: Appearance
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -224,6 +227,7 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
           outfitItemIds: source.outfitItemIds,
           axisValues: source.axisValues,
           position: source.position,
+          appearance: source.appearance,
         })
         .returning()
         .get()
@@ -241,6 +245,9 @@ export const duplicateCharacter = createServerFn({ method: 'POST' })
             axisValues: o.axisValues,
             outfitItemIds: o.outfitItemIds,
             position: o.position,
+            presence: o.presence,
+            replacePrompt: o.replacePrompt,
+            replaceNegative: o.replaceNegative,
           })
           .run()
       }

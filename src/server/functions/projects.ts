@@ -363,6 +363,7 @@ export const duplicateProject = createServerFn({ method: 'POST' })
             remapAxisValues(parseAxisValues(ch.axisValues), partsMaps),
           ),
           position: ch.position,
+          appearance: ch.appearance,
         })
         .returning()
         .get()
@@ -431,6 +432,9 @@ export const duplicateProject = createServerFn({ method: 'POST' })
                   ? remapIdList(ovr.outfitItemIds)
                   : null,
                 position: ovr.position,
+                presence: ovr.presence,
+                replacePrompt: ovr.replacePrompt,
+                replaceNegative: ovr.replaceNegative,
               })
               .run()
           }
