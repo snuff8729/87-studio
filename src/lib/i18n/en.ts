@@ -773,6 +773,9 @@ const en = {
       'Make project-only copies of this character and its outfit; library edits will no longer affect this project.',
     detached: 'Detached from the library',
     detachFailed: 'Could not detach',
+    linkBroken: 'Link broken',
+    linkBrokenHint:
+      'The library character was deleted. It is ignored when generating; your own prompt is still used.',
     editInLibrary: 'Edit in library',
     defaultOutfit: 'Default outfit',
     axisDefaults: 'Defaults',
@@ -802,6 +805,16 @@ const en = {
     presetName: 'Preset name',
     presetSaved: 'Preset saved',
     presetLoaded: 'Loaded "{{name}}"',
+  },
+  quickParts: {
+    globalAxes: 'View / framing (all characters)',
+    preview: 'Final prompt preview',
+    emptyItemsLine:
+      '{{name}}: {{items}} — empty with the current selection ({{values}})',
+    outfitAllEmpty:
+      "{{name}}'s outfit is entirely empty with the current selection",
+    charEmptyLine:
+      '{{name}}: no character fragments with the current selection',
   },
   sceneParts: {
     title: 'Parts',

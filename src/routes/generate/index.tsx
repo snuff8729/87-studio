@@ -10,8 +10,8 @@ import type {
   QuickGenerateState,
   QuickImage,
 } from '@/components/quick-generate/types'
-import type { CharacterPatch } from '@/components/characters/characters-editor'
 import type { MobilePane } from '@/components/editor-shell/editor-shell'
+import type { PartsPatch } from '@/components/quick-generate/quick-characters-tab'
 import {
   EditorShell,
   useEditorShell,
@@ -31,6 +31,7 @@ import {
 import { GenerationProgress } from '@/components/workspace/generation-progress'
 import { QuickPromptTab } from '@/components/quick-generate/quick-prompt-tab'
 import { QuickCharactersTab } from '@/components/quick-generate/quick-characters-tab'
+import { buildQuickPromptInput, setAxisValue } from '@/lib/quick-parts'
 import { ImageViewer } from '@/components/quick-generate/image-viewer'
 import { HistoryStrip } from '@/components/quick-generate/history-strip'
 import { ImportMetadataDialog } from '@/components/quick-generate/import-metadata-dialog'
@@ -323,14 +324,7 @@ function QuickGeneratePage() {
     try {
       await createQuickGenerationJob({
         data: {
-          generalPrompt: state.generalPrompt,
-          negativePrompt: state.negativePrompt,
-          characterPrompts: state.characters.map((c) => ({
-            name: c.name,
-            prompt: c.prompt,
-            negative: c.negative,
-            position: c.position,
-          })),
+          ...buildQuickPromptInput(state),
           parameters: state.parameters,
           count: state.count,
         },
@@ -417,12 +411,19 @@ function QuickGeneratePage() {
     }))
   }
 
-  function updateCharacter(id: string, patch: CharacterPatch) {
+  function updateCharacter(id: string, patch: PartsPatch) {
     setState((prev) => ({
       ...prev,
       characters: prev.characters.map((c) =>
         c.id === id ? { ...c, ...patch } : c,
       ),
+    }))
+  }
+
+  function setGlobalAxis(axisId: number, valueId: number) {
+    setState((prev) => ({
+      ...prev,
+      globalAxisValues: setAxisValue(prev.globalAxisValues, axisId, valueId),
     }))
   }
 
@@ -573,13 +574,14 @@ function QuickGeneratePage() {
             badge: state.characters.length,
             content: (
               <QuickCharactersTab
-                characters={state.characters}
+                state={state}
                 addCharacter={addCharacter}
                 duplicateCharacter={duplicateCharacter}
                 moveCharacter={moveCharacter}
                 reorderCharacters={reorderCharacters}
                 removeCharacter={removeCharacter}
                 updateCharacter={updateCharacter}
+                setGlobalAxis={setGlobalAxis}
                 positions={positionCanvas(state.parameters)}
               />
             ),

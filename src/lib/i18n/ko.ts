@@ -779,6 +779,9 @@ const ko: DeepStringify<typeof en> = {
       '이 캐릭터와 의상의 프로젝트 전용 사본을 만듭니다. 이후 라이브러리 수정은 이 프로젝트에 영향을 주지 않습니다.',
     detached: '라이브러리에서 분리했습니다',
     detachFailed: '분리하지 못했습니다',
+    linkBroken: '연결 끊김',
+    linkBrokenHint:
+      '라이브러리 캐릭터가 삭제되었어요. 생성할 때 무시되고, 직접 쓴 프롬프트만 사용돼요.',
     editInLibrary: '라이브러리에서 편집',
     defaultOutfit: '기본 의상',
     axisDefaults: '기본값',
@@ -808,6 +811,13 @@ const ko: DeepStringify<typeof en> = {
     presetName: '프리셋 이름',
     presetSaved: '프리셋을 저장했습니다',
     presetLoaded: '"{{name}}" 프리셋을 불러왔습니다',
+  },
+  quickParts: {
+    globalAxes: '시점 / 구도 (모든 캐릭터)',
+    preview: '최종 프롬프트 미리보기',
+    emptyItemsLine: '{{name}}: {{items}} — 현재 선택({{values}})에서 비어 있음',
+    outfitAllEmpty: '현재 선택에서는 {{name}}의 의상이 모두 비어 있어요',
+    charEmptyLine: '{{name}}: 현재 선택에서 캐릭터 조각이 비어 있어요',
   },
   sceneParts: {
     title: '파츠',

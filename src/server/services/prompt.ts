@@ -21,7 +21,11 @@ import {
   relevantAxes,
   resolveVarValues,
 } from '@/lib/character-parts'
-import { applyOverride, parsePositionSpec } from '@/lib/character-positions'
+import {
+  AI_POSITION,
+  applyOverride,
+  parsePositionSpec,
+} from '@/lib/character-positions'
 import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
 
 const log = createLogger('prompt')
@@ -92,6 +96,84 @@ function resolveBundlesWithTracking(
     }
   }
   return resolveBundles(template, contentMap)
+}
+
+type Library = ReturnType<typeof loadLibraryData>
+
+/**
+ * Compose one character slot's library parts (rule 0): effective axis values,
+ * occlusion and the `@{char}` / `@{outfit}` placement. `axisLayers` are merged
+ * in order on top of the axis defaults (later wins). A slot without a library
+ * link and with an empty default outfit has parts off entirely.
+ */
+export function composeSlotParts(
+  library: Library,
+  input: {
+    charPrompt: string
+    libraryCharacterId: number | null
+    defaultOutfit: Array<OutfitEntry>
+    /** Replaces the default outfit when set (scene override) */
+    outfitOverride?: Array<OutfitEntry> | null
+    axisLayers: Array<AxisValues>
+  },
+) {
+  const libChar =
+    input.libraryCharacterId != null
+      ? (library.characters.find((c) => c.id === input.libraryCharacterId) ??
+        null)
+      : null
+  const partsActive =
+    input.libraryCharacterId != null || input.defaultOutfit.length > 0
+  const outfitEntries = !partsActive
+    ? []
+    : (input.outfitOverride ?? input.defaultOutfit)
+  const outfit = outfitEntries.flatMap((e) => {
+    const item = library.items.find((i) => i.id === e.id)
+    return item
+      ? [{ ...item, varValues: resolveVarValues(item.variables, e.vars) }]
+      : []
+  })
+  const axes = relevantAxes(
+    library.axes,
+    libChar?.id ?? null,
+    outfit.map((i) => i.id),
+  )
+  const values = effectiveAxisValues(axes, input.axisLayers)
+  const parts = composeParts({
+    axes,
+    character: libChar,
+    items: outfit,
+    values,
+    areas: library.areas,
+  })
+  return {
+    libChar,
+    partsActive,
+    outfitEntries,
+    values,
+    parts,
+    composedPrompt: applyParts(input.charPrompt, parts),
+  }
+}
+
+/** The parts fields recorded on a resolved character prompt. */
+export function partsRecord(
+  library: Library,
+  s: ReturnType<typeof composeSlotParts>,
+) {
+  const { libChar, parts, outfitEntries, values } = s
+  return {
+    axisValues: values,
+    hiddenItems: parts.hidden,
+    partialItems: parts.partial,
+    emptyItemIds: parts.emptyItemIds,
+    ...(libChar && !parts.char && { charEmpty: true }),
+    outfitEntries: outfitEntries.filter((e) =>
+      library.items.some((i) => i.id === e.id),
+    ),
+    ...(libChar && { libraryCharacterId: libChar.id }),
+    outfitItemIds: parts.contributingItemIds,
+  }
 }
 
 export function synthesizePrompts(
@@ -182,50 +264,21 @@ export function synthesizePrompts(
     const mergedPlaceholders = { ...scenePlaceholders, ...nonEmptyOverrides }
     // Compose library character / outfit fragments into the slot prompt
     const overrideRow = overrideRowMap.get(char.id)
-    const libChar =
-      char.libraryCharacterId != null
-        ? (library.characters.find((c) => c.id === char.libraryCharacterId) ??
-          null)
-        : null
-    // No library character and an empty default outfit: parts are off for
-    // this slot entirely (scene overrides included)
-    const defaultOutfit = parseOutfitEntries(char.outfitItemIds)
-    const partsActive =
-      char.libraryCharacterId != null || defaultOutfit.length > 0
-    const outfitEntries = !partsActive
-      ? []
-      : overrideRow?.outfitItemIds != null
-        ? parseOutfitEntries(overrideRow.outfitItemIds)
-        : defaultOutfit
-    const outfit = outfitEntries.flatMap((e) => {
-      const item = library.items.find((i) => i.id === e.id)
-      return item
-        ? [
-            {
-              ...item,
-              varValues: resolveVarValues(item.variables, e.vars),
-            },
-          ]
-        : []
+    const slotParts = composeSlotParts(library, {
+      charPrompt: char.charPrompt,
+      libraryCharacterId: char.libraryCharacterId,
+      defaultOutfit: parseOutfitEntries(char.outfitItemIds),
+      outfitOverride:
+        overrideRow?.outfitItemIds != null
+          ? parseOutfitEntries(overrideRow.outfitItemIds)
+          : null,
+      axisLayers: [
+        parseAxisValues(char.axisValues),
+        sceneAxisValues,
+        parseAxisValues(overrideRow?.axisValues),
+      ],
     })
-    const axes = relevantAxes(
-      library.axes,
-      libChar?.id ?? null,
-      outfit.map((i) => i.id),
-    )
-    const values = effectiveAxisValues(axes, [
-      parseAxisValues(char.axisValues),
-      sceneAxisValues,
-      parseAxisValues(overrideRow?.axisValues),
-    ])
-    const parts = composeParts({
-      axes,
-      character: libChar,
-      items: outfit,
-      values,
-      areas: library.areas,
-    })
-    const composedPrompt = applyParts(char.charPrompt, parts)
+    const { composedPrompt, partsActive } = slotParts
 
     return {
       characterId: char.id,
@@ -242,18 +295,7 @@ export function synthesizePrompts(
         parsePositionSpec(char.position),
         positionOverrideMap.get(char.id),
       ),
-      ...(partsActive && {
-        axisValues: values,
-        hiddenItems: parts.hidden,
-        partialItems: parts.partial,
-        emptyItemIds: parts.emptyItemIds,
-        ...(libChar && !parts.char && { charEmpty: true }),
-        outfitEntries: outfitEntries.filter((e) =>
-          library.items.some((i) => i.id === e.id),
-        ),
-        ...(libChar && { libraryCharacterId: libChar.id }),
-        outfitItemIds: parts.contributingItemIds,
-      }),
+      ...(partsActive && partsRecord(library, slotParts)),
     }
   })
 
@@ -302,4 +344,52 @@ export function resolveBundlesInRawPrompts(
     characterPrompts,
     usedBundleIds: [...usedBundleIds],
   }
+}
+
+export interface QuickPromptInput {
+  generalPrompt: string
+  negativePrompt: string
+  characters: Array<{
+    name: string
+    prompt: string
+    negative: string
+    position?: PositionSpec
+    /** Linked library character (live link; a deleted one is ignored) */
+    libraryCharacterId?: number | null
+    /** Default outfit entries */
+    outfit?: Array<OutfitEntry>
+    /** Local (character/item) axis values */
+    axisValues?: AxisValues
+  }>
+  /** Global axis values applied to every character */
+  globalAxisValues?: AxisValues
+}
+
+/**
+ * Quick Generate: compose library parts (global library only, no project) into
+ * the character prompts, then resolve bundles. Slots are numbered -1, -2, ...
+ */
+export function composeQuickPrompts(input: QuickPromptInput): ResolvedPrompts {
+  const library = loadLibraryData(null)
+  const characterPrompts = input.characters.map((c, i) => {
+    const slotParts = composeSlotParts(library, {
+      charPrompt: c.prompt,
+      libraryCharacterId: c.libraryCharacterId ?? null,
+      defaultOutfit: c.outfit ?? [],
+      axisLayers: [c.axisValues ?? {}, input.globalAxisValues ?? {}],
+    })
+    return {
+      characterId: -(i + 1),
+      name: c.name,
+      prompt: slotParts.composedPrompt,
+      negative: c.negative,
+      position: c.position ?? AI_POSITION,
+      ...(slotParts.partsActive && partsRecord(library, slotParts)),
+    }
+  })
+  return resolveBundlesInRawPrompts({
+    generalPrompt: input.generalPrompt,
+    negativePrompt: input.negativePrompt,
+    characterPrompts,
+  })
 }
