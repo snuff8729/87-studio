@@ -62,6 +62,26 @@ export function CoveredBadge({ by }: { by: string }) {
   )
 }
 
+/** Grey dashed "Empty" badge: the item yields no prompt text in this scene. */
+export function EmptyBadge({ values }: { values: string }) {
+  const { t } = useTranslation()
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Badge
+          variant="outline"
+          className="ml-1 h-4 border-dashed px-1 text-[10px] text-muted-foreground"
+          data-empty-badge
+          tabIndex={0}
+        >
+          {t('sceneParts.empty')}
+        </Badge>
+      </TooltipTrigger>
+      <TooltipContent>{t('sceneParts.emptyTip', { values })}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 /** Dimmed "Partly covered" badge; tooltip lists "<fragment> - covered by <item>". */
 export function PartlyCoveredBadge({
   lines,
@@ -167,6 +187,8 @@ interface OutfitItemsEditorProps {
   covered?: Record<number, string>
   /** itemId -> hidden fragments (text + covering item name): "Partly covered" */
   partial?: Record<number, Array<{ text: string; by: string }>>
+  /** Item ids that yield no text here: grey "Empty" badge (tooltip: values) */
+  empty?: { ids: Array<number>; values: string }
   /** Body areas (names for the small area labels) */
   areas?: Array<{ id: number; name: string }>
   className?: string
@@ -182,6 +204,7 @@ export function OutfitItemsEditor({
   showPresetMenu = true,
   covered,
   partial,
+  empty,
   areas,
   className,
 }: OutfitItemsEditorProps) {
@@ -291,6 +314,9 @@ export function OutfitItemsEditor({
                   {covered?.[id] && <CoveredBadge by={covered[id]} />}
                   {!covered?.[id] && partial?.[id] && (
                     <PartlyCoveredBadge lines={partial[id]} />
+                  )}
+                  {!covered?.[id] && empty?.ids.includes(id) && (
+                    <EmptyBadge values={empty.values} />
                   )}
                   {item?.projectId != null && (
                     <Badge variant="outline" className="h-4 px-1 text-[10px]">

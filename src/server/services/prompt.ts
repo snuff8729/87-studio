@@ -43,6 +43,10 @@ export interface ResolvedPrompts {
     axisValues?: AxisValues
     /** Outfit items hidden by occlusion in this scene (parts slots only) */
     hiddenItems?: Array<{ itemId: number; coveredBy: Array<number> }>
+    /** Outfit items that yield no text under the scene's axis values (not hidden) */
+    emptyItemIds?: Array<number>
+    /** Linked library character yields no text under the scene's axis values */
+    charEmpty?: boolean
     /** Items with some (not all) fragments hidden (parts slots only) */
     partialItems?: Array<{
       itemId: number
@@ -242,6 +246,8 @@ export function synthesizePrompts(
         axisValues: values,
         hiddenItems: parts.hidden,
         partialItems: parts.partial,
+        emptyItemIds: parts.emptyItemIds,
+        ...(libChar && !parts.char && { charEmpty: true }),
         outfitEntries: outfitEntries.filter((e) =>
           library.items.some((i) => i.id === e.id),
         ),

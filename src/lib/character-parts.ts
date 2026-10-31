@@ -492,6 +492,11 @@ export function composeParts(args: {
   partial: Array<PartialItem>
   /** Visible items that contributed at least one fragment */
   contributingItemIds: Array<number>
+  /**
+   * Outfit items that are not fully hidden yet contribute no text under these
+   * values (item condition fails, no fragment matches, or only blank text).
+   */
+  emptyItemIds: Array<number>
 } {
   const { axes, character, items, values } = args
   const char = character
@@ -534,7 +539,30 @@ export function composeParts(args: {
     hidden,
     partial,
     contributingItemIds,
+    emptyItemIds: items
+      .filter(
+        (i) =>
+          !hidden.some((h) => h.itemId === i.id) &&
+          !contributingItemIds.includes(i.id),
+      )
+      .map((i) => i.id),
   }
+}
+
+/**
+ * Which empty items to flag individually. When every worn (non-covered) item is
+ * empty the outfit as a whole is empty: report that once instead of per item.
+ */
+export function summarizeEmptyItems(
+  outfitItemIds: Array<number>,
+  hiddenItemIds: Array<number>,
+  emptyItemIds: Array<number>,
+): { allEmpty: boolean; emptyIds: Array<number> } {
+  const shown = outfitItemIds.filter((id) => !hiddenItemIds.includes(id))
+  const empty = shown.filter((id) => emptyItemIds.includes(id))
+  if (shown.length > 0 && empty.length === shown.length)
+    return { allEmpty: true, emptyIds: [] }
+  return { allEmpty: false, emptyIds: empty }
 }
 
 function escapeRe(s: string): string {

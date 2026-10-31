@@ -19,6 +19,7 @@ import {
   resolveVarValues,
   stringifyOutfitEntries,
   substituteVars,
+  summarizeEmptyItems,
   visibleItems,
 } from '../character-parts'
 import type {
@@ -168,6 +169,7 @@ describe('composeParts', () => {
       hidden: [],
       partial: [],
       contributingItemIds: [7, 8],
+      emptyItemIds: [],
     })
   })
 
@@ -184,6 +186,7 @@ describe('composeParts', () => {
       hidden: [],
       partial: [],
       contributingItemIds: [],
+      emptyItemIds: [7, 8],
     })
     const upper = effectiveAxisValues(axes, [{ '2': 21, '1': 12, '3': 31 }])
     expect(
@@ -223,6 +226,7 @@ describe('composeParts', () => {
       hidden: [],
       partial: [],
       contributingItemIds: [],
+      emptyItemIds: [],
     })
   })
 })
@@ -667,5 +671,100 @@ describe('cleanCoverRuleConditions', () => {
     const out = cleanCoverRuleConditions(rules, 2, 20)
     expect(out[1]).toEqual({ conditions: { '2': [] }, areaIds: [2] })
     expect(out).toHaveLength(3)
+  })
+})
+
+describe('composeParts emptyItemIds', () => {
+  const run = (items: Array<PartsItem>, l: Record<string, number> = {}) =>
+    composeParts({
+      axes,
+      character: null,
+      items,
+      values: effectiveAxisValues(axes, [l]),
+      areas: [1, 2],
+    })
+  const item = (
+    id: number,
+    fragments: Array<PartsFragment>,
+    extra: Partial<PartsItem> = {},
+  ): PartsItem => ({ id, conditions: {}, fragments, ...extra })
+
+  it('reports an item whose item condition fails', () => {
+    const coat = item(1, [frag(10, 'coat')], { conditions: { '2': [20] } })
+    expect(run([coat], { '2': 22 }).emptyItemIds).toEqual([1])
+    expect(run([coat], { '2': 20 }).emptyItemIds).toEqual([])
+  })
+
+  it('reports an item with no matching fragment', () => {
+    const coat = item(1, [
+      frag(10, 'front', { '1': [10] }),
+      frag(11, 'side', { '1': [11] }),
+    ])
+    expect(run([coat], { '1': 12 }).emptyItemIds).toEqual([1])
+    expect(run([coat], { '1': 11 }).emptyItemIds).toEqual([])
+  })
+
+  it('reports an item whose matching fragments are blank', () => {
+    const coat = item(1, [frag(10, '  , '), frag(11, 'x', { '1': [11] })])
+    expect(run([coat], { '1': 10 }).emptyItemIds).toEqual([1])
+  })
+
+  it('does not report a fully covered item', () => {
+    const shirt = item(1, [frag(10, 'shirt')], { areaIds: [1] })
+    const cape = item(2, [frag(20, 'cape')], {
+      coverRules: [{ conditions: {}, areaIds: [1] }],
+    })
+    const r = run([shirt, cape])
+    expect(r.hiddenItemIds).toEqual([1])
+    expect(r.emptyItemIds).toEqual([])
+  })
+
+  it('a partly covered item with a remaining fragment is not empty', () => {
+    const shirt = item(
+      1,
+      [
+        { ...frag(10, 'shirt'), areaIds: [1] },
+        { ...frag(11, 'collar'), areaIds: [2] },
+      ],
+      {},
+    )
+    const cape = item(2, [frag(20, 'cape')], {
+      coverRules: [{ conditions: {}, areaIds: [1] }],
+    })
+    const r = run([shirt, cape])
+    expect(r.partial.map((p) => p.itemId)).toEqual([1])
+    expect(r.emptyItemIds).toEqual([])
+  })
+})
+
+describe('summarizeEmptyItems', () => {
+  it('flags empty items individually', () => {
+    expect(summarizeEmptyItems([1, 2, 3], [], [2])).toEqual({
+      allEmpty: false,
+      emptyIds: [2],
+    })
+  })
+  it('reports the whole outfit when every worn item is empty', () => {
+    expect(summarizeEmptyItems([1, 2], [], [1, 2])).toEqual({
+      allEmpty: true,
+      emptyIds: [],
+    })
+  })
+  it('covered items do not count toward "every"', () => {
+    expect(summarizeEmptyItems([1, 2, 3], [3], [1, 2])).toEqual({
+      allEmpty: true,
+      emptyIds: [],
+    })
+    // only covered items left: nothing to report
+    expect(summarizeEmptyItems([3], [3], [])).toEqual({
+      allEmpty: false,
+      emptyIds: [],
+    })
+  })
+  it('an empty outfit reports nothing', () => {
+    expect(summarizeEmptyItems([], [], [])).toEqual({
+      allEmpty: false,
+      emptyIds: [],
+    })
   })
 })

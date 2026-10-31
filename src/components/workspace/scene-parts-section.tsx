@@ -2,7 +2,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
-import { ArrowDown01Icon } from '@hugeicons/core-free-icons'
+import {
+  ArrowDown01Icon,
+  InformationCircleIcon,
+} from '@hugeicons/core-free-icons'
 import { ToggleGroup } from 'radix-ui'
 import { usePendingSave } from './pending-saves'
 import type {
@@ -15,10 +18,12 @@ import {
   parseAxisValues,
   parseOutfitEntries,
   relevantAxes,
+  summarizeEmptyItems,
 } from '@/lib/character-parts'
 import { AxisSegmented } from '@/components/parts/axis-segmented'
 import {
   CoveredBadge,
+  EmptyBadge,
   OutfitItemsEditor,
   PartlyCoveredBadge,
 } from '@/components/parts/outfit-items-editor'
@@ -295,6 +300,46 @@ export function ScenePartsSection({
       c.hiddenItems ?? [],
     ]),
   )
+  // Empty-item info per character (also drives the chip badges)
+  const emptyInfo = new Map(
+    (preview.data?.characterPrompts ?? []).map((c) => {
+      const s = summarizeEmptyItems(
+        (c.outfitEntries ?? []).map((e) => e.id),
+        (c.hiddenItems ?? []).map((h) => h.itemId),
+        c.emptyItemIds ?? [],
+      )
+      const values = globalAxes
+        .map((a) => valueName(a, c.axisValues?.[String(a.id)]))
+        .filter(Boolean)
+        .join(' · ')
+      return [
+        c.characterId,
+        {
+          name: c.name,
+          ...s,
+          charEmpty: !!c.charEmpty,
+          values,
+          items: s.emptyIds.map(
+            (id) => items.find((i) => i.id === id)?.name ?? '',
+          ),
+        },
+      ] as const
+    }),
+  )
+  const emptyLines = [...emptyInfo.values()].flatMap((e) => {
+    const lines: Array<string> = []
+    if (e.charEmpty) lines.push(t('sceneParts.charEmptyLine', { name: e.name }))
+    if (e.allEmpty) lines.push(t('sceneParts.outfitAllEmpty', { name: e.name }))
+    else if (e.items.length > 0)
+      lines.push(
+        t('sceneParts.emptyItemsLine', {
+          name: e.name,
+          items: e.items.join(', '),
+          values: e.values,
+        }),
+      )
+    return lines
+  })
   const partialBySlot = new Map(
     (preview.data?.characterPrompts ?? []).map((c) => [
       c.characterId,
@@ -334,6 +379,7 @@ export function ScenePartsSection({
             presets={presets}
             hidden={hiddenBySlot.get(slot.id)}
             partialItems={partialBySlot.get(slot.id)}
+            empty={emptyInfo.get(slot.id)}
             projectId={projectId}
             onAxis={(axisId, v) =>
               updateOverride(slot.id, (cur) => {
@@ -355,6 +401,23 @@ export function ScenePartsSection({
           />
         ))}
       </div>
+
+      {emptyLines.length > 0 && (
+        <div
+          className="space-y-0.5 text-xs text-muted-foreground"
+          data-testid="parts-empty-info"
+        >
+          {emptyLines.map((line, i) => (
+            <p key={i} className="flex items-start gap-1.5">
+              <HugeiconsIcon
+                icon={InformationCircleIcon}
+                className="mt-0.5 size-3.5 shrink-0"
+              />
+              <span data-empty-line>{line}</span>
+            </p>
+          ))}
+        </div>
+      )}
 
       {/* Final prompt preview */}
       <div className="rounded-md border border-border/60">
@@ -432,6 +495,7 @@ function CharacterRow({
   presets,
   hidden,
   partialItems,
+  empty,
   projectId,
   onAxis,
   onOutfit,
@@ -460,6 +524,8 @@ function CharacterRow({
         details: Array<{ fragmentId: number; coveredBy: Array<number> }>
       }>
     | undefined
+  /** Empty-item flags (outfit-wide "all empty" suppresses per-item badges) */
+  empty: { emptyIds: Array<number>; values: string } | undefined
   projectId: number
   onAxis: (axisId: number, v: number | null) => void
   onOutfit: (entries: Array<OutfitEntry> | null) => void
@@ -592,6 +658,11 @@ function CharacterRow({
                 projectId={projectId}
                 covered={covered}
                 partial={partial}
+                empty={
+                  empty
+                    ? { ids: empty.emptyIds, values: empty.values }
+                    : undefined
+                }
               />
             ) : (
               <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
@@ -623,6 +694,10 @@ function CharacterRow({
                       {covered[id] === undefined && partial[id] && (
                         <PartlyCoveredBadge lines={partial[id]} />
                       )}
+                      {covered[id] === undefined &&
+                        empty?.emptyIds.includes(id) && (
+                          <EmptyBadge values={empty.values} />
+                        )}
                     </span>
                   )
                 })}

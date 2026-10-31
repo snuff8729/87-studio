@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { CombinationGrid } from './combination-grid'
 import { ConditionEditor } from './condition-editor'
 import { ItemVariables } from './item-variables'
 import { FragmentRow } from './fragment-row'
@@ -188,23 +189,45 @@ export function OwnerDetail({
   // Preview
   const [previewValues, setPreviewValues] = useState<AxisValues>({})
   const effective = effectiveAxisValues(relevant, [previewValues])
-  const composed = composeParts({
-    axes: relevant,
-    character: kind === 'character' ? { id: row.id, fragments } : null,
-    items:
-      kind === 'item'
-        ? [
-            {
-              id: row.id,
-              conditions: itemCond.value,
-              fragments,
-              varValues: resolveVarValues(row.variables, undefined),
-            },
-          ]
-        : [],
-    values: effective,
-  })
-  const previewText = kind === 'character' ? composed.char : composed.outfit
+  const composeFor = (values: AxisValues) => {
+    const composed = composeParts({
+      axes: relevant,
+      character: kind === 'character' ? { id: row.id, fragments } : null,
+      items:
+        kind === 'item'
+          ? [
+              {
+                id: row.id,
+                conditions: itemCond.value,
+                fragments,
+                varValues: resolveVarValues(row.variables, undefined),
+              },
+            ]
+          : [],
+      values,
+    })
+    return kind === 'character' ? composed.char : composed.outfit
+  }
+  const previewText = composeFor(effective)
+
+  // Axes the output depends on (fragment + item conditions)
+  const referenced = new Set<string>(
+    fragments.flatMap((f) => Object.keys(f.conditions)),
+  )
+  if (kind === 'item')
+    for (const k of Object.keys(itemCond.value)) referenced.add(k)
+  const referencedAxes = relevant.filter(
+    (a) => referenced.has(String(a.id)) && a.values.length > 0,
+  )
+  const gridAxes = referencedAxes.filter(
+    (a) => a.ownerCharacterId === null && a.ownerItemId === null,
+  )
+  const emptyValues = referencedAxes
+    .map(
+      (a) => a.values.find((v) => v.id === effective[String(a.id)])?.name ?? '',
+    )
+    .filter(Boolean)
+    .join(' · ')
 
   return (
     <div className="space-y-6 p-4 md:p-6">
@@ -334,6 +357,17 @@ export function OwnerDetail({
         />
       </section>
 
+      {gridAxes.length > 0 && (
+        <CombinationGrid
+          axes={gridAxes}
+          effective={effective}
+          isEmpty={(pick) =>
+            !composeFor(effectiveAxisValues(relevant, [previewValues, pick]))
+          }
+          onPick={(pick) => setPreviewValues((p) => ({ ...p, ...pick }))}
+        />
+      )}
+
       <section className="space-y-3 rounded-xl border border-border bg-card/40 p-3">
         <div>
           <Label className="text-sm">{t('library.preview')}</Label>
@@ -364,8 +398,15 @@ export function OwnerDetail({
           className="min-h-10 whitespace-pre-wrap break-words rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
         >
           {previewText || (
-            <span className="text-muted-foreground">
-              {t('library.previewEmpty')}
+            <span className="text-muted-foreground" data-preview-empty>
+              {emptyValues
+                ? t(
+                    kind === 'character'
+                      ? 'library.previewEmptyChar'
+                      : 'library.previewEmptyItem',
+                    { values: emptyValues },
+                  )
+                : t('library.previewEmpty')}
             </span>
           )}
         </div>
