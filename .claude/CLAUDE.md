@@ -1020,7 +1020,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 ## 개발 명령어
 
 ```bash
-pnpm install                    # 의존성 설치
+pnpm install                    # 의존성 설치 (npm install도 가능: package-lock.json과 pnpm-lock.yaml은 같은 버전을 고정 — 갱신은 설치된 트리 기준으로 npm lock 생성 후 `pnpm import`)
 pnpm dev                        # 개발 서버 실행 (포트 3000)
 pnpm build                      # 프로덕션 빌드
 pnpm start                      # 프로덕션 서버 실행
