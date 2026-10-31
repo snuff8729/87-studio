@@ -378,6 +378,8 @@ function handlers(opts) {
       name,
       category: 0,
       categoryLabel: 'general',
+      top: 'general',
+      fine: 'general',
       postCount: 1234,
       isDeprecated: false,
       otherNames: [],
@@ -1104,12 +1106,12 @@ async function settingsPage(w, h, tag) {
   )
   const control = desktop ? nav : chips
   check(
-    (await control.locator('button').count()) === 6,
-    `settings ${tag}: 6 sections in the nav`,
+    (await control.locator('button').count()) === 7,
+    `settings ${tag}: 7 sections in the nav`,
   )
   check(
-    (await page.locator('section[id^="settings-"]').count()) === 6,
-    `settings ${tag}: 6 section cards`,
+    (await page.locator('section[id^="settings-"]').count()) === 7,
+    `settings ${tag}: 7 section cards`,
   )
   if (!desktop) {
     const top = await chips.evaluate((el) => el.getBoundingClientRect().top)

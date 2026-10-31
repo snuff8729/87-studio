@@ -5,6 +5,8 @@ import { Copy01Icon, Search01Icon } from '@hugeicons/core-free-icons'
 import { toast } from 'sonner'
 import { insertTagIntoLastEditor, useHasPromptEditor } from './editor-registry'
 import { RemoteSections } from './remote-sections'
+import { NeedsTagData } from '@/components/data/needs-tag-data'
+import { useDataActions, useDataset } from '@/components/data/use-data-files'
 import { SemanticToggle } from '@/components/semantic/semantic-toggle'
 import { useSemanticRows } from '@/components/semantic/use-semantic-rows'
 import { Button } from '@/components/ui/button'
@@ -20,6 +22,7 @@ import {
   fineLabel,
 } from '@/lib/tag-categories'
 import { formatCount, tagDisplayName } from '@/lib/tag-query'
+import { formatBytes } from '@/lib/data-manifest'
 import { cn } from '@/lib/utils'
 import {
   getKoTagCategories,
@@ -74,6 +77,8 @@ export function TagSearchPanel({
   const hasEditor = useHasPromptEditor()
   const listRef = useRef<HTMLDivElement>(null)
 
+  const koData = useDataset('ko')
+  const { install: installData } = useDataActions()
   const dbQuery = useQuery({
     queryKey: ['tag-db-installed'],
     queryFn: () => hasTagDb(),
@@ -201,11 +206,7 @@ export function TagSearchPanel({
   )
 
   if (dbQuery.data === false) {
-    return (
-      <div className={cn('p-4 text-sm text-muted-foreground', className)}>
-        {t('tagAssist.search.noDb')}
-      </div>
-    )
+    return <NeedsTagData className={className} />
   }
 
   return (
@@ -230,6 +231,30 @@ export function TagSearchPanel({
           data-tag-search-input
         />
       </div>
+      {locale === 'ko' &&
+        (koData?.state === 'notInstalled' ||
+          koData?.state === 'downloading') && (
+          <div
+            className="mx-3 mt-2 flex items-center gap-2 rounded-md bg-muted/50 px-2 py-1.5 text-xs text-muted-foreground"
+            data-ko-hint
+          >
+            <span className="min-w-0 flex-1">
+              {t('data.koHint', { size: formatBytes(koData.size) })}
+            </span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-6 px-2 text-xs"
+              disabled={installData.isPending || koData.state === 'downloading'}
+              onClick={() => installData.mutate('ko')}
+              data-ko-hint-install
+            >
+              {koData.state === 'downloading'
+                ? t('data.stateDownloading', { pct: koData.pct ?? 0 })
+                : t('data.koHintAction')}
+            </Button>
+          </div>
+        )}
       <SemanticToggle className="px-3 pt-2" />
       <div
         className="flex gap-1.5 overflow-x-auto px-3 pt-2 pb-1 [scrollbar-width:thin]"

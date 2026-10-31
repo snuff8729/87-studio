@@ -14,8 +14,8 @@
 //   meta(key, value)
 //   ko_tags(tag PRIMARY KEY, small_category, group_key, description, keywords, count)
 //   ko_keywords(keyword, tag, kind)   kind 0 = keyword, 1 = bracketed group token
-// Upload it next to danbooru.db on HuggingFace (KO_TAGS_BASE_URL in
-// src/lib/ko-tags.ts) and bump KO_TAGS_VERSION when the contents change.
+// Upload it next to danbooru.db on HuggingFace, then regenerate and upload
+// data-manifest.json (scripts/build-data-manifest.mjs).
 import { createHash } from 'node:crypto'
 import {
   existsSync,

@@ -9,6 +9,7 @@ import {
   useSemanticStatus,
 } from './use-semantic'
 import { KoTagsCard } from './ko-tags-card'
+import { useDataset } from '@/components/data/use-data-files'
 import {
   Card,
   CardContent,
@@ -37,6 +38,8 @@ export function SemanticSettingsCard({ id }: { id: string }) {
   const { toggle, remove } = useSemanticActions()
   const [confirmDelete, setConfirmDelete] = useState(false)
   const busy = isSemanticBusy(s)
+  const danbooru = useDataset('danbooru')
+  const needsDb = !!danbooru && danbooru.installedVersion == null
   const hasFiles = !!s && (s.indexDownloaded || s.modelBytes > 0)
 
   return (
@@ -55,6 +58,11 @@ export function SemanticSettingsCard({ id }: { id: string }) {
               <p className="mt-0.5 text-xs text-muted-foreground">
                 {t('semantic.switchHint')}
               </p>
+              {needsDb && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t('data.needsDanbooru')}
+                </p>
+              )}
               <p className="mt-1 text-xs text-muted-foreground">
                 {t('semantic.terms')}{' '}
                 <a
@@ -70,7 +78,7 @@ export function SemanticSettingsCard({ id }: { id: string }) {
             <Switch
               id="semantic-switch"
               checked={!!s?.enabled}
-              disabled={!s || toggle.isPending}
+              disabled={!s || toggle.isPending || (needsDb && !s.enabled)}
               onCheckedChange={(v) => toggle.mutate(v)}
               data-semantic-switch
             />

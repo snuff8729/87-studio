@@ -30,6 +30,7 @@ import {
   NAI_ACCOUNT_KEY,
   useNaiAccount,
 } from '@/components/account/nai-account'
+import { DataSettingsCard } from '@/components/data/data-settings-card'
 import { SemanticSettingsCard } from '@/components/semantic/semantic-settings-card'
 import { useTranslation } from '@/lib/i18n'
 import { useOnboardingMaybe } from '@/lib/onboarding'
@@ -102,6 +103,7 @@ const SECTION_IDS = [
   'generation',
   'appearance',
   'tagsearch',
+  'data',
   'storage',
   'help',
 ] as const
@@ -235,6 +237,7 @@ function SettingsPage() {
   useEffect(() => {
     function onScroll() {
       if (Date.now() < spyLockUntil.current) return
+      const threshold = Math.max(140, window.innerHeight * 0.3)
       let current: SectionId = SECTION_IDS[0]
       const atBottom =
         window.innerHeight + window.scrollY >=
@@ -244,7 +247,7 @@ function SettingsPage() {
       } else {
         for (const id of SECTION_IDS) {
           const el = document.getElementById(`settings-${id}`)
-          if (el && el.getBoundingClientRect().top <= 140) current = id
+          if (el && el.getBoundingClientRect().top <= threshold) current = id
         }
       }
       setActive(current)
@@ -374,6 +377,7 @@ function SettingsPage() {
     { id: 'generation', label: t('settings.sectionGeneration') },
     { id: 'appearance', label: t('settings.sectionAppearance') },
     { id: 'tagsearch', label: t('semantic.section') },
+    { id: 'data', label: t('settings.sectionData') },
     { id: 'storage', label: t('settings.sectionStorage') },
     { id: 'help', label: t('settings.sectionHelp') },
   ]
@@ -615,6 +619,8 @@ function SettingsPage() {
         </SectionCard>
 
         <SemanticSettingsCard id="settings-tagsearch" />
+
+        <DataSettingsCard id="settings-data" />
 
         <SectionCard
           id="storage"

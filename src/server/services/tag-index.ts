@@ -34,6 +34,19 @@ export function getDanbooruDb(): Database.Database | null {
   return danbooruDb
 }
 
+/** Close the handle and drop everything derived from the file (replace / delete). */
+export function closeDanbooruDb() {
+  try {
+    danbooruDb?.close()
+  } catch {
+    /* already closed */
+  }
+  danbooruDb = null
+  groupMap = null
+  classCache.clear()
+  infoCache.clear()
+}
+
 // ── category classification (lazy group map + per-tag cache) ─────────────────
 
 let groupMap: Map<string, Array<string>> | null = null

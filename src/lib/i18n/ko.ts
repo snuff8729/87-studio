@@ -142,6 +142,7 @@ const ko: DeepStringify<typeof en> = {
     sectionGeneration: '생성',
     sectionAppearance: '화면',
     sectionStorage: '스토리지',
+    sectionData: '데이터',
     sectionHelp: '도움말',
     naiApiKeyDesc:
       'NovelAI에 이미지를 요청할 때 사용합니다. 이 기기에만 저장됩니다.',
@@ -1401,14 +1402,66 @@ const ko: DeepStringify<typeof en> = {
       categories: '카테고리',
     },
   },
+  data: {
+    section: '데이터',
+    title: '선택 데이터',
+    description:
+      '아무것도 자동으로 받지 않아요. 필요한 것만 받으세요. 받지 않아도 나머지 기능은 모두 동작해요.',
+    checkUpdates: '업데이트 확인',
+    checking: '확인 중…',
+    lastChecked: '마지막 확인: {{time}}',
+    neverChecked: '아직 확인하지 않음',
+    builtinNote:
+      '업데이트 서버에 연결하지 못해 앱에 내장된 버전 정보를 보여줘요.',
+    installedVersion: '설치됨: v{{version}}',
+    sizeValue: '{{size}}',
+    stateNotInstalled: '설치 안 됨',
+    stateDownloading: '받는 중 {{pct}}%',
+    stateDownloadingNoPct: '받는 중…',
+    stateInstalled: '설치됨 (최신)',
+    stateUpdate: '업데이트 있음 (v{{version}})',
+    stateError: '오류: {{message}}',
+    install: '받기',
+    update: '업데이트',
+    redownload: '다시 받기',
+    delete: '삭제',
+    cancel: '취소',
+    needsDanbooru: 'Danbooru 태그 DB가 먼저 필요해요',
+    deleted: '삭제했어요',
+    danbooruName: 'Danbooru 태그 DB',
+    danbooruPurpose: '태그 자동완성, 설명, 분류, 태그 검색 창에 쓰여요.',
+    koName: '한국어 태그 데이터',
+    koPurpose:
+      '태그의 한국어 설명·키워드·분류. 한글로 태그를 검색할 수 있어요.',
+    semanticName: '자연어 검색',
+    semanticPurpose:
+      '원하는 장면을 문장으로 적으면 어울리는 태그를 찾아줘요 (내 PC에서 도는 AI 모델).',
+    semanticSize: '모델 약 300 MB + 인덱스 {{size}}',
+    deleteTitle: '{{name}}을(를) 삭제할까요?',
+    deleteDesc: '받은 파일을 지워요. 언제든 다시 받을 수 있어요.',
+    deleteDanbooruDesc:
+      '다시 받기 전까지 태그 자동완성, 태그 설명, 태그 검색, 한국어 데이터, 자연어 검색이 동작하지 않아요. 프로젝트와 이미지는 그대로예요.',
+    redownloadHint: '파일을 다시 받고 무결성을 확인해요.',
+    needTitle: '태그 데이터가 필요해요',
+    needBody:
+      '자동완성·설명·검색을 쓰려면 태그 데이터(약 {{size}})를 받으세요. 다른 기능에는 필요하지 않아요.',
+    needInstall: '지금 받기',
+    needDownloading: '받는 중… {{pct}}%',
+    needOpenSettings: '설정 › 데이터 열기',
+    dashboardHint:
+      '태그 자동완성·설명·검색을 쓰려면 태그 데이터({{size}})를 받으세요.',
+    dashboardAction: '데이터 설정 열기',
+    dismiss: '닫기',
+    koHint: '한글로 검색하려면 한국어 데이터({{size}})를 받으세요.',
+    koHintAction: '받기',
+    toggleNeedsData:
+      '태그 정보 카드는 태그 데이터가 있어야 해요. 설정 › 데이터에서 받으세요.',
+    toggleNeedsDataAction: '열기',
+  },
   koTags: {
     title: '한국어 태그 데이터',
     description:
       '태그의 한국어 설명, 검색 키워드, 카테고리. 언어가 한국어일 때 한글로 태그를 검색할 수 있습니다.',
-    statusReady: '사용 가능 · 태그 {{count}}개',
-    statusDownloading: '다운로드 중…',
-    statusUnavailable:
-      '사용할 수 없음 (오프라인이거나 아직 공개되지 않음). 자동으로 다시 시도합니다.',
   },
   semantic: {
     section: '태그 검색',

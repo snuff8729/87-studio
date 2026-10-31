@@ -1,66 +1,40 @@
-import {
-  existsSync,
-  mkdirSync,
-  readdirSync,
-  renameSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
-import { dirname, join } from 'node:path'
+import { existsSync } from 'node:fs'
 import Database from 'better-sqlite3'
-import { dataPath } from '../data-dir'
 import { createLogger } from './logger'
-import { NAI_MOCK } from './nai-mock'
+import { koFilePath } from './data-registry'
 import type { KoKeywordRow } from '@/lib/ko-tags'
-import {
-  KO_TAGS_BASE_URL,
-  KO_TAGS_FILE,
-  KO_TAGS_VERSION,
-  koQueryForms,
-} from '@/lib/ko-tags'
+import { koQueryForms } from '@/lib/ko-tags'
 
 /**
  * Korean tag data (NAIA2.0, GPL-3.0): a small SQLite file hosted next to
- * danbooru.db. Downloaded in the background on first need; everything that
- * uses it falls back silently while it is not there (offline, not uploaded).
- *
- * KO_TAGS_URL overrides the base URL (must end with `/`). A file placed in the
- * data directory by hand is used as is. NAI_MOCK servers only download when
- * KO_TAGS_URL is set, so smoke runs never touch the network.
+ * danbooru.db. Installed from Settings > Data (nothing downloads by itself);
+ * everything that uses it falls back silently while it is not there.
+ * Download and replacement live in data-files.ts, the file lookup in
+ * data-registry.ts.
  */
 
 const log = createLogger('ko-tags')
-const LOGICAL_PATH = `./data/${KO_TAGS_FILE}`
-const RETRY_MS = 10 * 60 * 1000
 const HIGH = '￿'
 
-export type KoTagsState = 'ready' | 'downloading' | 'unavailable'
-
 export interface KoTagsStatus {
-  state: KoTagsState
-  version: string
+  ready: boolean
   tags: number
 }
 
 let koDb: Database.Database | null = null
-let downloading: Promise<void> | null = null
-let failedAt = 0
 const readyListeners: Array<() => void> = []
 
-/** Called once when the Korean data becomes available (cache invalidation). */
+/** Called when the Korean data appears or goes away (cache invalidation). */
 export function onKoTagsReady(fn: () => void) {
   readyListeners.push(fn)
 }
 
-function filePath(): string {
-  return dataPath(LOGICAL_PATH)
-}
-
 function openDb(): Database.Database | null {
   if (koDb) return koDb
-  if (!existsSync(filePath())) return null
+  const path = koFilePath()
+  if (!path || !existsSync(path)) return null
   try {
-    const d = new Database(filePath(), { readonly: true })
+    const d = new Database(path, { readonly: true })
     d.prepare('SELECT 1 FROM ko_tags LIMIT 1').get()
     koDb = d
     for (const fn of readyListeners) fn()
@@ -71,82 +45,29 @@ function openDb(): Database.Database | null {
   }
 }
 
-function downloadAllowed(): boolean {
-  return !NAI_MOCK || !!process.env.KO_TAGS_URL
-}
-
-async function download() {
-  const base = process.env.KO_TAGS_URL || KO_TAGS_BASE_URL
-  const res = await fetch(base + KO_TAGS_FILE)
-  if (!res.ok) {
-    throw new Error(`Korean tag data download failed (${res.status})`)
-  }
-  const bytes = Buffer.from(await res.arrayBuffer())
-  const dest = filePath()
-  mkdirSync(dirname(dest), { recursive: true })
-  const tmp = dest + '.tmp'
-  writeFileSync(tmp, bytes)
+/** Close the handle (before the file is replaced or deleted) and reset caches. */
+export function closeKoDb() {
   try {
-    const d = new Database(tmp, { readonly: true })
-    const v = d
-      .prepare("SELECT value FROM meta WHERE key = 'version'")
-      .get() as { value: string } | undefined
-    d.close()
-    if (v?.value !== KO_TAGS_VERSION) {
-      throw new Error(`Unexpected Korean tag data version ${v?.value}`)
-    }
-  } catch (err) {
-    rmSync(tmp, { force: true })
-    throw err
+    koDb?.close()
+  } catch {
+    /* already closed */
   }
-  renameSync(tmp, dest)
-  // drop older versions
-  for (const f of readdirSync(dirname(dest))) {
-    if (/^naia-ko-v\d+\.db$/.test(f) && f !== KO_TAGS_FILE) {
-      rmSync(join(dirname(dest), f), { force: true })
-    }
-  }
-  log.info('download', 'Korean tag data downloaded', { bytes: bytes.length })
+  koDb = null
+  for (const fn of readyListeners) fn()
 }
 
-/** Start the background download when needed (idempotent, never throws). */
-export function ensureKoTags() {
-  if (koDb || downloading || existsSync(filePath())) return
-  if (!downloadAllowed()) return
-  if (Date.now() - failedAt < RETRY_MS) return
-  downloading = download()
-    .catch((err) => {
-      failedAt = Date.now()
-      log.warn('download', 'Korean tag data unavailable', {
-        error: String(err),
-      })
-    })
-    .finally(() => {
-      downloading = null
-    })
-}
-
-/** Handle on the Korean data, or null (and kick off the download). */
+/** Handle on the Korean data, or null when not installed. */
 export function getKoDb(): Database.Database | null {
-  const d = openDb()
-  if (d) return d
-  ensureKoTags()
-  return null
+  return openDb()
 }
 
 export function getKoStatus(): KoTagsStatus {
   const d = getKoDb()
-  if (d) {
-    const n = d.prepare('SELECT COUNT(*) AS n FROM ko_tags').get() as {
-      n: number
-    }
-    return { state: 'ready', version: KO_TAGS_VERSION, tags: n.n }
+  if (!d) return { ready: false, tags: 0 }
+  const n = d.prepare('SELECT COUNT(*) AS n FROM ko_tags').get() as {
+    n: number
   }
-  return {
-    state: downloading ? 'downloading' : 'unavailable',
-    version: KO_TAGS_VERSION,
-    tags: 0,
-  }
+  return { ready: true, tags: n.n }
 }
 
 export interface KoTagRow {

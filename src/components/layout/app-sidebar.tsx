@@ -23,16 +23,19 @@ import {
 } from '@/components/queue/queue-status-widget'
 import { SidebarAccountRow } from '@/components/account/nai-account'
 import { useTranslation } from '@/lib/i18n'
+import { useDataStatus } from '@/components/data/use-data-files'
 import { getAppInfo } from '@/server/functions/settings'
 
 function NavMenuItem({
   item,
   isActive,
   badge,
+  dot,
 }: {
   item: NavItem
   isActive: boolean
   badge?: number
+  dot?: boolean
 }) {
   const { t } = useTranslation()
   const { isMobile, setOpenMobile } = useSidebar()
@@ -55,6 +58,13 @@ function NavMenuItem({
         >
           <HugeiconsIcon icon={item.icon} />
           <span>{label}</span>
+          {dot && (
+            <span
+              aria-hidden="true"
+              data-nav-dot
+              className="bg-primary absolute top-1.5 right-2 size-1.5 rounded-full group-data-[collapsible=icon]:top-1 group-data-[collapsible=icon]:right-1"
+            />
+          )}
         </Link>
       </SidebarMenuButton>
       {hasBadge && (
@@ -81,6 +91,7 @@ export function AppSidebar() {
   const activeTo = getActiveNavItem(pathname)?.to
   const { data: queueSummary } = useQueueSummary()
   const pendingImages = queueSummary?.globalStats.totalPendingImages ?? 0
+  const { data: dataStatus } = useDataStatus({ slow: true })
   const { data: appInfo } = useQuery({
     queryKey: ['app-info'],
     queryFn: () => getAppInfo(),
@@ -96,6 +107,7 @@ export function AppSidebar() {
           item={item}
           isActive={activeTo === item.to}
           badge={item.to === '/queue' ? pendingImages : undefined}
+          dot={item.to === '/settings' && !!dataStatus?.updateAvailable}
         />
       ))
 

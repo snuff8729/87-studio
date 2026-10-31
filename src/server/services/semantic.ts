@@ -1,4 +1,3 @@
-import type { ChildProcess } from 'node:child_process'
 import { createHash } from 'node:crypto'
 import { fork } from 'node:child_process'
 import {
@@ -21,6 +20,12 @@ import { settings } from '../db/schema'
 import { dataPath } from '../data-dir'
 import { categorize, getDanbooruDb } from './tag-index'
 import { createLogger } from './logger'
+import {
+  dataBaseUrl,
+  getManifestState,
+  setInstalledVersion,
+} from './data-registry'
+import type { ChildProcess } from 'node:child_process'
 import type { IndexMeta } from '@/lib/semantic'
 import {
   SEMANTIC_DIMS,
@@ -28,7 +33,6 @@ import {
   SEMANTIC_MODEL_DTYPE,
   SEMANTIC_MODEL_ID,
   SEMANTIC_MODEL_KEY,
-  TAG_INDEX_BASE_URL,
   TAG_INDEX_VERSION,
   indexBaseName,
   isIndexCompatible,
@@ -127,7 +131,8 @@ const binPath = () => join(modelsDir(), baseName() + '.bin')
 const metaPath = () => join(modelsDir(), baseName() + '.json')
 
 function indexBaseUrl(): string {
-  const u = process.env.SEMANTIC_INDEX_URL || TAG_INDEX_BASE_URL
+  const u = process.env.SEMANTIC_INDEX_URL
+  if (!u) return dataBaseUrl()
   return u.endsWith('/') ? u : u + '/'
 }
 
@@ -285,6 +290,10 @@ async function downloadIndex(token: number, signal: AbortSignal) {
   // write meta last: its presence marks a complete index
   writeFileSync(metaTmp, JSON.stringify(meta))
   renameSync(metaTmp, metaPath())
+  setInstalledVersion(
+    'semantic',
+    getManifestState().manifest.files.semantic?.version ?? TAG_INDEX_VERSION,
+  )
   log.info('downloadIndex', 'Tag index downloaded', { bytes: got })
 }
 
@@ -460,7 +469,17 @@ export async function disable(): Promise<SemanticStatus> {
 export async function deleteFiles(): Promise<SemanticStatus> {
   await disable()
   rmSync(modelsDir(), { recursive: true, force: true })
+  setInstalledVersion('semantic', null)
   return getStatus()
+}
+
+/** Replace the prebuilt index only (update / re-download); keeps the model. */
+export async function reinstallIndex(): Promise<SemanticStatus> {
+  await disable()
+  rmSync(binPath(), { force: true })
+  rmSync(metaPath(), { force: true })
+  setInstalledVersion('semantic', null)
+  return enable()
 }
 
 // ── search ───────────────────────────────────────────────────────────────────

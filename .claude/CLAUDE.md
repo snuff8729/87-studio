@@ -305,7 +305,7 @@ scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, �
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
 LICENSE                        # GPL-3.0
 THIRD_PARTY_NOTICES.md         # NAIA2.0 (DNT-LAB, GPL-3.0) 출처·커밋 SHA·변환 내용
-scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + overrides + 그룹 매핑 → naia-ko-v<N>.db (hyparquet, `--src`/`--danbooru`/`--out`). HF 데이터셋에 업로드하고 `KO_TAGS_VERSION` 올림
+scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + overrides + 그룹 매핑 → naia-ko-v<N>.db (hyparquet, `--src`/`--danbooru`/`--out`). HF 데이터셋에 업로드 후 `data-manifest.json` 갱신(선택 데이터 절)
 ```
 
 ## 핵심 개념
@@ -636,7 +636,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 - **세부 카테고리**: `src/lib/tag-categories.ts` 상단에 카테고리 목록과 매핑 규칙 문서화. `tag_groups` 그룹(점수) + 이름 규칙으로 일반 태그를 분류, 나머지는 `misc`. 모든 태그 결과에 `top`/`fine` 포함. **일반 태그의 top = NAIA 12그룹**(fashion·body·pose·emotion·place·object·people·situation·concept·presentation·sexual·misc, ko 라벨은 NAIA 그룹명): 한국어 태그 데이터에 있으면 그 그룹 + fine = `ko:<소분류>`(`koFineKey`; ko 로캘에서만 소분류 라벨, 그 외는 그룹 라벨 — `fineLabel`), 없으면 규칙 분류 결과의 부모 그룹(subject→people, expression→emotion, … 매핑은 tag-categories.ts 헤더). Danbooru 비일반(character·artist·copyright·meta)은 그대로. Tag Search 하위 칩: 한국어 데이터가 있으면 ko 로캘에서 NAIA 소분류(상위 14개, `getKoTagCategories`), en은 그룹 탭만, 데이터가 없으면 규칙 하위 카테고리
 - **설명**: 스튜디오 DB `tag_descriptions(tag, locale, text, source, updated_at)` (마이그레이션 0018) → 없으면 위키 본문 요약(`src/lib/dtext.ts` `wikiSummary`, DText 제거). 현재는 `setTagDescription`만 쓰기 가능(향후 번역/임포트용). 순서 = 수동 `tag_descriptions` → (UI 로캘이 `ko`일 때만) NAIA 한국어 설명 → 위키 요약. **UI에는 출처 라벨·표기를 두지 않음**(출처는 THIRD_PARTY_NOTICES.md·README·LICENSE에만)
 - **자동완성**: 순위 exact > alias exact > prefix > alias/other_names prefix > substring(≥3자), 가중치 문법 제거, 20개. 행 = 색 태그 + 세부 카테고리 라벨 + 게시물 수 + 별칭 힌트(`← alias`, 선택 시 정식 태그 삽입) + "in prompt" 표시, 옆에 정보 패널(`info`). 순수 로직 `src/lib/tag-query.ts`
-- **한국어 태그 데이터 (NAIA2.0)**: `naia-ko-v<KO_TAGS_VERSION>.db`(SQLite: `meta`, `ko_tags(tag, small_category, group_key, description, keywords, count)`, `ko_keywords(keyword, tag, kind)` — kind 1 = `<무늬>` 같은 그룹 토큰), 빌드는 `scripts/build-ko-tags.mjs`(NAIA 매핑에 없는 대분류는 스크립트의 `SUPPLEMENT_*`로 배치). 서버 `src/server/services/ko-tags.ts`: 데이터 디렉토리에 없으면 첫 사용 시 백그라운드로 HF(`KO_TAGS_BASE_URL`, `src/lib/ko-tags.ts`)에서 원자적(tmp+rename) 다운로드·검증(meta.version), 실패/오프라인이면 조용히 기존 동작(10분 후 재시도), 구버전 파일 삭제. `KO_TAGS_URL`(끝 `/`)로 URL 덮어쓰기, 파일을 미리 두면 그대로 사용, **NAI_MOCK에서는 `KO_TAGS_URL`이 없으면 다운로드 안 함**. 한글이 포함된 질의는 자동완성(`suggestTagsFor`)·Tag Search(`searchTagsFor`)에서 키워드 일치(exact > prefix > substring(≥2자), 일반 키워드 > 그룹 토큰, 게시물 수; 띄어쓰기 변형 지원)로 영어 태그를 찾고 행에 `← 줄무늬` 힌트(자동완성 `kind` `ko_*`, Tag Search `via`), 삽입은 영어 태그. 순수 로직 `src/lib/ko-tags.ts`. 설정 › 태그 검색에 상태 한 줄(사용 가능/다운로드 중/사용 불가, `KoTagsCard`)
+- **한국어 태그 데이터 (NAIA2.0)**: `naia-ko-v<KO_TAGS_VERSION>.db`(SQLite: `meta`, `ko_tags(tag, small_category, group_key, description, keywords, count)`, `ko_keywords(keyword, tag, kind)` — kind 1 = `<무늬>` 같은 그룹 토큰), 빌드는 `scripts/build-ko-tags.mjs`(NAIA 매핑에 없는 대분류는 스크립트의 `SUPPLEMENT_*`로 배치). 서버 `src/server/services/ko-tags.ts`: 열기/닫기/조회만(**자동 다운로드 없음**, 설치는 설정 › 데이터 = 「선택 데이터 (Settings › Data)」 절), 파일은 `data-registry.ts`의 `koFilePath()`(데이터 디렉토리의 최신 `naia-ko-v<N>.db`)로 찾으므로 직접 넣어 둔 파일도 그대로 사용. 한글이 포함된 질의는 자동완성(`suggestTagsFor`)·Tag Search(`searchTagsFor`)에서 키워드 일치(exact > prefix > substring(≥2자), 일반 키워드 > 그룹 토큰, 게시물 수; 띄어쓰기 변형 지원)로 영어 태그를 찾고 행에 `← 줄무늬` 힌트(자동완성 `kind` `ko_*`, Tag Search `via`), 삽입은 영어 태그. 순수 로직 `src/lib/ko-tags.ts`. 설정 › 태그 검색의 `KoTagsCard`는 설정 › 데이터로 가는 안내 한 줄
 - **커서 태그 카드** (`prompt-editor/tag-caret-info.ts`): 클릭/방향키로 태그에 멈추면 300ms 후 표시(타이핑·자동완성·Esc·blur 시 숨김, 모르는 태그는 없음). 칩(별칭/함의/피함의/같은 그룹) 클릭 → 현재 토큰 뒤에 `, tag` 삽입. 에디터 헤더 토글, localStorage `87studio-tag-info`
 - **Tag Search 창** (`components/tag-search/`): 비모달 플로팅 창, Ctrl/Cmd+Shift+F(전역) 또는 에디터 헤더 🔍. 제목줄 드래그/우하단 리사이즈/뷰포트 클램프/더블클릭 리셋, localStorage `87studio-tag-search-window`(순수 로직 `src/lib/floating-window.ts`). "프롬프트에 추가"는 마지막으로 포커스한 에디터(`editor-registry.ts`)에 삽입. 모바일(<768)은 하단 시트. 모달 다이얼로그(확장 에디터) 안에서는 다이얼로그 콘텐츠에 포털
 - 스모크: `scripts/smoke/tag-assist.mjs` (NAI_MOCK 서버 + `danbooru.db`를 데이터 디렉토리에 복사한 throwaway 데이터). 영어/모바일 구간은 한국어 데이터 없이(규칙 폴백), 한국어 구간은 시작 시 빌드된 `naia-ko-v1.db`(`KO_DB`, 기본 `<SMOKE_OUT>/../naia-ko-upload/`)를 데이터 디렉토리에 복사해 검증(`SMOKE_ONLY=ko`로 이 구간만 실행; 원격 Danbooru 구간은 네트워크 필요)
@@ -1014,12 +1014,25 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 
 1. /generate에서 프롬프트 직접 입력 → 참조 이미지 설정 → 즉시 생성
 
+### 선택 데이터 (Settings › Data)
+
+- **아무것도 자동으로 받지 않는다.** `start.ps1`/`start.sh`는 Node·의존성·마이그레이션·빌드·실행만 한다(Danbooru DB 단계 없음). 데이터가 없어도 프롬프트 작성·생성·갤러리는 모두 동작. 이미 `data/danbooru.db`(+`.version`)나 `naia-ko-v*.db`가 있는 기존 사용자는 설치됨으로 표시됨
+- 데이터셋 3개: `danbooru`(`danbooru.db` ~277MB, 필수), `ko`(한국어 태그 데이터, `requires danbooru`), `semantic`(자연어 검색 인덱스 `tag-index-*.bin/.json` + EmbeddingGemma 모델, `requires danbooru`; 모델은 해시 없이 `src/lib/semantic.ts`의 모델 id/dtype으로 식별)
+- **매니페스트** `data-manifest.json` (HF 베이스 URL 옆): `{ schema: 1, files: { "<key>": { version, files: [{ name, size, sha256 }], requires?: [...] } } }`. 앱 내장 사본 `BUILTIN_MANIFEST`(`src/lib/data-manifest.ts`)가 폴백(원격 키가 없으면 내장 항목 유지). 서버 시작당 1회 + 「업데이트 확인」 버튼으로 원격 확인, 실패하면 조용히 내장 사용. 업데이트는 사용자가 누를 때만 적용, 있으면 설정 사이드바 항목에 점
+- **환경변수** `DATA_BASE_URL`(끝 `/`)로 다운로드 베이스 덮어쓰기(테스트용 로컬 서버). **NAI_MOCK에서는 `DATA_BASE_URL`이 없으면 네트워크 접근 안 함**(매니페스트 포함). 자연어 인덱스는 `SEMANTIC_INDEX_URL`이 있으면 그쪽
+- 서버: `services/data-registry.ts`(경로·설치 버전·매니페스트 상태; danbooru 버전 = `data/danbooru.db.version`, 나머지 = `data/data-versions.json`/파일명), `services/data-files.ts`(스트리밍 다운로드 → `<file>.tmp` → size+sha256 검증 → 핸들 닫고(`closeDanbooruDb`/`closeKoDb`, 캐시 초기화, WAL/SHM 제거) 원자적 rename → 재오픈. 검증 실패/취소면 기존 파일 유지 + 오류 상태, 데이터셋당 동시 1개, 상태는 서버 메모리라 새로고침 후에도 유지), server fn `functions/data.ts`(`getDataFilesStatus`, `checkDataUpdates`, `installDataset`, `cancelDatasetInstall`, `deleteDatasetFiles`). `semantic`은 기존 `services/semantic.ts`(`enable`/`reinstallIndex`/`deleteFiles`)에 위임
+- UI: 설정 › 데이터(`components/data/data-settings-card.tsx`; 행 = 이름·용도·크기·설치 버전·상태(설치 안 됨/받는 중 n%/설치됨(최신)/업데이트 있음/오류)·받기/업데이트/다시 받기/삭제). Danbooru DB가 없으면 한국어·자연어 행은 「Danbooru 태그 DB가 먼저 필요해요」+ 비활성. Danbooru 삭제는 확인 다이얼로그(자동완성·한국어·자연어 중단 경고). 안내(전부 닫을 수 있고 막지 않음): 대시보드 한 줄(`data-hint-line.tsx`, localStorage `87studio-data-hint-dismissed`), Tag Search 창·/tags 검색의 `NeedsTagData` 패널, 에디터 헤더 태그 정보 토글(DB 없으면 토스트 + 열기), ko 로캘 Tag Search의 한국어 데이터 한 줄. 훅 `use-data-files.ts`(`useDataStatus` 폴링, 설치 상태가 바뀌면 `tag-db-installed`/`tag-search` 등 의존 쿼리 무효화)
+- 순수 로직 `src/lib/data-manifest.ts`(`parseManifest`, `mergeManifest`, `compareVersions`, `deriveState`, `missingRequirements`, `formatBytes`; 테스트 있음)
+- **새 데이터 버전 배포**: HF 데이터셋에 파일 업로드(새 버전은 같은 이름 덮어쓰기 가능, 한국어는 `naia-ko-v<N>.db` 새 이름 권장) → `node scripts/build-data-manifest.mjs --dir <파일 폴더> --prev data-manifest.json --version <key>=<새 버전> --out data-manifest.json`(sha256·크기 자동 계산) → `hf upload snuff8729/87-studio data-manifest.json data-manifest.json --repo-type dataset`. 앱 코드는 파일 이름이 바뀌는 경우에만 건드리면 되고(`BUILTIN_MANIFEST`는 오프라인 폴백이라 가끔 갱신), 기존 사용자는 설정 › 데이터에서 「업데이트 있음」을 보고 직접 업데이트
+- 스모크: `scripts/smoke/data.mjs`(NAI_MOCK 서버 + `DATA_BASE_URL` 로컬 픽스처 서버, danbooru.db 없는 throwaway 데이터: 안내·설치·진행률·업데이트·재다운로드·체크섬 실패·삭제)
+
 ## 배포 / 실행
 
 - **간편 실행**: `start.sh` (Linux/macOS) / `start.bat` (Windows)
   - Node.js v22.12.0 자동 다운로드 (`./runtime/node/`), 의존성 설치, DB 마이그레이션, 빌드, 서버 실행 (브라우저는 자동으로 열지 않음, http://localhost:3000)
   - Node.js가 설치되지 않은 환경에서도 사용 가능
-- **업데이트**: `update.bat` / `update.sh` — 최신 버전 태그로 체크아웃(detached) 후 의존성·마이그레이션·빌드. git clone으로 받은 폴더에서만 동작(ZIP은 안내 후 중단). 시작 시 포트 3000이 열려 있으면(서버 실행 중) 중단, 브랜치 위에 있으면 태그로 전환된다는 경고 + y/N 확인(기본 No), `src/routeTree.gen.ts`만 수정된 경우 자동 복원하고 그 외 추적 파일 수정이 있으면 목록 표시 후 중단(stash/reset 없음). `UPDATE_DRY_RUN=1`이면 체크아웃 직후 종료(테스트용)
+  - 태그 데이터는 시작 시 받지 않음 — 설정 › 데이터에서 직접 받는다
+- **업데이트**: `update.bat` / `update.sh` — 최신 버전 태그로 체크아웃(detached) 후 의존성·마이그레이션·빌드. git clone으로 받은 폴더에서만 동작(ZIP은 안내 후 중단). 시작 시 포트 3000이 열려 있으면(서버 실행 중) 중단, 브랜치 위에 있으면 태그로 전환된다는 경고 + y/N 확인(기본 No), `src/routeTree.gen.ts`·`package-lock.json`만 수정된 경우 자동 복원하고 그 외 추적 파일 수정이 있으면 목록 표시 후 중단(stash/reset 없음). `UPDATE_DRY_RUN=1`이면 체크아웃 직후 종료(테스트용)
 
 ## 개발 명령어
 

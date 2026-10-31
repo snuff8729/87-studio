@@ -57,7 +57,7 @@ export const hasTagDb = createServerFn({ method: 'GET' }).handler(
   () => getDanbooruDb() !== null,
 )
 
-/** Korean tag data (NAIA2.0) status; polling it also starts the download. */
+/** Korean tag data (NAIA2.0) status. */
 export const getKoTagsStatus = createServerFn({ method: 'GET' }).handler(() =>
   getKoStatus(),
 )
