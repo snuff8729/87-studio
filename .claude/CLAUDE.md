@@ -299,6 +299,7 @@ scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (play
 scripts/smoke/templates.mjs    # 씬 템플릿 다이얼로그 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 팩/씬/키 CRUD·복제·이동·자동저장·선택 적용, DB 읽기전용 교차검증)
 scripts/smoke/positions.mjs    # 캐릭터 위치 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 기본/씬 오버라이드/일괄/터치 드래그/생성 metadata 검증, DB 읽기전용 교차검증)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
+scripts/smoke/quick-parts.mjs  # Quick Generate 파츠 스모크 (NAI_MOCK 서버 전용, 새 seed 필요: 라이브러리 데이터는 DB에 직접 삽입, 연결·의상·글로벌 축·미리보기·Empty 배지·생성 resolved_prompts·image_axis_values/links·라이브러리 Images(N)·새로고침 유지·연결 끊김·일반 캐릭터)
 scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (중첩 부위·조각 부위·변수·코디 이미지 포함; NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
@@ -384,6 +385,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 - **의상 변수**: `outfit_items.variables` `[{name, default}]`, 조각 텍스트의 `@{var:name}`(캐릭터 조각에서는 제거). 의상 목록은 **엔트리** `[{id, vars?}]`(`characters.outfit_item_ids`, `character_scene_overrides.outfit_item_ids`, `outfit_presets.item_ids`; 예전 `number[]`도 읽음). 값 = 엔트리 값 → 아이템 기본값 → ''. 합성 안에서 번들/슬롯보다 먼저 치환. 이름 변경 시 조각 토큰과 저장된 엔트리 값 키도 함께 변경. 프롬프트 에디터: `@{var:…}` 하이라이트·자동완성·미지정 변수 경고(`var-ref.ts`, `varNames` prop)
 - **코디 ↔ 이미지**: `image_library_links` kind `'preset'` — 생성 시 캐릭터의 유효 의상(가림 전)이 코디와 아이템 순서·변수 값(기본값 해석 후)까지 같으면 연결. `outfit_presets.thumbnail_image_id`, 갤러리 `?outfitPreset=`(내보내기 포함), 오버레이 `detailPreset`
 - **비어 있음 표시**: 아이템이 의상에 있고 완전히 가려지지 않았는데 현재 축 값에서 조각이 하나도 안 나오면(아이템 조건 불통과 / 맞는 조각 없음 / 내용이 빈 조각만) "비어 있음". `composeParts`가 `emptyItemIds` 반환, `summarizeEmptyItems`가 "가려지지 않은 아이템이 전부 비면 의상 전체 비어 있음 한 줄"로 합침. `synthesizePrompts` 슬롯 결과에 `emptyItemIds`/`charEmpty`(연결 캐릭터 조각 없음) 추가(생성 동작 무변화). 씬 Parts: 칩에 회색 점선 "Empty" 배지(`EmptyBadge`, 툴팁에 씬 축 값) + 최종 프롬프트 위 안내 줄(`parts-empty-info`). 라이브러리 상세: 조합 확인 그리드(`combination-grid.tsx`, 조건이 참조하는 전역 축 1개 = 한 줄, 2개 이상 = 첫 축 행 × 둘째 축 열, 칸 클릭 = 미리보기 선택, 현재 칸 강조) + 빈 미리보기 문구에 선택 값 표시
+- **Quick Generate 파츠**: 로컬 캐릭터(localStorage)가 `libraryCharacterId`(실시간 연결)·`outfit`(엔트리 `[{id, vars?}]`)·`axisValues`(로컬 축)를 가질 수 있고, 글로벌 축(View·Framing…)은 상태의 `globalAxisValues`(모든 캐릭터 공통, Chars 탭 상단 `AxisSegmented`, 파츠 캐릭터가 있을 때만 표시). 분리(detach) 없음. 삭제된 라이브러리 캐릭터/아이템은 "연결 끊김" 표시 + 합성에서 무시. 합성은 서버 `composeQuickPrompts`(`prompt.ts`, 워크스페이스와 같은 `composeSlotParts` 공유, 글로벌 라이브러리만) — 생성 시 `createQuickGenerationJob`, 미리보기 `previewQuickPrompts`. 이미지 기록(`image_axis_values`/`image_library_links` 캐릭터·아이템·글로벌 코디)은 워크스페이스와 같은 경로. UI는 `CharacterPartsView`(`character-parts-panel.tsx`, 저장 방식과 무관)를 워크스페이스(`CharacterPartsPanel`, DB 저장)와 공유하고 `quick-characters-tab.tsx`가 최종 프롬프트 미리보기 + Covered/Partly covered/Empty 배지를 붙임. 순수 로직 `src/lib/quick-parts.ts`
 - 순수 로직 `src/lib/character-parts.ts`(테스트 있음), 서버 `src/server/functions/library.ts`, `src/server/services/parts.ts`, UI `src/components/library/`, `src/components/parts/`(AxisSegmented, OutfitItemsEditor), 워크스페이스 `character-parts-panel.tsx`, `scene-parts-section.tsx`(Parts 섹션 + 최종 프롬프트 미리보기), `scene-axes-dialog.tsx`(선택 모드 일괄 View/Framing)
 
 ### Prompt Bundle (프롬프트 번들)
@@ -423,6 +425,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 
 - 프로젝트/씬 설정 없이 직접 이미지 생성하는 간소화 워크플로우
 - 참조 이미지 지원
+- 캐릭터 파츠 지원 (라이브러리 캐릭터 연결·기본 의상·글로벌 축 — "캐릭터 파츠" 절의 Quick Generate 파츠)
 - 프로젝트 기반 플로우의 대안
 
 ### SD Studio 임포트

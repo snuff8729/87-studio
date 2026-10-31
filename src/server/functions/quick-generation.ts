@@ -13,43 +13,30 @@ import {
   getQueueStatus,
 } from '../services/generation'
 import { createLogger } from '../services/logger'
-import { resolveBundlesInRawPrompts } from '../services/prompt'
-import type { ResolvedPrompts } from '../services/prompt'
-import type { PositionSpec } from '@/lib/character-positions'
-import { AI_POSITION } from '@/lib/character-positions'
+import { composeQuickPrompts } from '../services/prompt'
+import type { QuickPromptInput } from '../services/prompt'
 
 const log = createLogger('fn.quickGeneration')
 
+const quickPromptInput = (data: QuickPromptInput) => data
+
+/** Final composed prompts for the Chars tab preview (no job is created). */
+export const previewQuickPrompts = createServerFn({ method: 'POST' })
+  .inputValidator(quickPromptInput)
+  .handler(async ({ data }) => composeQuickPrompts(data))
+
 export const createQuickGenerationJob = createServerFn({ method: 'POST' })
   .inputValidator(
-    (data: {
-      generalPrompt: string
-      negativePrompt: string
-      characterPrompts: Array<{
-        name: string
-        prompt: string
-        negative: string
-        position?: PositionSpec
-      }>
-      parameters: Record<string, unknown>
-      count: number
-    }) => data,
+    (
+      data: QuickPromptInput & {
+        parameters: Record<string, unknown>
+        count: number
+      },
+    ) => data,
   )
   .handler(async ({ data }) => {
-    const rawPrompts: ResolvedPrompts = {
-      generalPrompt: data.generalPrompt,
-      negativePrompt: data.negativePrompt,
-      characterPrompts: data.characterPrompts.map((c, i) => ({
-        characterId: -(i + 1),
-        name: c.name,
-        prompt: c.prompt,
-        negative: c.negative,
-        position: c.position ?? AI_POSITION,
-      })),
-    }
-
-    // Resolve @{bundle} references server-side
-    const resolvedPrompts = resolveBundlesInRawPrompts(rawPrompts)
+    // Compose library parts and resolve @{bundle} references server-side
+    const resolvedPrompts = composeQuickPrompts(data)
 
     // Create batch (projectId = null for quick generate)
     const batch = db
