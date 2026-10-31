@@ -6,6 +6,8 @@ import {
   characters,
   fragments,
   generatedImages,
+  imageAxisValues,
+  imageBundles,
   imageLibraryLinks,
   libraryAreas,
   libraryAxes,
@@ -13,6 +15,7 @@ import {
   libraryCharacters,
   outfitItems,
   outfitPresets,
+  promptBundles,
 } from '../db/schema'
 import {
   cleanAreas,
@@ -180,6 +183,80 @@ export const listLibraryImages = createServerFn({ method: 'GET' })
       .orderBy(desc(generatedImages.createdAt), desc(generatedImages.id))
       .limit(data.limit ?? 24)
       .all()
+  })
+
+export type ImageLibraryInfo = {
+  characters: Array<{ id: number; name: string; projectId: number | null }>
+  items: Array<{ id: number; name: string; projectId: number | null }>
+  presets: Array<{ id: number; name: string }>
+  axes: Array<{ axisName: string; valueName: string }>
+  bundles: Array<{ id: number; name: string }>
+}
+
+/** Library data an image was generated from (deleted library rows are skipped). */
+export const getImageLibraryInfo = createServerFn({ method: 'GET' })
+  .inputValidator((data: { imageId: number }) => data)
+  .handler(async ({ data }): Promise<ImageLibraryInfo> => {
+    const links = db
+      .select()
+      .from(imageLibraryLinks)
+      .where(eq(imageLibraryLinks.imageId, data.imageId))
+      .all()
+    const idsOf = (kind: string) =>
+      links.filter((l) => l.kind === kind).map((l) => l.refId)
+    const charIds = idsOf('character')
+    const itemIds = idsOf('item')
+    const presetIds = idsOf('preset')
+    const characters = charIds.length
+      ? db
+          .select({
+            id: libraryCharacters.id,
+            name: libraryCharacters.name,
+            projectId: libraryCharacters.projectId,
+          })
+          .from(libraryCharacters)
+          .where(inArray(libraryCharacters.id, charIds))
+          .all()
+      : []
+    const items = itemIds.length
+      ? db
+          .select({
+            id: outfitItems.id,
+            name: outfitItems.name,
+            projectId: outfitItems.projectId,
+          })
+          .from(outfitItems)
+          .where(inArray(outfitItems.id, itemIds))
+          .all()
+      : []
+    const presets = presetIds.length
+      ? db
+          .select({ id: outfitPresets.id, name: outfitPresets.name })
+          .from(outfitPresets)
+          .where(inArray(outfitPresets.id, presetIds))
+          .all()
+      : []
+    const axes = db
+      .select({
+        axisName: libraryAxes.name,
+        valueName: libraryAxisValues.name,
+      })
+      .from(imageAxisValues)
+      .innerJoin(libraryAxes, eq(imageAxisValues.axisId, libraryAxes.id))
+      .innerJoin(
+        libraryAxisValues,
+        eq(imageAxisValues.valueId, libraryAxisValues.id),
+      )
+      .where(eq(imageAxisValues.imageId, data.imageId))
+      .orderBy(libraryAxes.sortOrder, libraryAxes.id)
+      .all()
+    const bundles = db
+      .select({ id: promptBundles.id, name: promptBundles.name })
+      .from(imageBundles)
+      .innerJoin(promptBundles, eq(imageBundles.bundleId, promptBundles.id))
+      .where(eq(imageBundles.imageId, data.imageId))
+      .all()
+    return { characters, items, presets, axes, bundles }
   })
 
 // ─── Characters ─────────────────────────────────────────────────────────────
