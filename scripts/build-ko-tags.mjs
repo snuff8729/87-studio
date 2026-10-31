@@ -2,6 +2,7 @@
 //
 //   runtime/node/node.exe scripts/build-ko-tags.mjs [--src <dir>] [--out <dir>]
 //       [--danbooru <danbooru.db>] [--version 1]
+//   --danbooru reports tags missing there and fills counts of override-only tags.
 //
 // Source: https://github.com/DNT-LAB/NAIA2.0 (GPL-3.0) at the pinned commit
 // below. Files used (see THIRD_PARTY_NOTICES.md):
@@ -254,13 +255,19 @@ async function main() {
     overridden++
   }
 
-  // optional: report coverage against danbooru.db
+  // optional: report coverage against danbooru.db and fill missing counts
+  // (override-only tags have none) from its post counts
   let missingInDanbooru = null
   const dan = arg('danbooru')
   if (dan) {
     const d = new Database(dan, { readonly: true })
-    const has = d.prepare('SELECT 1 FROM tags WHERE name = ?')
-    missingInDanbooru = [...tags.keys()].filter((t) => !has.get(t))
+    const get = d.prepare('SELECT post_count FROM tags WHERE name = ?')
+    missingInDanbooru = []
+    for (const t of tags.values()) {
+      const r = get.get(t.tag)
+      if (!r) missingInDanbooru.push(t.tag)
+      else if (!t.count) t.count = r.post_count
+    }
     d.close()
   }
 

@@ -7,7 +7,7 @@ NAI(NovelAI) 4/4.5를 활용하여 캐릭터 이미지 세트를 효율적으로
 
 ## 라이선스
 
-- **PolyForm Noncommercial License 1.0.0** (`LICENSE` 파일)
+- **GPL-3.0-only** (`LICENSE` 파일, package.json `license`). NAIA2.0(DNT-LAB, GPL-3.0)의 한국어 태그 데이터를 변환·수정해 사용하므로 재라이선스됨 — 출처·사용한 커밋·변환 내용은 `THIRD_PARTY_NOTICES.md`
 
 ## 기술 스택
 
@@ -302,7 +302,9 @@ scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/
 scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (중첩 부위·조각 부위·변수·코디 이미지 포함; NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
-LICENSE                        # PolyForm Noncommercial 1.0.0
+LICENSE                        # GPL-3.0
+THIRD_PARTY_NOTICES.md         # NAIA2.0 (DNT-LAB, GPL-3.0) 출처·커밋 SHA·변환 내용
+scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + overrides + 그룹 매핑 → naia-ko-v<N>.db (hyparquet, `--src`/`--danbooru`/`--out`). HF 데이터셋에 업로드하고 `KO_TAGS_VERSION` 올림
 ```
 
 ## 핵심 개념
@@ -627,12 +629,13 @@ LICENSE                        # PolyForm Noncommercial 1.0.0
 ### 태그 어시스트 (자동완성 · 커서 태그 카드 · Tag Search 창)
 
 - 데이터: `data/danbooru.db`(읽기 전용, `STUDIO_DATA_DIR` 반영). 서버 접근은 `src/server/services/tag-index.ts`(`getDanbooruDb`, `suggestTagsFor`, `searchTagsFor`, `getTagInfoFor`), server fn은 `src/server/functions/tag-assist.ts`(`suggestTags`, `getTagInfo`, `searchTagsWindow`, `hasTagDb`, `setTagDescription`)
-- **세부 카테고리**: `src/lib/tag-categories.ts` 상단에 카테고리 목록과 매핑 규칙 문서화. `tag_groups` 그룹(점수) + 이름 규칙으로 일반 태그를 분류, 나머지는 `uncategorized`. 모든 태그 결과에 `top`/`fine` 포함
-- **설명**: 스튜디오 DB `tag_descriptions(tag, locale, text, source, updated_at)` (마이그레이션 0018) → 없으면 위키 본문 요약(`src/lib/dtext.ts` `wikiSummary`, DText 제거). 현재는 `setTagDescription`만 쓰기 가능(향후 번역/임포트용)
+- **세부 카테고리**: `src/lib/tag-categories.ts` 상단에 카테고리 목록과 매핑 규칙 문서화. `tag_groups` 그룹(점수) + 이름 규칙으로 일반 태그를 분류, 나머지는 `misc`. 모든 태그 결과에 `top`/`fine` 포함. **일반 태그의 top = NAIA 12그룹**(fashion·body·pose·emotion·place·object·people·situation·concept·presentation·sexual·misc, ko 라벨은 NAIA 그룹명): 한국어 태그 데이터에 있으면 그 그룹 + fine = `ko:<소분류>`(`koFineKey`; ko 로캘에서만 소분류 라벨, 그 외는 그룹 라벨 — `fineLabel`), 없으면 규칙 분류 결과의 부모 그룹(subject→people, expression→emotion, … 매핑은 tag-categories.ts 헤더). Danbooru 비일반(character·artist·copyright·meta)은 그대로. Tag Search 하위 칩: 한국어 데이터가 있으면 ko 로캘에서 NAIA 소분류(상위 14개, `getKoTagCategories`), en은 그룹 탭만, 데이터가 없으면 규칙 하위 카테고리
+- **설명**: 스튜디오 DB `tag_descriptions(tag, locale, text, source, updated_at)` (마이그레이션 0018) → 없으면 위키 본문 요약(`src/lib/dtext.ts` `wikiSummary`, DText 제거). 현재는 `setTagDescription`만 쓰기 가능(향후 번역/임포트용). 순서 = 수동 `tag_descriptions` → (UI 로캘이 `ko`일 때만) NAIA 한국어 설명 → 위키 요약. NAIA 설명에는 작은 "NAIA" 라벨(툴팁 "NAIA2.0 (GPL-3.0)", 카드·정보 패널·Tag Search 상세)
 - **자동완성**: 순위 exact > alias exact > prefix > alias/other_names prefix > substring(≥3자), 가중치 문법 제거, 20개. 행 = 색 태그 + 세부 카테고리 라벨 + 게시물 수 + 별칭 힌트(`← alias`, 선택 시 정식 태그 삽입) + "in prompt" 표시, 옆에 정보 패널(`info`). 순수 로직 `src/lib/tag-query.ts`
+- **한국어 태그 데이터 (NAIA2.0)**: `naia-ko-v<KO_TAGS_VERSION>.db`(SQLite: `meta`, `ko_tags(tag, small_category, group_key, description, keywords, count)`, `ko_keywords(keyword, tag, kind)` — kind 1 = `<무늬>` 같은 그룹 토큰), 빌드는 `scripts/build-ko-tags.mjs`(NAIA 매핑에 없는 대분류는 스크립트의 `SUPPLEMENT_*`로 배치). 서버 `src/server/services/ko-tags.ts`: 데이터 디렉토리에 없으면 첫 사용 시 백그라운드로 HF(`KO_TAGS_BASE_URL`, `src/lib/ko-tags.ts`)에서 원자적(tmp+rename) 다운로드·검증(meta.version), 실패/오프라인이면 조용히 기존 동작(10분 후 재시도), 구버전 파일 삭제. `KO_TAGS_URL`(끝 `/`)로 URL 덮어쓰기, 파일을 미리 두면 그대로 사용, **NAI_MOCK에서는 `KO_TAGS_URL`이 없으면 다운로드 안 함**. 한글이 포함된 질의는 자동완성(`suggestTagsFor`)·Tag Search(`searchTagsFor`)에서 키워드 일치(exact > prefix > substring(≥2자), 일반 키워드 > 그룹 토큰, 게시물 수; 띄어쓰기 변형 지원)로 영어 태그를 찾고 행에 `← 줄무늬` 힌트(자동완성 `kind` `ko_*`, Tag Search `via`), 삽입은 영어 태그. 순수 로직 `src/lib/ko-tags.ts`. 설정 › 태그 검색에 상태(사용 가능/다운로드 중/사용 불가) + 출처 표기(`KoTagsCard`)
 - **커서 태그 카드** (`prompt-editor/tag-caret-info.ts`): 클릭/방향키로 태그에 멈추면 300ms 후 표시(타이핑·자동완성·Esc·blur 시 숨김, 모르는 태그는 없음). 칩(별칭/함의/피함의/같은 그룹) 클릭 → 현재 토큰 뒤에 `, tag` 삽입. 에디터 헤더 토글, localStorage `87studio-tag-info`
 - **Tag Search 창** (`components/tag-search/`): 비모달 플로팅 창, Ctrl/Cmd+Shift+F(전역) 또는 에디터 헤더 🔍. 제목줄 드래그/우하단 리사이즈/뷰포트 클램프/더블클릭 리셋, localStorage `87studio-tag-search-window`(순수 로직 `src/lib/floating-window.ts`). "프롬프트에 추가"는 마지막으로 포커스한 에디터(`editor-registry.ts`)에 삽입. 모바일(<768)은 하단 시트. 모달 다이얼로그(확장 에디터) 안에서는 다이얼로그 콘텐츠에 포털
-- 스모크: `scripts/smoke/tag-assist.mjs` (NAI_MOCK 서버 + `danbooru.db`를 데이터 디렉토리에 복사한 throwaway 데이터)
+- 스모크: `scripts/smoke/tag-assist.mjs` (NAI_MOCK 서버 + `danbooru.db`를 데이터 디렉토리에 복사한 throwaway 데이터). 영어/모바일 구간은 한국어 데이터 없이(규칙 폴백), 한국어 구간은 시작 시 빌드된 `naia-ko-v1.db`(`KO_DB`, 기본 `<SMOKE_OUT>/../naia-ko-upload/`)를 데이터 디렉토리에 복사해 검증(`SMOKE_ONLY=ko`로 이 구간만 실행; 원격 Danbooru 구간은 네트워크 필요)
 
 ### 반응형 디자인
 

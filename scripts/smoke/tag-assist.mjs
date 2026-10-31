@@ -6,6 +6,11 @@
 // throwaway dir) and a studio.db with onboarding_completed=true. Writes
 // nothing except localStorage in the browser context.
 //
+// Korean tag data (NAIA2.0): the English/mobile sections run WITHOUT it (rule
+// based fallback categories). Before the Korean section the script copies the
+// built naia-ko-v1.db (env KO_DB, default <SMOKE_OUT>/../naia-ko-upload/) into
+// the data dir; the running server picks it up lazily.
+//
 // Usage (repo root):
 //   runtime/node/node.exe scripts/demo/seed.mjs --out demo-mock-tags
 //   (copy danbooru.db into demo-mock-tags/data, set onboarding_completed)
@@ -114,8 +119,11 @@ async function firstRowIs(page, name) {
 }
 const docText = (page) => page.locator('.cm-content').first().innerText()
 
+// SMOKE_ONLY=ko runs just the Korean tag data section
+const ONLY_KO = process.env.SMOKE_ONLY === 'ko'
+
 // ── desktop ──────────────────────────────────────────────────────────────────
-{
+if (!ONLY_KO) {
   const ctx = await browser.newContext({
     viewport: { width: 1440, height: 900 },
     locale: 'en-US',
@@ -764,14 +772,14 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
   // category tabs
   await input.fill('skirt')
   await page.waitForTimeout(600)
-  await win.locator('[data-tab="clothing"]').click()
+  await win.locator('[data-tab="fashion"]').click()
   await page.waitForTimeout(700)
   const clothingRows = await win
     .locator('[data-tag-row]')
     .evaluateAll((els) => els.map((e) => e.getAttribute('data-tag-row')))
   check(
     clothingRows.length > 5 && clothingRows.every((n) => /skirt/.test(n)),
-    `clothing tab filters (${clothingRows.length} rows)`,
+    `fashion tab filters (${clothingRows.length} rows)`,
   )
   check(
     (await win.locator('[data-tab="cloth_bottom"]').count()) === 1,
@@ -943,8 +951,246 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
   await ctx.close()
 }
 
-// ── mobile ───────────────────────────────────────────────────────────────────
+// ── Korean tag data (NAIA2.0) ────────────────────────────────────────────────
 {
+  const KO_DB =
+    process.env.KO_DB ?? path.join(OUT, '..', 'naia-ko-upload', 'naia-ko-v1.db')
+  check(fs.existsSync(KO_DB), `Korean tag db built (${KO_DB})`)
+  const target = path.join(DATA, 'naia-ko-v1.db')
+  fs.copyFileSync(KO_DB, target + '.tmp')
+  fs.renameSync(target + '.tmp', target)
+  const GROUPS = [
+    '의상/패션',
+    '신체/외형',
+    '포즈/동작',
+    '표정/감정',
+    '배경/장소',
+    '사물/오브젝트',
+    '인물/종족',
+    '상황/연출',
+    '컨셉/스타일',
+    '표현/연출',
+    '성적 요소',
+    '기타',
+  ]
+
+  for (const [name, viewport, mobile] of [
+    ['1440', { width: 1440, height: 900 }, false],
+    ['390', { width: 390, height: 844 }, true],
+  ]) {
+    const ctx = await browser.newContext({
+      viewport,
+      locale: 'ko-KR',
+      ...(mobile ? { hasTouch: true, isMobile: true } : {}),
+    })
+    const page = await ctx.newPage()
+    attach(page)
+    await page.goto(`${BASE}/generate`, { waitUntil: 'networkidle' })
+    await editorOf(page)
+    const rows = page.locator('.cm-tooltip-autocomplete li')
+
+    // Korean keyword autocomplete: hint shown, English tag inserted
+    await setDoc(page, '줄무늬')
+    await rows.first().waitFor({ timeout: 15000 })
+    await page.waitForTimeout(500)
+    const first = await rows.first().innerText()
+    check(
+      /striped/.test(first),
+      `${name}: "줄무늬" offers striped first (${first.replace(/\n/g, ' ')})`,
+    )
+    const hint = await rows
+      .first()
+      .locator('.cm-tag-alias')
+      .innerText()
+      .catch(() => '')
+    check(/줄무늬/.test(hint), `${name}: row shows the Korean keyword hint`)
+    await shot(page, `tag-ko-${name}-autocomplete`)
+    await page.keyboard.press('Enter')
+    await page.waitForTimeout(200)
+    check(
+      (await docText(page)).trim() === 'striped',
+      `${name}: Enter inserts the English tag`,
+    )
+
+    // spaced keyword
+    await setDoc(page, '긴 머리')
+    await rows.first().waitFor({ timeout: 10000 })
+    await page.waitForTimeout(400)
+    check(
+      /long hair/.test(await rows.first().innerText()),
+      `${name}: "긴 머리" finds long hair`,
+    )
+    await page.keyboard.press('Escape')
+
+    // Caret card: Korean NAIA description + source label
+    await setDoc(page, 'long hair, smile')
+    await page.keyboard.press('Home')
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight')
+    const card = page.locator('.cm-tag-card')
+    await card.waitFor({ timeout: 8000 })
+    const desc = await card.locator('.cm-tag-desc').innerText()
+    check(
+      /[가-힣]/.test(desc),
+      `${name}: card description is Korean (${desc.slice(0, 30)})`,
+    )
+    const src = card.locator('.cm-tag-source')
+    check(
+      (await src.count()) === 1 && (await src.innerText()) === 'NAIA',
+      `${name}: card shows NAIA label`,
+    )
+    check(
+      (await src.getAttribute('title')) === 'NAIA2.0 (GPL-3.0)',
+      `${name}: NAIA label tooltip`,
+    )
+    await shot(page, `tag-ko-${name}-card`)
+    await page.keyboard.press('Escape')
+
+    // Tag Search
+    if (mobile) await page.locator('[data-tag-search-open]').first().click()
+    else await page.keyboard.press('Control+Shift+F')
+    const win = page.locator(
+      mobile ? '[data-tag-search-sheet]' : '[data-tag-search-window]',
+    )
+    await win.waitFor({ timeout: 5000 })
+    const input = win.locator('[data-tag-search-input]')
+    await input.fill('줄무늬')
+    await firstRowIs(page, 'striped')
+    await page.waitForTimeout(300)
+    const names = await win
+      .locator('[data-tag-row]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('data-tag-row')))
+    check(
+      names[0] === 'striped',
+      `${name}: Tag Search "줄무늬" -> striped first (${names.slice(0, 4)})`,
+    )
+    check(
+      (await win.locator('[data-tag-via]').first().innerText()).includes(
+        '줄무늬',
+      ),
+      `${name}: Tag Search row shows keyword hint`,
+    )
+    await win.locator('[data-tag-row]').first().click()
+    await win.locator('[data-tag-source="naia"]').waitFor({ timeout: 8000 })
+    check(true, `${name}: detail pane shows NAIA label`)
+    await shot(page, `tag-ko-${name}-search`)
+
+    // NAIA group tabs + Korean small categories
+    await input.fill('')
+    const labels = await win
+      .locator('[data-tag-tabs] [data-tab]')
+      .evaluateAll((els) => els.map((e) => e.textContent))
+    check(
+      GROUPS.every((l) => labels.includes(l)),
+      `${name}: tabs show the 12 NAIA groups`,
+    )
+    await win.locator('[data-tab="fashion"]').click()
+    await page.waitForTimeout(900)
+    check(
+      (await win.locator('[data-tag-row]').count()) > 10,
+      `${name}: fashion group lists tags`,
+    )
+    const subs = await win.locator('[data-tab^="ko:"]').count()
+    check(subs >= 3, `${name}: Korean small-category chips shown (${subs})`)
+    await win.locator('[data-tab^="ko:"]').nth(1).click()
+    await page.waitForTimeout(900)
+    check(
+      (await win.locator('[data-tag-row]').count()) > 0,
+      `${name}: small-category chip filters`,
+    )
+    await shot(page, `tag-ko-${name}-groups`)
+    await ctx.close()
+  }
+
+  // English locale: wiki description, no NAIA label, group label only
+  {
+    const ctx = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      locale: 'en-US',
+    })
+    const page = await ctx.newPage()
+    attach(page)
+    await page.goto(`${BASE}/generate`, { waitUntil: 'networkidle' })
+    await editorOf(page)
+    await setDoc(page, 'long hair, smile')
+    await page.keyboard.press('Home')
+    for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowRight')
+    const card = page.locator('.cm-tag-card')
+    await card.waitFor({ timeout: 8000 })
+    check(
+      (await card.locator('.cm-tag-source').count()) === 0,
+      'en: no NAIA label on the card',
+    )
+    check(
+      !/[가-힣]/.test(await card.locator('.cm-tag-desc').innerText()),
+      'en: card keeps the English wiki description',
+    )
+    check(
+      /Body/.test(await card.locator('.cm-tag-badge').nth(1).innerText()),
+      'en: fine badge shows the NAIA group label',
+    )
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Control+Shift+F')
+    const win = page.locator('[data-tag-search-window]')
+    await win.waitFor({ timeout: 5000 })
+    check(
+      (await win.locator('[data-tab="fashion"]').innerText()) === 'Fashion',
+      'en: group tab label is English',
+    )
+    await win.locator('[data-tab="fashion"]').click()
+    await page.waitForTimeout(700)
+    check(
+      (await win.locator('[data-tab^="ko:"]').count()) === 0,
+      'en: no Korean-only sub chips',
+    )
+    await ctx.close()
+  }
+
+  // Settings
+  {
+    const ctx = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      locale: 'ko-KR',
+    })
+    const page = await ctx.newPage()
+    attach(page)
+    await page.goto(`${BASE}/settings`, { waitUntil: 'networkidle' })
+    const st = page.locator('[data-ko-tags-status]')
+    await st.waitFor({ timeout: 10000 })
+    await page
+      .waitForFunction(
+        () =>
+          document
+            .querySelector('[data-ko-tags-status]')
+            ?.getAttribute('data-ko-tags-status') === 'ready',
+        null,
+        { timeout: 15000 },
+      )
+      .catch(() => {})
+    check(
+      (await st.getAttribute('data-ko-tags-status')) === 'ready',
+      'settings: Korean tag data status ready',
+    )
+    const cardText = await page.locator('[data-ko-tags-card]').innerText()
+    check(
+      /NAIA2\.0 \(DNT-LAB\), GPL-3\.0/.test(cardText),
+      'settings: NAIA attribution shown',
+    )
+    check(
+      (await page
+        .locator(
+          '[data-ko-tags-card] a[href="https://github.com/DNT-LAB/NAIA2.0"]',
+        )
+        .count()) === 1,
+      'settings: attribution links to NAIA2.0',
+    )
+    await page.locator('[data-ko-tags-card]').scrollIntoViewIfNeeded()
+    await shot(page, 'tag-ko-1440-settings')
+    await ctx.close()
+  }
+}
+
+// ── mobile ───────────────────────────────────────────────────────────────────
+if (!ONLY_KO) {
   const ctx = await browser.newContext({
     viewport: { width: 390, height: 844 },
     locale: 'en-US',
@@ -972,7 +1218,7 @@ const docText = (page) => page.locator('.cm-content').first().innerText()
   await sheet.locator('[data-tag-search-input]').fill('blue')
   await page.waitForSelector('[data-tag-row]', { timeout: 10000 })
   await page.waitForTimeout(500)
-  await sheet.locator('[data-tab="clothing"]').click()
+  await sheet.locator('[data-tab="fashion"]').click()
   await page.waitForTimeout(600)
   await shot(page, 'tag-assist-390-sheet-tabs')
   await sheet.locator('[data-tag-row]').first().click()

@@ -184,9 +184,9 @@ export function suggestTagsFor(
 
   if (hasHangul(q)) {
     const get = d.prepare(
-      'SELECT name, post_count, category FROM tags WHERE name = ? AND is_deprecated = 0',
+      'SELECT name, post_count, category FROM tags WHERE name = ?',
     )
-    for (const m of rankKoMatches(koKeywordCandidates(q), q, limit * 2)) {
+    for (const m of rankKoMatches(koKeywordCandidates(q), q, 100)) {
       const r = get.get(m.tag) as TagRow | undefined
       if (r) cands.push(toCandidate(r, m.match, m.keyword))
     }
@@ -311,7 +311,7 @@ export function searchTagsFor(
     }
     if (hasHangul(q)) {
       const get = d.prepare(
-        'SELECT name, post_count, category FROM tags WHERE name = ? AND is_deprecated = 0',
+        'SELECT name, post_count, category FROM tags WHERE name = ?',
       )
       for (const m of rankKoMatches(koKeywordCandidates(q), q, scan)) {
         const r = get.get(m.tag) as TagRow | undefined
