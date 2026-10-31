@@ -66,14 +66,20 @@ export function categorize(
   if (hit) return hit
   // general tags in the NAIA data use its group and small category
   const ko = category === 0 ? koTagFor(name) : null
-  const value =
-    ko?.groupKey && ko.small
-      ? { top: ko.groupKey, fine: koFineKey(ko.small) }
-      : classifyTag({
-          name,
-          category,
-          groups: getGroupMap(d).get(name),
-        })
+  let value: { top: string; fine: string }
+  if (ko?.groupKey && ko.small) {
+    value = { top: ko.groupKey, fine: koFineKey(ko.small) }
+  } else {
+    value = classifyTag({ name, category, groups: getGroupMap(d).get(name) })
+    // in the Korean data without a NAIA category: a rule-derived fine label
+    // would mislead, show the group (or the data's group token) only
+    if (ko) {
+      value = {
+        top: value.top,
+        fine: ko.small ? koFineKey(ko.small) : value.top,
+      }
+    }
+  }
   if (classCache.size > 50_000) classCache.clear()
   classCache.set(key, value)
   return value

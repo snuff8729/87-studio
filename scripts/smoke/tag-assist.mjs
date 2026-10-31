@@ -1004,6 +1004,11 @@ if (!ONLY_KO) {
       .innerText()
       .catch(() => '')
     check(/줄무늬/.test(hint), `${name}: row shows the Korean keyword hint`)
+    const badge = await rows.first().locator('.cm-tag-badge').innerText()
+    check(
+      badge === '무늬',
+      `${name}: override-only tag shows its group token, not a rule label (${badge})`,
+    )
     await shot(page, `tag-ko-${name}-autocomplete`)
     await page.keyboard.press('Enter')
     await page.waitForTimeout(200)

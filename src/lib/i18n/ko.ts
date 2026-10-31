@@ -1384,7 +1384,7 @@ const ko: DeepStringify<typeof en> = {
   koTags: {
     title: '한국어 태그 데이터',
     description:
-      '태그의 한국어 설명, 검색 키워드, 카테고리 (NAIA2.0). 언어가 한국어일 때 한글로 태그를 검색할 수 있습니다.',
+      '태그의 한국어 설명, 검색 키워드, 카테고리. 언어가 한국어일 때 한글로 태그를 검색할 수 있습니다.',
     statusReady: '사용 가능 · 태그 {{count}}개',
     statusDownloading: '다운로드 중…',
     statusUnavailable:

@@ -252,6 +252,11 @@ async function main() {
     }
     if (o.description) row.description = String(o.description).trim()
     if (o.keywords_kr) row.keywords = parseKeywords(o.keywords_kr)
+    // no NAIA category: a bracketed group token (<무늬>) serves as the small
+    // category label; the group itself stays unset (the app uses its rules)
+    if (!row.group_key && !row.small) {
+      row.small = row.keywords.find((k) => k.kind === 1)?.keyword ?? null
+    }
     overridden++
   }
 

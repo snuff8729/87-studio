@@ -1380,7 +1380,7 @@ const en = {
   koTags: {
     title: 'Korean tag data',
     description:
-      'Korean descriptions, search keywords and categories for tags (NAIA2.0). Search tags in Korean while the language is set to Korean.',
+      'Korean descriptions, search keywords and categories for tags. Search tags in Korean while the language is set to Korean.',
     statusReady: 'Ready · {{count}} tags',
     statusDownloading: 'Downloading…',
     statusUnavailable:
