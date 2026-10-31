@@ -8,7 +8,6 @@ export const KO_TAGS_VERSION = '1'
 export const KO_TAGS_FILE = `naia-ko-v${KO_TAGS_VERSION}.db`
 export const KO_TAGS_BASE_URL =
   'https://huggingface.co/datasets/snuff8729/87-studio/resolve/main/'
-export const NAIA_REPO_URL = 'https://github.com/DNT-LAB/NAIA2.0'
 
 const HANGUL_RE = /[가-힣]/
 

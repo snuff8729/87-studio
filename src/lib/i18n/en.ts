@@ -1329,8 +1329,6 @@ const en = {
     posts: '{{count}} posts',
     deprecated: 'deprecated',
     noDescription: 'No description',
-    naiaLabel: 'NAIA',
-    naiaTitle: 'NAIA2.0 (GPL-3.0)',
     aliases: 'Aliases',
     implies: 'Implies',
     impliedBy: 'Implied by',
@@ -1387,9 +1385,6 @@ const en = {
     statusDownloading: 'Downloading…',
     statusUnavailable:
       'Not available (offline or not published yet). Retries automatically.',
-    attribution:
-      'Korean tag descriptions and categories: NAIA2.0 (DNT-LAB), GPL-3.0',
-    source: 'NAIA2.0',
   },
   semantic: {
     section: 'Tag search',

@@ -347,15 +347,6 @@ export function TagSearchPanel({
                 )}
               >
                 {info?.description ?? t('tagAssist.noDescription')}
-                {info?.descriptionSource === 'naia' && (
-                  <span
-                    className="ml-1.5 rounded border px-1 text-[9px] leading-[14px] whitespace-nowrap text-muted-foreground"
-                    title={t('tagAssist.naiaTitle')}
-                    data-tag-source="naia"
-                  >
-                    {t('tagAssist.naiaLabel')}
-                  </span>
-                )}
               </p>
               {info && (
                 <div className="space-y-1">

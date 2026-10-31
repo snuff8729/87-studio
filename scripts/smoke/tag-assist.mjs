@@ -1033,14 +1033,9 @@ if (!ONLY_KO) {
       /[가-힣]/.test(desc),
       `${name}: card description is Korean (${desc.slice(0, 30)})`,
     )
-    const src = card.locator('.cm-tag-source')
     check(
-      (await src.count()) === 1 && (await src.innerText()) === 'NAIA',
-      `${name}: card shows NAIA label`,
-    )
-    check(
-      (await src.getAttribute('title')) === 'NAIA2.0 (GPL-3.0)',
-      `${name}: NAIA label tooltip`,
+      (await card.locator('.cm-tag-source').count()) === 0,
+      `${name}: no source label on the card`,
     )
     await shot(page, `tag-ko-${name}-card`)
     await page.keyboard.press('Escape')
@@ -1070,8 +1065,11 @@ if (!ONLY_KO) {
       `${name}: Tag Search row shows keyword hint`,
     )
     await win.locator('[data-tag-row]').first().click()
-    await win.locator('[data-tag-source="naia"]').waitFor({ timeout: 8000 })
-    check(true, `${name}: detail pane shows NAIA label`)
+    await page.waitForTimeout(800)
+    check(
+      (await win.locator('[data-tag-source]').count()) === 0,
+      `${name}: detail pane shows no source label`,
+    )
     await shot(page, `tag-ko-${name}-search`)
 
     // NAIA group tabs + Korean small categories
@@ -1169,19 +1167,6 @@ if (!ONLY_KO) {
     check(
       (await st.getAttribute('data-ko-tags-status')) === 'ready',
       'settings: Korean tag data status ready',
-    )
-    const cardText = await page.locator('[data-ko-tags-card]').innerText()
-    check(
-      /NAIA2\.0 \(DNT-LAB\), GPL-3\.0/.test(cardText),
-      'settings: NAIA attribution shown',
-    )
-    check(
-      (await page
-        .locator(
-          '[data-ko-tags-card] a[href="https://github.com/DNT-LAB/NAIA2.0"]',
-        )
-        .count()) === 1,
-      'settings: attribution links to NAIA2.0',
     )
     await page.locator('[data-ko-tags-card]').scrollIntoViewIfNeeded()
     await shot(page, 'tag-ko-1440-settings')

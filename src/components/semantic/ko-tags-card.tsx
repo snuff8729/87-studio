@@ -9,7 +9,6 @@ import {
   CardTitle,
 } from '@/components/ui/card'
 import { getKoTagsStatus } from '@/server/functions/tag-assist'
-import { NAIA_REPO_URL } from '@/lib/ko-tags'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -34,7 +33,7 @@ export function KoTagsCard() {
         <CardTitle>{t('koTags.title')}</CardTitle>
         <CardDescription>{t('koTags.description')}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-2">
+      <CardContent>
         <div className="flex items-center gap-2 rounded-md bg-muted/50 px-3 py-2 text-sm">
           {(!s || s.state === 'downloading') && (
             <HugeiconsIcon
@@ -49,17 +48,6 @@ export function KoTagsCard() {
             {text}
           </span>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {t('koTags.attribution')}{' '}
-          <a
-            href={NAIA_REPO_URL}
-            target="_blank"
-            rel="noreferrer"
-            className="text-primary underline-offset-4 hover:underline"
-          >
-            {t('koTags.source')}
-          </a>
-        </p>
       </CardContent>
     </Card>
   )

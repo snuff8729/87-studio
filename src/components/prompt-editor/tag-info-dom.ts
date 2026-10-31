@@ -32,15 +32,6 @@ export function categoryBadge(fine: string, top?: string): HTMLElement {
   return badge
 }
 
-/** Small "NAIA" label for descriptions that come from the NAIA2.0 data. */
-export function sourceLabel(info: TagInfo): HTMLElement | null {
-  if (info.descriptionSource !== 'naia') return null
-  const t = translator()
-  const label = el('span', 'cm-tag-source', t('tagAssist.naiaLabel'))
-  label.title = t('tagAssist.naiaTitle')
-  return label
-}
-
 /** Category + fine category + post count line. */
 export function metaLine(info: TagInfo): HTMLElement {
   const t = translator()
@@ -75,14 +66,13 @@ export function buildInfoPanel(info: TagInfo): HTMLElement {
   const title = el('div', 'cm-tag-info-title', tagDisplayName(info.name))
   title.style.color = danbooruColor(info.category)
   root.append(title, metaLine(info))
-  const desc = el(
-    'div',
-    info.description ? 'cm-tag-desc' : 'cm-tag-desc cm-tag-muted',
-    info.description ?? t('tagAssist.noDescription'),
+  root.append(
+    el(
+      'div',
+      info.description ? 'cm-tag-desc' : 'cm-tag-desc cm-tag-muted',
+      info.description ?? t('tagAssist.noDescription'),
+    ),
   )
-  const source = sourceLabel(info)
-  if (source) desc.append(source)
-  root.append(desc)
   const lists: Array<[string, Array<string>]> = [
     [t('tagAssist.aliases'), info.aliases.slice(0, 4)],
     [t('tagAssist.implies'), info.implies.slice(0, 4)],
