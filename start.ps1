@@ -86,7 +86,7 @@ if ($depsCurrent) {
 } else {
     Write-Host "   [2/6] 의존성 설치 중..."
     Write-Host "         (첫 실행 시 몇 분 소요됩니다)"
-    & $npmCmd install --loglevel=warn 2>&1 | Out-Host
+    & $npmCmd install --loglevel=error 2>&1 | Out-Host
     if ($LASTEXITCODE -ne 0) {
         Write-Host ""
         Write-Host "   [ERROR] 의존성 설치에 실패했습니다."

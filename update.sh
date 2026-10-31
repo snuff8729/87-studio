@@ -105,7 +105,7 @@ export PATH="${NODE_BIN}:$PATH"
 #  Step 3: Install Dependencies
 # =============================================================
 echo "  [3/5] 의존성 설치 중..."
-"${NODE_BIN}/npm" install --loglevel=warn
+"${NODE_BIN}/npm" install --loglevel=error
 echo "        완료!"
 
 # =============================================================

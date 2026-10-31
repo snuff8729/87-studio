@@ -149,7 +149,7 @@ $npmCmd = Join-Path $NODE_DIR "npm.cmd"
 $npxCmd = Join-Path $NODE_DIR "npx.cmd"
 
 Write-Host "   [3/5] 의존성 설치 중..."
-& $npmCmd install --loglevel=warn 2>&1 | Out-Host
+& $npmCmd install --loglevel=error 2>&1 | Out-Host
 if ($LASTEXITCODE -ne 0) {
     Write-Host ""
     Write-Host "   [ERROR] 의존성 설치에 실패했습니다."

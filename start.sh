@@ -75,7 +75,7 @@ if [ -f "node_modules/.package-lock.json" ] && [ ! package.json -nt "node_module
 else
     echo "  [2/6] 의존성 설치 중..."
     echo "        (첫 실행 시 몇 분 소요됩니다)"
-    "${NODE_BIN}/npm" install --loglevel=warn
+    "${NODE_BIN}/npm" install --loglevel=error
     # Mark as installed even when npm left the hidden lockfile untouched
     touch "node_modules/.package-lock.json" 2>/dev/null || true
     echo "        완료!"
