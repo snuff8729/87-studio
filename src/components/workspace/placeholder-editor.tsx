@@ -27,8 +27,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { resolvePlaceholders } from '@/lib/placeholder'
-import { resolveBundles } from '@/lib/bundle'
-import { useBundleMap, useBundleNames } from '@/lib/use-bundles'
+import { resolveBundlesPreview } from '@/lib/wildcard'
+import { useBundleDefs, useBundleNames } from '@/lib/use-bundles'
 import { useTranslation } from '@/lib/i18n'
 
 const PromptEditor = lazy(() =>
@@ -123,7 +123,7 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
   getPrompts,
 }: PlaceholderEditorProps) {
   const { t } = useTranslation()
-  const bundleMap = useBundleMap()
+  const bundleMap = useBundleDefs()
   const bundleNamesForEditor = useBundleNames()
 
   // ── Collapsed state ──
@@ -599,11 +599,17 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
           return {
             name: char.name,
             prompt: resolvePlaceholders(
-              resolveBundles(char.charPrompt || '', ref.bundleMap),
+              resolveBundlesPreview(
+                char.charPrompt || '',
+                (n) => ref.bundleMap[n],
+              ),
               charValues,
             ),
             negative: resolvePlaceholders(
-              resolveBundles(char.charNegative || '', ref.bundleMap),
+              resolveBundlesPreview(
+                char.charNegative || '',
+                (n) => ref.bundleMap[n],
+              ),
               charValues,
             ),
           }
@@ -611,12 +617,12 @@ export const PlaceholderEditor = memo(function PlaceholderEditor({
 
       setResolvedPrompts({
         general: resolvePlaceholders(
-          resolveBundles(generalPrompt, ref.bundleMap),
+          resolveBundlesPreview(generalPrompt, (n) => ref.bundleMap[n]),
           generalValues,
         ),
         negative: negativePrompt
           ? resolvePlaceholders(
-              resolveBundles(negativePrompt, ref.bundleMap),
+              resolveBundlesPreview(negativePrompt, (n) => ref.bundleMap[n]),
               generalValues,
             )
           : '',

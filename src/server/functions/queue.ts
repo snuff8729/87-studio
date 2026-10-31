@@ -17,6 +17,8 @@ import {
   reorderJobsInBatch,
 } from '../services/generation'
 import { createLogger } from '../services/logger'
+import { previewResolvedPrompts } from '../services/prompt'
+import type { ResolvedPrompts } from '../services/prompt'
 
 const log = createLogger('fn.queue')
 
@@ -159,16 +161,9 @@ export const getJobPrompts = createServerFn({ method: 'GET' })
       .where(eq(generationJobs.id, jobId))
       .get()
     if (!row) return null
-    return JSON.parse(row.resolvedPrompts) as {
-      generalPrompt: string
-      negativePrompt: string
-      characterPrompts: Array<{
-        characterId: number
-        name: string
-        prompt: string
-        negative: string
-      }>
-    }
+    return previewResolvedPrompts(
+      JSON.parse(row.resolvedPrompts) as ResolvedPrompts,
+    )
   })
 
 /** Reorder batches in the queue */

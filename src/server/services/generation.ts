@@ -25,6 +25,11 @@ import {
   resolveCharacterPositions,
 } from '@/lib/character-positions'
 import {
+  applyWildcardPicks,
+  pickWildcards,
+  toStoredPicks,
+} from '@/lib/wildcard'
+import {
   DEFAULT_NAI_MODEL,
   getModelProfile,
   pickRandomResolution,
@@ -626,7 +631,7 @@ async function processJob(jobId: number) {
       .where(eq(generationJobs.id, jobId))
       .run()
 
-    const resolvedPrompts = JSON.parse(job.resolvedPrompts)
+    const jobPrompts: ResolvedPrompts = JSON.parse(job.resolvedPrompts)
     const resolvedParameters = JSON.parse(job.resolvedParameters)
     const totalCount = job.totalCount ?? 1
 
@@ -710,6 +715,10 @@ async function processJob(jobId: number) {
         : resolvedParameters
       // Saved metadata keeps the actual width/height, not the random flag
       const { randomResolution: _random, ...savedParameters } = imageParameters
+      // Wildcard bundles are picked per image; `i` is the image index within
+      // the job (restart-safe: the loop resumes from completedCount)
+      const wildcardPicks = pickWildcards(jobPrompts.wildcards ?? [], i)
+      const resolvedPrompts = applyWildcardPicks(jobPrompts, wildcardPicks)
       // Character positions are resolved per image (random differs each time)
       const positions = resolveImagePositions(resolvedPrompts, imageParameters)
       const { imageData, seed } = await generateImage(
@@ -757,6 +766,9 @@ async function processJob(jobId: number) {
           metadata: JSON.stringify({
             prompts: resolvedPrompts,
             parameters: savedParameters,
+            ...(wildcardPicks.length > 0 && {
+              wildcards: toStoredPicks(wildcardPicks),
+            }),
             ...(positions && { characterPositions: positions }),
             ...(referenceMode !== 'none' &&
               referenceData && {

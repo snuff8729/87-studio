@@ -51,6 +51,18 @@ export const darkTheme = EditorView.theme(
       padding: '1px 0',
       border: '1px solid oklch(0.65 0.12 200 / 30%)',
     },
+    // Wildcard bundle — violet hue, dashed outline
+    '.cm-bundle-wildcard-highlight': {
+      backgroundColor: 'oklch(0.65 0.14 300 / 15%)',
+      borderRadius: '3px',
+      padding: '1px 0',
+      border: '1px dashed oklch(0.7 0.14 300 / 55%)',
+    },
+    '.cm-tooltip-bundle-meta': {
+      color: 'oklch(0.75 0.1 300)',
+      fontSize: '11px',
+      marginBottom: '4px',
+    },
     // Invalid ref highlight — red wavy underline
     '.cm-var-highlight': {
       backgroundColor: 'oklch(0.78 0.14 75 / 14%)',

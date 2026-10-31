@@ -11,7 +11,8 @@ import { createLogger } from './logger'
 import { loadLibraryData } from './parts'
 import type { AxisValues, OutfitEntry } from '@/lib/character-parts'
 import type { PositionSpec } from '@/lib/character-positions'
-import { resolvePlaceholders } from '@/lib/placeholder'
+import type { BundleDef, ParsedBundleRef, WildcardEntry } from '@/lib/wildcard'
+import { extractPlaceholders, resolvePlaceholders } from '@/lib/placeholder'
 import {
   applyParts,
   composeParts,
@@ -26,7 +27,15 @@ import {
   applyOverride,
   parsePositionSpec,
 } from '@/lib/character-positions'
-import { extractBundleReferences, resolveBundles } from '@/lib/bundle'
+import {
+  effectiveMode,
+  normalizeKind,
+  normalizeMode,
+  parseWildcardOptions,
+  previewWildcardPrompts,
+  replaceBundleRefs,
+  wildcardMarker,
+} from '@/lib/wildcard'
 
 const log = createLogger('prompt')
 
@@ -66,36 +75,130 @@ export interface ResolvedPrompts {
     outfitItemIds?: Array<number>
   }>
   usedBundleIds?: Array<number>
+  /**
+   * Wildcard bundle occurrences. The prompt strings hold `@{wc:N}` markers;
+   * the generation loop picks one option per image (see `@/lib/wildcard`).
+   */
+  wildcards?: Array<WildcardEntry>
 }
 
-/** Load all bundles as name→{id, content} map */
-function loadBundleMap(): Map<string, { id: number; content: string }> {
+/** Prompts with wildcard markers shown as `{a | b | c}` (previews, queue view) */
+export function previewResolvedPrompts<T extends ResolvedPrompts>(
+  prompts: T,
+): T {
+  return previewWildcardPrompts(prompts)
+}
+
+/** Load all bundles as name→definition map */
+function loadBundleMap(): Map<string, BundleDef> {
   const rows = db
     .select({
       id: promptBundles.id,
       name: promptBundles.name,
       content: promptBundles.content,
+      kind: promptBundles.kind,
+      wildcardMode: promptBundles.wildcardMode,
     })
     .from(promptBundles)
     .all()
-  return new Map(rows.map((r) => [r.name, { id: r.id, content: r.content }]))
+  return new Map(
+    rows.map((r) => [
+      r.name,
+      {
+        id: r.id,
+        name: r.name,
+        content: r.content,
+        kind: normalizeKind(r.kind),
+        wildcardMode: normalizeMode(r.wildcardMode),
+      },
+    ]),
+  )
 }
 
-/** Resolve @{bundleName} in a template and collect used bundle IDs */
-function resolveBundlesWithTracking(
-  template: string,
-  bundleMap: Map<string, { id: number; content: string }>,
-  usedIds: Set<number>,
-): string {
-  const contentMap: Record<string, string> = {}
-  for (const name of extractBundleReferences(template)) {
-    const entry = bundleMap.get(name)
-    if (entry) {
-      contentMap[name] = entry.content
-      usedIds.add(entry.id)
+/**
+ * Bundle resolution state for one synthesis: tracks used bundle ids and
+ * collects wildcard entries. Text bundles are inlined (single pass, as always);
+ * a wildcard becomes a `@{wc:N}` marker whose options are resolved here
+ * (text bundles inlined, slots filled, nested wildcards dropped).
+ */
+class BundleResolver {
+  readonly usedIds = new Set<number>()
+  readonly wildcards: Array<WildcardEntry> = []
+
+  constructor(private readonly bundleMap: Map<string, BundleDef>) {}
+
+  private lookup = (name: string) => this.bundleMap.get(name)
+
+  private addWildcard(
+    ref: ParsedBundleRef,
+    placeholders?: Record<string, string>,
+  ): string {
+    const { bundle } = ref
+    this.usedIds.add(bundle.id)
+    const before = new Set(this.usedIds)
+    const all = parseWildcardOptions(bundle.content)
+    const options = (ref.fixed ? [all[ref.fixed.index]] : all).map((o) =>
+      this.resolve(o, placeholders, false),
+    )
+    // Option bundles are not linked to images (only the wildcard bundle is)
+    for (const used of [...this.usedIds]) {
+      if (!before.has(used)) this.usedIds.delete(used)
+    }
+    const id = this.wildcards.length
+    this.wildcards.push({
+      id,
+      bundleId: bundle.id,
+      bundle: bundle.name,
+      mode: effectiveMode(ref),
+      options,
+      ...(ref.fixed && { fixedIndex: ref.fixed.index }),
+    })
+    return wildcardMarker(id)
+  }
+
+  /**
+   * Resolve bundles, then (when given) `@{slot:...}` placeholders. Wildcard
+   * choice comes first so options can still hold slots. Slot values may hold
+   * wildcard refs too (their text-bundle refs stay literal, as before).
+   */
+  resolve(
+    template: string,
+    placeholders?: Record<string, string>,
+    allowWildcard = true,
+  ): string {
+    const body = replaceBundleRefs(template, this.lookup, (ref) => {
+      if (ref.bundle.kind !== 'wildcard') {
+        this.usedIds.add(ref.bundle.id)
+        return ref.bundle.content
+      }
+      return allowWildcard ? this.addWildcard(ref, placeholders) : ''
+    })
+    if (!placeholders) return body
+    if (!allowWildcard) return resolvePlaceholders(body, placeholders)
+    const values: Record<string, string> = { ...placeholders }
+    for (const key of extractPlaceholders(body)) {
+      const v = values[key]
+      if (v?.includes('@{bundle:')) {
+        values[key] = replaceBundleRefs(
+          v,
+          this.lookup,
+          (ref) =>
+            ref.bundle.kind === 'wildcard'
+              ? this.addWildcard(ref, placeholders)
+              : (ref.match ?? ''),
+          (m) => m,
+        )
+      }
+    }
+    return resolvePlaceholders(body, values)
+  }
+
+  record(): Pick<ResolvedPrompts, 'usedBundleIds' | 'wildcards'> {
+    return {
+      usedBundleIds: [...this.usedIds],
+      ...(this.wildcards.length > 0 && { wildcards: this.wildcards }),
     }
   }
-  return resolveBundles(template, contentMap)
 }
 
 type Library = ReturnType<typeof loadLibraryData>
@@ -199,25 +302,16 @@ export function synthesizePrompts(
   )
 
   // Load bundle map for @{...} resolution
-  const bundleMap = loadBundleMap()
-  const usedBundleIds = new Set<number>()
+  const resolver = new BundleResolver(loadBundleMap())
 
   // 1) Resolve @{bundle:...} first, then @{slot:...}
-  const generalPrompt = resolvePlaceholders(
-    resolveBundlesWithTracking(
-      project.generalPrompt || '',
-      bundleMap,
-      usedBundleIds,
-    ),
+  const generalPrompt = resolver.resolve(
+    project.generalPrompt || '',
     scenePlaceholders,
   )
 
-  const negativePrompt = resolvePlaceholders(
-    resolveBundlesWithTracking(
-      project.negativePrompt || '',
-      bundleMap,
-      usedBundleIds,
-    ),
+  const negativePrompt = resolver.resolve(
+    project.negativePrompt || '',
     scenePlaceholders,
   )
 
@@ -283,14 +377,8 @@ export function synthesizePrompts(
     return {
       characterId: char.id,
       name: char.name,
-      prompt: resolvePlaceholders(
-        resolveBundlesWithTracking(composedPrompt, bundleMap, usedBundleIds),
-        mergedPlaceholders,
-      ),
-      negative: resolvePlaceholders(
-        resolveBundlesWithTracking(char.charNegative, bundleMap, usedBundleIds),
-        mergedPlaceholders,
-      ),
+      prompt: resolver.resolve(composedPrompt, mergedPlaceholders),
+      negative: resolver.resolve(char.charNegative, mergedPlaceholders),
       position: applyOverride(
         parsePositionSpec(char.position),
         positionOverrideMap.get(char.id),
@@ -304,14 +392,14 @@ export function synthesizePrompts(
     sceneId: projectSceneId,
     characterCount: chars.length,
     placeholderCount: Object.keys(scenePlaceholders).length,
-    bundleCount: usedBundleIds.size,
+    bundleCount: resolver.usedIds.size,
   })
 
   return {
     generalPrompt,
     negativePrompt,
     characterPrompts,
-    usedBundleIds: [...usedBundleIds],
+    ...resolver.record(),
   }
 }
 
@@ -319,30 +407,21 @@ export function synthesizePrompts(
 export function resolveBundlesInRawPrompts(
   prompts: ResolvedPrompts,
 ): ResolvedPrompts {
-  const bundleMap = loadBundleMap()
-  const usedBundleIds = new Set<number>()
+  const resolver = new BundleResolver(loadBundleMap())
 
-  const generalPrompt = resolveBundlesWithTracking(
-    prompts.generalPrompt,
-    bundleMap,
-    usedBundleIds,
-  )
-  const negativePrompt = resolveBundlesWithTracking(
-    prompts.negativePrompt,
-    bundleMap,
-    usedBundleIds,
-  )
+  const generalPrompt = resolver.resolve(prompts.generalPrompt)
+  const negativePrompt = resolver.resolve(prompts.negativePrompt)
   const characterPrompts = prompts.characterPrompts.map((c) => ({
     ...c,
-    prompt: resolveBundlesWithTracking(c.prompt, bundleMap, usedBundleIds),
-    negative: resolveBundlesWithTracking(c.negative, bundleMap, usedBundleIds),
+    prompt: resolver.resolve(c.prompt),
+    negative: resolver.resolve(c.negative),
   }))
 
   return {
     generalPrompt,
     negativePrompt,
     characterPrompts,
-    usedBundleIds: [...usedBundleIds],
+    ...resolver.record(),
   }
 }
 

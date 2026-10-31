@@ -5,7 +5,7 @@ import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { acceptCompletion, autocompletion } from '@codemirror/autocomplete'
 import { darkTheme } from './theme'
 import { placeholderHighlight } from './placeholder-highlight'
-import { bundleHighlight } from './bundle-highlight'
+import { bundleHighlight, refreshBundleRefs } from './bundle-highlight'
 import { weightHighlight } from './weight-highlight'
 import {
   invalidRefHighlight,
@@ -24,6 +24,7 @@ import { refreshVarRefs, varCompletionSource, varRefExtension } from './var-ref'
 import { tagRowDecorations } from './danbooru-completion'
 import { tagCaretInfo } from './tag-caret-info'
 import { EditorContextMenu, detectTokenAt } from './editor-context-menu'
+import type { EditorBundle } from './bundle-completion'
 import type { ContextMenuTarget } from './editor-context-menu'
 import type { ViewUpdate } from '@codemirror/view'
 import {
@@ -64,7 +65,7 @@ interface PromptEditorProps {
   onChange: (value: string) => void
   placeholder?: string
   minHeight?: string
-  bundleNames?: Array<{ name: string; content: string }>
+  bundleNames?: Array<EditorBundle>
   slotNames?: Array<string>
   /** Offer / accept @{char} and @{outfit} (workspace character prompt only) */
   partsTokens?: boolean
@@ -129,6 +130,7 @@ export function PromptEditor({
   useEffect(() => {
     if (bundleNamesProp) {
       setBundleNames(bundleNamesProp)
+      viewRef.current?.dispatch({ effects: refreshBundleRefs.of(null) })
     }
   }, [bundleNamesProp])
 
