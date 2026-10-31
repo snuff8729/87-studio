@@ -104,4 +104,6 @@ pnpm db:studio        # Drizzle Studio (DB 브라우저)
 
 ## 라이선스
 
-[PolyForm Noncommercial License 1.0.0](LICENSE)
+[GNU General Public License v3.0](LICENSE) (GPL-3.0-only).
+
+Korean tag descriptions, keywords and categories are adapted from [NAIA2.0](https://github.com/DNT-LAB/NAIA2.0) by DNT-LAB (GPL-3.0). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

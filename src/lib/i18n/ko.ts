@@ -157,7 +157,7 @@ const ko: DeepStringify<typeof en> = {
       'DB 레코드에 연결되지 않은 파일 {{count}}개가 영구 삭제됩니다.',
     helpDesc: '튜토리얼, 버전, 라이선스.',
     license: '라이선스',
-    licenseName: 'PolyForm Noncommercial 1.0.0',
+    licenseName: 'GPL-3.0',
   },
   account: {
     anlas: 'Anlas',

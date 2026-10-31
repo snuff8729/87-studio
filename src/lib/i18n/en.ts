@@ -154,7 +154,7 @@ const en = {
       '{{count}} files that are not linked to any database record will be permanently deleted.',
     helpDesc: 'Tutorial, version and license.',
     license: 'License',
-    licenseName: 'PolyForm Noncommercial 1.0.0',
+    licenseName: 'GPL-3.0',
   },
   account: {
     anlas: 'Anlas',
