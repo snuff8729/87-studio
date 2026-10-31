@@ -298,6 +298,7 @@ start.sh                       # Linux/macOS 간편 실행 스크립트 (Node.js
 start.bat                      # Windows 간편 실행 스크립트
 scripts/smoke/workspace.mjs    # 워크스페이스 브라우저 스모크 (playwright-core, 128 씬 목업, 쓰기 차단; 씬 템플릿 다이얼로그 1440/390 포함)
 scripts/smoke/templates.mjs    # 씬 템플릿 다이얼로그 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 팩/씬/키 CRUD·복제·이동·자동저장·선택 적용, DB 읽기전용 교차검증)
+scripts/smoke/scene-characters.mjs  # 씬별 등장 캐릭터 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 등장 기본값·씬 Default/On/Off/Replace·일괄 대화상자·생성 resolved_prompts/metadata 검증·390 스크린샷, DB 읽기전용 교차검증)
 scripts/smoke/positions.mjs    # 캐릭터 위치 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 기본/씬 오버라이드/일괄/터치 드래그/생성 metadata 검증, DB 읽기전용 교차검증)
 scripts/smoke/browse.mjs       # 브라우즈 페이지 스모크 (대시보드/갤러리/번들/태그/큐/설정/메타데이터, 갤러리 승률 필터·일괄 태그·북마크 추가, server fn 응답 목업, 1440·390, 쓰기 차단)
 scripts/smoke/quick-parts.mjs  # Quick Generate 파츠 스모크 (NAI_MOCK 서버 전용, 새 seed 필요: 라이브러리 데이터는 DB에 직접 삽입, 연결·의상·글로벌 축·미리보기·Empty 배지·생성 resolved_prompts·image_axis_values/links·라이브러리 Images(N)·새로고침 유지·연결 끊김·일반 캐릭터)
@@ -354,6 +355,11 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 - project_scenes.placeholders → general_prompt용
 - character_scene_overrides.placeholders → 해당 캐릭터의 char_prompt용
 - character_scene_overrides.position → 해당 씬에서 캐릭터 위치 오버라이드 (아래 "캐릭터 위치")
+- **씬별 등장 캐릭터** (마이그레이션 0022): `characters.appearance`(`'all'` 기본 = 모든 씬 / `'selected'` = 씬에서 켠 곳만) + `character_scene_overrides.presence`(NULL = 기본 따름 | `'on'` | `'off'` | `'replace'`), `replace_prompt`, `replace_negative`. 순수 로직 `src/lib/scene-characters.ts`(`effectivePresence`, `countAppearances`, `applyBulkPresence`, 테스트 있음)
+  - **Off**(또는 기본이 Off) = 캐릭터를 이미지에서 완전히 뺌(캡션·위치 계산 모두 제외). 등장 캐릭터가 0명인 씬도 유효(general 프롬프트만)
+  - **Replace** = 이 씬에서만 캐릭터 프롬프트/네거티브/파츠(연결 캐릭터·의상·`@{char}`) 대신 `replace_prompt`/`replace_negative`를 사용. 번들·`@{slot:…}`(그 캐릭터의 씬 오버라이드 값)는 일반 프롬프트처럼 치환, 위치 설정(기본+씬 오버라이드)은 그대로 적용, 라이브러리 링크는 기록 안 함
+  - `synthesizePrompts`가 Off 캐릭터를 `characterPrompts`에서 제외하고 Replace는 위 규칙으로 합성 → 생성/큐/메타데이터/갤러리 링크는 변경 없이 그 결과를 따름
+  - UI: Chars 탭 "Appears in"(All scenes / Only selected scenes + "N개 씬에 등장" 힌트), SceneView "Characters in this scene"(`scene-characters-section.tsx`: 캐릭터별 Default·On·Off·Replace, Default는 "Default · On/Off" 표시, Replace는 프롬프트 에디터 + 접이식 네거티브, 800ms 디바운스 저장 + pending-saves flush), Off 캐릭터는 플레이스홀더/위치 섹션에서 숨김·Replace는 Parts 숨김, 선택 헤더 ⋯ "Characters…"(`bulk-characters-dialog.tsx`: 변경 없음/기본/On/Off, 한 트랜잭션 `bulkSetCharacterPresence`). 씬 복제/씬 추가 "현재 씬 값 복사"/캐릭터 복제/프로젝트 복제는 새 컬럼도 복사
 
 ### 캐릭터 위치 (Character Positions)
 
@@ -719,6 +725,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 | char_prompt   | text (NOT NULL, DEFAULT '')      | 플레이스홀더 포함              |
 | char_negative | text (NOT NULL, DEFAULT '')      | 캐릭터별 네거티브 프롬프트     |
 | position      | text                             | JSON PositionSpec (NULL = ai)  |
+| appearance    | text (NOT NULL, DEFAULT 'all')   | 'all' \| 'selected' (씬별 등장 기본값) |
 | created_at    | text                             |                                |
 | updated_at    | text                             |                                |
 
@@ -779,6 +786,8 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 | character_id                           | integer (FK → characters, CASCADE)     |                                  |
 | placeholders                           | text (DEFAULT '{}')                    | JSON. char_prompt용 플레이스홀더 |
 | position                               | text                                   | JSON. 씬 위치 오버라이드 (NULL = inherit) |
+| presence                               | text                                   | NULL(기본 따름) \| 'on' \| 'off' \| 'replace' |
+| replace_prompt / replace_negative      | text                                   | presence = 'replace'일 때 대신 쓰는 프롬프트/네거티브 |
 | UNIQUE(project_scene_id, character_id) |                                        |                                  |
 
 ### generation_batches
