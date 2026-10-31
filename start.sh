@@ -149,16 +149,10 @@ echo "  ======================================="
 echo "    http://localhost:3000"
 echo "  ======================================="
 echo ""
-echo "  브라우저가 자동으로 열립니다."
+echo "  브라우저에서 위 주소를 열어주세요."
 echo "  종료하려면 Ctrl+C를 누르세요."
 echo ""
 
-# Open browser
-if command -v xdg-open &>/dev/null; then
-    xdg-open "http://localhost:3000" 2>/dev/null &
-elif command -v open &>/dev/null; then
-    open "http://localhost:3000" &
-fi
 
 # Start server (blocks until Ctrl+C)
 "${NODE_BIN}/node" .output/server/index.mjs

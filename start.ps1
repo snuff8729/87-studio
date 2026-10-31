@@ -203,11 +203,10 @@ Write-Host "   ======================================="
 Write-Host "     http://localhost:3000"
 Write-Host "   ======================================="
 Write-Host ""
-Write-Host "   브라우저가 자동으로 열립니다."
+Write-Host "   브라우저에서 위 주소를 열어주세요."
 Write-Host "   종료하려면 이 창을 닫으세요."
 Write-Host ""
 
-Start-Process "http://localhost:3000"
 & $nodeExe ".output\server\index.mjs"
 
 Write-Host ""

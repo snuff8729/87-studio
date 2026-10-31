@@ -1017,7 +1017,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 ## 배포 / 실행
 
 - **간편 실행**: `start.sh` (Linux/macOS) / `start.bat` (Windows)
-  - Node.js v22.12.0 자동 다운로드 (`./runtime/node/`), 의존성 설치, DB 마이그레이션, 빌드, 서버 실행, 브라우저 오픈
+  - Node.js v22.12.0 자동 다운로드 (`./runtime/node/`), 의존성 설치, DB 마이그레이션, 빌드, 서버 실행 (브라우저는 자동으로 열지 않음, http://localhost:3000)
   - Node.js가 설치되지 않은 환경에서도 사용 가능
 
 ## 개발 명령어
