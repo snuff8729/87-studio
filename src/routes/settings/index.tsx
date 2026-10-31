@@ -237,6 +237,7 @@ function SettingsPage() {
   useEffect(() => {
     function onScroll() {
       if (Date.now() < spyLockUntil.current) return
+      const threshold = Math.max(140, window.innerHeight * 0.3)
       let current: SectionId = SECTION_IDS[0]
       const atBottom =
         window.innerHeight + window.scrollY >=
@@ -246,7 +247,7 @@ function SettingsPage() {
       } else {
         for (const id of SECTION_IDS) {
           const el = document.getElementById(`settings-${id}`)
-          if (el && el.getBoundingClientRect().top <= 140) current = id
+          if (el && el.getBoundingClientRect().top <= threshold) current = id
         }
       }
       setActive(current)
