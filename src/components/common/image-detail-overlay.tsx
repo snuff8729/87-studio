@@ -11,8 +11,10 @@ import {
   Delete02Icon,
   PinIcon,
 } from '@hugeicons/core-free-icons'
-import type { NAIMetadata } from '@/lib/nai-metadata'
-import { CharacterPositionsMeta } from '@/components/common/character-positions-meta'
+import {
+  ImageGenerationInfo,
+  ImageLinkedParts,
+} from '@/components/common/image-generation-info'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -36,15 +38,19 @@ import {
   updateOutfitItem,
   updatePreset,
 } from '@/server/functions/library'
-import { parseNAIMetadata } from '@/lib/nai-metadata'
 import { useTranslation } from '@/lib/i18n'
 
 type DetailData = Awaited<ReturnType<typeof getImageDetailPage>>
 
 export function ImageDetailOverlay({ imageId }: { imageId: number }) {
   const router = useRouter()
-  const { detailBundle, detailTag, detailLibChar, detailOutfitItem, detailPreset } =
-    useSearch({ from: '__root__' })
+  const {
+    detailBundle,
+    detailTag,
+    detailLibChar,
+    detailOutfitItem,
+    detailPreset,
+  } = useSearch({ from: '__root__' })
   const [data, setData] = useState<DetailData | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -164,17 +170,9 @@ function ImageDetailContent({
   const [memo, setMemo] = useState(detail.memo || '')
   const [memoExpanded, setMemoExpanded] = useState(false)
   const [newTag, setNewTag] = useState('')
-  const [refExpanded, setRefExpanded] = useState(false)
-  const [naiExpanded, setNaiExpanded] = useState(false)
-  const [naiMeta, setNaiMeta] = useState<NAIMetadata | null>(null)
-  const [naiLoading, setNaiLoading] = useState(false)
-  const [naiLoaded, setNaiLoaded] = useState(false)
 
   useEffect(() => {
     setMemo(detail.memo || '')
-    setNaiMeta(null)
-    setNaiLoaded(false)
-    setNaiExpanded(false)
   }, [detail.id])
 
   // Navigate between images (replace imageDetail param)
@@ -279,38 +277,9 @@ function ImageDetailContent({
     }
   }
 
-  async function handleToggleNai() {
-    const willExpand = !naiExpanded
-    setNaiExpanded(willExpand)
-    if (willExpand && !naiLoaded && imageSrc) {
-      setNaiLoading(true)
-      try {
-        const resp = await fetch(imageSrc)
-        const buffer = await resp.arrayBuffer()
-        const result = await parseNAIMetadata(buffer)
-        setNaiMeta(result)
-      } catch {
-        /* silently fail */
-      } finally {
-        setNaiLoading(false)
-        setNaiLoaded(true)
-      }
-    }
-  }
-
   const imageSrc = detail.filePath
     ? `/api/images/${detail.filePath.replace('data/images/', '')}`
     : ''
-  const meta = detail.metadata
-    ? (() => {
-        try {
-          return JSON.parse(detail.metadata)
-        } catch {
-          return null
-        }
-      })()
-    : null
-
   return (
     <div className="h-dvh flex flex-col lg:flex-row bg-background">
       {/* Image area */}
@@ -543,288 +512,110 @@ function ImageDetailContent({
         </div>
         <Separator className="mb-4" />
 
-        {/* Reference (collapsible) */}
-        <div className="mb-4">
-          <button
-            onClick={() => setRefExpanded(!refExpanded)}
-            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
-          >
-            <span>{t('imageDetail.reference')}</span>
-            <span className="text-xs">{refExpanded ? '\u25B2' : '\u25BC'}</span>
-          </button>
-          {refExpanded && (
-            <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-1 duration-150">
-              <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">
-                  {t('imageDetail.metadata')}
-                </label>
-                <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>
-                    {t('imageDetail.seed')}: {detail.seed ?? 'N/A'}
-                  </p>
-                  <p>
-                    {t('imageDetail.created')}:{' '}
-                    {new Date(detail.createdAt!).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              {meta?.parameters && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.parameters')}
-                  </label>
-                  <div className="text-sm space-y-0.5 text-muted-foreground">
-                    {meta.parameters.width && (
-                      <p>
-                        {t('imageDetail.size')}: {meta.parameters.width}x
-                        {meta.parameters.height}
-                      </p>
-                    )}
-                    {meta.parameters.steps && (
-                      <p>
-                        {t('imageDetail.steps')}: {meta.parameters.steps}
-                      </p>
-                    )}
-                    {meta.parameters.cfg_scale && (
-                      <p>
-                        {t('imageDetail.cfg')}: {meta.parameters.cfg_scale}
-                      </p>
-                    )}
-                    {meta.parameters.sampler && (
-                      <p>
-                        {t('imageDetail.sampler')}: {meta.parameters.sampler}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-              <CharacterPositionsMeta meta={meta} />
-              {meta?.prompts?.generalPrompt && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.generalPrompt')}
-                  </label>
-                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">
-                    {meta.prompts.generalPrompt}
-                  </p>
-                </div>
-              )}
-              {meta?.prompts?.negativePrompt && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.negativePrompt')}
-                  </label>
-                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">
-                    {meta.prompts.negativePrompt}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
-        <Separator className="mb-4" />
+        <ImageLinkedParts imageId={detail.id} />
 
-        {/* NAI Metadata (collapsible) */}
-        <div className="mb-4">
-          <button
-            onClick={handleToggleNai}
-            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
-          >
-            <span>{t('imageDetail.naiMetadata')}</span>
-            <span className="text-xs">{naiExpanded ? '\u25B2' : '\u25BC'}</span>
-          </button>
-          {naiExpanded && (
-            <div className="animate-in fade-in-0 slide-in-from-top-1 duration-150">
-              {naiLoading && (
-                <div className="flex items-center gap-2 py-3">
-                  <div className="size-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-xs text-muted-foreground">
-                    {t('imageDetail.parsing')}
-                  </span>
-                </div>
-              )}
-              {naiLoaded && !naiMeta && (
-                <p className="text-xs text-muted-foreground py-2">
-                  {t('imageDetail.noNaiMetadata')}
-                </p>
-              )}
-              {naiMeta && <NaiMetadataView metadata={naiMeta} />}
-            </div>
-          )}
-        </div>
+        <ImageGenerationInfo
+          key={detail.id}
+          detail={detail}
+          imageSrc={imageSrc}
+        />
 
-        {/* Bundle context: explicit thumbnail action */}
-        {bundleId && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mb-2 w-full"
-            data-detail-bundle-thumb
-            onClick={async () => {
-              try {
-                await setBundleThumbnail({
-                  data: { bundleId, imageId: detail.id },
-                })
-                window.dispatchEvent(
-                  new CustomEvent('bundle-thumbnail-changed'),
-                )
-                toast.success(t('bundles.thumbnailSet'))
-              } catch {
-                toast.error(t('bundles.thumbnailFailed'))
-              }
-            }}
-          >
-            <HugeiconsIcon icon={PinIcon} className="size-4" />
-            {t('bundles.thumbAction')}
-          </Button>
-        )}
-
-        {/* Library context: explicit thumbnail action */}
-        {libraryTarget && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="mb-2 w-full"
-            data-detail-library-thumb
-            onClick={async () => {
-              try {
-                const payload = {
-                  id: libraryTarget.id,
-                  thumbnailImageId: detail.id,
-                }
-                if (libraryTarget.kind === 'character')
-                  await updateLibraryCharacter({ data: payload })
-                else if (libraryTarget.kind === 'preset')
-                  await updatePreset({ data: payload })
-                else await updateOutfitItem({ data: payload })
-                window.dispatchEvent(
-                  new CustomEvent('library-thumbnail-changed'),
-                )
-                toast.success(t('library.thumbnailSet'))
-              } catch {
-                toast.error(t('library.thumbnailFailed'))
-              }
-            }}
-          >
-            <HugeiconsIcon icon={PinIcon} className="size-4" />
-            {t('library.setThumbnail')}
-          </Button>
-        )}
-
-        {/* Add to tag bookmark */}
-        <AddToBookmarkPopover
-          imageIds={[detail.id]}
-          align="start"
-          trigger={
+        <div className="flex flex-col gap-2">
+          {/* Bundle context: explicit thumbnail action */}
+          {bundleId && (
             <Button
               variant="outline"
               size="sm"
               className="w-full"
-              data-detail-bookmark
+              data-detail-bundle-thumb
+              onClick={async () => {
+                try {
+                  await setBundleThumbnail({
+                    data: { bundleId, imageId: detail.id },
+                  })
+                  window.dispatchEvent(
+                    new CustomEvent('bundle-thumbnail-changed'),
+                  )
+                  toast.success(t('bundles.thumbnailSet'))
+                } catch {
+                  toast.error(t('bundles.thumbnailFailed'))
+                }
+              }}
             >
-              <HugeiconsIcon icon={BookmarkAdd01Icon} className="size-4" />
-              {t('gallery.addToBookmark')}
+              <HugeiconsIcon icon={PinIcon} className="size-4" />
+              {t('bundles.thumbAction')}
             </Button>
-          }
-        />
+          )}
 
-        {/* Download + Delete */}
-        <div className="flex gap-2">
-          <a href={imageSrc} download className="flex-1">
-            <Button variant="outline" size="sm" className="w-full">
-              {t('imageDetail.download')}
+          {/* Library context: explicit thumbnail action */}
+          {libraryTarget && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              data-detail-library-thumb
+              onClick={async () => {
+                try {
+                  const payload = {
+                    id: libraryTarget.id,
+                    thumbnailImageId: detail.id,
+                  }
+                  if (libraryTarget.kind === 'character')
+                    await updateLibraryCharacter({ data: payload })
+                  else if (libraryTarget.kind === 'preset')
+                    await updatePreset({ data: payload })
+                  else await updateOutfitItem({ data: payload })
+                  window.dispatchEvent(
+                    new CustomEvent('library-thumbnail-changed'),
+                  )
+                  toast.success(t('library.thumbnailSet'))
+                } catch {
+                  toast.error(t('library.thumbnailFailed'))
+                }
+              }}
+            >
+              <HugeiconsIcon icon={PinIcon} className="size-4" />
+              {t('library.setThumbnail')}
             </Button>
-          </a>
-          <ConfirmDialog
+          )}
+
+          {/* Add to tag bookmark */}
+          <AddToBookmarkPopover
+            imageIds={[detail.id]}
+            align="start"
             trigger={
-              <Button variant="destructive" size="sm">
-                <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                data-detail-bookmark
+              >
+                <HugeiconsIcon icon={BookmarkAdd01Icon} className="size-4" />
+                {t('gallery.addToBookmark')}
               </Button>
             }
-            title={t('imageDetail.deleteTitle')}
-            description={t('imageDetail.deleteDesc')}
-            onConfirm={handleDelete}
           />
-        </div>
-      </div>
-    </div>
-  )
-}
 
-// ─── Compact NAI Metadata viewer ──────────────────────────────────────────
-
-function NaiMetadataView({ metadata }: { metadata: NAIMetadata }) {
-  return (
-    <div className="space-y-3">
-      {metadata.source && (
-        <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-          {metadata.source === 'text_chunk' ? 'tEXt Chunk' : 'Stealth Alpha'}
-        </span>
-      )}
-      {metadata.model && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">
-            Model
-          </label>
-          <p className="text-sm font-mono text-foreground/80">
-            {metadata.model}
-          </p>
-        </div>
-      )}
-      {metadata.prompt && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">
-            Positive
-          </label>
-          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-28 overflow-y-auto">
-            {metadata.prompt}
-          </p>
-        </div>
-      )}
-      {metadata.negativePrompt && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">
-            Negative
-          </label>
-          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
-            {metadata.negativePrompt}
-          </p>
-        </div>
-      )}
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1">
-          Parameters
-        </label>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-          {metadata.width != null && metadata.height != null && (
-            <NaiRow
-              label="Size"
-              value={`${metadata.width}x${metadata.height}`}
+          {/* Download + Delete */}
+          <div className="flex gap-2">
+            <a href={imageSrc} download className="flex-1">
+              <Button variant="outline" size="sm" className="w-full">
+                {t('imageDetail.download')}
+              </Button>
+            </a>
+            <ConfirmDialog
+              trigger={
+                <Button variant="destructive" size="sm">
+                  <HugeiconsIcon icon={Delete02Icon} className="size-4" />
+                </Button>
+              }
+              title={t('imageDetail.deleteTitle')}
+              description={t('imageDetail.deleteDesc')}
+              onConfirm={handleDelete}
             />
-          )}
-          {metadata.steps != null && (
-            <NaiRow label="Steps" value={metadata.steps} />
-          )}
-          {metadata.cfgScale != null && (
-            <NaiRow label="CFG" value={metadata.cfgScale} />
-          )}
-          {metadata.seed != null && (
-            <NaiRow label="Seed" value={metadata.seed} />
-          )}
-          {metadata.sampler && (
-            <NaiRow label="Sampler" value={metadata.sampler} />
-          )}
+          </div>
         </div>
       </div>
     </div>
-  )
-}
-
-function NaiRow({ label, value }: { label: string; value: string | number }) {
-  return (
-    <>
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-foreground/80 font-mono">{value}</span>
-    </>
   )
 }

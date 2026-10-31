@@ -17,9 +17,11 @@ import {
   FavouriteIcon,
   MoreVerticalIcon,
 } from '@hugeicons/core-free-icons'
-import type { NAIMetadata } from '@/lib/nai-metadata'
 import type { GalleryFilters } from '@/lib/gallery-filters'
-import { CharacterPositionsMeta } from '@/components/common/character-positions-meta'
+import {
+  ImageGenerationInfo,
+  ImageLinkedParts,
+} from '@/components/common/image-generation-info'
 import { ExpandedTextareaDialog } from '@/components/common/expanded-textarea-dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -37,7 +39,6 @@ import {
 } from '@/server/functions/gallery'
 import { updateProjectScene } from '@/server/functions/project-scenes'
 import { updateProject } from '@/server/functions/projects'
-import { getUcPresetLabel, parseNAIMetadata } from '@/lib/nai-metadata'
 import { Skeleton } from '@/components/ui/skeleton'
 import { toImageQuery } from '@/lib/gallery-filters'
 import { useTranslation } from '@/lib/i18n'
@@ -193,19 +194,10 @@ function ImageDetailPage() {
   const [memo, setMemo] = useState(data.memo || '')
   const [memoExpanded, setMemoExpanded] = useState(false)
   const [newTag, setNewTag] = useState('')
-  const [refExpanded, setRefExpanded] = useState(false)
-  const [naiExpanded, setNaiExpanded] = useState(false)
-  const [naiMeta, setNaiMeta] = useState<NAIMetadata | null>(null)
-  const [naiLoading, setNaiLoading] = useState(false)
-  const [naiLoaded, setNaiLoaded] = useState(false)
 
   useEffect(() => {
     setDetail(data)
     setMemo(data.memo || '')
-    // Reset NAI metadata when image changes
-    setNaiMeta(null)
-    setNaiLoaded(false)
-    setNaiExpanded(false)
   }, [data])
 
   // Keyboard navigation
@@ -306,40 +298,9 @@ function ImageDetailPage() {
     }
   }
 
-  async function handleToggleNai() {
-    const willExpand = !naiExpanded
-    setNaiExpanded(willExpand)
-
-    // Lazy-load NAI metadata on first expand
-    if (willExpand && !naiLoaded && imageSrc) {
-      setNaiLoading(true)
-      try {
-        const resp = await fetch(imageSrc)
-        const buffer = await resp.arrayBuffer()
-        const result = await parseNAIMetadata(buffer)
-        setNaiMeta(result)
-      } catch {
-        // silently fail
-      } finally {
-        setNaiLoading(false)
-        setNaiLoaded(true)
-      }
-    }
-  }
-
   const imageSrc = detail.filePath
     ? `/api/images/${detail.filePath.replace('data/images/', '')}`
     : ''
-
-  const meta = detail.metadata
-    ? (() => {
-        try {
-          return JSON.parse(detail.metadata)
-        } catch {
-          return null
-        }
-      })()
-    : null
 
   return (
     <div className="h-full flex flex-col lg:flex-row bg-background">
@@ -648,379 +609,14 @@ function ImageDetailPage() {
 
         <Separator className="mb-4" />
 
-        {/* Reference (collapsible) */}
-        <div className="mb-4">
-          <button
-            onClick={() => setRefExpanded(!refExpanded)}
-            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
-          >
-            <span>{t('imageDetail.reference')}</span>
-            <span className="text-xs">{refExpanded ? '\u25B2' : '\u25BC'}</span>
-          </button>
+        <ImageLinkedParts imageId={detail.id} />
 
-          {refExpanded && (
-            <div className="space-y-4 animate-in fade-in-0 slide-in-from-top-1 duration-150">
-              <div>
-                <label className="text-sm text-muted-foreground mb-1.5 block">
-                  {t('imageDetail.metadata')}
-                </label>
-                <div className="text-sm space-y-1 text-muted-foreground">
-                  <p>
-                    {t('imageDetail.seed')}: {detail.seed ?? 'N/A'}
-                  </p>
-                  <p>
-                    {t('imageDetail.created')}:{' '}
-                    {new Date(detail.createdAt!).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {meta?.parameters && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.parameters')}
-                  </label>
-                  <div className="text-sm space-y-0.5 text-muted-foreground">
-                    {meta.parameters.width && (
-                      <p>
-                        {t('imageDetail.size')}: {meta.parameters.width}x
-                        {meta.parameters.height}
-                      </p>
-                    )}
-                    {meta.parameters.steps && (
-                      <p>
-                        {t('imageDetail.steps')}: {meta.parameters.steps}
-                      </p>
-                    )}
-                    {meta.parameters.cfg_scale && (
-                      <p>
-                        {t('imageDetail.cfg')}: {meta.parameters.cfg_scale}
-                      </p>
-                    )}
-                    {meta.parameters.sampler && (
-                      <p>
-                        {t('imageDetail.sampler')}: {meta.parameters.sampler}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              <CharacterPositionsMeta meta={meta} />
-              {meta?.prompts?.generalPrompt && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.generalPrompt')}
-                  </label>
-                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-32 overflow-y-auto">
-                    {meta.prompts.generalPrompt}
-                  </p>
-                </div>
-              )}
-
-              {meta?.prompts?.negativePrompt && (
-                <div>
-                  <label className="text-sm text-muted-foreground mb-1.5 block">
-                    {t('imageDetail.negativePrompt')}
-                  </label>
-                  <p className="text-sm font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-2 rounded-md max-h-24 overflow-y-auto">
-                    {meta.prompts.negativePrompt}
-                  </p>
-                </div>
-              )}
-
-              {/* Reference info from stored metadata */}
-              {meta?.referenceMode &&
-                meta.referenceMode !== 'none' &&
-                meta?.references && (
-                  <div>
-                    <label className="text-sm text-muted-foreground mb-1.5 block">
-                      {t('imageDetail.references')}
-                    </label>
-                    <div className="text-sm space-y-1 bg-secondary/50 p-2 rounded-md">
-                      <p className="text-xs text-muted-foreground mb-1.5">
-                        {meta.referenceMode === 'vibe'
-                          ? t('reference.vibeTransfer')
-                          : t('reference.preciseReference')}
-                      </p>
-                      {meta.referenceMode === 'vibe' &&
-                        meta.references.vibes?.map(
-                          (
-                            v: {
-                              strength: number
-                              informationExtracted: number
-                            },
-                            i: number,
-                          ) => (
-                            <div
-                              key={i}
-                              className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs"
-                            >
-                              <span className="text-muted-foreground">
-                                Vibe {i + 1} {t('reference.strength')}
-                              </span>
-                              <span className="text-foreground/80 font-mono">
-                                {v.strength.toFixed(2)}
-                              </span>
-                              <span className="text-muted-foreground">
-                                Vibe {i + 1}{' '}
-                                {t('reference.informationExtracted')}
-                              </span>
-                              <span className="text-foreground/80 font-mono">
-                                {v.informationExtracted.toFixed(2)}
-                              </span>
-                            </div>
-                          ),
-                        )}
-                      {meta.referenceMode === 'precise' &&
-                        meta.references.precise?.map(
-                          (
-                            r: {
-                              strength: number
-                              fidelity: number
-                              mode: string
-                            },
-                            i: number,
-                          ) => (
-                            <div
-                              key={i}
-                              className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs"
-                            >
-                              <span className="text-muted-foreground">
-                                Ref {i + 1} {t('reference.strength')}
-                              </span>
-                              <span className="text-foreground/80 font-mono">
-                                {r.strength.toFixed(2)}
-                              </span>
-                              <span className="text-muted-foreground">
-                                Ref {i + 1} {t('reference.fidelity')}
-                              </span>
-                              <span className="text-foreground/80 font-mono">
-                                {r.fidelity.toFixed(2)}
-                              </span>
-                              <span className="text-muted-foreground">
-                                Ref {i + 1} {t('reference.mode')}
-                              </span>
-                              <span className="text-foreground/80 font-mono">
-                                {r.mode}
-                              </span>
-                            </div>
-                          ),
-                        )}
-                    </div>
-                  </div>
-                )}
-            </div>
-          )}
-        </div>
-
-        <Separator className="mb-4" />
-
-        {/* NAI Image Metadata (collapsible, lazy-loaded) */}
-        <div className="mb-4">
-          <button
-            onClick={handleToggleNai}
-            className="flex items-center justify-between w-full text-sm text-muted-foreground mb-2 hover:text-foreground transition-colors"
-          >
-            <span>{t('imageDetail.naiMetadata')}</span>
-            <span className="text-xs">{naiExpanded ? '\u25B2' : '\u25BC'}</span>
-          </button>
-
-          {naiExpanded && (
-            <div className="animate-in fade-in-0 slide-in-from-top-1 duration-150">
-              {naiLoading && (
-                <div className="flex items-center gap-2 py-3">
-                  <div className="size-4 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
-                  <span className="text-xs text-muted-foreground">
-                    {t('imageDetail.parsing')}
-                  </span>
-                </div>
-              )}
-
-              {naiLoaded && !naiMeta && (
-                <p className="text-xs text-muted-foreground py-2">
-                  {t('imageDetail.noNaiMetadata')}
-                </p>
-              )}
-
-              {naiMeta && <GalleryNaiMetadata metadata={naiMeta} />}
-            </div>
-          )}
-        </div>
+        <ImageGenerationInfo
+          key={detail.id}
+          detail={detail}
+          imageSrc={imageSrc}
+        />
       </div>
     </div>
-  )
-}
-
-// ─── Compact NAI Metadata viewer for gallery panel ──────────────────────────
-
-function GalleryNaiMetadata({ metadata }: { metadata: NAIMetadata }) {
-  return (
-    <div className="space-y-3">
-      {metadata.source && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-            {metadata.source === 'text_chunk' ? 'tEXt Chunk' : 'Stealth Alpha'}
-          </span>
-        </div>
-      )}
-
-      {metadata.model && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">
-            Model
-          </label>
-          <p className="text-sm font-mono text-foreground/80">
-            {metadata.model}
-          </p>
-        </div>
-      )}
-
-      {metadata.prompt && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">
-            Positive
-          </label>
-          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-28 overflow-y-auto">
-            {metadata.prompt}
-          </p>
-        </div>
-      )}
-
-      {metadata.negativePrompt && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-0.5">
-            Negative
-          </label>
-          <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
-            {metadata.negativePrompt}
-          </p>
-        </div>
-      )}
-
-      {/* V4 Characters */}
-      {metadata.v4_prompt?.caption?.char_captions?.map((char, i) => {
-        const negChar = metadata.v4_negative_prompt?.caption?.char_captions?.[i]
-        return (
-          <div key={i} className="space-y-1.5">
-            <div>
-              <label className="text-xs text-muted-foreground block mb-0.5">
-                Character {i + 1}
-              </label>
-              <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-20 overflow-y-auto">
-                {char.char_caption}
-              </p>
-            </div>
-            {negChar?.char_caption && (
-              <div>
-                <label className="text-xs text-muted-foreground block mb-0.5">
-                  Character {i + 1} Negative
-                </label>
-                <p className="text-xs font-mono text-foreground/80 whitespace-pre-wrap bg-secondary/50 p-1.5 rounded-md max-h-16 overflow-y-auto">
-                  {negChar.char_caption}
-                </p>
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      {/* Parameters grid */}
-      <div>
-        <label className="text-xs text-muted-foreground block mb-1">
-          Parameters
-        </label>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-xs">
-          {metadata.width != null && metadata.height != null && (
-            <NaiParamRow
-              label="Size"
-              value={`${metadata.width}x${metadata.height}`}
-            />
-          )}
-          {metadata.steps != null && (
-            <NaiParamRow label="Steps" value={metadata.steps} />
-          )}
-          {metadata.cfgScale != null && (
-            <NaiParamRow label="CFG" value={metadata.cfgScale} />
-          )}
-          {metadata.cfgRescale != null && metadata.cfgRescale > 0 && (
-            <NaiParamRow label="Rescale" value={metadata.cfgRescale} />
-          )}
-          {metadata.seed != null && (
-            <NaiParamRow label="Seed" value={metadata.seed} />
-          )}
-          {metadata.sampler && (
-            <NaiParamRow label="Sampler" value={metadata.sampler} />
-          )}
-          {metadata.scheduler && (
-            <NaiParamRow label="Scheduler" value={metadata.scheduler} />
-          )}
-          {metadata.smea != null && (
-            <NaiParamRow label="SMEA" value={metadata.smea ? 'On' : 'Off'} />
-          )}
-          {metadata.smeaDyn != null && (
-            <NaiParamRow label="DYN" value={metadata.smeaDyn ? 'On' : 'Off'} />
-          )}
-          {metadata.variety != null && (
-            <NaiParamRow
-              label="Variety+"
-              value={metadata.variety ? 'On' : 'Off'}
-            />
-          )}
-          {metadata.qualityToggle != null && (
-            <NaiParamRow
-              label="Quality"
-              value={metadata.qualityToggle ? 'On' : 'Off'}
-            />
-          )}
-          {metadata.ucPreset != null && (
-            <NaiParamRow
-              label="UC"
-              value={getUcPresetLabel(metadata.ucPreset)}
-            />
-          )}
-        </div>
-      </div>
-
-      {/* Reference info */}
-      {(metadata.hasVibeTransfer || metadata.hasCharacterReference) && (
-        <div>
-          <label className="text-xs text-muted-foreground block mb-1">
-            References
-          </label>
-          <div className="text-xs space-y-0.5 text-foreground/80">
-            {metadata.hasVibeTransfer &&
-              metadata.vibeTransferInfo?.map((vt, i) => (
-                <p key={`vt-${i}`}>
-                  Vibe {i + 1}: str {vt.strength.toFixed(2)}, info{' '}
-                  {vt.informationExtracted.toFixed(2)}
-                </p>
-              ))}
-            {metadata.hasCharacterReference &&
-              metadata.characterReferenceInfo?.map((cr, i) => (
-                <p key={`cr-${i}`}>
-                  CharRef {i + 1}: str {cr.strength.toFixed(2)}, info{' '}
-                  {cr.informationExtracted.toFixed(2)}
-                </p>
-              ))}
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function NaiParamRow({
-  label,
-  value,
-}: {
-  label: string
-  value: string | number
-}) {
-  return (
-    <>
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-foreground/80 font-mono">{value}</span>
-    </>
   )
 }
