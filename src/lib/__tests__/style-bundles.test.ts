@@ -190,6 +190,13 @@ describe('style params parsing', () => {
       }),
     ).toEqual({ width: 832, steps: 50, cfgRescale: 0.46, sampler: 'k_euler' })
   })
+  it('rounds sizes to multiples of 64 within 64..4096', () => {
+    expect(sanitizeStyleParams({ width: 1000, height: 10 })).toEqual({
+      width: 1024,
+      height: 64,
+    })
+    expect(sanitizeStyleParams({ width: 99999 }).width).toBe(4096)
+  })
   it('parseStyleParams tolerates null / bad JSON', () => {
     expect(parseStyleParams(null)).toEqual({})
     expect(parseStyleParams('{oops')).toEqual({})

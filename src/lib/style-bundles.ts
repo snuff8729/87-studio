@@ -72,8 +72,13 @@ export function sanitizeStyleParams(value: unknown): StyleParams {
     const n = v[k]
     if (finite(n)) out[k] = Math.min(max, Math.max(min, Math.round(n)))
   }
-  int('width', 64, 4096)
-  int('height', 64, 4096)
+  // Sizes are multiples of 64 (what NovelAI accepts)
+  for (const k of ['width', 'height'] as const) {
+    const n = v[k]
+    if (finite(n)) {
+      out[k] = Math.min(4096, Math.max(64, Math.round(n / 64) * 64))
+    }
+  }
   int('steps', 1, 50)
   if (finite(v.scale)) {
     out.scale = Math.round(Math.min(20, Math.max(0, v.scale)) * 100) / 100

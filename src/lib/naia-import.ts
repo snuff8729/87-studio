@@ -16,6 +16,8 @@ export interface NaiaFolder {
 }
 
 export interface NaiaStyle {
+  /** Snapshot directory name (unique; the row key) */
+  dirName: string
   name: string
   folderSourceId: string | null
   prompt: string
@@ -102,6 +104,7 @@ export function parseNaiaSnapshot(
       ? root.name.trim()
       : dirName
   return {
+    dirName,
     name,
     folderSourceId:
       typeof root.folder === 'string' && root.folder ? root.folder : null,
@@ -147,7 +150,9 @@ export interface ImportDiff {
 export type ImportStatus = 'new' | 'update' | 'unchanged' | 'renamed' | 'error'
 
 export interface ImportRow {
-  /** Name in the NAIA snapshot (the row key) */
+  /** Snapshot directory name (unique row key) */
+  key: string
+  /** Name in the NAIA snapshot */
   name: string
   status: ImportStatus
   /** Bundle name that will be created / updated (renamed: the suffixed one) */
@@ -191,7 +196,10 @@ export function diffStyle(
 /**
  * Plan an import: per scanned style whether it is new, an update of the
  * same-named style bundle, unchanged, or renamed because a text / wildcard
- * bundle already has that name. Scan errors become error rows.
+ * bundle (or an earlier row of this scan) already has that name. A renamed
+ * row that was imported before finds its earlier "name (2)" style bundle and
+ * updates it instead of creating another suffix. Scan errors become error rows.
+ * Rows are keyed by snapshot directory name (names can repeat).
  */
 export function planNaiaImport(
   scan: NaiaScan,
@@ -199,35 +207,58 @@ export function planNaiaImport(
 ): Array<ImportRow> {
   const byName = new Map(existing.map((b) => [b.name, b]))
   const taken = existing.map((b) => b.name)
+  /** Bundle names already claimed by an earlier row of this plan */
+  const claimed = new Set<string>()
   const rows: Array<ImportRow> = []
+
+  const existingSuffixedStyle = (name: string) => {
+    for (let n = 2; n < existing.length + 3; n++) {
+      const cand = `${name} (${n})`
+      const b = byName.get(cand)
+      if (b && b.kind === 'style' && !claimed.has(cand)) return b
+    }
+    return null
+  }
+
   for (const s of scan.styles) {
     const folderTag = folderTagName(s.folderSourceId, scan.folders)
-    const base = { name: s.name, folderTag, hasImage: s.hasImage }
+    const base = {
+      key: s.dirName,
+      name: s.name,
+      folderTag,
+      hasImage: s.hasImage,
+    }
     const found = byName.get(s.name)
-    if (!found) {
-      const targetName = uniqueSuffixedName(s.name, taken)
-      taken.push(targetName)
-      rows.push({
-        ...base,
-        status: targetName === s.name ? 'new' : 'renamed',
-        targetName,
-      })
-    } else if (found.kind === 'style') {
-      const diff = diffStyle(found, s)
+    const sameNameFree = !claimed.has(s.name)
+
+    // Existing style bundle this row updates (null = create a new one)
+    let target: ExistingBundle | null = null
+    if (found?.kind === 'style' && sameNameFree) target = found
+    else if (found || !sameNameFree) target = existingSuffixedStyle(s.name)
+
+    if (target) {
+      claimed.add(target.name)
+      const diff = diffStyle(target, s)
       rows.push({
         ...base,
         status: diff.length > 0 ? 'update' : 'unchanged',
-        targetName: s.name,
+        targetName: target.name,
         ...(diff.length > 0 && { diff }),
       })
-    } else {
-      const targetName = uniqueSuffixedName(s.name, taken)
-      taken.push(targetName)
-      rows.push({ ...base, status: 'renamed', targetName })
+      continue
     }
+    const targetName = uniqueSuffixedName(s.name, taken)
+    taken.push(targetName)
+    claimed.add(targetName)
+    rows.push({
+      ...base,
+      status: targetName === s.name ? 'new' : 'renamed',
+      targetName,
+    })
   }
   for (const e of scan.errors) {
     rows.push({
+      key: e.name,
       name: e.name,
       status: 'error',
       targetName: e.name,

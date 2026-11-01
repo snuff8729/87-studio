@@ -99,6 +99,7 @@ describe('parseNaiaSnapshot', () => {
 })
 
 const style = (name: string, over: Partial<NaiaStyle> = {}): NaiaStyle => ({
+  dirName: name,
   name,
   folderSourceId: null,
   prompt: 'p',
@@ -154,6 +155,7 @@ describe('planNaiaImport', () => {
     )
     expect(rows).toEqual([
       {
+        key: 'a',
         name: 'a',
         status: 'new',
         targetName: 'a',
@@ -184,9 +186,40 @@ describe('planNaiaImport', () => {
     })
   })
   it('avoids collisions between scanned styles with equal names', () => {
-    const rows = planNaiaImport(scanOf([style('a'), style('a')]), [])
+    const rows = planNaiaImport(
+      scanOf([style('a'), style('a', { dirName: 'a-copy' })]),
+      [],
+    )
     expect(rows.map((r) => r.targetName)).toEqual(['a', 'a (2)'])
+    expect(rows.map((r) => r.key)).toEqual(['a', 'a-copy'])
     expect(rows[1].status).toBe('renamed')
+  })
+  it('re-importing a renamed row updates the earlier "name (2)" style', () => {
+    const existing = [
+      bundle('a', { kind: 'text' }),
+      bundle('a (2)', { styleParams: { steps: 20, scale: 5 } }),
+    ]
+    const changed = planNaiaImport(scanOf([style('a')]), existing)
+    expect(changed[0]).toMatchObject({ status: 'update', targetName: 'a (2)' })
+    const same = planNaiaImport(scanOf([style('a')]), [
+      bundle('a', { kind: 'text' }),
+      bundle('a (2)'),
+    ])
+    expect(same[0]).toMatchObject({ status: 'unchanged', targetName: 'a (2)' })
+  })
+  it('finds a later suffix and does not reuse one claimed by another row', () => {
+    const existing = [
+      bundle('a', { kind: 'text' }),
+      bundle('a (2)', { kind: 'text' }),
+      bundle('a (3)'),
+    ]
+    const rows = planNaiaImport(
+      scanOf([style('a'), style('a', { dirName: 'a-copy' })]),
+      existing,
+    )
+    expect(rows[0]).toMatchObject({ status: 'unchanged', targetName: 'a (3)' })
+    // the second one needs a brand new suffix
+    expect(rows[1]).toMatchObject({ status: 'renamed', targetName: 'a (4)' })
   })
   it('scan errors become error rows', () => {
     const rows = planNaiaImport(
@@ -195,6 +228,7 @@ describe('planNaiaImport', () => {
     )
     expect(rows).toEqual([
       {
+        key: 'broken',
         name: 'broken',
         status: 'error',
         targetName: 'broken',

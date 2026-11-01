@@ -979,6 +979,8 @@ const en = {
     stylePerImage: 'Style · per image',
     styleFollowLabel: 'Follow style for {{name}}',
     styleRandomRes: 'Random resolution is on',
+    styleOverFree:
+      "Beyond NovelAI's free range (1024×1024, 28 steps). This may cost Anlas.",
   },
   export: {
     export: 'Export',
@@ -1072,6 +1074,7 @@ const en = {
     importEmpty: 'No snapshots found in this folder.',
     importNoFolder: 'No folder',
     importFound: '{{count}} snapshots',
+    importRescan: 'The folder changed. Scan again to import.',
     importCount: 'Import {{count}}',
     importDone: '{{created}} created · {{updated}} updated',
     importFailed: 'Import failed',

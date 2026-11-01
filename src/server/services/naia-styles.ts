@@ -12,7 +12,7 @@ import {
 export class NaiaPathError extends Error {}
 
 export interface ScannedNaia extends NaiaScan {
-  /** Absolute `image.webp` path per style name */
+  /** Absolute `image.webp` path per snapshot directory name */
   imagePaths: Map<string, string>
 }
 
@@ -60,7 +60,7 @@ export function scanNaiaSnapshots(rawDir: string): ScannedNaia {
       const hasImage = existsSync(image)
       const style = parseNaiaSnapshot(json, e.name, hasImage)
       styles.push(style)
-      if (hasImage) imagePaths.set(style.name, image)
+      if (hasImage) imagePaths.set(style.dirName, image)
     } catch (err) {
       if (!(err instanceof NaiaParseError)) throw err
       errors.push({ name: e.name, reason: err.message })

@@ -225,45 +225,78 @@ function BundlesPage() {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
 
+  /** Fill the editor (and the save draft) from a loaded bundle */
+  function applyDetail(
+    d: Awaited<ReturnType<typeof getBundle>>,
+    tagSource: typeof bundles,
+  ) {
+    setDetail(d)
+    setEditName(d.name)
+    setEditDescription(d.description ?? '')
+    setEditContent(d.content)
+    setEditKind(normalizeKind(d.kind))
+    setEditMode(normalizeMode(d.wildcardMode))
+    setEditNegative(d.negative)
+    setEditStyle(d.styleParams)
+    setNegativeOpen(!!d.negative)
+    draftRef.current = {
+      name: d.name,
+      description: d.description ?? '',
+      content: d.content,
+      kind: normalizeKind(d.kind),
+      wildcardMode: normalizeMode(d.wildcardMode),
+      negative: d.negative,
+      styleParams: d.styleParams,
+    }
+    const bundleInList = tagSource.find((b) => b.id === d.id)
+    setEditTags(bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [])
+    setTagInput('')
+  }
+
   // Load detail when selection changes
   useEffect(() => {
-    // Save pending edits of the previous bundle before switching
+    // Save pending edits of the previous bundle before switching; until the
+    // new bundle is loaded there is no draft, so early edits cannot patch
+    // the previous bundle's draft under the new id
     void flushSave()
+    draftRef.current = null
+    pendingIdRef.current = null
     if (selectedId === null) {
       setDetail(null)
       setBundleImages([])
-      draftRef.current = null
       return
     }
+    let stale = false
     getBundle({ data: selectedId }).then((d) => {
-      setDetail(d)
-      setEditName(d.name)
-      setEditDescription(d.description ?? '')
-      setEditContent(d.content)
-      setEditKind(normalizeKind(d.kind))
-      setEditMode(normalizeMode(d.wildcardMode))
-      setEditNegative(d.negative)
-      setEditStyle(d.styleParams)
-      setNegativeOpen(!!d.negative)
-      draftRef.current = {
-        name: d.name,
-        description: d.description ?? '',
-        content: d.content,
-        kind: normalizeKind(d.kind),
-        wildcardMode: normalizeMode(d.wildcardMode),
-        negative: d.negative,
-        styleParams: d.styleParams,
-      }
-      const bundleInList = bundles.find((b) => b.id === selectedId)
-      setEditTags(
-        bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [],
-      )
-      setTagInput('')
+      if (!stale) applyDetail(d, bundles)
     })
     listBundleImages({ data: { bundleId: selectedId, limit: 200 } }).then(
-      setBundleImages,
+      (imgs) => {
+        if (!stale) setBundleImages(imgs)
+      },
     )
+    return () => {
+      stale = true
+    }
   }, [selectedId])
+
+  // After a NAIA import the open bundle may have been overwritten: reload it
+  async function handleImported() {
+    const updated = await listBundles()
+    setBundles(updated)
+    queryClient.invalidateQueries({ queryKey: ['bundleNames'] })
+    void refreshTags()
+    if (selectedId !== null) {
+      draftRef.current = null
+      pendingIdRef.current = null
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      try {
+        applyDetail(await getBundle({ data: selectedId }), updated)
+      } catch {
+        /* bundle gone */
+      }
+    }
+  }
 
   const refreshList = useCallback(async () => {
     const updated = await listBundles()
@@ -1201,7 +1234,11 @@ function BundlesPage() {
         <HeaderButton
           variant="outline"
           aria-label={t('bundles.importNaia')}
-          onClick={() => setImportOpen(true)}
+          onClick={() => {
+            // Save pending edits first: the import may overwrite this bundle
+            void flushSave()
+            setImportOpen(true)
+          }}
           data-naia-import-open
         >
           <HugeiconsIcon icon={FolderImportIcon} className="size-4 sm:mr-1.5" />
@@ -1211,7 +1248,7 @@ function BundlesPage() {
       <NaiaImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
-        onImported={() => void refreshList()}
+        onImported={() => void handleImported()}
       />
     </>
   )

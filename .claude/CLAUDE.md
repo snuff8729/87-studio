@@ -605,7 +605,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 
 - NAI API 키 입력/저장
 - 이미지 생성 간 딜레이 설정 (기본 500ms, 범위 0~30초)
-- **딜레이 흔들기** (설정 › 생성 "Vary delay randomly", 설정 키 `generation_delay_jitter` '1'/'0', 기본 꺼짐): 켜면 장 사이 대기가 매번 `round(딜레이 × (0.5 + rand))` (`jitterDelay`)
+- **딜레이 흔들기** (설정 › 생성 "Vary delay randomly", 설정 키 `generation_delay_jitter` '1'/'0', 기본 꺼짐): 켜면 요청 사이 대기(같은 작업의 장 사이 + 작업/씬 사이 모두; 큐가 쉬다 시작한 첫 요청만 대기 없음)가 매번 `round(딜레이 × (0.5 + rand))` (`jitterDelay`)
 - 언어 선택 (English / 한국어)
 - 스토리지 관리 (통계 조회, 고아 파일 정리)
 

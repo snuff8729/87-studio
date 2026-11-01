@@ -211,6 +211,8 @@ async function openImportDialog() {
   await page.locator('[data-naia-import-open]').click()
   const dir = page.locator('[data-naia-dir]')
   await dir.waitFor({ timeout: 10000 })
+  // the dialog pre-fills the last / default folder asynchronously
+  await until(async () => (await dir.inputValue()) !== '', 5000, 'dir prefilled')
   await dir.fill(FIXTURE)
   await page.locator('[data-naia-scan]').click()
   await page
@@ -249,13 +251,20 @@ check(
 )
 await page.keyboard.press('Escape')
 
+// A text bundle with a snapshot's name forces the "Renamed" path
+await open('/bundles')
+await page.locator('[data-new-bundle]').click()
+await page.getByPlaceholder('Bundle name').fill('반실사1')
+await page.keyboard.press('Enter')
+await until(() => bundleRow('반실사1'), 8000, 'colliding text bundle created')
+
 await open('/bundles')
 await openImportDialog()
 check(
   (await rowStatus('2D1')) === 'new' &&
     (await rowStatus('2D25')) === 'new' &&
-    (await rowStatus('반실사1')) === 'new',
-  'scan: three snapshots are New',
+    (await rowStatus('반실사1')) === 'renamed',
+  'scan: two New, one Renamed (name taken by a text bundle)',
 )
 check((await rowStatus('broken')) === 'error', 'scan: broken snapshot is Error')
 check(
@@ -272,10 +281,28 @@ check(
   /Import 3/.test(await importBtn.innerText()),
   'footer says Import 3 (errors excluded)',
 )
+check(
+  await page
+    .locator('[data-naia-import-row="2D25"] img')
+    .evaluate((img) => img.complete && img.naturalWidth > 0)
+    .catch(() => false),
+  'dialog thumbnail (base64) renders (the fixture image itself is 1x1)',
+)
 await shot('import-dialog-1440')
+// editing the path invalidates the scan: Import is disabled until a re-scan
+await page.locator('[data-naia-dir]').fill(path.join(FIXTURE, 'x'))
+check(
+  await importBtn.isDisabled(),
+  'changed folder path disables Import until re-scanned',
+)
+await page.locator('[data-naia-dir]').fill(FIXTURE)
+check(
+  !(await importBtn.isDisabled()),
+  'restoring the scanned path enables Import again',
+)
 await importBtn.click()
 await until(
-  () => bundleRow('2D1') && bundleRow('2D25') && bundleRow('반실사1'),
+  () => bundleRow('2D1') && bundleRow('2D25') && bundleRow('반실사1 (2)'),
   10000,
   'imported bundles exist',
 )
@@ -290,8 +317,10 @@ check(
 check(
   JSON.stringify(tagsOf('2D1')) === JSON.stringify(['2d']) &&
     JSON.stringify(tagsOf('2D25')) === JSON.stringify(['2d/favorite']) &&
-    JSON.stringify(tagsOf('반실사1')) === JSON.stringify(['반실사/간장']),
-  `folder names became tags (${tagsOf('2D1')} | ${tagsOf('2D25')} | ${tagsOf('반실사1')})`,
+    JSON.stringify(tagsOf('반실사1 (2)')) === JSON.stringify(['반실사/간장']) &&
+    bundleRow('반실사1 (2)')?.kind === 'style' &&
+    bundleRow('반실사1')?.kind === 'text',
+  `folder names became tags; renamed import is "반실사1 (2)" (${tagsOf('2D1')} | ${tagsOf('2D25')} | ${tagsOf('반실사1 (2)')})`,
 )
 check(
   !!bundleRow('2D25')?.preview_path &&
@@ -316,11 +345,22 @@ check(
   (await rowStatus('2D1')) === 'unchanged' &&
     (await rowStatus('2D25')) === 'unchanged' &&
     (await rowStatus('반실사1')) === 'unchanged',
-  're-scan: imported snapshots are Unchanged',
+  're-scan: imported snapshots (incl. the renamed one) are Unchanged',
 )
 check(
   await page.locator('[data-naia-import]').isDisabled(),
   'Unchanged rows start unchecked (Import disabled)',
+)
+// Re-importing the renamed row reuses "반실사1 (2)" (no "(3)")
+await page
+  .locator('[data-naia-import-row="반실사1"] button[role="checkbox"]')
+  .click()
+await page.locator('[data-naia-import]').click()
+await sleep(1500)
+check(
+  q1(`select count(*) c from prompt_bundles where name like '반실사1 (%'`).c ===
+    1 && !bundleRow('반실사1 (3)'),
+  're-importing a renamed row updates the existing "(2)" bundle',
 )
 await page.keyboard.press('Escape')
 
@@ -431,6 +471,11 @@ check(
 check(
   (await stepsSwitch.getAttribute('aria-checked')) === 'true',
   'Style switches default to on',
+)
+check(
+  (await page.locator('[data-style-over-free="steps"]').count()) === 1 &&
+    (await page.locator('[data-style-over-free="resolution"]').count()) === 0,
+  'steps 37 (> 28) shows the over-free-range warning; 832x1216 does not',
 )
 await shot('params-1440')
 await stepsSwitch.click()
@@ -660,6 +705,63 @@ check(
   'no style: negative and parameters untouched',
 )
 
+// ── 5b. delay applies between jobs of a batch (1 image per scene) ──
+await open('/settings')
+const delayInput = page.locator('#delay-input')
+await delayInput.waitFor({ timeout: 10000 })
+await delayInput.fill('2000')
+await delayInput.blur()
+await until(
+  () =>
+    q1(`select value v from settings where key = 'generation_delay'`)?.v ===
+    '2000',
+  8000,
+  'delay 2000 saved',
+)
+await open(`/workspace/${projectId}`)
+const multiInputs = page.locator('[title="Images to generate"] input')
+await multiInputs.first().waitFor({ timeout: 15000 })
+const mn = await multiInputs.count()
+for (let i = 0; i < mn; i++) {
+  const want = i < 3 ? 1 : 0
+  const input = multiInputs.nth(i)
+  if ((await input.inputValue()) === String(want)) continue
+  await input.click()
+  await page.keyboard.press('Control+A')
+  await page.keyboard.type(String(want))
+  await page.keyboard.press('Enter')
+  await sleep(120)
+}
+const beforeMulti = q1('select coalesce(max(id),0) m from generation_batches').m
+await page
+  .getByRole('button', { name: /^Generate \d+$/ })
+  .first()
+  .click()
+const multiBatch = await until(
+  () => q1('select * from generation_batches where id > ?', beforeMulti),
+  10000,
+  'multi-scene batch created',
+)
+await until(
+  () => multiBatch && idle() && imgsOf(multiBatch.id).length >= 3,
+  90000,
+  'multi-scene batch finished',
+  400,
+)
+const stamps = q(
+  `select i.created_at c from generated_images i join generation_jobs j on j.id = i.job_id
+    where j.batch_id = ? order by i.id`,
+  multiBatch?.id ?? 0,
+).map((r) => Date.parse(r.c.replace(' ', 'T') + 'Z'))
+check(
+  stamps.length === 3 && stamps[2] - stamps[0] >= 3500,
+  `3 one-image jobs are spaced by the 2s delay (span ${stamps[2] - stamps[0]}ms)`,
+)
+await open('/settings')
+await page.locator('#delay-input').fill('500')
+await page.locator('#delay-input').blur()
+await sleep(800)
+
 // ── 6. settings: delay jitter ──
 await open('/settings')
 const jitter = page.locator('[data-delay-jitter]')
@@ -683,6 +785,41 @@ check(
   'jitter switch stays on after reload',
 )
 await shot('settings-1440')
+
+// ── 7. NAIA import while a bundle is open keeps no stale draft ──
+await open('/bundles?bundle=2D1')
+const negEditor = page.locator('[data-style-negative] .cm-content')
+await negEditor.waitFor({ timeout: 15000 })
+await negEditor.click()
+await page.keyboard.press('Control+A')
+await page.keyboard.type('staleneg', { delay: 5 })
+await page.keyboard.press('Escape')
+await openImportDialog() // opens right away: the pending edit must be flushed
+check(
+  (await rowStatus('2D1')) === 'update',
+  'pending edit was saved before the import (2D1 differs from the snapshot)',
+)
+await page.locator('[data-naia-import]').click()
+await until(
+  () => bundleRow('2D1')?.negative.includes('watermark'),
+  10000,
+  'import overwrote 2D1',
+)
+check(
+  /watermark/.test(
+    await page.locator('[data-style-negative] .cm-content').innerText(),
+  ),
+  'open editor shows the imported negative',
+)
+await page.locator('[data-style-settings] [role="slider"]').first().focus()
+await page.keyboard.press('ArrowRight')
+await sleep(1500)
+check(
+  bundleRow('2D1')?.negative.includes('watermark') &&
+    !bundleRow('2D1')?.negative.includes('staleneg') &&
+    styleParams('2D1').steps === 29,
+  `next edit patches the imported data, not a stale draft (steps ${styleParams('2D1').steps})`,
+)
 
 check(consoleErrors === 0, `no console errors (${consoleErrors})`)
 await browser.close()

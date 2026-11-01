@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react'
+import { HugeiconsIcon } from '@hugeicons/react'
+import { Alert02Icon } from '@hugeicons/core-free-icons'
 import type { PromptStyleInfo, StyleFollowKey } from '@/lib/style-bundles'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
@@ -207,8 +209,34 @@ export function ParameterForm({ localParams, set, style }: ParameterFormProps) {
         data-style-follow={key}
       />
     )
+    // A followed style value beyond the free generation range (may cost Anlas)
+    const sp = style.params
+    const overFree =
+      following &&
+      !style.perImage &&
+      ((key === 'resolution' &&
+        sp?.width != null &&
+        sp.height != null &&
+        sp.width * sp.height > 1024 * 1024) ||
+        (key === 'steps' && sp?.steps != null && sp.steps > 28))
     const trailing = (
       <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {overFree && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="text-destructive"
+                data-style-over-free={key}
+                aria-label={t('params.styleOverFree')}
+              >
+                <HugeiconsIcon icon={Alert02Icon} className="size-3.5" />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent className="max-w-52">
+              {t('params.styleOverFree')}
+            </TooltipContent>
+          </Tooltip>
+        )}
         {blocked ? (
           <Tooltip>
             <TooltipTrigger asChild>

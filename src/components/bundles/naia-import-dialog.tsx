@@ -51,6 +51,8 @@ export function NaiaImportDialog({
   const [rows, setRows] = useState<Array<NaiaPreviewRow> | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Folder the shown rows were scanned from (Import needs a matching path)
+  const [scannedDir, setScannedDir] = useState<string | null>(null)
   const [scanning, setScanning] = useState(false)
   const [importing, setImporting] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -72,8 +74,9 @@ export function NaiaImportDialog({
         return
       }
       setDir(res.dir)
+      setScannedDir(res.dir)
       setRows(res.rows)
-      setSelected(new Set(res.rows.filter(isDefaultChecked).map((r) => r.name)))
+      setSelected(new Set(res.rows.filter(isDefaultChecked).map((r) => r.key)))
     } catch (e) {
       setRows(null)
       setError(e instanceof Error ? e.message : String(e))
@@ -105,7 +108,7 @@ export function NaiaImportDialog({
         },
         ...list.map<Entry>((row) => ({
           kind: 'row',
-          key: `r:${row.name}`,
+          key: `r:${row.key}`,
           row,
         })),
       ]
@@ -133,8 +136,8 @@ export function NaiaImportDialog({
     setSelected((prev) => {
       const next = new Set(prev)
       for (const r of list.filter(isSelectable)) {
-        if (on) next.add(r.name)
-        else next.delete(r.name)
+        if (on) next.add(r.key)
+        else next.delete(r.key)
       }
       return next
     })
@@ -144,7 +147,7 @@ export function NaiaImportDialog({
     setImporting(true)
     try {
       const res = await runNaiaImport({
-        data: { dir, names: [...selected] },
+        data: { dir: scannedDir ?? dir, keys: [...selected] },
       })
       toast.success(
         t('bundles.importDone', { created: res.created, updated: res.updated }),
@@ -159,6 +162,8 @@ export function NaiaImportDialog({
   }
 
   const count = selected.size
+  const dirChanged =
+    scannedDir !== null && dir.trim().replace(/^["']|["']$/g, '') !== scannedDir
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -237,8 +242,8 @@ export function NaiaImportDialog({
                     ) : (
                       <Row
                         row={e.row}
-                        checked={selected.has(e.row.name)}
-                        onChange={(on) => toggle(e.row.name, on)}
+                        checked={selected.has(e.row.key)}
+                        onChange={(on) => toggle(e.row.key, on)}
                       />
                     )}
                   </div>
@@ -250,7 +255,11 @@ export function NaiaImportDialog({
 
         <DialogFooter className="shrink-0 flex-row items-center justify-between gap-2 border-t border-border p-3 sm:justify-between">
           <span className="text-xs text-muted-foreground tabular-nums">
-            {rows ? t('bundles.importFound', { count: rows.length }) : ''}
+            {dirChanged
+              ? t('bundles.importRescan')
+              : rows
+                ? t('bundles.importFound', { count: rows.length })
+                : ''}
           </span>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
@@ -258,7 +267,7 @@ export function NaiaImportDialog({
             </Button>
             <Button
               onClick={doImport}
-              disabled={count === 0 || importing}
+              disabled={count === 0 || importing || dirChanged}
               data-naia-import
             >
               {t('bundles.importCount', { count })}
@@ -282,7 +291,7 @@ function GroupHeader({
   onToggle: (on: boolean) => void
 }) {
   const selectable = rows.filter(isSelectable)
-  const n = selectable.filter((r) => selected.has(r.name)).length
+  const n = selectable.filter((r) => selected.has(r.key)).length
   const state: boolean | 'indeterminate' =
     n === 0 ? false : n === selectable.length ? true : 'indeterminate'
   return (
@@ -317,7 +326,7 @@ function Row({
   const isError = row.status === 'error'
   return (
     <div
-      data-naia-import-row={row.name}
+      data-naia-import-row={row.key}
       data-status={row.status}
       className={cn(
         'flex h-full items-center gap-3 border-b border-border/50 px-4',

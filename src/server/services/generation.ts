@@ -48,6 +48,9 @@ const log = createLogger('generation')
 // ─── Queue state (in-memory, non-persistent) ─────────────────────────────
 
 let processing = false
+// True once an image was generated in this queue run: the next request waits
+// the (jittered) generation delay first. Reset when the queue goes idle.
+let delayBeforeNext = false
 let recovered = false
 
 // Unified queue stop state: 'error' | 'paused' | null
@@ -582,6 +585,7 @@ async function processQueue() {
     )
   } finally {
     processing = false
+    delayBeforeNext = false
   }
 }
 
@@ -671,6 +675,17 @@ async function processJob(jobId: number) {
     const startIndex = job.completedCount ?? 0
 
     for (let i = startIndex; i < totalCount; i++) {
+      // Delay before every request except the first after the queue was idle
+      // (applies across jobs too; optionally jittered 0.5x - 1.5x)
+      if (delayBeforeNext && delay > 0) {
+        const waitMs = jitterDelay(delay, jitter)
+        log.debug('job.delay', 'Waiting between generations', {
+          jobId,
+          delayMs: waitMs,
+        })
+        await new Promise((resolve) => setTimeout(resolve, waitMs))
+      }
+
       // Check if paused
       if (queueStopped === 'paused') {
         log.info('job.paused', 'Job paused mid-generation', {
@@ -869,15 +884,8 @@ async function processJob(jobId: number) {
         .where(eq(generationJobs.id, jobId))
         .run()
 
-      // Delay between generations (optionally jittered 0.5x - 1.5x)
-      if (i < totalCount - 1 && delay > 0) {
-        const waitMs = jitterDelay(delay, jitter)
-        log.debug('job.delay', 'Waiting between generations', {
-          jobId,
-          delayMs: waitMs,
-        })
-        await new Promise((resolve) => setTimeout(resolve, waitMs))
-      }
+      // The next request (this job or the next one) waits the delay first
+      delayBeforeNext = true
     }
 
     // Mark completed

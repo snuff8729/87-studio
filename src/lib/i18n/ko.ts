@@ -982,6 +982,8 @@ const ko: DeepStringify<typeof en> = {
     stylePerImage: '그림체 · 이미지마다',
     styleFollowLabel: '{{name}}을(를) 그림체 값으로 따르기',
     styleRandomRes: '랜덤 해상도가 켜져 있어요',
+    styleOverFree:
+      'NovelAI 무료 범위(1024×1024, 28스텝)를 넘어요. 아나스가 소모될 수 있어요.',
   },
   export: {
     export: '내보내기',
@@ -1076,6 +1078,7 @@ const ko: DeepStringify<typeof en> = {
     importEmpty: '이 폴더에서 스냅샷을 찾지 못했어요.',
     importNoFolder: '폴더 없음',
     importFound: '스냅샷 {{count}}개',
+    importRescan: '폴더가 바뀌었어요. 다시 스캔한 뒤 가져오세요.',
     importCount: '{{count}}개 가져오기',
     importDone: '{{created}}개 생성 · {{updated}}개 업데이트',
     importFailed: '가져오기에 실패했어요',

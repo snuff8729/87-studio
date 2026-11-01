@@ -200,7 +200,7 @@ class BundleResolver {
     allowWildcard = true,
     captureStyle = false,
   ): string {
-    const body = replaceBundleRefs(template, this.lookup, (ref) => {
+    const onRef = (ref: ParsedBundleRef) => {
       if (ref.bundle.kind !== 'wildcard') {
         this.usedIds.add(ref.bundle.id)
         if (captureStyle && ref.bundle.kind === 'style') {
@@ -214,36 +214,44 @@ class BundleResolver {
       return allowWildcard
         ? this.addWildcard(ref, placeholders, captureStyle)
         : ''
-    })
+    }
+    // Slot values holding bundle refs (wildcards / styles) are processed at
+    // the slot's position in the text, so style order follows the final prompt
+    const values: Record<string, string> = { ...placeholders }
+    const processed = new Set<string>()
+    const processSlot = (key: string) => {
+      const v = values[key]
+      if (processed.has(key)) return
+      processed.add(key)
+      if (!v?.includes('@{bundle:')) return
+      values[key] = replaceBundleRefs(
+        v,
+        this.lookup,
+        (ref) => {
+          if (ref.bundle.kind === 'wildcard') {
+            return this.addWildcard(ref, placeholders, captureStyle)
+          }
+          if (ref.bundle.kind === 'style') return onRef(ref)
+          return ref.match ?? ''
+        },
+        (m) => m,
+      )
+    }
+    const canSlots = !!placeholders && allowWildcard
+    const body = template.replace(
+      /@\{(bundle|slot):([^}]+)\}/g,
+      (match, kind: string, rest: string) => {
+        if (kind === 'slot') {
+          if (canSlots) processSlot(rest)
+          return match
+        }
+        return replaceBundleRefs(match, this.lookup, onRef)
+      },
+    )
     if (!placeholders) return body
     if (!allowWildcard) return resolvePlaceholders(body, placeholders)
-    const values: Record<string, string> = { ...placeholders }
-    for (const key of extractPlaceholders(body)) {
-      const v = values[key]
-      if (v?.includes('@{bundle:')) {
-        values[key] = replaceBundleRefs(
-          v,
-          this.lookup,
-          (ref) => {
-            if (ref.bundle.kind === 'wildcard') {
-              return this.addWildcard(ref, placeholders, captureStyle)
-            }
-            if (ref.bundle.kind === 'style') {
-              this.usedIds.add(ref.bundle.id)
-              if (captureStyle) {
-                this.styleSlots.push({
-                  kind: 'static',
-                  style: toStyleInfo(ref.bundle),
-                })
-              }
-              return ref.bundle.content
-            }
-            return ref.match ?? ''
-          },
-          (m) => m,
-        )
-      }
-    }
+    // Slots that only appeared through bundle content
+    for (const key of extractPlaceholders(body)) processSlot(key)
     return resolvePlaceholders(body, values)
   }
 

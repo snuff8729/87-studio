@@ -9,7 +9,7 @@ import {
   settings,
 } from '../db/schema'
 import { dataPath } from '../data-dir'
-import { mkdirSync } from '../data-fs'
+import { existsSync, mkdirSync, unlinkSync } from '../data-fs'
 import { createLogger } from '../services/logger'
 import {
   NaiaPathError,
@@ -80,7 +80,7 @@ export const previewNaiaImport = createServerFn({ method: 'POST' })
       const rows = planNaiaImport(scanned, loadExisting())
       const withThumbs: Array<NaiaPreviewRow> = []
       for (const row of rows) {
-        const path = scanned.imagePaths.get(row.name)
+        const path = scanned.imagePaths.get(row.key)
         withThumbs.push({
           ...row,
           thumb:
@@ -103,18 +103,18 @@ export const previewNaiaImport = createServerFn({ method: 'POST' })
   })
 
 /**
- * Import the chosen snapshots (by NAIA name). New / renamed create style
+ * Import the chosen snapshots (by snapshot directory name). New / renamed create style
  * bundles, update overwrites the same-named style bundle. Folder names become
  * tags (existing tags are kept), the preview image is copied.
  */
 export const runNaiaImport = createServerFn({ method: 'POST' })
-  .inputValidator((data: { dir: string; names: Array<string> }) => data)
+  .inputValidator((data: { dir: string; keys: Array<string> }) => data)
   .handler(async ({ data }) => {
     const scanned = scanNaiaSnapshots(data.dir)
     const dir = cleanNaiaDir(data.dir)
-    const chosen = new Set(data.names)
+    const chosen = new Set(data.keys)
     const plan = planNaiaImport(scanned, loadExisting())
-    const styleByName = new Map(scanned.styles.map((s) => [s.name, s]))
+    const styleByKey = new Map(scanned.styles.map((s) => [s.dirName, s]))
 
     const written: Array<{ id: number; imagePath: string | null }> = []
     let created = 0
@@ -122,8 +122,8 @@ export const runNaiaImport = createServerFn({ method: 'POST' })
 
     db.transaction((tx) => {
       for (const row of plan) {
-        if (!chosen.has(row.name) || row.status === 'error') continue
-        const style = styleByName.get(row.name)
+        if (!chosen.has(row.key) || row.status === 'error') continue
+        const style = styleByKey.get(row.key)
         if (!style) continue
         const values = {
           content: style.prompt,
@@ -175,10 +175,33 @@ export const runNaiaImport = createServerFn({ method: 'POST' })
         }
         written.push({
           id,
-          imagePath: scanned.imagePaths.get(row.name) ?? null,
+          imagePath: scanned.imagePaths.get(row.key) ?? null,
         })
       }
     })
+
+    // A snapshot without an image drops the bundle's old preview too
+    for (const w of written) {
+      if (w.imagePath) continue
+      const row = db
+        .select({ previewPath: promptBundles.previewPath })
+        .from(promptBundles)
+        .where(eq(promptBundles.id, w.id))
+        .get()
+      if (!row?.previewPath) continue
+      try {
+        if (existsSync(row.previewPath)) unlinkSync(row.previewPath)
+      } catch (error) {
+        log.warn('preview', 'Failed to remove old preview image', {
+          bundleId: w.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+      db.update(promptBundles)
+        .set({ previewPath: null })
+        .where(eq(promptBundles.id, w.id))
+        .run()
+    }
 
     // Preview files after the DB write (a copy failure must not undo styles)
     const failures: Array<string> = []
