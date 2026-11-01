@@ -9,7 +9,10 @@ import {
   promptBundles,
 } from '../db/schema'
 import { createLogger } from '../services/logger'
+import { existsSync, unlinkSync } from '../data-fs'
+import type { StyleParams } from '@/lib/style-bundles'
 import type { BundleKind, WildcardMode } from '@/lib/wildcard'
+import { parseStyleParams, sanitizeStyleParams } from '@/lib/style-bundles'
 import { normalizeKind, normalizeMode } from '@/lib/wildcard'
 
 const log = createLogger('fn.bundles')
@@ -47,7 +50,14 @@ export const listBundles = createServerFn({ method: 'GET' }).handler(
         .orderBy(asc(bundleTags.name))
         .all()
 
-      return { ...b, imageCount: count?.count ?? 0, thumbnailPath, tags }
+      const { styleParams, ...rest } = b
+      return {
+        ...rest,
+        styleParams: parseStyleParams(styleParams),
+        imageCount: count?.count ?? 0,
+        thumbnailPath,
+        tags,
+      }
     })
   },
 )
@@ -61,10 +71,13 @@ export const listBundleNames = createServerFn({ method: 'GET' }).handler(
         content: promptBundles.content,
         kind: promptBundles.kind,
         wildcardMode: promptBundles.wildcardMode,
+        negative: promptBundles.negative,
+        styleParams: promptBundles.styleParams,
       })
       .from(promptBundles)
       .orderBy(asc(promptBundles.name))
       .all()
+      .map((b) => ({ ...b, styleParams: parseStyleParams(b.styleParams) }))
   },
 )
 
@@ -150,7 +163,11 @@ export const getBundle = createServerFn({ method: 'GET' })
       .where(eq(imageBundles.bundleId, id))
       .get()
 
-    return { ...bundle, imageCount: count?.count ?? 0 }
+    return {
+      ...bundle,
+      styleParams: parseStyleParams(bundle.styleParams),
+      imageCount: count?.count ?? 0,
+    }
   })
 
 export const createBundle = createServerFn({ method: 'POST' })
@@ -161,6 +178,8 @@ export const createBundle = createServerFn({ method: 'POST' })
       content?: string
       kind?: BundleKind
       wildcardMode?: WildcardMode
+      negative?: string
+      styleParams?: StyleParams
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -172,6 +191,11 @@ export const createBundle = createServerFn({ method: 'POST' })
         content: data.content ?? '',
         kind: normalizeKind(data.kind),
         wildcardMode: normalizeMode(data.wildcardMode),
+        negative: data.negative ?? '',
+        styleParams:
+          data.styleParams !== undefined
+            ? JSON.stringify(sanitizeStyleParams(data.styleParams))
+            : null,
       })
       .returning()
       .get()
@@ -191,6 +215,8 @@ export const updateBundle = createServerFn({ method: 'POST' })
       content?: string
       kind?: BundleKind
       wildcardMode?: WildcardMode
+      negative?: string
+      styleParams?: StyleParams
     }) => data,
   )
   .handler(async ({ data }) => {
@@ -205,6 +231,12 @@ export const updateBundle = createServerFn({ method: 'POST' })
     if (updates.kind !== undefined) setValues.kind = normalizeKind(updates.kind)
     if (updates.wildcardMode !== undefined)
       setValues.wildcardMode = normalizeMode(updates.wildcardMode)
+    if (updates.negative !== undefined) setValues.negative = updates.negative
+    if (updates.styleParams !== undefined) {
+      setValues.styleParams = JSON.stringify(
+        sanitizeStyleParams(updates.styleParams),
+      )
+    }
 
     db.update(promptBundles)
       .set(setValues)
@@ -217,7 +249,23 @@ export const deleteBundle = createServerFn({ method: 'POST' })
   .inputValidator((id: number) => id)
   .handler(async ({ data: id }) => {
     log.info('delete', 'Bundle deleted', { bundleId: id })
+    const row = db
+      .select({ previewPath: promptBundles.previewPath })
+      .from(promptBundles)
+      .where(eq(promptBundles.id, id))
+      .get()
     db.delete(promptBundles).where(eq(promptBundles.id, id)).run()
+    // NAIA preview file belongs to the bundle
+    if (row?.previewPath && existsSync(row.previewPath)) {
+      try {
+        unlinkSync(row.previewPath)
+      } catch (error) {
+        log.warn('delete', 'Failed to delete bundle preview', {
+          bundleId: id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
     return { success: true }
   })
 

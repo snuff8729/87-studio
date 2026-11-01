@@ -26,6 +26,8 @@ export function useBundleDefs(): Record<string, BundleDef> {
         content: b.content,
         kind: normalizeKind(b.kind),
         wildcardMode: normalizeMode(b.wildcardMode),
+        negative: b.negative,
+        styleParams: b.styleParams,
       }
     }
     return map

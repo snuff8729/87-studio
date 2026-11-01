@@ -8,8 +8,9 @@
  * Synthesis leaves a marker `@{wc:N}` in the prompts and records the options in
  * `ResolvedPrompts.wildcards`; the generation loop picks per image.
  */
+import type { StyleInfo, StyleParams } from '@/lib/style-bundles'
 
-export type BundleKind = 'text' | 'wildcard'
+export type BundleKind = 'text' | 'wildcard' | 'style'
 export type WildcardMode = 'random' | 'sequential'
 /** Pick mode recorded per use: bundle modes plus a fixed single option */
 export type PickMode = WildcardMode | 'fixed'
@@ -20,6 +21,9 @@ export interface BundleDef {
   content: string
   kind: BundleKind
   wildcardMode: WildcardMode
+  /** Style bundles only */
+  negative?: string
+  styleParams?: StyleParams
 }
 
 /** One wildcard occurrence in a synthesized prompt set */
@@ -33,6 +37,8 @@ export interface WildcardEntry {
   options: Array<string>
   /** mode 'fixed': options holds only the chosen one; its 0-based line index */
   fixedIndex?: number
+  /** Style of each option (first style bundle in the option line), if any */
+  optionStyles?: Array<StyleInfo | null>
 }
 
 export interface WildcardPick {
@@ -54,7 +60,7 @@ export function normalizeMode(value: unknown): WildcardMode {
 }
 
 export function normalizeKind(value: unknown): BundleKind {
-  return value === 'wildcard' ? 'wildcard' : 'text'
+  return value === 'wildcard' || value === 'style' ? value : 'text'
 }
 
 /** `@{bundle:...}` references (the captured group is the raw name incl. mode) */

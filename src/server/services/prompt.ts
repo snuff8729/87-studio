@@ -12,6 +12,13 @@ import { loadLibraryData } from './parts'
 import type { AxisValues, OutfitEntry } from '@/lib/character-parts'
 import type { PositionSpec } from '@/lib/character-positions'
 import type { BundleDef, ParsedBundleRef, WildcardEntry } from '@/lib/wildcard'
+import type { StyleSlot } from '@/lib/style-bundles'
+import {
+  appendStyleNegative,
+  firstStyleIn,
+  parseStyleParams,
+  toStyleInfo,
+} from '@/lib/style-bundles'
 import { extractPlaceholders, resolvePlaceholders } from '@/lib/placeholder'
 import {
   applyParts,
@@ -81,13 +88,25 @@ export interface ResolvedPrompts {
    * the generation loop picks one option per image (see `@/lib/wildcard`).
    */
   wildcards?: Array<WildcardEntry>
+  /**
+   * Style bundles in the general prompt, in text order. The generation loop
+   * picks the image's style from these (see `@/lib/style-bundles`).
+   */
+  styleSlots?: Array<StyleSlot>
 }
 
 /** Prompts with wildcard markers shown as `{a | b | c}` (previews, queue view) */
 export function previewResolvedPrompts<T extends ResolvedPrompts>(
   prompts: T,
 ): T {
-  return previewWildcardPrompts(prompts)
+  const shown = previewWildcardPrompts(prompts)
+  // A static style's negative is appended to the final negative
+  const first = prompts.styleSlots?.[0]
+  if (first?.kind !== 'static') return shown
+  return {
+    ...shown,
+    negativePrompt: appendStyleNegative(shown.negativePrompt, first.style),
+  }
 }
 
 /** Load all bundles as name→definition map */
@@ -99,6 +118,8 @@ function loadBundleMap(): Map<string, BundleDef> {
       content: promptBundles.content,
       kind: promptBundles.kind,
       wildcardMode: promptBundles.wildcardMode,
+      negative: promptBundles.negative,
+      styleParams: promptBundles.styleParams,
     })
     .from(promptBundles)
     .all()
@@ -111,6 +132,8 @@ function loadBundleMap(): Map<string, BundleDef> {
         content: r.content,
         kind: normalizeKind(r.kind),
         wildcardMode: normalizeMode(r.wildcardMode),
+        negative: r.negative,
+        styleParams: parseStyleParams(r.styleParams),
       },
     ]),
   )
@@ -125,6 +148,7 @@ function loadBundleMap(): Map<string, BundleDef> {
 class BundleResolver {
   readonly usedIds = new Set<number>()
   readonly wildcards: Array<WildcardEntry> = []
+  readonly styleSlots: Array<StyleSlot> = []
 
   constructor(private readonly bundleMap: Map<string, BundleDef>) {}
 
@@ -133,19 +157,24 @@ class BundleResolver {
   private addWildcard(
     ref: ParsedBundleRef,
     placeholders?: Record<string, string>,
+    captureStyle = false,
   ): string {
     const { bundle } = ref
     this.usedIds.add(bundle.id)
     const before = new Set(this.usedIds)
     const all = parseWildcardOptions(bundle.content)
-    const options = (ref.fixed ? [all[ref.fixed.index]] : all).map((o) =>
-      this.resolve(o, placeholders, false),
-    )
+    const rawOptions = ref.fixed ? [all[ref.fixed.index]] : all
+    const options = rawOptions.map((o) => this.resolve(o, placeholders, false))
+    // The first style bundle in an option line is that option's style
+    const optionStyles = rawOptions.map((o) => firstStyleIn(o, this.lookup))
     // Option bundles are not linked to images (only the wildcard bundle is)
     for (const used of [...this.usedIds]) {
       if (!before.has(used)) this.usedIds.delete(used)
     }
     const id = this.wildcards.length
+    if (captureStyle && optionStyles.some((s) => s)) {
+      this.styleSlots.push({ kind: 'wildcard', wildcardId: id })
+    }
     this.wildcards.push({
       id,
       bundleId: bundle.id,
@@ -153,6 +182,7 @@ class BundleResolver {
       mode: effectiveMode(ref),
       options,
       ...(ref.fixed && { fixedIndex: ref.fixed.index }),
+      ...(optionStyles.some((s) => s) && { optionStyles }),
     })
     return wildcardMarker(id)
   }
@@ -160,19 +190,30 @@ class BundleResolver {
   /**
    * Resolve bundles, then (when given) `@{slot:...}` placeholders. Wildcard
    * choice comes first so options can still hold slots. Slot values may hold
-   * wildcard refs too (their text-bundle refs stay literal, as before).
+   * wildcard refs too (their text-bundle refs stay literal, as before; style
+   * refs are inlined). `captureStyle` records style bundles (static and
+   * wildcard) in text order — only for the general prompt.
    */
   resolve(
     template: string,
     placeholders?: Record<string, string>,
     allowWildcard = true,
+    captureStyle = false,
   ): string {
     const body = replaceBundleRefs(template, this.lookup, (ref) => {
       if (ref.bundle.kind !== 'wildcard') {
         this.usedIds.add(ref.bundle.id)
+        if (captureStyle && ref.bundle.kind === 'style') {
+          this.styleSlots.push({
+            kind: 'static',
+            style: toStyleInfo(ref.bundle),
+          })
+        }
         return ref.bundle.content
       }
-      return allowWildcard ? this.addWildcard(ref, placeholders) : ''
+      return allowWildcard
+        ? this.addWildcard(ref, placeholders, captureStyle)
+        : ''
     })
     if (!placeholders) return body
     if (!allowWildcard) return resolvePlaceholders(body, placeholders)
@@ -183,10 +224,22 @@ class BundleResolver {
         values[key] = replaceBundleRefs(
           v,
           this.lookup,
-          (ref) =>
-            ref.bundle.kind === 'wildcard'
-              ? this.addWildcard(ref, placeholders)
-              : (ref.match ?? ''),
+          (ref) => {
+            if (ref.bundle.kind === 'wildcard') {
+              return this.addWildcard(ref, placeholders, captureStyle)
+            }
+            if (ref.bundle.kind === 'style') {
+              this.usedIds.add(ref.bundle.id)
+              if (captureStyle) {
+                this.styleSlots.push({
+                  kind: 'static',
+                  style: toStyleInfo(ref.bundle),
+                })
+              }
+              return ref.bundle.content
+            }
+            return ref.match ?? ''
+          },
           (m) => m,
         )
       }
@@ -194,10 +247,14 @@ class BundleResolver {
     return resolvePlaceholders(body, values)
   }
 
-  record(): Pick<ResolvedPrompts, 'usedBundleIds' | 'wildcards'> {
+  record(): Pick<
+    ResolvedPrompts,
+    'usedBundleIds' | 'wildcards' | 'styleSlots'
+  > {
     return {
       usedBundleIds: [...this.usedIds],
       ...(this.wildcards.length > 0 && { wildcards: this.wildcards }),
+      ...(this.styleSlots.length > 0 && { styleSlots: this.styleSlots }),
     }
   }
 }
@@ -309,6 +366,8 @@ export function synthesizePrompts(
   const generalPrompt = resolver.resolve(
     project.generalPrompt || '',
     scenePlaceholders,
+    true,
+    true,
   )
 
   const negativePrompt = resolver.resolve(
@@ -434,7 +493,12 @@ export function resolveBundlesInRawPrompts(
 ): ResolvedPrompts {
   const resolver = new BundleResolver(loadBundleMap())
 
-  const generalPrompt = resolver.resolve(prompts.generalPrompt)
+  const generalPrompt = resolver.resolve(
+    prompts.generalPrompt,
+    undefined,
+    true,
+    true,
+  )
   const negativePrompt = resolver.resolve(prompts.negativePrompt)
   const characterPrompts = prompts.characterPrompts.map((c) => ({
     ...c,

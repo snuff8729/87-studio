@@ -30,6 +30,13 @@ import {
   toStoredPicks,
 } from '@/lib/wildcard'
 import {
+  appendStyleNegative,
+  applyStyleToParams,
+  jitterDelay,
+  normalizeStyleFollow,
+  pickImageStyle,
+} from '@/lib/style-bundles'
+import {
   DEFAULT_NAI_MODEL,
   getModelProfile,
   pickRandomResolution,
@@ -624,6 +631,12 @@ async function processJob(jobId: number) {
       .where(eq(settings.key, 'generation_delay'))
       .get()
     const delay = delayRow ? Number(delayRow.value) : 500
+    const jitterRow = db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, 'generation_delay_jitter'))
+      .get()
+    const jitter = jitterRow?.value === '1'
 
     // Mark as running
     db.update(generationJobs)
@@ -709,16 +722,45 @@ async function processJob(jobId: number) {
 
       // Generate image via NAI API (with timing)
       const imageStart = Date.now()
-      // Random resolution: pick per image; the actual size is what gets stored
-      const imageParameters = resolvedParameters.randomResolution
-        ? { ...resolvedParameters, ...pickRandomResolution() }
-        : resolvedParameters
-      // Saved metadata keeps the actual width/height, not the random flag
-      const { randomResolution: _random, ...savedParameters } = imageParameters
       // Wildcard bundles are picked per image; `i` is the image index within
       // the job (restart-safe: the loop resumes from completedCount)
       const wildcardPicks = pickWildcards(jobPrompts.wildcards ?? [], i)
-      const resolvedPrompts = applyWildcardPicks(jobPrompts, wildcardPicks)
+      const pickedPrompts = applyWildcardPicks(jobPrompts, wildcardPicks)
+      // The image's style (general prompt): its negative is appended and the
+      // followed settings replace the project's (old jobs have no styleSlots)
+      const imageStyle = pickImageStyle(
+        jobPrompts.styleSlots ?? [],
+        jobPrompts.wildcards ?? [],
+        wildcardPicks,
+      )
+      const resolvedPrompts = imageStyle
+        ? {
+            ...pickedPrompts,
+            negativePrompt: appendStyleNegative(
+              pickedPrompts.negativePrompt,
+              imageStyle,
+            ),
+            usedBundleIds: [
+              ...new Set([
+                ...(pickedPrompts.usedBundleIds ?? []),
+                imageStyle.bundleId,
+              ]),
+            ],
+          }
+        : pickedPrompts
+      const { styleFollow, ...baseParameters } = resolvedParameters
+      const styled = applyStyleToParams(
+        baseParameters,
+        imageStyle,
+        normalizeStyleFollow(styleFollow),
+      )
+      // Random resolution: pick per image; the actual size is what gets stored
+      // (it wins over a style resolution, which is skipped when it is on)
+      const imageParameters = styled.parameters.randomResolution
+        ? { ...styled.parameters, ...pickRandomResolution() }
+        : styled.parameters
+      // Saved metadata keeps the actual width/height, not the random flag
+      const { randomResolution: _random, ...savedParameters } = imageParameters
       // Character positions are resolved per image (random differs each time)
       const positions = resolveImagePositions(resolvedPrompts, imageParameters)
       const { imageData, seed } = await generateImage(
@@ -768,6 +810,9 @@ async function processJob(jobId: number) {
             parameters: savedParameters,
             ...(wildcardPicks.length > 0 && {
               wildcards: toStoredPicks(wildcardPicks),
+            }),
+            ...(imageStyle && {
+              style: { bundle: imageStyle.name, applied: styled.applied },
             }),
             ...(positions && { characterPositions: positions }),
             ...(referenceMode !== 'none' &&
@@ -824,13 +869,14 @@ async function processJob(jobId: number) {
         .where(eq(generationJobs.id, jobId))
         .run()
 
-      // Delay between generations
+      // Delay between generations (optionally jittered 0.5x - 1.5x)
       if (i < totalCount - 1 && delay > 0) {
+        const waitMs = jitterDelay(delay, jitter)
         log.debug('job.delay', 'Waiting between generations', {
           jobId,
-          delayMs: delay,
+          delayMs: waitMs,
         })
-        await new Promise((resolve) => setTimeout(resolve, delay))
+        await new Promise((resolve) => setTimeout(resolve, waitMs))
       }
     }
 

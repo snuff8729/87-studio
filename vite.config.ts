@@ -43,6 +43,9 @@ function serveDataFiles(): Plugin {
         } else if (pathname.startsWith('/api/tag-images/')) {
           basePath = resolve(dataPath('./data/tag-images'))
           relativePath = pathname.slice('/api/tag-images/'.length)
+        } else if (pathname.startsWith('/api/bundle-previews/')) {
+          basePath = resolve(dataPath('./data/bundle-previews'))
+          relativePath = pathname.slice('/api/bundle-previews/'.length)
         } else if (pathname.startsWith('/api/references/')) {
           basePath = resolve(dataPath('./data/references'))
           relativePath = pathname.slice('/api/references/'.length)

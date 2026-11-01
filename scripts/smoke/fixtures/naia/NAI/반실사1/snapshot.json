@@ -1,0 +1,85 @@
+{
+  "mode": "NAI",
+  "model": "NAID5F",
+  "app_version": "",
+  "folder": "f6150347006b9",
+  "preset": {
+    "source_preset": "recommend",
+    "module_settings": {
+      "pre_prompt": "1.2::artist:kim eb ::, 0.7::artist:torino aqua ::, 0.6::artist:mikozin ::, 0.4::tianliang duohe fangdongye, ixy ::, 0.5::kedama milk ::, 0.7::artist:quasarcake ::, 0.7::artist:channel (caststation) ::, 0.6::artist:tab head ::, 0.5::artist:qiandaiyiyu ::, 0.5::artist:mika pikazo ::, 0.3::artist:wanke ::, 0.4::artist:freng ::, 0.25::artist:cutesexyrobutts ::",
+      "post_prompt": "",
+      "auto_hide_prompt": "monochrome, doujin cover, bad source, __censor__, uncensored, female pubic hair, bad id, _logo, bad twitter id, comic, __background__, ~blurry background, ~sky background, character doll, stuffed animal, stuffed toy, speech bubble, cyclops, pov, 3d, glasses, mole, text focus, thought bubble, watermark, web address, body writing, fake screenshot, facing away, |_|, __piercing__, tattoo, _tattoo, _text, sound effects, greyscale, multiple views, __pubic hair__, peeing, rabbit, __censor__, pregnant, __chess__, trading card, __(medium)__, __theme__, child on child, covered clitoris, _gag, sketch, poke_, __pokemon__, recording, viewfinder, multiple boys, __measuring__, multiple views, big belly, curvy, doll joints, looking at viewer, timestamp, battery indicator, tan, fake phone screenshot, stomach bulge, __beach__, __shower__, on table, huge penis, __bug__, giant insect, belly, eye mask, circle cut, dark nipples, signature, alternate race, alternate species, dark nipples, livestream, slap mark, x-ray, armpit hair, health bar, snapchat, facial mark, emoji, command spell, dark areolae, __piercing__, __bed__, __pillow__, __sheet__, body markings, obese, __long tongue__, toddlercon, __name__, handprint, __pasties__, mini person, __butt plug__, __eyepatch__, oppai loli, sex toy, loli, chibi, chibi inset, makeup, mascara, large breasts, runny makeup, third eye, anal hair, __halo__, __(style)__, __(cosplay)__, __freckles__, braces, gag, __joint__",
+      "preprocessing_options": {
+        "remove_author": true,
+        "remove_work_title": true,
+        "remove_character_name": true,
+        "remove_character_features": false,
+        "remove_clothes": false,
+        "remove_clothing_event": false,
+        "remove_color": false,
+        "remove_location_and_background_color": false,
+        "remove_expression": false,
+        "remove_pose_action": false,
+        "remove_meta_tags": true,
+        "remove_object_tags": true,
+        "remove_noise_tags": true,
+        "closed_eyes_sync": true,
+        "e621_auto_boost": false,
+        "danbooru_auto_weight": false,
+        "tag_implication_compression": true,
+        "category_annotation": false
+      },
+      "e621_settings": {
+        "weight": 0,
+        "hidden_tags": [],
+        "mode": "stable"
+      },
+      "danbooru_weight_settings": {
+        "magnitude": 3
+      }
+    },
+    "main_settings": {
+      "prompt": "0.8::yao_liao_wang::,\n1.2::solipsist::,\n0.6::artist:ciloranko::,\n0.5::artist:ame_(uten_cancel)::,\n0.75::artist:izayoi_seishin  ::,\n0.2::artist:oda_non ::,\n0.4::artist:gorgeous mushroom::,\n0.5::artist:teshima nari::,\n0.7::artist:han-0v0 ::\n\nyear 2026,year 2025,\n\n-2::simple illustration::, -2::signature, artist name, patreon, artist socials, multiple views, bad anatomy,text,censored::,\n::masterpiece, best illustration, best quality, highres, absurdres, aesthetic::, \n\nnsfw, very aesthetic, masterpiece, no text",
+      "negative": "natsuki karin, text, logo, watermark, too many watermarks, blank page, text-only page, reference, username, signature, artist:xinzoruo, artist:milkpanda, artist collaboration, variant set, large variant set, 4koma, 2koma, toon (style), chibi, turnaround, film grain, monochrome, dithering, halftone, screentones, dated, old, 1990s (style), mutation, deformed, distorted, disfigured, artistic error, distorted anatomy, anatomical structure error, asymmetrical face, unnatural hair, bad eyes, cloudy eyes, blank eyes, bad proportions, bad limb, extra digits, fewer digits, bad legs, extra legs, amputee, distorted composition, bad perspective, multiple views, negative space, animation error, chromatic aberration, disorganized colors, scan artifacts, jpeg artifacts, vertical lines, vertical banding, worst quality, bad quality, lowres, blurry, upscaled, fewer details, unfinished, incomplete, amateur, cheesy, unsatisfactory, inadequate, deficient, subpar, poor, displeasing, very displeasing, bad illustration, bad portrait,sketch,bikini tan,tan,armpits hair,gloves,garterbelt",
+      "model": "NAID5F",
+      "sampler": "k_euler_ancestral",
+      "scheduler": "karras",
+      "resolution": "832 x 1216",
+      "width": 832,
+      "height": 1216,
+      "steps": 28,
+      "cfg_scale": 5,
+      "cfg_rescale": 0.2,
+      "seed": 1159628974,
+      "seed_fixed": false,
+      "SMEA": false,
+      "DYN": false,
+      "VAR+": true,
+      "DECRISP": false,
+      "enable_hr": true,
+      "nai_resolution_preset_enabled": false,
+      "random_resolution": false,
+      "auto_fit_resolution": false,
+      "prompt_fixed": false,
+      "wildcard_standalone": false
+    }
+  },
+  "characters": {
+    "is_active": true,
+    "position_mode": "auto",
+    "frames": [
+      {
+        "prompt": "1girl",
+        "uc": "",
+        "custom_name": "",
+        "position": null,
+        "connect_to": 0
+      }
+    ]
+  },
+  "recorded_only": {},
+  "schema": "naia.snapshot.v1",
+  "name": "반실사1",
+  "saved_at": "2026-10-27T06:05:13.671776+00:00",
+  "created_at": "2026-10-27T06:05:13.671776+00:00"
+}

@@ -1,0 +1,29 @@
+{
+  "folders": [
+    {
+      "id": "fd930ad88b3e6",
+      "name": "샘플",
+      "parent": ""
+    },
+    {
+      "id": "f433ed7ae633d",
+      "name": "반실사",
+      "parent": ""
+    },
+    {
+      "id": "ffee7a35870b7",
+      "name": "2D",
+      "parent": ""
+    },
+    {
+      "id": "f6150347006b9",
+      "name": "간장",
+      "parent": "f433ed7ae633d"
+    },
+    {
+      "id": "f4bfa36a3bea1",
+      "name": "Favorite",
+      "parent": "ffee7a35870b7"
+    }
+  ]
+}

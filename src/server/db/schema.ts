@@ -458,10 +458,16 @@ export const promptBundles = sqliteTable('prompt_bundles', {
   name: text('name').notNull().unique(),
   description: text('description'),
   content: text('content').notNull().default(''),
-  /** 'text' (fixed) | 'wildcard' (one option per line, picked per image) */
+  /** 'text' (fixed) | 'wildcard' (one option per line) | 'style' (prompt + negative + settings) */
   kind: text('kind').notNull().default('text'),
   /** Default pick mode of a wildcard bundle: 'random' | 'sequential' */
   wildcardMode: text('wildcard_mode').notNull().default('random'),
+  /** Style bundles: negative prompt appended to the final negative */
+  negative: text('negative').notNull().default(''),
+  /** Style bundles: JSON StyleParams (NULL = none) */
+  styleParams: text('style_params'),
+  /** Style bundles: logical path of the NAIA preview image */
+  previewPath: text('preview_path'),
   thumbnailImageId: integer('thumbnail_image_id'),
   createdAt: text('created_at').default(sql`(datetime('now'))`),
   updatedAt: text('updated_at').default(sql`(datetime('now'))`),
