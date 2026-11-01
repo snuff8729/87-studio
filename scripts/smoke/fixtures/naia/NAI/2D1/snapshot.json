@@ -1,0 +1,85 @@
+{
+  "mode": "NAI",
+  "model": "NAID5F",
+  "app_version": "",
+  "folder": "ffee7a35870b7",
+  "preset": {
+    "source_preset": "recommend",
+    "module_settings": {
+      "pre_prompt": "1.2::artist:kim eb ::, 0.7::artist:torino aqua ::, 0.6::artist:mikozin ::, 0.4::tianliang duohe fangdongye, ixy ::, 0.5::kedama milk ::, 0.7::artist:quasarcake ::, 0.7::artist:channel (caststation) ::, 0.6::artist:tab head ::, 0.5::artist:qiandaiyiyu ::, 0.5::artist:mika pikazo ::, 0.3::artist:wanke ::, 0.4::artist:freng ::, 0.25::artist:cutesexyrobutts ::",
+      "post_prompt": "",
+      "auto_hide_prompt": "monochrome, doujin cover, bad source, __censor__, uncensored, female pubic hair, bad id, _logo, bad twitter id, comic, __background__, ~blurry background, ~sky background, character doll, stuffed animal, stuffed toy, speech bubble, cyclops, pov, 3d, glasses, mole, text focus, thought bubble, watermark, web address, body writing, fake screenshot, facing away, |_|, __piercing__, tattoo, _tattoo, _text, sound effects, greyscale, multiple views, __pubic hair__, peeing, rabbit, __censor__, pregnant, __chess__, trading card, __(medium)__, __theme__, child on child, covered clitoris, _gag, sketch, poke_, __pokemon__, recording, viewfinder, multiple boys, __measuring__, multiple views, big belly, curvy, doll joints, looking at viewer, timestamp, battery indicator, tan, fake phone screenshot, stomach bulge, __beach__, __shower__, on table, huge penis, __bug__, giant insect, belly, eye mask, circle cut, dark nipples, signature, alternate race, alternate species, dark nipples, livestream, slap mark, x-ray, armpit hair, health bar, snapchat, facial mark, emoji, command spell, dark areolae, __piercing__, __bed__, __pillow__, __sheet__, body markings, obese, __long tongue__, toddlercon, __name__, handprint, __pasties__, mini person, __butt plug__, __eyepatch__, oppai loli, sex toy, loli, chibi, chibi inset, makeup, mascara, large breasts, runny makeup, third eye, anal hair, __halo__, __(style)__, __(cosplay)__, __freckles__, braces, gag, __joint__",
+      "preprocessing_options": {
+        "remove_author": true,
+        "remove_work_title": true,
+        "remove_character_name": true,
+        "remove_character_features": false,
+        "remove_clothes": false,
+        "remove_clothing_event": false,
+        "remove_color": false,
+        "remove_location_and_background_color": false,
+        "remove_expression": false,
+        "remove_pose_action": false,
+        "remove_meta_tags": true,
+        "remove_object_tags": true,
+        "remove_noise_tags": true,
+        "closed_eyes_sync": true,
+        "e621_auto_boost": false,
+        "danbooru_auto_weight": false,
+        "tag_implication_compression": true,
+        "category_annotation": false
+      },
+      "e621_settings": {
+        "weight": 0,
+        "hidden_tags": [],
+        "mode": "stable"
+      },
+      "danbooru_weight_settings": {
+        "magnitude": 3
+      }
+    },
+    "main_settings": {
+      "prompt": "artist:badnick69_(camchi), artist:nishikujic, year2025, artist:ratatatat74, year2025, artist:zhibuji loom, artist:ugonba (howatoro), year 2024, artist:rehu_(astd5787), artist:rembrandt, -1::clean text::, -1::flat color::, natural, incredibly absurdres, very aesthetic, highres, masterpiece, best quality, amazing quality, -3::simple illustration::, best illustratio",
+      "negative": "text, logo, watermark, too many watermarks, reference, signature, artist name, dated, artistic error, scan artifacts, jpeg artifacts, upscaled, aliasing, film grain, heavy film grain, dithering, chromatic aberration, digital dissolve, halftone, screentones, artist:xinzoruo, artist:milkpanda, artist:kurukurumagical, artist collaboration, one-hour drawing challenge, toon (style), 1990s (style), 4koma, 2koma, mutation, deformed, distorted, disfigured, 1.2::bad anatomy::, unnatural hair, bad face, mob face, bad eyes, empty eyes, bad proportions, bad limbs, amputee, bad arm, bad hands, bad hand structure, extra digits, fewer digits, bad leg, extra leg, distorted composition, bad perspective, multiple views, disorganized colors, unfinished, incomplete, displeasing, very displeasing, unsatisfactory, inadequate, deficient, subpar, poor, blurry, lowres, worst quality, bad quality, fewer details, bad portrait, bad illustration",
+      "model": "NAID5F",
+      "sampler": "k_euler_ancestral",
+      "scheduler": "karras",
+      "resolution": "832 x 1216",
+      "width": 832,
+      "height": 1216,
+      "steps": 28,
+      "cfg_scale": 5.5,
+      "cfg_rescale": 0.16,
+      "seed": 3696435716,
+      "seed_fixed": false,
+      "SMEA": false,
+      "DYN": false,
+      "VAR+": true,
+      "DECRISP": false,
+      "enable_hr": true,
+      "nai_resolution_preset_enabled": false,
+      "random_resolution": false,
+      "auto_fit_resolution": false,
+      "prompt_fixed": false,
+      "wildcard_standalone": false
+    }
+  },
+  "characters": {
+    "is_active": true,
+    "position_mode": "auto",
+    "frames": [
+      {
+        "prompt": "1girl",
+        "uc": "",
+        "custom_name": "",
+        "position": null,
+        "connect_to": 0
+      }
+    ]
+  },
+  "recorded_only": {},
+  "schema": "naia.snapshot.v1",
+  "name": "2D1",
+  "saved_at": "2026-10-27T06:09:28.216544+00:00",
+  "created_at": "2026-10-27T06:09:28.216544+00:00"
+}

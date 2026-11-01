@@ -162,6 +162,13 @@
       "when": 1793432291872,
       "tag": "0022_scene_characters",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "6",
+      "when": 1793541330015,
+      "tag": "0023_style_bundles",
+      "breakpoints": true
     }
   ]
 }

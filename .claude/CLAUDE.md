@@ -124,7 +124,7 @@ src/
 │   ├── characters/
 │   │   └── index.tsx          # 캐릭터 파츠 라이브러리 (?tab=characters|outfits|presets|axes&id=&projectId=)
 │   ├── bundles/
-│   │   └── index.tsx          # 프롬프트 번들 관리
+│   │   └── index.tsx          # 프롬프트 번들 관리 (종류 Text·Wildcard·Style, 헤더 "Import from NAIA")
 │   ├── generate/
 │   │   └── index.tsx          # 빠른 생성 (프로젝트 없이 직접 생성)
 │   ├── queue/
@@ -220,7 +220,7 @@ src/
 │   ├── db/
 │   │   ├── schema.ts          # Drizzle 스키마 정의 (32개 테이블)
 │   │   ├── index.ts           # DB 연결 (better-sqlite3)
-│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0021)
+│   │   └── migrations/        # drizzle-kit 마이그레이션 파일 (0000~0023)
 │   ├── services/
 │   │   ├── prompt.ts          # 프롬프트 합성 로직
 │   │   ├── nai.ts             # NAI API 클라이언트 (모델 선택 지원)
@@ -245,7 +245,8 @@ src/
 │       ├── inspect.ts         # 이미지 메타데이터 → 프로젝트 생성
 │       ├── download.ts        # 이미지 다운로드 (ZIP, 필터링, 템플릿 파일명)
 │       ├── storage.ts         # 스토리지 통계, 고아 파일 정리
-│       ├── bundles.ts         # 프롬프트 번들 CRUD, 번들 태그 관리
+│       ├── bundles.ts         # 프롬프트 번들 CRUD, 번들 태그 관리 (negative/styleParams, 삭제 시 미리보기 파일 삭제)
+│       ├── naia-import.ts     # NAIA 스냅샷 스캔/미리보기(previewNaiaImport)/가져오기(runNaiaImport), 마지막 경로 getNaiaDir
 │       ├── danbooru.ts        # Danbooru API 연동 (태그 조회, 검색)
 │       ├── quick-generation.ts  # 빠른 생성 워크플로우
 │       ├── queue.ts           # 큐 상태 조회 및 관리
@@ -258,6 +259,8 @@ src/
 │   ├── project-packs.ts       # 프로젝트 팩 순수 헬퍼 (이름 중복, " (2)" 접미사, 순서 교환)
 │   ├── scene-templates.ts     # 씬 템플릿 다이얼로그 순수 로직 (복제 이름, 이동, 키 추천/이름 변경, 레이아웃 파싱)
 │   ├── bundle.ts              # @{bundle:name} 참조 추출/치환 유틸
+│   ├── style-bundles.ts       # 그림체 번들 순수 로직 (pickImageStyle, applyStyleToParams, appendStyleNegative, jitterDelay, detectPromptStyle, StyleParams; 테스트)
+│   ├── naia-import.ts         # NAIA 스냅샷 파싱·가져오기 계획 (순수; new/update(diff)/unchanged/renamed/error, 폴더 → 태그; 테스트)
 │   ├── wildcard.ts            # 와일드카드 번들 순수 로직 (참조·모드·고정 옵션 파싱, 이미지별 선택, 마커 치환, 미리보기; 테스트)
 │   ├── use-bundles.ts         # 번들 데이터 React Query 훅
 │   ├── utils.ts               # 일반 유틸리티 (cn 등)
@@ -307,6 +310,7 @@ scripts/smoke/sd-paste.mjs     # SD→NAI 붙여넣기 변환 스모크 (NAI_MOC
 scripts/smoke/quick-parts.mjs  # Quick Generate 파츠 스모크 (NAI_MOCK 서버 전용, 새 seed 필요: 라이브러리 데이터는 DB에 직접 삽입, 연결·의상·글로벌 축·미리보기·Empty 배지·생성 resolved_prompts·image_axis_values/links·라이브러리 Images(N)·새로고침 유지·연결 끊김·일반 캐릭터)
 scripts/smoke/parts.mjs        # 캐릭터 파츠 스모크 (중첩 부위·조각 부위·변수·코디 이미지 포함; NAI_MOCK 서버 전용, 새로 seed한 DB 필요: 라이브러리 CRUD·조건·미리보기·Chars 탭 연결·씬 Parts·일괄 축·생성 resolved_prompts·분리)
 scripts/smoke/queue.mjs        # 생성 큐 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 배치 생성·진행 카드·일시정지·드래그 재정렬·취소·실패/재시도·결과 이미지 검증, DB 읽기전용 교차검증)
+scripts/smoke/style-bundles.mjs # 그림체 번들 스모크 (NAI_MOCK 서버 전용, 실제 쓰기; NAIA 가져오기·편집·Params 따르기·생성 검증·와일드카드 그림체+Seed Fix·Quick·흔들기, 1440/390; 픽스처 scripts/smoke/fixtures/naia/)
 scripts/smoke/wildcard.mjs     # 와일드카드 번들 스모크 (NAI_MOCK 서버 전용, 실제 쓰기: 번들 에디터(스위치·모드·개수·배지·Add bundle)·워크스페이스 순차 4장·Quick :random/:seq/고정 옵션/번들 참조 줄·갤러리 promptTag, DB 읽기전용 교차검증)
 scripts/demo/                  # 데모 데이터: seed.mjs(가짜 데이터 생성, `--out demo*` 지정 가능), start-demo.bat(빌드 결과를 ./demo 데이터로 :3001에 NAI_MOCK=1로 실행). `npm run demo`, `npm run demo:seed`
 LICENSE                        # GPL-3.0
@@ -411,6 +415,11 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
   - 합성(`BundleResolver`)은 프롬프트에 `@{wc:N}` 마커를 남기고 옵션 목록을 `ResolvedPrompts.wildcards`에 저장(와일드카드 선택이 번들/슬롯 치환보다 먼저). **선택은 `generation.ts` 루프에서 이미지마다**(sequential = 루프 인덱스 `i` % 개수 → 재시작 복구 유지, 여러 sequential은 함께 진행). 이미지 metadata는 선택이 반영된 최종 `prompts` + `wildcards: [{bundle, mode(random|sequential|fixed), option, index}]`(promptTag 필터가 선택 결과에 일치), `image_bundles`는 와일드카드 번들만 연결. 미리보기/큐 프롬프트 보기는 `{a | b | c}` / `{seq: a | b | c}`
   - 에디터: 와일드카드 참조는 보라 점선 하이라이트, 알 수 없는 번들/옵션은 invalid-ref 경고, 호버에 타입·모드·옵션 목록, 자동완성 `wildcard · n options` 및 `bundle:name:` 뒤 `random`/`seq`/옵션 이름. 목록 행에 옵션 수 배지
   - 순수 로직 `src/lib/wildcard.ts`(테스트 있음), 스모크 `scripts/smoke/wildcard.mjs`
+- **그림체 번들** (스펙: `docs/superpowers/specs/2026-11-01-style-bundles-design.md`, 규칙: `docs/design-rules.md`): `kind='style'` = 프롬프트(`content`) + `negative` + `style_params`(JSON `{width,height,steps,scale,cfgRescale,sampler,scheduler}`, 모델은 안 담음) + `preview_path`(NAIA 미리보기 `data/bundle-previews/<id>.webp`, `/api/bundle-previews/` 서빙, 삭제 시 파일도 삭제). 에디터 종류 Segmented `Text · Wildcard · Style`(종류를 바꿔도 네거티브·설정은 보존, Style일 때만 Negative 접이식 + Settings 폼 `components/bundles/style-settings-form.tsx`, 설정 항목 ✕ = 비움 → 프로젝트 값 사용). 목록 `Style` 배지, 썸네일 = 지정 이미지 → NAIA 미리보기 → 아이콘
+  - 참조는 텍스트 번들처럼 프롬프트 텍스트로 인라인. **일반 프롬프트**(프로젝트 general / Quick prompt)에 있는 그림체만 "이미지의 그림체": `BundleResolver.resolve(..., captureStyle)`가 텍스트 순서대로 `ResolvedPrompts.styleSlots`(static | wildcard)에 기록, 와일드카드 옵션 줄의 그림체는 `WildcardEntry.optionStyles`. 생성 루프가 이미지마다 와일드카드 pick 직후 `pickImageStyle`(첫 번째로 그림체를 가진 슬롯) → 최종 네거티브 뒤에 `, 그림체 네거티브` + `applyStyleToParams`(따르기 켜진 항목만; Random resolution이 켜지면 해상도는 랜덤이 이김; 값 없는 항목은 프로젝트 값). metadata: 실제 `prompts`/`parameters`(`styleFollow` 제거) + `style: {bundle, applied}`, `image_bundles`에 그림체 연결. 옛 job(`styleSlots` 없음)은 그대로 동작
+  - Params 탭 "그림체 값 따르기": `ParameterForm`의 `style` prop(`usePromptStyle(generalPrompt)` → `detectPromptStyle`) — 해상도·Steps·CFG·CFG Rescale·Sampler(+Scheduler) 라벨 줄에 Switch + `Style · 값`(와일드카드면 `Style · per image`), 켜진 항목은 컨트롤 비활성(흐림). 저장은 `parameters.styleFollow`(없는 키 = true; 워크스페이스는 프로젝트 parameters, Quick은 로컬 상태). 테스트 선택자 `data-style-follow="steps"`, `data-param-value`
+  - **NAIA에서 가져오기** (`/bundles` 헤더 "Import from NAIA", `components/bundles/naia-import-dialog.tsx`): 스냅샷 폴더(`_folders.json` + 하위 `<name>/snapshot.json`·`image.webp`; 기본 `C:/Users/User/Documents/LLM/NAIA-Portable/user-data/save/snapshots/NAI`(Windows 경로도 가능), 마지막 경로는 설정 `naia_snapshot_dir`) 스캔 → 폴더별 그룹 + 상태 배지(New/Update(`steps 25 → 28`)/Unchanged/Renamed(같은 이름 텍스트·와일드카드가 있으면 `이름 (2)`)/Error) → Import N. 폴더 이름 = 번들 태그(`부모/자식`, 소문자), 기존 태그 유지, 미리보기 `image.webp` 복사. 스캔 응답의 행 썸네일은 96px data URL(임의 경로 서빙 없음). 서버 `services/naia-styles.ts` + `functions/naia-import.ts`, 순수 `lib/naia-import.ts`
+  - 스모크 `scripts/smoke/style-bundles.mjs`(NAI_MOCK 서버 전용, 실제 쓰기, 픽스처 `scripts/smoke/fixtures/naia/`; 새로 seed한 DB 필요: 가져오기·Unchanged/Update·편집 자동저장·종류 전환·Params 따르기 스위치·생성 parameters/negative·와일드카드 그림체 + Seed Fix·Quick·흔들기 설정, 1440/390 스크린샷)
 
 ### Reference Image (참조 이미지)
 
@@ -596,6 +605,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 
 - NAI API 키 입력/저장
 - 이미지 생성 간 딜레이 설정 (기본 500ms, 범위 0~30초)
+- **딜레이 흔들기** (설정 › 생성 "Vary delay randomly", 설정 키 `generation_delay_jitter` '1'/'0', 기본 꺼짐): 켜면 요청 사이 대기(같은 작업의 장 사이 + 작업/씬 사이 모두; 큐가 쉬다 시작한 첫 요청만 대기 없음)가 매번 `round(딜레이 × (0.5 + rand))` (`jitterDelay`)
 - 언어 선택 (English / 한국어)
 - 스토리지 관리 (통계 조회, 고아 파일 정리)
 
@@ -878,7 +888,10 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 | id                 | integer (PK, autoincrement) |                   |
 | name               | text (NOT NULL, UNIQUE)     |                   |
 | description        | text                        |                   |
-| kind               | text (NOT NULL, DEFAULT 'text') | 'text' 또는 'wildcard' (목록, 마이그레이션 0021) |
+| kind               | text (NOT NULL, DEFAULT 'text') | 'text' | 'wildcard' | 'style' (마이그레이션 0021, style은 0023 UI 값) |
+| negative           | text (NOT NULL, DEFAULT '') | 그림체 네거티브 (마이그레이션 0023) |
+| style_params       | text                        | 그림체 설정 JSON StyleParams (NULL = 없음) |
+| preview_path       | text                        | NAIA 미리보기 논리 경로 `data/bundle-previews/<id>.<ext>` |
 | wildcard_mode      | text (NOT NULL, DEFAULT 'random') | 와일드카드 기본 모드 'random' / 'sequential' |
 | content            | text (NOT NULL, DEFAULT '') | 번들 프롬프트     |
 | thumbnail_image_id | integer                     | 대표 썸네일       |
@@ -969,7 +982,7 @@ scripts/build-ko-tags.mjs      # 메인테이너용: NAIA2.0 KR_tags.parquet + o
 
 | 컬럼       | 타입            | 설명                                            |
 | ---------- | --------------- | ----------------------------------------------- |
-| key        | text (PK)       | 설정 키 (예: 'nai_api_key', 'generation_delay') |
+| key        | text (PK)       | 설정 키 (예: 'nai_api_key', 'generation_delay', 'generation_delay_jitter', 'naia_snapshot_dir') |
 | value      | text (NOT NULL) | 설정 값                                         |
 | updated_at | text            |                                                 |
 

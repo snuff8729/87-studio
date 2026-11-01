@@ -1,6 +1,7 @@
 import { hoverTooltip } from '@codemirror/view'
 import { getBundleNames, lookupBundleRef } from './bundle-completion'
 import { effectiveMode, optionName, parseWildcardOptions } from '@/lib/wildcard'
+import { formatStyleSummary } from '@/lib/style-bundles'
 
 const BUNDLE_RE = /@\{bundle:([^}]+)\}/g
 const MAX_LINES = 3
@@ -65,6 +66,14 @@ export const bundleTooltip = hoverTooltip((view, pos) => {
             return { dom }
           }
 
+          if (bundle.kind === 'style') {
+            const meta = document.createElement('div')
+            meta.className = 'cm-tooltip-bundle-meta'
+            const summary = formatStyleSummary(bundle.styleParams ?? {})
+            meta.textContent = summary ? `style · ${summary}` : 'style'
+            dom.appendChild(meta)
+          }
+
           // Truncate to MAX_LINES worth of comma-separated segments
           const text = bundle.content.trim()
           const segments = text.split(/,\s*/)
@@ -82,6 +91,15 @@ export const bundleTooltip = hoverTooltip((view, pos) => {
           }
           content.textContent = preview || text.slice(0, 150)
           dom.appendChild(content)
+
+          const negative = bundle.negative?.trim()
+          if (bundle.kind === 'style' && negative) {
+            const neg = document.createElement('div')
+            neg.className = 'cm-tooltip-bundle-meta'
+            const first = negative.split(/\r?\n/)[0]
+            neg.textContent = `negative: ${first.length > 80 ? first.slice(0, 80) + '…' : first}`
+            dom.appendChild(neg)
+          }
 
           return { dom }
         },

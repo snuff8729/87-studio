@@ -227,6 +227,7 @@ runtime/
 /demo-mock*/
 /demo-parts/
 /demo-fresh/
+/demo-style/
 
 # AI design notes (kept locally, not published)
 /docs/superpowers/

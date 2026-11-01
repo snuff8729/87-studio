@@ -68,11 +68,16 @@ function PendingComponent() {
 
 export const Route = createFileRoute('/settings/')({
   loader: async () => {
-    const [apiKey, delay] = await Promise.all([
+    const [apiKey, delay, jitter] = await Promise.all([
       getSetting({ data: 'nai_api_key' }),
       getSetting({ data: 'generation_delay' }),
+      getSetting({ data: 'generation_delay_jitter' }),
     ])
-    return { apiKey: apiKey ?? '', delay: delay ?? '500' }
+    return {
+      apiKey: apiKey ?? '',
+      delay: delay ?? '500',
+      jitter: jitter === '1',
+    }
   },
   component: SettingsPage,
   pendingComponent: PendingComponent,
@@ -134,6 +139,32 @@ function SdPasteConvertSwitch() {
       checked={on}
       onCheckedChange={setSdPasteConvertEnabled}
       data-sd-paste-switch
+    />
+  )
+}
+
+/** Vary the delay between generations randomly (0.5x - 1.5x) */
+function DelayJitterSwitch({ initial }: { initial: boolean }) {
+  const { t } = useTranslation()
+  const [on, setOn] = useState(initial)
+  async function change(next: boolean) {
+    setOn(next)
+    try {
+      await setSetting({
+        data: { key: 'generation_delay_jitter', value: next ? '1' : '0' },
+      })
+      toast.success(t('settings.saved'))
+    } catch {
+      setOn(!next)
+      toast.error(t('settings.saveFailed'))
+    }
+  }
+  return (
+    <Switch
+      id="delay-jitter"
+      checked={on}
+      onCheckedChange={change}
+      data-delay-jitter
     />
   )
 }
@@ -229,7 +260,11 @@ function StatTile({
 }
 
 function SettingsPage() {
-  const { apiKey: initialApiKey, delay: initialDelay } = Route.useLoaderData()
+  const {
+    apiKey: initialApiKey,
+    delay: initialDelay,
+    jitter: initialJitter,
+  } = Route.useLoaderData()
   const queryClient = useQueryClient()
   const { data: account } = useNaiAccount()
   const [apiKey, setApiKey] = useState(initialApiKey)
@@ -581,6 +616,13 @@ function SettingsPage() {
                 className="w-24 shrink-0 font-mono"
               />
             </div>
+          </SettingRow>
+          <SettingRow
+            label={t('settings.delayJitter')}
+            description={t('settings.delayJitterHint')}
+            htmlFor="delay-jitter"
+          >
+            <DelayJitterSwitch initial={initialJitter} />
           </SettingRow>
           <SettingRow
             label={t('settings.sdPasteConvert')}

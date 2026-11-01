@@ -4,15 +4,18 @@ import { toast } from 'sonner'
 import { HugeiconsIcon } from '@hugeicons/react'
 import {
   Add01Icon,
+  ArrowDown01Icon,
   Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
+  FolderImportIcon,
   Image02Icon,
   PinIcon,
   Search01Icon,
 } from '@hugeicons/core-free-icons'
 import { useQueryClient } from '@tanstack/react-query'
 import type { BundleKind, WildcardMode } from '@/lib/wildcard'
+import type { StyleParams } from '@/lib/style-bundles'
 import type { EditorBundle } from '@/components/prompt-editor/bundle-completion'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -27,7 +30,6 @@ import {
 import { GRID_SIZES } from '@/components/gallery/gallery-toolbar'
 import { useImageGridSize } from '@/lib/use-image-grid-size'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import {
   Popover,
   PopoverContent,
@@ -42,6 +44,14 @@ import {
 } from '@/components/ui/command'
 import { Segmented } from '@/components/common/segmented'
 import {
+  HeaderActions,
+  usePageHeader,
+} from '@/components/layout/breadcrumb-context'
+import { HeaderButton } from '@/components/layout/header-button'
+import { StyleSettingsForm } from '@/components/bundles/style-settings-form'
+import { NaiaImportDialog } from '@/components/bundles/naia-import-dialog'
+import { cn } from '@/lib/utils'
+import {
   normalizeKind,
   normalizeMode,
   parseWildcardOptions,
@@ -49,7 +59,6 @@ import {
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { useIsMobile } from '@/hooks/use-mobile'
 import { MasterDetail } from '@/components/common/master-detail'
-import { usePageHeader } from '@/components/layout/breadcrumb-context'
 import { useTranslation } from '@/lib/i18n'
 import { useBundleNames } from '@/lib/use-bundles'
 import {
@@ -166,6 +175,8 @@ function BundlesPage() {
     content: string
     kind: string
     wildcardMode: string
+    negative: string
+    styleParams: StyleParams
     thumbnailImageId: number | null
     imageCount: number
   } | null>(null)
@@ -175,9 +186,20 @@ function BundlesPage() {
   const [editContent, setEditContent] = useState('')
   const [editKind, setEditKind] = useState<BundleKind>('text')
   const [editMode, setEditMode] = useState<WildcardMode>('random')
-  const [tagGalleryOpen, setTagGalleryOpen] = useState(false)
-  const [expandOpen, setExpandOpen] = useState(false)
+  const [editNegative, setEditNegative] = useState('')
+  const [editStyle, setEditStyle] = useState<StyleParams>({})
+  const [negativeOpen, setNegativeOpen] = useState(false)
+  const [importOpen, setImportOpen] = useState(false)
+  const [tagTarget, setTagTarget] = useState<'content' | 'negative' | null>(
+    null,
+  )
+  const [expandTarget, setExpandTarget] = useState<
+    'content' | 'negative' | null
+  >(null)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+  // Latest edits of the open bundle, saved as a whole (debounced / on switch)
+  const draftRef = useRef<BundleDraft | null>(null)
+  const pendingIdRef = useRef<number | null>(null)
 
   // Images for selected bundle
   const [bundleImages, setBundleImages] = useState<
@@ -203,30 +225,78 @@ function BundlesPage() {
   const [creating, setCreating] = useState(false)
   const [newName, setNewName] = useState('')
 
+  /** Fill the editor (and the save draft) from a loaded bundle */
+  function applyDetail(
+    d: Awaited<ReturnType<typeof getBundle>>,
+    tagSource: typeof bundles,
+  ) {
+    setDetail(d)
+    setEditName(d.name)
+    setEditDescription(d.description ?? '')
+    setEditContent(d.content)
+    setEditKind(normalizeKind(d.kind))
+    setEditMode(normalizeMode(d.wildcardMode))
+    setEditNegative(d.negative)
+    setEditStyle(d.styleParams)
+    setNegativeOpen(!!d.negative)
+    draftRef.current = {
+      name: d.name,
+      description: d.description ?? '',
+      content: d.content,
+      kind: normalizeKind(d.kind),
+      wildcardMode: normalizeMode(d.wildcardMode),
+      negative: d.negative,
+      styleParams: d.styleParams,
+    }
+    const bundleInList = tagSource.find((b) => b.id === d.id)
+    setEditTags(bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [])
+    setTagInput('')
+  }
+
   // Load detail when selection changes
   useEffect(() => {
+    // Save pending edits of the previous bundle before switching; until the
+    // new bundle is loaded there is no draft, so early edits cannot patch
+    // the previous bundle's draft under the new id
+    void flushSave()
+    draftRef.current = null
+    pendingIdRef.current = null
     if (selectedId === null) {
       setDetail(null)
       setBundleImages([])
       return
     }
+    let stale = false
     getBundle({ data: selectedId }).then((d) => {
-      setDetail(d)
-      setEditName(d.name)
-      setEditDescription(d.description ?? '')
-      setEditContent(d.content)
-      setEditKind(normalizeKind(d.kind))
-      setEditMode(normalizeMode(d.wildcardMode))
-      const bundleInList = bundles.find((b) => b.id === selectedId)
-      setEditTags(
-        bundleInList?.tags?.map((t: { name: string }) => t.name) ?? [],
-      )
-      setTagInput('')
+      if (!stale) applyDetail(d, bundles)
     })
     listBundleImages({ data: { bundleId: selectedId, limit: 200 } }).then(
-      setBundleImages,
+      (imgs) => {
+        if (!stale) setBundleImages(imgs)
+      },
     )
+    return () => {
+      stale = true
+    }
   }, [selectedId])
+
+  // After a NAIA import the open bundle may have been overwritten: reload it
+  async function handleImported() {
+    const updated = await listBundles()
+    setBundles(updated)
+    queryClient.invalidateQueries({ queryKey: ['bundleNames'] })
+    void refreshTags()
+    if (selectedId !== null) {
+      draftRef.current = null
+      pendingIdRef.current = null
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      try {
+        applyDetail(await getBundle({ data: selectedId }), updated)
+      } catch {
+        /* bundle gone */
+      }
+    }
+  }
 
   const refreshList = useCallback(async () => {
     const updated = await listBundles()
@@ -244,38 +314,34 @@ function BundlesPage() {
     refreshTags()
   }, [refreshTags])
 
-  // Debounced save
-  function scheduleSave(
-    name: string,
-    description: string,
-    content: string,
-    kind: BundleKind = editKind,
-    wildcardMode: WildcardMode = editMode,
-  ) {
+  // Save the whole draft of the open bundle (debounced; flushed on switch)
+  async function flushSave() {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-    saveTimerRef.current = setTimeout(async () => {
-      if (!selectedId) return
-      try {
-        await updateBundle({
-          data: {
-            id: selectedId,
-            name,
-            description,
-            content,
-            kind,
-            wildcardMode,
-          },
-        })
-        refreshList()
-      } catch {
-        toast.error(t('bundles.updateFailed'))
-      }
-    }, 800)
+    const id = pendingIdRef.current
+    const draft = draftRef.current
+    if (id === null || !draft) return
+    pendingIdRef.current = null
+    try {
+      await updateBundle({ data: { id, ...draft } })
+      refreshList()
+    } catch {
+      toast.error(t('bundles.updateFailed'))
+    }
   }
 
+  function scheduleSave(patch: Partial<BundleDraft>) {
+    if (selectedId === null || !draftRef.current) return
+    draftRef.current = { ...draftRef.current, ...patch }
+    pendingIdRef.current = selectedId
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => void flushSave(), 800)
+  }
+
+  const flushRef = useRef(flushSave)
+  flushRef.current = flushSave
   useEffect(() => {
     return () => {
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      void flushRef.current()
       if (tagSaveTimerRef.current) clearTimeout(tagSaveTimerRef.current)
     }
   }, [])
@@ -346,28 +412,38 @@ function BundlesPage() {
 
   function handleNameChange(name: string) {
     setEditName(name)
-    scheduleSave(name, editDescription, editContent)
+    scheduleSave({ name })
   }
 
   function handleDescriptionChange(desc: string) {
     setEditDescription(desc)
-    scheduleSave(editName, desc, editContent)
+    scheduleSave({ description: desc })
   }
 
   function handleContentChange(content: string) {
     setEditContent(content)
-    scheduleSave(editName, editDescription, content)
+    scheduleSave({ content })
   }
 
-  function handleKindChange(wildcard: boolean) {
-    const kind: BundleKind = wildcard ? 'wildcard' : 'text'
+  function handleNegativeChange(negative: string) {
+    setEditNegative(negative)
+    scheduleSave({ negative })
+  }
+
+  function handleStyleChange(styleParams: StyleParams) {
+    setEditStyle(styleParams)
+    scheduleSave({ styleParams })
+  }
+
+  // Switching the type keeps negative / settings (hidden outside Style)
+  function handleKindChange(kind: BundleKind) {
     setEditKind(kind)
-    scheduleSave(editName, editDescription, editContent, kind, editMode)
+    scheduleSave({ kind })
   }
 
   function handleModeChange(mode: WildcardMode) {
     setEditMode(mode)
-    scheduleSave(editName, editDescription, editContent, editKind, mode)
+    scheduleSave({ wildcardMode: mode })
   }
 
   function handleAddBundleLine(name: string) {
@@ -601,9 +677,12 @@ function BundlesPage() {
           <div className="space-y-0.5 p-1.5">
             {filtered.map((bundle) => {
               const isActive = selectedId === bundle.id
+              // Thumbnail: chosen image, else the NAIA preview, else icon
               const thumbSrc = bundle.thumbnailPath
                 ? `/api/thumbnails/${bundle.thumbnailPath.replace('data/thumbnails/', '')}`
-                : null
+                : bundle.previewPath
+                  ? `/api/bundle-previews/${bundle.previewPath.replace('data/bundle-previews/', '')}?v=${encodeURIComponent(bundle.updatedAt ?? '')}`
+                  : null
 
               return (
                 <button
@@ -643,6 +722,14 @@ function BundlesPage() {
                           {t('bundles.wildcardBadge', {
                             count: parseWildcardOptions(bundle.content).length,
                           })}
+                        </span>
+                      )}
+                      {bundle.kind === 'style' && (
+                        <span
+                          data-style-badge
+                          className="shrink-0 rounded border border-primary/40 bg-primary/10 px-1 text-[10px] text-primary"
+                        >
+                          {t('bundles.styleBadge')}
                         </span>
                       )}
                       {bundle.imageCount > 0 && (
@@ -820,23 +907,26 @@ function BundlesPage() {
 
           <Separator />
 
-          {/* Wildcard type */}
+          {/* Bundle type */}
           <div className="space-y-2" data-bundle-kind>
-            <div className="flex items-center gap-3">
-              <Switch
-                id="bundle-wildcard"
-                checked={editKind === 'wildcard'}
-                onCheckedChange={handleKindChange}
-                data-wildcard-switch
+            <div className="flex flex-wrap items-center gap-3">
+              <Segmented
+                label={t('bundles.kind')}
+                value={editKind}
+                onChange={handleKindChange}
+                options={[
+                  { value: 'text', label: t('bundles.kindText') },
+                  { value: 'wildcard', label: t('bundles.kindWildcard') },
+                  { value: 'style', label: t('bundles.kindStyle') },
+                ]}
               />
-              <div className="min-w-0">
-                <Label htmlFor="bundle-wildcard" className="text-sm">
-                  {t('bundles.wildcard')}
-                </Label>
-                <p className="text-xs text-muted-foreground">
-                  {t('bundles.wildcardDesc')}
-                </p>
-              </div>
+              <p className="min-w-[14rem] flex-1 text-xs text-muted-foreground">
+                {editKind === 'wildcard'
+                  ? t('bundles.wildcardDesc')
+                  : editKind === 'style'
+                    ? t('bundles.styleDesc')
+                    : t('bundles.textDesc')}
+              </p>
             </div>
             {editKind === 'wildcard' && (
               <div className="flex flex-wrap items-center gap-2">
@@ -872,8 +962,8 @@ function BundlesPage() {
             <PromptEditorHeader
               label={t('bundles.bundleContent')}
               uppercase
-              onExpand={() => setExpandOpen(true)}
-              onOpenTagGallery={() => setTagGalleryOpen(true)}
+              onExpand={() => setExpandTarget('content')}
+              onOpenTagGallery={() => setTagTarget('content')}
             />
             <LazyPromptEditor
               value={editContent}
@@ -887,6 +977,77 @@ function BundlesPage() {
               bundleNames={bundleNamesForEditor}
             />
           </div>
+
+          {editKind === 'style' && (
+            <>
+              {/* Negative (collapsible, like the character negative) */}
+              <div className="space-y-1.5" data-style-negative>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setNegativeOpen((o) => !o)}
+                    aria-expanded={negativeOpen}
+                    aria-label={t('bundles.negative')}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <HugeiconsIcon
+                      icon={ArrowDown01Icon}
+                      className={cn(
+                        'size-4 transition-transform',
+                        !negativeOpen && '-rotate-90',
+                      )}
+                    />
+                  </button>
+                  {negativeOpen ? (
+                    <div className="min-w-0 flex-1">
+                      <PromptEditorHeader
+                        label={t('bundles.negative')}
+                        uppercase
+                        onExpand={() => setExpandTarget('negative')}
+                        onOpenTagGallery={() => setTagTarget('negative')}
+                      />
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setNegativeOpen(true)}
+                      className="flex items-center gap-1.5 text-sm uppercase tracking-wider text-muted-foreground hover:text-foreground"
+                    >
+                      {t('bundles.negative')}
+                      {!editNegative && (
+                        <span className="normal-case tracking-normal text-muted-foreground/60">
+                          {t('bundles.emptyHint')}
+                        </span>
+                      )}
+                    </button>
+                  )}
+                </div>
+                {negativeOpen && (
+                  <LazyPromptEditor
+                    value={editNegative}
+                    onChange={handleNegativeChange}
+                    placeholder={t('bundles.negativePlaceholder')}
+                    minHeight="120px"
+                    bundleNames={bundleNamesForEditor}
+                  />
+                )}
+              </div>
+
+              {/* Generation settings */}
+              <div className="space-y-2">
+                <Label className="text-sm text-muted-foreground uppercase tracking-wider">
+                  {t('bundles.styleSettings')}
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  {t('bundles.styleSettingsDesc')}
+                </p>
+                <StyleSettingsForm
+                  value={editStyle}
+                  onChange={handleStyleChange}
+                />
+              </div>
+            </>
+          )}
 
           <Separator />
 
@@ -1040,28 +1201,70 @@ function BundlesPage() {
         backLabel={t('nav.bundles')}
       />
       <ExpandedEditorDialog
-        open={expandOpen}
-        onOpenChange={setExpandOpen}
-        title={t('bundles.bundleContent')}
-        value={editContent}
-        onChange={handleContentChange}
+        open={expandTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setExpandTarget(null)
+        }}
+        title={
+          expandTarget === 'negative'
+            ? t('bundles.negative')
+            : t('bundles.bundleContent')
+        }
+        value={expandTarget === 'negative' ? editNegative : editContent}
+        onChange={
+          expandTarget === 'negative'
+            ? handleNegativeChange
+            : handleContentChange
+        }
         bundleNames={bundleNamesForEditor}
       />
       <TagGalleryDialog
-        open={tagGalleryOpen}
-        onOpenChange={setTagGalleryOpen}
-        onInsertTag={(tag) => {
-          const newContent = editContent
-            ? editContent.trimEnd() + ', ' + tag
-            : tag
-          handleContentChange(newContent)
+        open={tagTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setTagTarget(null)
         }}
+        onInsertTag={(tag) => {
+          const current = tagTarget === 'negative' ? editNegative : editContent
+          const next = current ? current.trimEnd() + ', ' + tag : tag
+          if (tagTarget === 'negative') handleNegativeChange(next)
+          else handleContentChange(next)
+        }}
+      />
+      <HeaderActions>
+        <HeaderButton
+          variant="outline"
+          aria-label={t('bundles.importNaia')}
+          onClick={() => {
+            // Save pending edits first: the import may overwrite this bundle
+            void flushSave()
+            setImportOpen(true)
+          }}
+          data-naia-import-open
+        >
+          <HugeiconsIcon icon={FolderImportIcon} className="size-4 sm:mr-1.5" />
+          <span className="hidden sm:inline">{t('bundles.importNaia')}</span>
+        </HeaderButton>
+      </HeaderActions>
+      <NaiaImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onImported={() => void handleImported()}
       />
     </>
   )
 }
 
-/** Append an existing text bundle as a new option line (`@{bundle:name}`) */
+interface BundleDraft {
+  name: string
+  description: string
+  content: string
+  kind: BundleKind
+  wildcardMode: WildcardMode
+  negative: string
+  styleParams: StyleParams
+}
+
+/** Append an existing text / style bundle as a new option line (`@{bundle:name}`) */
 function AddBundleLinePopover({
   bundles,
   selfName,
@@ -1074,7 +1277,7 @@ function AddBundleLinePopover({
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const candidates = bundles.filter(
-    (b) => normalizeKind(b.kind) === 'text' && b.name !== selfName,
+    (b) => normalizeKind(b.kind) !== 'wildcard' && b.name !== selfName,
   )
   return (
     <Popover open={open} onOpenChange={setOpen}>
