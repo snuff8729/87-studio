@@ -196,7 +196,7 @@ check(
 )
 
 await createBundleUI('wcexpression')
-await page.locator('[data-wildcard-switch]').click()
+await page.locator('[data-bundle-kind] [data-segment="wildcard"]').click()
 await page.getByRole('radio', { name: 'Sequential' }).click()
 await typeLines(page.locator('.cm-content').first(), [
   'wcsmile',
@@ -222,7 +222,7 @@ await shot('editor-1440')
 
 // second wildcard: option lines that are text-bundle refs (Add bundle popover)
 await createBundleUI('wcmood')
-await page.locator('[data-wildcard-switch]').click()
+await page.locator('[data-bundle-kind] [data-segment="wildcard"]').click()
 await page.locator('[data-add-bundle-line]').click()
 await page.getByPlaceholder('Search bundles...').last().fill('wcgrin')
 await page.getByRole('option', { name: 'wcgrin' }).click()
@@ -246,7 +246,9 @@ check(bundleRow('wcmood')?.wildcard_mode === 'random', 'default mode is random')
 // mobile screenshot of the editor in wildcard mode
 await page.setViewportSize({ width: 390, height: 844 })
 await open('/bundles?bundle=wcexpression')
-await page.locator('[data-wildcard-switch]').waitFor({ timeout: 10000 })
+await page
+  .locator('[data-bundle-kind] [data-segment="wildcard"]')
+  .waitFor({ timeout: 10000 })
 await shot('editor-390')
 await page.setViewportSize({ width: 1440, height: 900 })
 

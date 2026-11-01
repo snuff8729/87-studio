@@ -43,7 +43,10 @@ import {
   CommandList,
 } from '@/components/ui/command'
 import { Segmented } from '@/components/common/segmented'
-import { HeaderActions, usePageHeader  } from '@/components/layout/breadcrumb-context'
+import {
+  HeaderActions,
+  usePageHeader,
+} from '@/components/layout/breadcrumb-context'
 import { HeaderButton } from '@/components/layout/header-button'
 import { StyleSettingsForm } from '@/components/bundles/style-settings-form'
 import { NaiaImportDialog } from '@/components/bundles/naia-import-dialog'
@@ -884,7 +887,7 @@ function BundlesPage() {
                   { value: 'style', label: t('bundles.kindStyle') },
                 ]}
               />
-              <p className="min-w-0 flex-1 text-xs text-muted-foreground">
+              <p className="min-w-[14rem] flex-1 text-xs text-muted-foreground">
                 {editKind === 'wildcard'
                   ? t('bundles.wildcardDesc')
                   : editKind === 'style'
@@ -1201,10 +1204,7 @@ function BundlesPage() {
           onClick={() => setImportOpen(true)}
           data-naia-import-open
         >
-          <HugeiconsIcon
-            icon={FolderImportIcon}
-            className="size-4 sm:mr-1.5"
-          />
+          <HugeiconsIcon icon={FolderImportIcon} className="size-4 sm:mr-1.5" />
           <span className="hidden sm:inline">{t('bundles.importNaia')}</span>
         </HeaderButton>
       </HeaderActions>

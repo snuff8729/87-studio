@@ -222,7 +222,8 @@ export function ParameterForm({ localParams, set, style }: ParameterFormProps) {
         ) : (
           <>
             {switchEl}
-            {t('params.styleSwitch')}
+            {/* The value text ("Style · 37") already names the style */}
+            {!following && t('params.styleSwitch')}
           </>
         )}
       </label>
@@ -274,59 +275,59 @@ export function ParameterForm({ localParams, set, style }: ParameterFormProps) {
           )}
           aria-disabled={sRes?.following || undefined}
         >
-        <div className="flex flex-wrap gap-1.5">
-          {RESOLUTION_PRESETS.map((p) => (
-            <button
-              key={p.key}
-              type="button"
-              disabled={randomRes || sRes?.following}
-              onClick={() => {
-                set('width', p.w)
-                set('height', p.h)
-              }}
-              className={cn(
-                'px-2.5 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none',
-                activePreset?.key === p.key
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary',
-              )}
-            >
-              {t(`params.${p.key}` as any)}
-            </button>
-          ))}
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">
-              {t('params.width')}
-            </Label>
-            <Input
-              type="number"
-              min={64}
-              max={1856}
-              step={64}
-              value={String(w)}
-              disabled={randomRes || sRes?.following}
-              onChange={(e) => set('width', Number(e.target.value))}
-              className="h-8 text-sm tabular-nums"
-            />
+          <div className="flex flex-wrap gap-1.5">
+            {RESOLUTION_PRESETS.map((p) => (
+              <button
+                key={p.key}
+                type="button"
+                disabled={randomRes || sRes?.following}
+                onClick={() => {
+                  set('width', p.w)
+                  set('height', p.h)
+                }}
+                className={cn(
+                  'px-2.5 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none',
+                  activePreset?.key === p.key
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-secondary/60 text-secondary-foreground hover:bg-secondary',
+                )}
+              >
+                {t(`params.${p.key}` as any)}
+              </button>
+            ))}
           </div>
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">
-              {t('params.height')}
-            </Label>
-            <Input
-              type="number"
-              min={64}
-              max={2624}
-              step={64}
-              value={String(h)}
-              disabled={randomRes || sRes?.following}
-              onChange={(e) => set('height', Number(e.target.value))}
-              className="h-8 text-sm tabular-nums"
-            />
+          <div className="grid grid-cols-2 gap-2">
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">
+                {t('params.width')}
+              </Label>
+              <Input
+                type="number"
+                min={64}
+                max={1856}
+                step={64}
+                value={String(w)}
+                disabled={randomRes || sRes?.following}
+                onChange={(e) => set('width', Number(e.target.value))}
+                className="h-8 text-sm tabular-nums"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs text-muted-foreground">
+                {t('params.height')}
+              </Label>
+              <Input
+                type="number"
+                min={64}
+                max={2624}
+                step={64}
+                value={String(h)}
+                disabled={randomRes || sRes?.following}
+                onChange={(e) => set('height', Number(e.target.value))}
+                className="h-8 text-sm tabular-nums"
+              />
+            </div>
           </div>
-        </div>
         </div>
         <ToggleRow
           id="random-resolution"
