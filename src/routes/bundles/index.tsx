@@ -8,7 +8,6 @@ import {
   Cancel01Icon,
   Copy01Icon,
   Delete02Icon,
-  FolderImportIcon,
   Image02Icon,
   PinIcon,
   Search01Icon,
@@ -44,12 +43,9 @@ import {
 } from '@/components/ui/command'
 import { Segmented } from '@/components/common/segmented'
 import {
-  HeaderActions,
   usePageHeader,
 } from '@/components/layout/breadcrumb-context'
-import { HeaderButton } from '@/components/layout/header-button'
 import { StyleSettingsForm } from '@/components/bundles/style-settings-form'
-import { NaiaImportDialog } from '@/components/bundles/naia-import-dialog'
 import { cn } from '@/lib/utils'
 import {
   normalizeKind,
@@ -189,7 +185,6 @@ function BundlesPage() {
   const [editNegative, setEditNegative] = useState('')
   const [editStyle, setEditStyle] = useState<StyleParams>({})
   const [negativeOpen, setNegativeOpen] = useState(false)
-  const [importOpen, setImportOpen] = useState(false)
   const [tagTarget, setTagTarget] = useState<'content' | 'negative' | null>(
     null,
   )
@@ -279,24 +274,6 @@ function BundlesPage() {
       stale = true
     }
   }, [selectedId])
-
-  // After a NAIA import the open bundle may have been overwritten: reload it
-  async function handleImported() {
-    const updated = await listBundles()
-    setBundles(updated)
-    queryClient.invalidateQueries({ queryKey: ['bundleNames'] })
-    void refreshTags()
-    if (selectedId !== null) {
-      draftRef.current = null
-      pendingIdRef.current = null
-      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
-      try {
-        applyDetail(await getBundle({ data: selectedId }), updated)
-      } catch {
-        /* bundle gone */
-      }
-    }
-  }
 
   const refreshList = useCallback(async () => {
     const updated = await listBundles()
@@ -1229,26 +1206,6 @@ function BundlesPage() {
           if (tagTarget === 'negative') handleNegativeChange(next)
           else handleContentChange(next)
         }}
-      />
-      <HeaderActions>
-        <HeaderButton
-          variant="outline"
-          aria-label={t('bundles.importNaia')}
-          onClick={() => {
-            // Save pending edits first: the import may overwrite this bundle
-            void flushSave()
-            setImportOpen(true)
-          }}
-          data-naia-import-open
-        >
-          <HugeiconsIcon icon={FolderImportIcon} className="size-4 sm:mr-1.5" />
-          <span className="hidden sm:inline">{t('bundles.importNaia')}</span>
-        </HeaderButton>
-      </HeaderActions>
-      <NaiaImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={() => void handleImported()}
       />
     </>
   )

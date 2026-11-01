@@ -16,6 +16,7 @@ import {
   Download04Icon,
   FavouriteIcon,
   MoreVerticalIcon,
+  PackageAddIcon,
 } from '@hugeicons/core-free-icons'
 import type { GalleryFilters } from '@/lib/gallery-filters'
 import {
@@ -30,6 +31,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
+import { SaveAsBundleDialog } from '@/components/common/save-as-bundle-dialog'
+import { draftFromStoredMetadata } from '@/lib/save-as-bundle'
 import {
   addTag,
   bulkUpdateImages,
@@ -193,6 +196,7 @@ function ImageDetailPage() {
   const [detail, setDetail] = useState(data)
   const [memo, setMemo] = useState(data.memo || '')
   const [memoExpanded, setMemoExpanded] = useState(false)
+  const [bundleOpen, setBundleOpen] = useState(false)
   const [newTag, setNewTag] = useState('')
 
   useEffect(() => {
@@ -341,6 +345,16 @@ function ImageDetailPage() {
             </button>
           }
         />
+        <button
+          type="button"
+          className={SELECTION_ICON_BUTTON}
+          data-detail-save-bundle
+          title={t('bundles.saveAsBundle')}
+          aria-label={t('bundles.saveAsBundle')}
+          onClick={() => setBundleOpen(true)}
+        >
+          <HugeiconsIcon icon={PackageAddIcon} className="size-4" />
+        </button>
         <a
           href={imageSrc}
           download
@@ -391,6 +405,12 @@ function ImageDetailPage() {
           onConfirm={handleDelete}
         />
       </HeaderActions>
+      <SaveAsBundleDialog
+        open={bundleOpen}
+        onOpenChange={setBundleOpen}
+        source={draftFromStoredMetadata(detail.metadata)}
+        image={{ type: 'gallery', imageId: detail.id }}
+      />
 
       {/* Image area */}
       <div className="flex-1 flex items-center justify-center relative bg-black/40 min-h-0">
