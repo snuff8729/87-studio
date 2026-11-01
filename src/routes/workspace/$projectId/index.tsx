@@ -88,6 +88,7 @@ import {
   useReferenceImages,
 } from '@/components/workspace/reference-panel'
 import { ParameterForm } from '@/components/workspace/parameter-popover'
+import { usePromptStyle } from '@/lib/use-bundles'
 import { ScenePackDialog } from '@/components/workspace/scene-pack-dialog'
 import { ImportDialog } from '@/components/workspace/import-dialog'
 import { GenerationProgress } from '@/components/workspace/generation-progress'
@@ -277,6 +278,7 @@ function WorkspacePage() {
   const [params, setParams] = useState<Record<string, unknown>>(
     JSON.parse(data.project.parameters || '{}'),
   )
+  const promptStyle = usePromptStyle(generalPrompt)
 
   // Sync only when navigating to a different project (not on every router.invalidate())
   // Local state is authoritative during editing; auto-save + invalidate should not overwrite unsaved edits
@@ -1701,7 +1703,13 @@ function WorkspacePage() {
             {
               id: 'params',
               label: t('editor.tabParameters'),
-              content: <ParameterForm localParams={params} set={setParam} />,
+              content: (
+                <ParameterForm
+                  localParams={params}
+                  set={setParam}
+                  style={promptStyle}
+                />
+              ),
             },
           ]}
           footer={

@@ -208,6 +208,32 @@ export function formatStyleSummary(params: StyleParams): string {
   return parts.join(' · ')
 }
 
+/** Display value of one follow item (undefined when the style has none) */
+export function styleItemValue(
+  params: StyleParams,
+  key: StyleFollowKey,
+): string | undefined {
+  switch (key) {
+    case 'resolution':
+      return finite(params.width) && finite(params.height)
+        ? `${params.width} × ${params.height}`
+        : undefined
+    case 'steps':
+      return finite(params.steps) ? String(params.steps) : undefined
+    case 'scale':
+      return finite(params.scale) ? String(params.scale) : undefined
+    case 'cfgRescale':
+      return finite(params.cfgRescale) ? String(params.cfgRescale) : undefined
+    case 'sampler': {
+      if (!params.sampler && !params.scheduler) return undefined
+      const s = params.sampler
+        ? (SAMPLER_LABELS[params.sampler] ?? params.sampler)
+        : ''
+      return [s, params.scheduler].filter(Boolean).join(' / ')
+    }
+  }
+}
+
 export function toStyleInfo(bundle: BundleDef): StyleInfo {
   return {
     bundleId: bundle.id,

@@ -5,6 +5,7 @@ import type {
   CompletionResult,
 } from '@codemirror/autocomplete'
 import type { BundleDef } from '@/lib/wildcard'
+import type { StyleParams } from '@/lib/style-bundles'
 import { extractTagQuery } from '@/lib/tag-query'
 import {
   normalizeKind,
@@ -20,6 +21,9 @@ export interface EditorBundle {
   content: string
   kind?: string
   wildcardMode?: string
+  /** Style bundles only */
+  negative?: string
+  styleParams?: StyleParams
 }
 
 // Module-level cache, updated externally
@@ -41,6 +45,8 @@ export function toBundleDef(b: EditorBundle): BundleDef {
     content: b.content,
     kind: normalizeKind(b.kind),
     wildcardMode: normalizeMode(b.wildcardMode),
+    negative: b.negative,
+    styleParams: b.styleParams,
   }
 }
 
@@ -57,6 +63,7 @@ function bundleDetail(b: EditorBundle): string {
     const n = parseWildcardOptions(b.content).length
     return `wildcard · ${n} option${n === 1 ? '' : 's'}`
   }
+  if (normalizeKind(b.kind) === 'style') return 'style'
   return b.content.length > 30 ? b.content.slice(0, 30) + '...' : b.content
 }
 

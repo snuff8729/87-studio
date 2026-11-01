@@ -13,14 +13,13 @@ import {
 import type { StyleInfo } from '../style-bundles'
 import type { BundleDef, WildcardEntry } from '../wildcard'
 
-const style = (id: number, name: string, extra: Partial<StyleInfo> = {}) =>
-  ({
-    bundleId: id,
-    name,
-    negative: `neg-${name}`,
-    params: { width: 1024, height: 1024, steps: 20, scale: 6 },
-    ...extra,
-  }) as StyleInfo
+const style = (id: number, name: string, extra: Partial<StyleInfo> = {}) => ({
+  bundleId: id,
+  name,
+  negative: `neg-${name}`,
+  params: { width: 1024, height: 1024, steps: 20, scale: 6 },
+  ...extra,
+})
 
 const wc = (over: Partial<WildcardEntry>): WildcardEntry => ({
   id: 0,

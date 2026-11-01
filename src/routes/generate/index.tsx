@@ -36,6 +36,7 @@ import { ImageViewer } from '@/components/quick-generate/image-viewer'
 import { HistoryStrip } from '@/components/quick-generate/history-strip'
 import { ImportMetadataDialog } from '@/components/quick-generate/import-metadata-dialog'
 import { useTranslation } from '@/lib/i18n'
+import { usePromptStyle } from '@/lib/use-bundles'
 import { duplicateName, moveItem, nextCharacterName } from '@/lib/characters'
 import { parseMetadataFromFile } from '@/lib/nai-metadata'
 import { mergeImportedParameters } from '@/lib/nai-import'
@@ -126,6 +127,7 @@ function QuickGeneratePage() {
 
   // ── State ──
   const [state, setState] = useState<QuickGenerateState>(loadState)
+  const promptStyle = usePromptStyle(state.generalPrompt)
   const [generating, setGenerating] = useState(false)
   const [mobilePane, setMobilePane] = useState<MobilePane>('edit')
 
@@ -616,7 +618,11 @@ function QuickGeneratePage() {
             id: 'params',
             label: t('editor.tabParameters'),
             content: (
-              <ParameterForm localParams={state.parameters} set={setParam} />
+              <ParameterForm
+                localParams={state.parameters}
+                set={setParam}
+                style={promptStyle}
+              />
             ),
           },
         ]}

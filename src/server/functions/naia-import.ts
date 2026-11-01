@@ -173,13 +173,17 @@ export const runNaiaImport = createServerFn({ method: 'POST' })
               .run()
           }
         }
-        written.push({ id, imagePath: scanned.imagePaths.get(row.name) ?? null })
+        written.push({
+          id,
+          imagePath: scanned.imagePaths.get(row.name) ?? null,
+        })
       }
     })
 
     // Preview files after the DB write (a copy failure must not undo styles)
     const failures: Array<string> = []
-    if (written.some((w) => w.imagePath)) mkdirSync(PREVIEW_DIR, { recursive: true })
+    if (written.some((w) => w.imagePath))
+      mkdirSync(PREVIEW_DIR, { recursive: true })
     for (const w of written) {
       if (!w.imagePath) continue
       const logical = `${PREVIEW_DIR}/${w.id}.webp`

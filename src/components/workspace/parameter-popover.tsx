@@ -1,4 +1,7 @@
+import type { ReactNode } from 'react'
+import type { PromptStyleInfo, StyleFollowKey } from '@/lib/style-bundles'
 import { Input } from '@/components/ui/input'
+import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { Slider } from '@/components/ui/slider'
 import {
@@ -25,10 +28,11 @@ import {
   supportsSmea,
   supportsVarietyPlus,
 } from '@/lib/nai-models'
+import { normalizeStyleFollow, styleItemValue } from '@/lib/style-bundles'
 import { DEFAULT_FILENAME_TEMPLATE } from '@/server/services/download'
 
 // --- Resolution presets ---
-const RESOLUTION_PRESETS = [
+export const RESOLUTION_PRESETS = [
   { key: 'portrait' as const, w: 832, h: 1216 },
   { key: 'landscape' as const, w: 1216, h: 832 },
   { key: 'square' as const, w: 1024, h: 1024 },
@@ -54,14 +58,33 @@ const PARAM_HELP: Record<string, string> = {
   randomResolution: 'params.randomResolutionHelp',
 }
 
-function ParamLabel({
+export const SAMPLER_OPTIONS = [
+  { value: 'k_euler_ancestral', label: 'Euler A' },
+  { value: 'k_euler', label: 'Euler' },
+  { value: 'k_dpmpp_2s_ancestral', label: 'DPM++ 2S A' },
+  { value: 'k_dpmpp_2m', label: 'DPM++ 2M' },
+  { value: 'k_dpmpp_sde', label: 'DPM++ SDE' },
+  { value: 'ddim_v3', label: 'DDIM v3' },
+] as const
+
+export const SCHEDULER_OPTIONS = [
+  { value: 'native', label: 'Native' },
+  { value: 'karras', label: 'Karras' },
+  { value: 'exponential', label: 'Exponential' },
+  { value: 'polyexponential', label: 'Polyexponential' },
+] as const
+
+export function ParamLabel({
   name,
   label,
   value,
+  trailing,
 }: {
   name: string
   label: string
   value?: string | number
+  /** Extra control right before the value (e.g. the Style switch) */
+  trailing?: ReactNode
 }) {
   const { t } = useTranslation()
   const helpKey = PARAM_HELP[name]
@@ -82,9 +105,17 @@ function ParamLabel({
       ) : (
         <Label className="text-sm">{label}</Label>
       )}
-      {value !== undefined && (
-        <span className="text-xs tabular-nums text-muted-foreground">
-          {value}
+      {(value !== undefined || trailing) && (
+        <span className="flex items-center gap-2">
+          {trailing}
+          {value !== undefined && (
+            <span
+              className="text-xs tabular-nums text-muted-foreground"
+              data-param-value={name}
+            >
+              {value}
+            </span>
+          )}
         </span>
       )}
     </div>
@@ -124,9 +155,11 @@ function ToggleRow({
 export interface ParameterFormProps {
   localParams: Record<string, unknown>
   set: (key: string, value: unknown) => void
+  /** Style bundle the general prompt brings (null / absent = none) */
+  style?: PromptStyleInfo | null
 }
 
-export function ParameterForm({ localParams, set }: ParameterFormProps) {
+export function ParameterForm({ localParams, set, style }: ParameterFormProps) {
   const { t } = useTranslation()
   const w = Number(localParams.width ?? 832)
   const h = Number(localParams.height ?? 1216)
@@ -151,6 +184,56 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
   const showDecrisp = supportsDecrisp(model)
 
   const activePreset = RESOLUTION_PRESETS.find((p) => p.w === w && p.h === h)
+
+  // "Follow the style" per item (rule 7: show what is followed, dim the rest)
+  const follow = normalizeStyleFollow(localParams.styleFollow)
+  const styleItem = (key: StyleFollowKey) => {
+    if (!style) return null
+    const own = style.params ? styleItemValue(style.params, key) : undefined
+    // The style has nothing for this item: the project value is used
+    if (!style.perImage && own === undefined) return null
+    const blocked = key === 'resolution' && randomRes
+    const following = follow[key] && !blocked
+    const valueText = style.perImage
+      ? t('params.stylePerImage')
+      : t('params.styleValue', { value: own ?? '' })
+    const switchEl = (
+      <Switch
+        size="sm"
+        checked={follow[key] && !blocked}
+        disabled={blocked}
+        onCheckedChange={(v) => set('styleFollow', { ...follow, [key]: v })}
+        aria-label={t('params.styleFollowLabel', { name: key })}
+        data-style-follow={key}
+      />
+    )
+    const trailing = (
+      <label className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+        {blocked ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span className="flex items-center gap-1.5">
+                {switchEl}
+                {t('params.styleSwitch')}
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{t('params.styleRandomRes')}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <>
+            {switchEl}
+            {t('params.styleSwitch')}
+          </>
+        )}
+      </label>
+    )
+    return { following, valueText, trailing }
+  }
+  const sRes = styleItem('resolution')
+  const sSteps = styleItem('steps')
+  const sScale = styleItem('scale')
+  const sRescale = styleItem('cfgRescale')
+  const sSampler = styleItem('sampler')
 
   return (
     <div className="space-y-4">
@@ -181,14 +264,22 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
         <ParamLabel
           name="resolution"
           label={t('params.resolution')}
-          value={`${w} × ${h}`}
+          value={sRes?.following ? sRes.valueText : `${w} × ${h}`}
+          trailing={sRes?.trailing}
         />
+        <div
+          className={cn(
+            'space-y-2.5 transition-opacity',
+            sRes?.following && 'pointer-events-none opacity-50',
+          )}
+          aria-disabled={sRes?.following || undefined}
+        >
         <div className="flex flex-wrap gap-1.5">
           {RESOLUTION_PRESETS.map((p) => (
             <button
               key={p.key}
               type="button"
-              disabled={randomRes}
+              disabled={randomRes || sRes?.following}
               onClick={() => {
                 set('width', p.w)
                 set('height', p.h)
@@ -215,7 +306,7 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
               max={1856}
               step={64}
               value={String(w)}
-              disabled={randomRes}
+              disabled={randomRes || sRes?.following}
               onChange={(e) => set('width', Number(e.target.value))}
               className="h-8 text-sm tabular-nums"
             />
@@ -230,11 +321,12 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
               max={2624}
               step={64}
               value={String(h)}
-              disabled={randomRes}
+              disabled={randomRes || sRes?.following}
               onChange={(e) => set('height', Number(e.target.value))}
               className="h-8 text-sm tabular-nums"
             />
           </div>
+        </div>
         </div>
         <ToggleRow
           id="random-resolution"
@@ -255,8 +347,14 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
       {/* Quality */}
       <section className="space-y-3">
         <div className="space-y-2">
-          <ParamLabel name="steps" label={t('params.steps')} value={steps} />
+          <ParamLabel
+            name="steps"
+            label={t('params.steps')}
+            value={sSteps?.following ? sSteps.valueText : steps}
+            trailing={sSteps?.trailing}
+          />
           <Slider
+            disabled={sSteps?.following}
             min={1}
             max={50}
             step={1}
@@ -265,8 +363,14 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
           />
         </div>
         <div className="space-y-2">
-          <ParamLabel name="scale" label={t('params.scale')} value={scale} />
+          <ParamLabel
+            name="scale"
+            label={t('params.scale')}
+            value={sScale?.following ? sScale.valueText : scale}
+            trailing={sScale?.trailing}
+          />
           <Slider
+            disabled={sScale?.following}
             min={0}
             max={20}
             step={0.1}
@@ -278,9 +382,11 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
           <ParamLabel
             name="cfgRescale"
             label={t('params.cfgRescale')}
-            value={cfgRescale}
+            value={sRescale?.following ? sRescale.valueText : cfgRescale}
+            trailing={sRescale?.trailing}
           />
           <Slider
+            disabled={sRescale?.following}
             min={0}
             max={1}
             step={0.01}
@@ -296,9 +402,29 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
 
       {/* Sampling */}
       <section className="grid grid-cols-2 gap-3">
+        {sSampler && (
+          <div
+            className="col-span-2 flex items-center justify-between"
+            data-style-sampler-row
+          >
+            <span className="text-xs text-muted-foreground">
+              {t('params.sampler')} / {t('params.scheduler')}
+            </span>
+            <span className="flex items-center gap-2">
+              {sSampler.trailing}
+              <span
+                className="text-xs tabular-nums text-muted-foreground"
+                data-param-value="sampler"
+              >
+                {sSampler.following ? sSampler.valueText : ''}
+              </span>
+            </span>
+          </div>
+        )}
         <div className="space-y-1.5">
           <ParamLabel name="sampler" label={t('params.sampler')} />
           <Select
+            disabled={sSampler?.following}
             value={String(localParams.sampler ?? 'k_euler_ancestral')}
             onValueChange={(v) => set('sampler', v)}
           >
@@ -306,18 +432,18 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="k_euler_ancestral">Euler A</SelectItem>
-              <SelectItem value="k_euler">Euler</SelectItem>
-              <SelectItem value="k_dpmpp_2s_ancestral">DPM++ 2S A</SelectItem>
-              <SelectItem value="k_dpmpp_2m">DPM++ 2M</SelectItem>
-              <SelectItem value="k_dpmpp_sde">DPM++ SDE</SelectItem>
-              <SelectItem value="ddim_v3">DDIM v3</SelectItem>
+              {SAMPLER_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
         <div className="space-y-1.5">
           <ParamLabel name="scheduler" label={t('params.scheduler')} />
           <Select
+            disabled={sSampler?.following}
             value={String(localParams.scheduler ?? 'karras')}
             onValueChange={(v) => set('scheduler', v)}
           >
@@ -325,10 +451,11 @@ export function ParameterForm({ localParams, set }: ParameterFormProps) {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="native">Native</SelectItem>
-              <SelectItem value="karras">Karras</SelectItem>
-              <SelectItem value="exponential">Exponential</SelectItem>
-              <SelectItem value="polyexponential">Polyexponential</SelectItem>
+              {SCHEDULER_OPTIONS.map((o) => (
+                <SelectItem key={o.value} value={o.value}>
+                  {o.label}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>

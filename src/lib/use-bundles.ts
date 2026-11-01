@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
+import { detectPromptStyle } from './style-bundles'
 import { normalizeKind, normalizeMode } from './wildcard'
 import type { BundleDef } from './wildcard'
 import { listBundleNames } from '@/server/functions/bundles'
@@ -32,6 +33,18 @@ export function useBundleDefs(): Record<string, BundleDef> {
     }
     return map
   }, [names])
+}
+
+/** Style bundle(s) the general prompt brings (null when none) */
+export function usePromptStyle(generalPrompt: string) {
+  const defs = useBundleDefs()
+  return useMemo(
+    () =>
+      generalPrompt.includes('@{bundle:')
+        ? detectPromptStyle(generalPrompt, Object.values(defs))
+        : null,
+    [generalPrompt, defs],
+  )
 }
 
 export function useBundleMap() {
