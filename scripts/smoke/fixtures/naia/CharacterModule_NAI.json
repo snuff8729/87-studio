@@ -1,9 +1,0 @@
-{
-  "NAI": {
-    "character_frames": [
-      { "prompt": "1girl, knight", "uc": "child", "custom_name": "기사" },
-      { "prompt": "1girl, maid", "uc": "", "custom_name": "" },
-      { "prompt": "1girl, cat ears", "uc": "", "custom_name": "" }
-    ]
-  }
-}

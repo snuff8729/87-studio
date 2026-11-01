@@ -8,6 +8,7 @@ import {
   Copy01Icon,
   ImageUploadIcon,
   MagicWand01Icon,
+  PackageAddIcon,
   Upload01Icon,
 } from '@hugeicons/core-free-icons'
 import type { ReactNode } from 'react'
@@ -34,6 +35,8 @@ import {
 } from '@/components/common/metadata-import-options'
 import { ImportReferenceWarning } from '@/components/quick-generate/import-metadata-dialog'
 import { buildImport } from '@/lib/nai-import'
+import { draftFromNaiMetadata } from '@/lib/save-as-bundle'
+import { SaveAsBundleDialog } from '@/components/common/save-as-bundle-dialog'
 import { useTranslation } from '@/lib/i18n'
 import { cn } from '@/lib/utils'
 
@@ -45,6 +48,17 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+}
+
+/** Read a blob: URL (the uploaded file) as base64 without the data: prefix */
+async function blobUrlToBase64(url: string): Promise<string> {
+  const blob = await (await fetch(url)).blob()
+  return await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(String(reader.result).split(',')[1] ?? '')
+    reader.onerror = () => reject(reader.error)
+    reader.readAsDataURL(blob)
+  })
 }
 
 function InspectPage() {
@@ -60,6 +74,7 @@ function InspectPage() {
   const [dragging, setDragging] = useState(false)
   const [showCreateDialog, setShowCreateDialog] = useState(false)
   const [showQuickDialog, setShowQuickDialog] = useState(false)
+  const [showBundleDialog, setShowBundleDialog] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const dragCounterRef = useRef(0)
   const { t } = useTranslation()
@@ -227,6 +242,20 @@ function InspectPage() {
                   </HeaderButton>
                   <HeaderButton
                     variant="outline"
+                    aria-label={t('bundles.saveAsBundle')}
+                    data-save-as-bundle-open
+                    onClick={() => setShowBundleDialog(true)}
+                  >
+                    <HugeiconsIcon
+                      icon={PackageAddIcon}
+                      className="size-4 sm:mr-1.5"
+                    />
+                    <span className="hidden sm:inline">
+                      {t('bundles.saveAsBundle')}
+                    </span>
+                  </HeaderButton>
+                  <HeaderButton
+                    variant="outline"
                     aria-label={t('metadata.quickGenerate')}
                     onClick={() => setShowQuickDialog(true)}
                   >
@@ -340,6 +369,17 @@ function InspectPage() {
             open={showQuickDialog}
             onOpenChange={setShowQuickDialog}
           />
+          {imageUrl && (
+            <SaveAsBundleDialog
+              open={showBundleDialog}
+              onOpenChange={setShowBundleDialog}
+              source={draftFromNaiMetadata(metadata)}
+              image={{
+                type: 'upload',
+                getBase64: () => blobUrlToBase64(imageUrl),
+              }}
+            />
+          )}
         </>
       )}
     </div>

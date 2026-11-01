@@ -1,5 +1,6 @@
 import { createServerFn } from '@tanstack/react-start'
 import { asc, desc, eq, inArray, notInArray, sql } from 'drizzle-orm'
+import sharp from 'sharp'
 import { db } from '../db'
 import {
   bundleTagAssignments,
@@ -9,7 +10,7 @@ import {
   promptBundles,
 } from '../db/schema'
 import { createLogger } from '../services/logger'
-import { existsSync, unlinkSync } from '../data-fs'
+import { existsSync, mkdirSync, unlinkSync, writeFileSync } from '../data-fs'
 import type { StyleParams } from '@/lib/style-bundles'
 import type { BundleKind, WildcardMode } from '@/lib/wildcard'
 import { parseStyleParams, sanitizeStyleParams } from '@/lib/style-bundles'
@@ -204,6 +205,109 @@ export const createBundle = createServerFn({ method: 'POST' })
       name: data.name,
     })
     return result
+  })
+
+const PREVIEW_DIR = 'data/bundle-previews'
+const PREVIEW_LONG_SIDE = 512
+
+/**
+ * "Save as bundle": create a text / style bundle from an image.
+ * - `imageId` (gallery image): becomes the thumbnail and is linked to the bundle
+ * - `imageData` (base64 upload, not in the DB): stored as a 512px webp preview
+ */
+export const createBundleFromImage = createServerFn({ method: 'POST' })
+  .inputValidator(
+    (data: {
+      kind: BundleKind
+      name: string
+      content: string
+      negative?: string
+      styleParams?: StyleParams
+      imageId?: number
+      imageData?: string
+    }) => data,
+  )
+  .handler(async ({ data }) => {
+    const name = data.name.trim()
+    if (!name) throw new Error('EMPTY_BUNDLE_NAME')
+    const kind = data.kind === 'style' ? 'style' : 'text'
+    const isStyle = kind === 'style'
+
+    const bundle = db.transaction((tx) => {
+      const dup = tx
+        .select({ id: promptBundles.id })
+        .from(promptBundles)
+        .where(eq(promptBundles.name, name))
+        .get()
+      if (dup) throw new Error('DUPLICATE_BUNDLE_NAME')
+
+      const row = tx
+        .insert(promptBundles)
+        .values({
+          name,
+          content: data.content,
+          kind,
+          negative: isStyle ? (data.negative ?? '') : '',
+          styleParams: isStyle
+            ? JSON.stringify(sanitizeStyleParams(data.styleParams ?? {}))
+            : null,
+          thumbnailImageId: data.imageId ?? null,
+        })
+        .returning()
+        .get()
+      if (data.imageId != null) {
+        const exists = tx
+          .select({ id: generatedImages.id })
+          .from(generatedImages)
+          .where(eq(generatedImages.id, data.imageId))
+          .get()
+        if (!exists) throw new Error('Image not found')
+        tx.insert(imageBundles)
+          .values({ imageId: data.imageId, bundleId: row.id })
+          .onConflictDoNothing()
+          .run()
+      }
+      return row
+    })
+
+    // Uploaded image: the file is written after the transaction. A failure
+    // leaves the bundle without a preview (logged), never without the bundle.
+    let previewPath: string | null = null
+    if (data.imageId == null && data.imageData) {
+      try {
+        const buffer = await sharp(Buffer.from(data.imageData, 'base64'))
+          .resize({
+            width: PREVIEW_LONG_SIDE,
+            height: PREVIEW_LONG_SIDE,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 85 })
+          .toBuffer()
+        mkdirSync(PREVIEW_DIR, { recursive: true })
+        const logical = `${PREVIEW_DIR}/${bundle.id}.webp`
+        writeFileSync(logical, buffer)
+        db.update(promptBundles)
+          .set({ previewPath: logical })
+          .where(eq(promptBundles.id, bundle.id))
+          .run()
+        previewPath = logical
+      } catch (error) {
+        log.warn('createFromImage', 'Failed to save bundle preview', {
+          bundleId: bundle.id,
+          error: error instanceof Error ? error.message : String(error),
+        })
+      }
+    }
+
+    log.info('createFromImage', 'Bundle created from image', {
+      bundleId: bundle.id,
+      name,
+      kind,
+      imageId: data.imageId ?? null,
+      preview: previewPath !== null,
+    })
+    return { id: bundle.id, name, previewPath }
   })
 
 export const updateBundle = createServerFn({ method: 'POST' })

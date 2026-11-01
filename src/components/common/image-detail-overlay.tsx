@@ -9,6 +9,7 @@ import {
   BookmarkAdd01Icon,
   Cancel01Icon,
   Delete02Icon,
+  PackageAddIcon,
   PinIcon,
 } from '@hugeicons/core-free-icons'
 import {
@@ -23,6 +24,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { ConfirmDialog } from '@/components/common/confirm-dialog'
 import { AddToBookmarkPopover } from '@/components/gallery/add-to-bookmark-popover'
+import { SaveAsBundleDialog } from '@/components/common/save-as-bundle-dialog'
+import { draftFromStoredMetadata } from '@/lib/save-as-bundle'
 import {
   addTag,
   bulkUpdateImages,
@@ -168,6 +171,7 @@ function ImageDetailContent({
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [memo, setMemo] = useState(detail.memo || '')
+  const [bundleOpen, setBundleOpen] = useState(false)
   const [memoExpanded, setMemoExpanded] = useState(false)
   const [newTag, setNewTag] = useState('')
 
@@ -594,6 +598,24 @@ function ImageDetailContent({
                 {t('gallery.addToBookmark')}
               </Button>
             }
+          />
+
+          {/* Save prompt + settings as a bundle */}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            data-detail-save-bundle
+            onClick={() => setBundleOpen(true)}
+          >
+            <HugeiconsIcon icon={PackageAddIcon} className="size-4" />
+            {t('bundles.saveAsBundle')}
+          </Button>
+          <SaveAsBundleDialog
+            open={bundleOpen}
+            onOpenChange={setBundleOpen}
+            source={draftFromStoredMetadata(detail.metadata)}
+            image={{ type: 'gallery', imageId: detail.id }}
           />
 
           {/* Download + Delete */}

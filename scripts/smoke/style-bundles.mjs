@@ -1,11 +1,15 @@
 // Style bundle smoke against a NAI_MOCK server, with REAL writes.
 //
 // Exercises (see docs/superpowers/specs/2026-11-01-style-bundles-design.md):
-//   1. NAIA import: folder path -> scan -> status badges -> Import -> list
-//      (Style badge, folder tags, preview thumbnail); re-scan = Unchanged
+//   1. "Save as bundle" (components/common/save-as-bundle-dialog.tsx):
+//      a. gallery image detail -> Style bundle (thumbnail + image_bundles +
+//         prompt / negative / settings), "Open bundle" toast action
+//      b. /metadata with a generated NAI PNG -> Style bundle (512px webp
+//         preview_path), duplicate name = inline error, Text kind hides the
+//         Negative / Settings sections, unchecked settings are not stored
+//      c. screenshots of the dialog at 1440 and 390
 //   2. Style bundle editing: negative + steps autosave, survive a reload, the
-//      type switch keeps negative / settings; re-scan then shows Update with
-//      `steps 37 → 28`
+//      type switch keeps negative / settings
 //   3. Workspace: `@{bundle:2D1}` in the general prompt -> Params tab "Style"
 //      switches (`Style · 37`), steps switch off -> generate -> stored
 //      parameters (steps = project value, scale = style value) and the style
@@ -31,11 +35,13 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import zlib from 'node:zlib'
 import { createRequire } from 'node:module'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { pathToFileURL } from 'node:url'
 
 const require = createRequire(import.meta.url)
 const Database = require('better-sqlite3')
+const sharp = require('sharp')
 
 const PW_CORE =
   process.env.PW_CORE ??
@@ -53,10 +59,6 @@ const DB_PATH = path.resolve(
 )
 const OUT = process.env.SMOKE_OUT ?? path.join(os.tmpdir(), '87studio-smoke')
 fs.mkdirSync(OUT, { recursive: true })
-const FIXTURE = path.resolve(
-  path.dirname(fileURLToPath(import.meta.url)),
-  'fixtures/naia/NAI',
-)
 
 let failures = 0
 let consoleErrors = 0
@@ -171,14 +173,6 @@ if (!projectId) refuse('no project with scenes (set SMOKE_PROJECT)')
 // ── helpers ──
 const bundleRow = (name) =>
   q1('select * from prompt_bundles where name = ?', name)
-const tagsOf = (name) =>
-  q(
-    `select t.name n from bundle_tag_assignments a
-       join bundle_tags t on t.id = a.tag_id
-       join prompt_bundles b on b.id = a.bundle_id
-      where b.name = ? order by t.name`,
-    name,
-  ).map((r) => r.n)
 const styleParams = (name) => JSON.parse(bundleRow(name)?.style_params ?? '{}')
 const imgsOf = (batchId) =>
   q(
@@ -207,162 +201,286 @@ async function typeLines(loc, lines) {
   await sleep(1300) // 800ms debounced save
 }
 
-async function openImportDialog() {
-  await page.locator('[data-naia-import-open]').click()
-  const dir = page.locator('[data-naia-dir]')
-  await dir.waitFor({ timeout: 10000 })
-  // the dialog pre-fills the last / default folder asynchronously
-  await until(async () => (await dir.inputValue()) !== '', 5000, 'dir prefilled')
-  await dir.fill(FIXTURE)
-  await page.locator('[data-naia-scan]').click()
-  await page
-    .locator('[data-naia-import-row]')
-    .first()
-    .waitFor({ timeout: 15000 })
-    .catch(async (e) => {
-      await shot('import-scan-failed')
-      console.log(
-        `  dialog text: ${await page
-          .locator('[data-naia-import-dialog]')
-          .innerText()
-          .catch(() => '(none)')}`,
-      )
-      throw e
-    })
+/** A real PNG with a NovelAI-style "Comment" tEXt chunk (what /metadata parses) */
+async function buildNaiPng(file, comment) {
+  const png = await sharp({
+    create: {
+      width: 640,
+      height: 960,
+      channels: 3,
+      background: { r: 200, g: 120, b: 160 },
+    },
+  })
+    .png()
+    .toBuffer()
+  const chunk = (type, data) => {
+    const body = Buffer.concat([Buffer.from(type, 'latin1'), data])
+    const len = Buffer.alloc(4)
+    len.writeUInt32BE(data.length)
+    const crc = Buffer.alloc(4)
+    crc.writeUInt32BE(zlib.crc32(body) >>> 0)
+    return Buffer.concat([len, body, crc])
+  }
+  const text = chunk(
+    'tEXt',
+    Buffer.from('Comment\0' + JSON.stringify(comment), 'utf8'),
+  )
+  const ihdrEnd = 8 + 4 + 4 + 13 + 4
+  fs.writeFileSync(
+    file,
+    Buffer.concat([png.subarray(0, ihdrEnd), text, png.subarray(ihdrEnd)]),
+  )
 }
-const rowStatus = (name) =>
-  page
-    .locator(`[data-naia-import-row="${name}"]`)
-    .getAttribute('data-status')
-    .catch(() => null)
 
-// ── 1. NAIA import ──
-await open('/bundles')
-await page.locator('[data-naia-import-open]').click()
-await page.locator('[data-naia-dir]').fill(path.join(FIXTURE, 'nope'))
-await page.locator('[data-naia-scan]').click()
+const dialogLoc = page.locator('[data-save-as-bundle]')
+const kindSeg = (k) => dialogLoc.locator(`[data-segment="${k}"]`)
+const bundleDir = path.join(path.dirname(DB_PATH), 'bundle-previews')
+const bundleImageLinks = (name) =>
+  q(
+    `select ib.image_id i from image_bundles ib
+       join prompt_bundles b on b.id = ib.bundle_id where b.name = ? order by 1`,
+    name,
+  ).map((r) => r.i)
+
+// ── 1a. gallery image -> style bundle ──
+// Fixture: give one seeded image known prompts + settings (a single metadata
+// update through a short-lived writable handle; everything else is UI).
+const galleryImage = q1('select id from generated_images order by id limit 1')
+if (!galleryImage) refuse('no generated image in this DB (seed it first)')
+{
+  const wdb = new Database(DB_PATH, { fileMustExist: true })
+  wdb
+    .prepare('update generated_images set metadata = ? where id = ?')
+    .run(
+      JSON.stringify({
+        prompts: {
+          generalPrompt: 'pastel colors, flat shading, smokelook',
+          negativePrompt: 'blurry, 3d',
+          characterPrompts: [{ name: 'A', prompt: 'ignored char prompt' }],
+        },
+        parameters: {
+          width: 832,
+          height: 1216,
+          steps: 28,
+          scale: 6,
+          cfgRescale: 0.05,
+          sampler: 'k_euler',
+          scheduler: 'native',
+          seed: 99,
+        },
+      }),
+      galleryImage.id,
+    )
+  wdb.close()
+}
+// overlay entry (the image detail overlay opened over another page)
+await open(`/bundles?imageDetail=${galleryImage.id}`)
+const overlayBtn = page.locator('[data-detail-save-bundle]')
+await overlayBtn.waitFor({ timeout: 15000 })
+await overlayBtn.click()
+await dialogLoc.waitFor({ timeout: 10000 })
+check(true, 'overlay: "Save as bundle" opens the dialog')
+await page.keyboard.press('Escape')
+await dialogLoc.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {})
+
+// route entry (/gallery/$imageId header action)
+await open(`/gallery/${galleryImage.id}`)
+await page.locator('[data-detail-save-bundle]').first().click()
+await dialogLoc.waitFor({ timeout: 10000 })
+check(
+  (await kindSeg('style').getAttribute('aria-checked')) === 'true',
+  'dialog defaults to the Style kind',
+)
+check(
+  (await dialogLoc.locator('[data-save-setting]').count()) === 5 &&
+    (await dialogLoc
+      .locator('[data-save-setting][data-state="checked"]')
+      .count()) === 5,
+  'five setting groups, all checked by default',
+)
+await dialogLoc.locator('[data-save-negative] .cm-content').waitFor({ timeout: 10000 })
+check(
+  /pastel colors/.test(await dialogLoc.locator('.cm-content').first().innerText()) &&
+    !/ignored char/.test(await dialogLoc.innerText()) &&
+    /blurry, 3d/.test(
+      await dialogLoc.locator('[data-save-negative] .cm-content').innerText(),
+    ),
+  'prefilled with the image general prompt + negative (no character prompt)',
+)
+await dialogLoc.locator('[data-save-name]').fill('2D25')
+await dialogLoc.locator('[data-save-submit]').click()
+await until(() => bundleRow('2D25'), 8000, '2D25 created from the gallery image')
+const b25 = bundleRow('2D25')
+check(
+  b25?.kind === 'style' &&
+    b25.content === 'pastel colors, flat shading, smokelook' &&
+    b25.negative === 'blurry, 3d' &&
+    JSON.stringify(styleParams('2D25')) ===
+      JSON.stringify({
+        width: 832,
+        height: 1216,
+        steps: 28,
+        scale: 6,
+        cfgRescale: 0.05,
+        sampler: 'k_euler',
+        scheduler: 'native',
+      }),
+  `2D25 holds prompt, negative and settings (${b25?.style_params})`,
+)
+check(
+  b25?.thumbnail_image_id === galleryImage.id &&
+    JSON.stringify(bundleImageLinks('2D25')) ===
+      JSON.stringify([galleryImage.id]) &&
+    !b25?.preview_path,
+  'gallery image became the thumbnail and is linked (image_bundles)',
+)
+const openAction = page.getByRole('button', { name: 'Open bundle' })
+await openAction.waitFor({ timeout: 8000 })
+await openAction.click()
+await page.waitForURL(/\/bundles\?.*bundle=2D25/, { timeout: 10000 })
 check(
   await page
-    .locator('[data-naia-error]')
-    .waitFor({ timeout: 8000 })
+    .locator('[data-style-settings]')
+    .waitFor({ timeout: 15000 })
     .then(() => true)
     .catch(() => false),
-  'wrong folder shows an inline error',
+  '"Open bundle" toast action opens the new bundle selected',
 )
-await page.keyboard.press('Escape')
 
-// A text bundle with a snapshot's name forces the "Renamed" path
-await open('/bundles')
-await page.locator('[data-new-bundle]').click()
-await page.getByPlaceholder('Bundle name').fill('반실사1')
-await page.keyboard.press('Enter')
-await until(() => bundleRow('반실사1'), 8000, 'colliding text bundle created')
-
-await open('/bundles')
-await openImportDialog()
+// ── 1b. /metadata upload -> style bundle ──
+const pngFile = path.join(OUT, 'smoke-nai.png')
+await buildNaiPng(pngFile, {
+  prompt: 'artist:smokeartist, soft shading',
+  uc: 'lowres, watermark',
+  steps: 28,
+  scale: 5.5,
+  cfg_rescale: 0.16,
+  width: 832,
+  height: 1216,
+  sampler: 'k_euler_ancestral',
+  noise_schedule: 'karras',
+  seed: 1234,
+})
+await open('/metadata')
+await page.locator('input[type="file"]').first().setInputFiles(pngFile)
+const saveOpen = page.locator('[data-save-as-bundle-open]')
+await saveOpen.waitFor({ timeout: 15000 })
+await saveOpen.click()
+await dialogLoc.waitFor({ timeout: 10000 })
+await dialogLoc.locator('[data-save-negative] .cm-content').waitFor({ timeout: 10000 })
 check(
-  (await rowStatus('2D1')) === 'new' &&
-    (await rowStatus('2D25')) === 'new' &&
-    (await rowStatus('반실사1')) === 'renamed',
-  'scan: two New, one Renamed (name taken by a text bundle)',
+  /artist:smokeartist/.test(
+    await dialogLoc.locator('.cm-content').first().innerText(),
+  ) &&
+    /watermark/.test(
+      await dialogLoc.locator('[data-save-negative] .cm-content').innerText(),
+    ) &&
+    (await dialogLoc.locator('[data-save-setting]').count()) === 5,
+  'metadata page: dialog prefilled from the parsed PNG metadata',
 )
-check((await rowStatus('broken')) === 'error', 'scan: broken snapshot is Error')
+// duplicate name -> inline error, Save disabled
+await dialogLoc.locator('[data-save-name]').fill('2D25')
 check(
-  await page
-    .locator(
-      '[data-naia-import-row="broken"] input, [data-naia-import-row="broken"] button[role="checkbox"]',
-    )
-    .first()
-    .isDisabled(),
-  'Error row cannot be checked',
-)
-const importBtn = page.locator('[data-naia-import]')
-check(
-  /Import 3/.test(await importBtn.innerText()),
-  'footer says Import 3 (errors excluded)',
-)
-check(
-  await page
-    .locator('[data-naia-import-row="2D25"] img')
-    .evaluate((img) => img.complete && img.naturalWidth > 0)
+  await dialogLoc
+    .locator('[data-save-name-error]')
+    .waitFor({ timeout: 5000 })
+    .then(() => true)
     .catch(() => false),
-  'dialog thumbnail (base64) renders (the fixture image itself is 1x1)',
-)
-await shot('import-dialog-1440')
-// editing the path invalidates the scan: Import is disabled until a re-scan
-await page.locator('[data-naia-dir]').fill(path.join(FIXTURE, 'x'))
-check(
-  await importBtn.isDisabled(),
-  'changed folder path disables Import until re-scanned',
-)
-await page.locator('[data-naia-dir]').fill(FIXTURE)
-check(
-  !(await importBtn.isDisabled()),
-  'restoring the scanned path enables Import again',
-)
-await importBtn.click()
-await until(
-  () => bundleRow('2D1') && bundleRow('2D25') && bundleRow('반실사1 (2)'),
-  10000,
-  'imported bundles exist',
+  'duplicate name shows an inline error',
 )
 check(
-  bundleRow('2D1')?.kind === 'style' &&
+  await dialogLoc.locator('[data-save-submit]').isDisabled(),
+  'Save is disabled while the name is taken',
+)
+await dialogLoc.locator('[data-save-name]').fill('2D1')
+await shot('save-dialog-1440')
+await page.setViewportSize({ width: 390, height: 844 })
+await sleep(500)
+await shot('save-dialog-390')
+await page.setViewportSize({ width: 1440, height: 900 })
+await sleep(300)
+await dialogLoc.locator('[data-save-submit]').click()
+await until(() => bundleRow('2D1'), 8000, '2D1 created from the metadata page')
+const b1 = bundleRow('2D1')
+check(
+  b1?.kind === 'style' &&
+    b1.content === 'artist:smokeartist, soft shading' &&
+    b1.negative === 'lowres, watermark' &&
     styleParams('2D1').steps === 28 &&
     styleParams('2D1').scale === 5.5 &&
-    bundleRow('2D1')?.content.includes('artist:') &&
-    bundleRow('2D1')?.negative.includes('watermark'),
-  'imported 2D1 is a style bundle with prompt, negative and settings',
+    styleParams('2D1').cfgRescale === 0.16 &&
+    styleParams('2D1').width === 832 &&
+    styleParams('2D1').sampler === 'k_euler_ancestral' &&
+    styleParams('2D1').scheduler === 'karras',
+  `2D1 holds the metadata values (${b1?.style_params})`,
 )
+const previewFile = path.join(bundleDir, `${b1?.id}.webp`)
+const previewMeta = fs.existsSync(previewFile)
+  ? await sharp(previewFile).metadata()
+  : null
 check(
-  JSON.stringify(tagsOf('2D1')) === JSON.stringify(['2d']) &&
-    JSON.stringify(tagsOf('2D25')) === JSON.stringify(['2d/favorite']) &&
-    JSON.stringify(tagsOf('반실사1 (2)')) === JSON.stringify(['반실사/간장']) &&
-    bundleRow('반실사1 (2)')?.kind === 'style' &&
-    bundleRow('반실사1')?.kind === 'text',
-  `folder names became tags; renamed import is "반실사1 (2)" (${tagsOf('2D1')} | ${tagsOf('2D25')} | ${tagsOf('반실사1 (2)')})`,
+  b1?.preview_path === `data/bundle-previews/${b1?.id}.webp` &&
+    previewMeta?.format === 'webp' &&
+    Math.max(previewMeta.width, previewMeta.height) === 512 &&
+    !b1?.thumbnail_image_id,
+  `upload stored as a 512px webp preview (${previewMeta?.width}x${previewMeta?.height})`,
 )
+
+// Text kind: no negative / settings; a partial style: unchecked groups dropped
+await open('/metadata')
+await page.locator('input[type="file"]').first().setInputFiles(pngFile)
+await page.locator('[data-save-as-bundle-open]').click()
+await dialogLoc.waitFor({ timeout: 10000 })
+await kindSeg('text').click()
 check(
-  !!bundleRow('2D25')?.preview_path &&
-    !bundleRow('2D1')?.preview_path &&
-    !!bundleRow('2D25')?.preview_path?.startsWith('data/bundle-previews/'),
-  'preview image copied only for the snapshot that has one',
+  (await dialogLoc.locator('[data-save-negative]').count()) === 0 &&
+    (await dialogLoc.locator('[data-save-settings]').count()) === 0,
+  'Text kind hides the Negative and Settings sections',
 )
+await dialogLoc.locator('[data-save-name]').fill('metatext')
+await dialogLoc.locator('[data-save-submit]').click()
+await until(() => bundleRow('metatext'), 8000, 'metatext created')
+check(
+  bundleRow('metatext')?.kind === 'text' &&
+    bundleRow('metatext')?.negative === '' &&
+    bundleRow('metatext')?.style_params == null &&
+    bundleRow('metatext')?.content === 'artist:smokeartist, soft shading',
+  'Text bundle stores only the prompt',
+)
+await open('/metadata')
+await page.locator('input[type="file"]').first().setInputFiles(pngFile)
+await page.locator('[data-save-as-bundle-open]').click()
+await dialogLoc.waitFor({ timeout: 10000 })
+await dialogLoc.locator('[data-save-setting="size"]').click()
+await dialogLoc.locator('[data-save-setting="steps"]').click()
+await dialogLoc.locator('[data-save-name]').fill('partial')
+await dialogLoc.locator('[data-save-submit]').click()
+await until(() => bundleRow('partial'), 8000, 'partial created')
+check(
+  JSON.stringify(styleParams('partial')) ===
+    JSON.stringify({
+      scale: 5.5,
+      cfgRescale: 0.16,
+      sampler: 'k_euler_ancestral',
+      scheduler: 'karras',
+    }),
+  `unchecked setting groups are not stored (${bundleRow('partial')?.style_params})`,
+)
+
 await open('/bundles')
 check(
   (await page.locator('[data-style-badge]').count()) >= 3,
-  'list shows the Style badge on imported bundles',
-)
-const previewLoaded = await page
-  .locator('[data-list-row]', { hasText: '2D25' })
-  .locator('img[src*="/api/bundle-previews/"]')
-  .evaluate((img) => img.complete && img.naturalWidth > 0)
-  .catch(() => false)
-check(previewLoaded, 'list thumbnail falls back to the NAIA preview and loads')
-
-await openImportDialog()
-check(
-  (await rowStatus('2D1')) === 'unchanged' &&
-    (await rowStatus('2D25')) === 'unchanged' &&
-    (await rowStatus('반실사1')) === 'unchanged',
-  're-scan: imported snapshots (incl. the renamed one) are Unchanged',
+  'list shows the Style badge on the saved bundles',
 )
 check(
-  await page.locator('[data-naia-import]').isDisabled(),
-  'Unchanged rows start unchecked (Import disabled)',
+  await page
+    .locator('[data-list-row]', { hasText: '2D1' })
+    .first()
+    .locator('img[src*="/api/bundle-previews/"]')
+    .evaluate((img) => img.complete && img.naturalWidth > 0)
+    .catch(() => false),
+  'list thumbnail shows the stored preview and loads',
 )
-// Re-importing the renamed row reuses "반실사1 (2)" (no "(3)")
-await page
-  .locator('[data-naia-import-row="반실사1"] button[role="checkbox"]')
-  .click()
-await page.locator('[data-naia-import]').click()
-await sleep(1500)
-check(
-  q1(`select count(*) c from prompt_bundles where name like '반실사1 (%'`).c ===
-    1 && !bundleRow('반실사1 (3)'),
-  're-importing a renamed row updates the existing "(2)" bundle',
-)
-await page.keyboard.press('Escape')
 
 // ── 2. edit a style bundle ──
 await open('/bundles?bundle=2D1')
@@ -417,29 +535,11 @@ check(
   'switching back to Style restores the sections',
 )
 
-// re-scan now shows the change as `current → new`
-await openImportDialog()
-check((await rowStatus('2D1')) === 'update', 're-scan: edited 2D1 is Update')
-const diffText = await page.locator('[data-naia-import-row="2D1"]').innerText()
-check(
-  /steps 37 → 28/.test(diffText),
-  `update row shows "steps 37 → 28" (${diffText.replace(/\n/g, ' | ')})`,
-)
-check(
-  (await rowStatus('2D25')) === 'unchanged',
-  'other snapshots stay Unchanged',
-)
-await page.keyboard.press('Escape')
-
-// mobile screenshots of the bundle detail + dialog
+// mobile screenshot of the bundle detail
 await page.setViewportSize({ width: 390, height: 844 })
 await open('/bundles?bundle=2D1')
 await page.locator('[data-style-settings]').waitFor({ timeout: 15000 })
 await shot('bundle-style-390')
-await open('/bundles')
-await openImportDialog()
-await shot('import-dialog-390')
-await page.keyboard.press('Escape')
 await page.setViewportSize({ width: 1440, height: 900 })
 
 // ── 3. workspace: general prompt with a style ──
@@ -785,41 +885,6 @@ check(
   'jitter switch stays on after reload',
 )
 await shot('settings-1440')
-
-// ── 7. NAIA import while a bundle is open keeps no stale draft ──
-await open('/bundles?bundle=2D1')
-const negEditor = page.locator('[data-style-negative] .cm-content')
-await negEditor.waitFor({ timeout: 15000 })
-await negEditor.click()
-await page.keyboard.press('Control+A')
-await page.keyboard.type('staleneg', { delay: 5 })
-await page.keyboard.press('Escape')
-await openImportDialog() // opens right away: the pending edit must be flushed
-check(
-  (await rowStatus('2D1')) === 'update',
-  'pending edit was saved before the import (2D1 differs from the snapshot)',
-)
-await page.locator('[data-naia-import]').click()
-await until(
-  () => bundleRow('2D1')?.negative.includes('watermark'),
-  10000,
-  'import overwrote 2D1',
-)
-check(
-  /watermark/.test(
-    await page.locator('[data-style-negative] .cm-content').innerText(),
-  ),
-  'open editor shows the imported negative',
-)
-await page.locator('[data-style-settings] [role="slider"]').first().focus()
-await page.keyboard.press('ArrowRight')
-await sleep(1500)
-check(
-  bundleRow('2D1')?.negative.includes('watermark') &&
-    !bundleRow('2D1')?.negative.includes('staleneg') &&
-    styleParams('2D1').steps === 29,
-  `next edit patches the imported data, not a stale draft (steps ${styleParams('2D1').steps})`,
-)
 
 check(consoleErrors === 0, `no console errors (${consoleErrors})`)
 await browser.close()
